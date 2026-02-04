@@ -1,18 +1,9 @@
 import { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import News from './components/News';
-import Players from './components/Players';
-import Rankings from './components/Rankings';
-import Gallery from './components/Gallery';
-import About from './components/About';
-import Footer from './components/Footer';
+// ... import lainnya tetap sama
 
 function App() {
   const [activeSection, setActiveSection] = useState('home');
-  
-  // State baru untuk mengontrol tab mana yang aktif di komponen About
-  // Kita angkat ke sini agar Navbar bisa mengubahnya
+  // State utama untuk mengontrol tab di section About
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
 
   useEffect(() => {
@@ -28,19 +19,16 @@ function App() {
       });
       if (current) setActiveSection(current);
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Kirim fungsi onTabChange ke Navbar agar saat sub-menu diklik, 
-        state aboutActiveTab di sini berubah 
-      */}
+      {/* Kirim fungsi pengubah tab ke Navbar */}
       <Navbar 
         activeSection={activeSection} 
-        onTabChange={(tabId) => setAboutActiveTab(tabId)} 
+        onTabChange={(id) => setAboutActiveTab(id)} 
       />
       
       <main>
@@ -49,16 +37,12 @@ function App() {
         <Players />
         <Rankings />
         <Gallery />
-        
-        {/* Kirim state tab yang aktif ke komponen About 
-          sebagai props agar isinya berubah otomatis
-        */}
+        {/* Kirim state dan fungsi pengubah ke About */}
         <About 
           activeTab={aboutActiveTab} 
-          onTabChange={(tabId) => setAboutActiveTab(tabId)} 
+          onTabChange={(id) => setAboutActiveTab(id)} 
         />
       </main>
-      
       <Footer />
     </div>
   );

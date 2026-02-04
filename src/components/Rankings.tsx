@@ -12,7 +12,14 @@ const Rankings: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Data Mentah
+  // Konfigurasi Warna Kategori
+  const categoryStyles: Record<string, { bg: string, text: string, border: string, glow: string }> = {
+    'A': { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20', glow: 'shadow-amber-500/20' },
+    'B+': { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/20', glow: 'shadow-blue-500/20' },
+    'B-': { bg: 'bg-indigo-500/10', text: 'text-indigo-500', border: 'border-indigo-500/20', glow: 'shadow-indigo-500/20' },
+    'C': { bg: 'bg-emerald-500/10', text: 'text-emerald-500', border: 'border-emerald-500/20', glow: 'shadow-emerald-500/20' },
+  };
+
   const rawData: Record<string, PlayerData[]> = {
     categoryA: [
       { name: "Agustilaar", bonus: 200 }, { name: "Herman", bonus: 300 },
@@ -79,7 +86,7 @@ const Rankings: React.FC = () => {
   const currentPlayers = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const categories = [
-    { id: 'All', label: 'Semua Kategori' },
+    { id: 'All', label: 'Semua' },
     { id: 'A', label: 'Seed A' },
     { id: 'B+', label: 'Seed B+' },
     { id: 'B-', label: 'Seed B-' },
@@ -96,12 +103,13 @@ const Rankings: React.FC = () => {
             <span className="text-blue-400 text-[10px] font-bold tracking-[0.3em] uppercase">Klasemen Kategori Seeded</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-3 bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
-            PERINGKAT PB US 162 Bilibili
+            PERINGKAT PB US 162
           </h1>
           <p className="text-slate-500 font-medium italic">Update Turnamen Internal Cup IV 2026</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-3xl mb-8 shadow-2xl">
+        {/* Toolbar Filter */}
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-3xl mb-8">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
@@ -119,7 +127,7 @@ const Rankings: React.FC = () => {
                   onClick={() => { setActiveCategory(cat.id); setCurrentPage(1); }}
                   className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
                     activeCategory === cat.id 
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg' 
+                    ? 'bg-white border-white text-slate-950 shadow-lg' 
                     : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'
                   }`}
                 >
@@ -130,42 +138,44 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-sm">
+        {/* Tabel */}
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-800">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                 <tr>
-                  <th className="px-6 py-5">Global Rank</th>
+                  <th className="px-6 py-5">Rank</th>
                   <th className="px-6 py-5">Atlet</th>
                   <th className="px-6 py-5">Kategori</th>
                   <th className="px-6 py-5 text-right">Poin</th>
-                  <th className="px-6 py-5 text-center">Status</th>
+                  <th className="px-6 py-5 text-center">Hasil</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
                 {currentPlayers.map((player) => {
                   const globalRank = allPlayers.findIndex(p => p.name === player.name) + 1;
+                  const style = categoryStyles[player.catGroup];
+                  
                   return (
-                    <tr key={player.name} className="hover:bg-blue-500/[0.03] transition-colors group">
+                    <tr key={player.name} className="hover:bg-slate-800/30 transition-all group">
                       <td className="px-6 py-5">
-                        <span className={`font-mono font-bold ${globalRank <= 3 ? 'text-blue-400' : 'text-slate-600'}`}>
+                        <span className={`font-mono font-bold ${globalRank <= 3 ? style.text : 'text-slate-600'}`}>
                           #{String(globalRank).padStart(2, '0')}
                         </span>
                       </td>
-                      <td className="px-6 py-5 font-bold text-slate-200 group-hover:text-blue-400 transition-colors">
+                      <td className="px-6 py-5 font-bold text-slate-200">
                         <div className="flex items-center gap-2">
-                          {player.name}
-                          {/* PERBAIKAN: Semua yang bonus > 0 dapat piala */}
+                          <span className="group-hover:translate-x-1 transition-transform">{player.name}</span>
                           {player.bonus > 0 && (
                             <Trophy 
                               size={14} 
-                              className={`${player.bonus >= 500 ? 'text-yellow-500' : 'text-slate-400'} animate-pulse`} 
+                              className={`${style.text} animate-pulse drop-shadow-sm`} 
                             />
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <span className="text-[10px] font-bold bg-slate-950 px-2 py-1 rounded border border-slate-800 text-slate-500">
+                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
                           {player.catLabel}
                         </span>
                       </td>
@@ -174,7 +184,7 @@ const Rankings: React.FC = () => {
                       </td>
                       <td className="px-6 py-5 text-center">
                         {player.status === 'up' ? (
-                          <div className="inline-flex items-center text-emerald-500 font-bold text-[10px] bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                          <div className={`inline-flex items-center font-bold text-[10px] px-2 py-1 rounded-lg border ${style.bg} ${style.text} ${style.border}`}>
                             <TrendingUp size={12} className="mr-1" /> +{player.bonus}
                           </div>
                         ) : <Minus size={14} className="mx-auto text-slate-800" />}
@@ -186,6 +196,7 @@ const Rankings: React.FC = () => {
             </table>
           </div>
 
+          {/* Pagination */}
           <div className="p-5 bg-slate-800/20 flex items-center justify-between border-t border-slate-800">
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
               Halaman {currentPage} dari {totalPages || 1}
@@ -194,14 +205,14 @@ const Rankings: React.FC = () => {
               <button 
                 disabled={currentPage === 1}
                 onClick={() => { setCurrentPage(prev => prev - 1); document.getElementById('rankings')?.scrollIntoView(); }}
-                className="p-2 bg-slate-950 border border-slate-800 rounded-lg disabled:opacity-20 hover:border-blue-500/50 transition-all"
+                className="p-2 bg-slate-950 border border-slate-800 rounded-lg disabled:opacity-20 hover:border-slate-500 transition-all"
               >
                 <ChevronLeft size={18} />
               </button>
               <button 
                 disabled={currentPage === totalPages || totalPages === 0}
                 onClick={() => { setCurrentPage(prev => prev + 1); document.getElementById('rankings')?.scrollIntoView(); }}
-                className="p-2 bg-slate-950 border border-slate-800 rounded-lg disabled:opacity-20 hover:border-blue-500/50 transition-all"
+                className="p-2 bg-slate-950 border border-slate-800 rounded-lg disabled:opacity-20 hover:border-slate-500 transition-all"
               >
                 <ChevronRight size={18} />
               </button>

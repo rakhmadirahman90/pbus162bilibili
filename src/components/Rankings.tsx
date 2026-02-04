@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, Minus, Trophy, Medal, Search, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, Minus, Trophy, Search, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PlayerData {
   name: string;
@@ -12,7 +12,7 @@ const Rankings: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Data Mentah berdasarkan dokumentasi internal
+  // Data Mentah
   const rawData: Record<string, PlayerData[]> = {
     categoryA: [
       { name: "Agustilaar", bonus: 200 }, { name: "Herman", bonus: 300 },
@@ -52,7 +52,6 @@ const Rankings: React.FC = () => {
     ]
   };
 
-  // Pengolahan Data dengan useMemo untuk performa
   const allPlayers = useMemo(() => {
     return [
       ...rawData.categoryA.map((p, i) => ({ ...p, catGroup: 'A', catLabel: 'Seed A', base: 10000 - (i * 100) })),
@@ -68,7 +67,6 @@ const Rankings: React.FC = () => {
     .sort((a, b) => b.totalPoints - a.totalPoints);
   }, []);
 
-  // Filter Gabungan (Nama + Kategori)
   const filteredData = useMemo(() => {
     return allPlayers.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -77,7 +75,6 @@ const Rankings: React.FC = () => {
     });
   }, [searchTerm, activeCategory, allPlayers]);
 
-  // Kalkulasi Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentPlayers = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -93,7 +90,6 @@ const Rankings: React.FC = () => {
     <section id="rankings" className="min-h-screen py-24 bg-slate-950 text-white font-sans scroll-mt-20">
       <div className="max-w-5xl mx-auto px-4">
         
-        {/* JUDUL TETAP ADA */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center p-2 bg-blue-500/10 rounded-full mb-4 border border-blue-500/20">
             <Crown className="text-blue-400 mr-2" size={20} />
@@ -105,10 +101,8 @@ const Rankings: React.FC = () => {
           <p className="text-slate-500 font-medium italic">Update Turnamen Internal Cup IV 2026</p>
         </div>
 
-        {/* TOOLBAR FILTER & SEARCH */}
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-3xl mb-8 shadow-2xl">
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Input Pencarian Nama */}
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
               <input 
@@ -118,7 +112,6 @@ const Rankings: React.FC = () => {
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
-            {/* Filter Dropdown/Pills untuk Kategori */}
             <div className="flex flex-wrap gap-2">
               {categories.map((cat) => (
                 <button
@@ -137,7 +130,6 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
-        {/* TABEL DATA */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -160,10 +152,16 @@ const Rankings: React.FC = () => {
                           #{String(globalRank).padStart(2, '0')}
                         </span>
                       </td>
-                      <td className="px-6 py-5 font-bold text-slate-200 group-hover:text-blue-400">
+                      <td className="px-6 py-5 font-bold text-slate-200 group-hover:text-blue-400 transition-colors">
                         <div className="flex items-center gap-2">
                           {player.name}
-                          {player.bonus >= 500 && <Trophy size={14} className="text-yellow-500 animate-bounce" />}
+                          {/* PERBAIKAN: Semua yang bonus > 0 dapat piala */}
+                          {player.bonus > 0 && (
+                            <Trophy 
+                              size={14} 
+                              className={`${player.bonus >= 500 ? 'text-yellow-500' : 'text-slate-400'} animate-pulse`} 
+                            />
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-5">
@@ -176,7 +174,7 @@ const Rankings: React.FC = () => {
                       </td>
                       <td className="px-6 py-5 text-center">
                         {player.status === 'up' ? (
-                          <div className="inline-flex items-center text-emerald-500 font-bold text-[10px]">
+                          <div className="inline-flex items-center text-emerald-500 font-bold text-[10px] bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
                             <TrendingUp size={12} className="mr-1" /> +{player.bonus}
                           </div>
                         ) : <Minus size={14} className="mx-auto text-slate-800" />}
@@ -188,7 +186,6 @@ const Rankings: React.FC = () => {
             </table>
           </div>
 
-          {/* NAVIGASI HALAMAN (NEXT/PREVIOUS) */}
           <div className="p-5 bg-slate-800/20 flex items-center justify-between border-t border-slate-800">
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
               Halaman {currentPage} dari {totalPages || 1}

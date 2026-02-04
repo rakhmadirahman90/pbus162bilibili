@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 import { 
   Target, Award, Users, MapPin, CheckCircle2, 
-  History, Building2, Trophy, Maximize2, X, ChevronRight 
+  History, Building2, Trophy, Maximize2, X 
 } from 'lucide-react';
 
-export default function About() {
-  const [activeTab, setActiveTab] = useState('sejarah');
-  const [selectedImg, setSelectedImg] = useState(null);
+// Tambahkan Interface Props untuk sinkronisasi dengan App.js
+interface AboutProps {
+  activeTab: string;
+  onTabChange: (id: string) => void;
+}
+
+export default function About({ activeTab, onTabChange }: AboutProps) {
+  // State internal hanya untuk Lightbox Gambar
+  const [selectedImg, setSelectedImg] = useState<any>(null);
 
   const tabs = [
     { id: 'sejarah', label: 'Sejarah', icon: History },
@@ -61,7 +67,7 @@ export default function About() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => onTabChange(tab.id)}
                 className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-white text-blue-600 shadow-md ring-1 ring-slate-200'
@@ -85,10 +91,10 @@ export default function About() {
                 <h3 className="text-3xl font-black text-slate-900 mb-6">Akar Perjuangan di Parepare</h3>
                 <div className="space-y-4 text-slate-600 text-lg leading-relaxed">
                   <p>
-                    Didirikan pada tahun 2020, **PB US 162** lahir dari visi untuk menciptakan fasilitas olahraga berkualitas internasional bagi pemuda di Kota Parepare dan sekitarnya.
+                    Didirikan pada tahun 2020, <span className="font-bold text-slate-900">PB US 162</span> lahir dari visi untuk menciptakan fasilitas olahraga berkualitas internasional bagi pemuda di Kota Parepare.
                   </p>
                   <p>
-                    Dimulai dari komunitas lokal di Bilibili, klub ini secara konsisten bertransformasi dari sekadar tempat hobi menjadi sekolah bulutangkis yang memiliki sistem pemeringkatan digital pertama di wilayah ini.
+                    Dimulai dari komunitas lokal di Bilibili, klub ini bertransformasi menjadi sekolah bulutangkis dengan sistem pemeringkatan digital pertama di wilayah ini.
                   </p>
                 </div>
                 <div className="mt-8 flex items-center gap-4">
@@ -133,7 +139,6 @@ export default function About() {
                   </div>
                 </div>
 
-                {/* GRID GALERI */}
                 <div className="lg:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {galleryImages.map((img, i) => (
                     <div 
@@ -169,7 +174,7 @@ export default function About() {
                   { year: "2026", title: "Internal Cup IV", rank: "Grand Finale", desc: "Turnamen bergengsi klub dengan partisipasi 150+ atlet." },
                   { year: "2024", title: "Invitasi Parepare Open", rank: "Runner Up", desc: "Prestasi gemilang di tingkat undangan antar klub Sulawesi." },
                 ].map((p, i) => (
-                  <div key={i} className="bg-white p-8 rounded-3xl border border-slate-200 hover:border-blue-600 hover:-translate-y-2 transition-all group relative">
+                  <div key={i} className="bg-white p-8 rounded-3xl border border-slate-200 hover:border-blue-600 hover:-translate-y-2 transition-all group">
                     <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         <Trophy size={24} />
                     </div>
@@ -187,10 +192,10 @@ export default function About() {
         {/* --- LIGHTBOX MODAL --- */}
         {selectedImg && (
           <div 
-            className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300"
+            className="fixed inset-0 z-[110] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6"
             onClick={() => setSelectedImg(null)}
           >
-            <div className="relative max-w-5xl w-full flex flex-col items-center">
+            <div className="relative max-w-5xl w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
               <button 
                 className="absolute -top-14 right-0 text-white hover:text-blue-400 transition-all flex items-center gap-2 font-black text-xs tracking-widest"
                 onClick={() => setSelectedImg(null)}
@@ -199,8 +204,8 @@ export default function About() {
               </button>
               <img 
                 src={selectedImg.url} 
-                className="w-full h-auto max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/10"
-                alt="Fullscreen Facility"
+                className="w-full h-auto max-h-[70vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+                alt="Fullscreen"
               />
               <div className="mt-8 text-center max-w-2xl">
                 <h4 className="text-white text-3xl font-black mb-3">{selectedImg.title}</h4>

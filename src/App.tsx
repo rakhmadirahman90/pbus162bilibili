@@ -10,6 +10,10 @@ import Footer from './components/Footer';
 
 function App() {
   const [activeSection, setActiveSection] = useState('home');
+  
+  // State baru untuk mengontrol tab mana yang aktif di komponen About
+  // Kita angkat ke sini agar Navbar bisa mengubahnya
+  const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -31,13 +35,30 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar activeSection={activeSection} />
-      <Hero />
-      <News />
-      <Players />
-      <Rankings />
-      <Gallery />
-      <About />
+      {/* Kirim fungsi onTabChange ke Navbar agar saat sub-menu diklik, 
+        state aboutActiveTab di sini berubah 
+      */}
+      <Navbar 
+        activeSection={activeSection} 
+        onTabChange={(tabId) => setAboutActiveTab(tabId)} 
+      />
+      
+      <main>
+        <Hero />
+        <News />
+        <Players />
+        <Rankings />
+        <Gallery />
+        
+        {/* Kirim state tab yang aktif ke komponen About 
+          sebagai props agar isinya berubah otomatis
+        */}
+        <About 
+          activeTab={aboutActiveTab} 
+          onTabChange={(tabId) => setAboutActiveTab(tabId)} 
+        />
+      </main>
+      
       <Footer />
     </div>
   );

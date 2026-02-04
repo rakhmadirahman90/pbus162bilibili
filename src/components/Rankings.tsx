@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, Minus, Trophy, Search, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, Minus, Trophy, Search, Crown, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
-interface PlayerData {
-  name: string;
-  bonus: number;
-}
+// 1. STRUKTUR DATA EVENT (Update di sini setiap ada turnamen baru)
+const EVENT_LOG = [
+  { id: 1, name: "Internal Cup III", date: "Jan 2026", winners: ["Herman", "H. Wawan", "Arsan", "Marzuki"] },
+  { id: 2, name: "Internal Cup IV", date: "Feb 2026", winners: ["Agustilaar", "Bustan", "H. Hasym", "Prof. Fikri", "Dr. Khaliq", "Momota", "Yakob", "H. Anwar"] },
+];
 
 const Rankings: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -12,211 +13,191 @@ const Rankings: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Konfigurasi Warna Kategori
-  const categoryStyles: Record<string, { bg: string, text: string, border: string, glow: string }> = {
-    'A': { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20', glow: 'shadow-amber-500/20' },
-    'B+': { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/20', glow: 'shadow-blue-500/20' },
-    'B-': { bg: 'bg-indigo-500/10', text: 'text-indigo-500', border: 'border-indigo-500/20', glow: 'shadow-indigo-500/20' },
-    'C': { bg: 'bg-emerald-500/10', text: 'text-emerald-500', border: 'border-emerald-500/20', glow: 'shadow-emerald-500/20' },
+  // Konfigurasi Gaya Kategori
+  const categoryStyles: Record<string, any> = {
+    'A': { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20' },
+    'B+': { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/20' },
+    'B-': { bg: 'bg-indigo-500/10', text: 'text-indigo-500', border: 'border-indigo-500/20' },
+    'C': { bg: 'bg-emerald-500/10', text: 'text-emerald-500', border: 'border-emerald-500/20' },
   };
 
-  const rawData: Record<string, PlayerData[]> = {
-    categoryA: [
-      { name: "Agustilaar", bonus: 200 }, { name: "Herman", bonus: 300 },
-      { name: "Darwis (TNI)", bonus: 0 }, { name: "Salman", bonus: 0 },
-      { name: "Lutfi", bonus: 0 }, { name: "Udin", bonus: 0 },
-      { name: "Aldy Sandra", bonus: 0 }, { name: "Mustakim", bonus: 0 },
-      { name: "Rifai", bonus: 0 }, { name: "Acos", bonus: 0 }
-    ],
-    categoryBPlus: [
-      { name: "H. Wawan", bonus: 500 }, { name: "Bustan", bonus: 500 },
-      { name: "Dr. Khaliq", bonus: 100 }, { name: "Momota", bonus: 100 },
-      { name: "H. Ismail", bonus: 0 }, { name: "Saleh", bonus: 0 },
-      { name: "H. Zaidi", bonus: 0 }, { name: "Zainuddin", bonus: 0 },
-      { name: "Lumpue", bonus: 0 }, { name: "Madhy", bonus: 0 },
-      { name: "Vhio", bonus: 0 }, { name: "Anto", bonus: 0 },
-      { name: "Lukman", bonus: 0 }, { name: "Sandra", bonus: 0 },
-      { name: "Amri", bonus: 0 }, { name: "Nasri Lapas", bonus: 0 },
-      { name: "Aprijal", bonus: 0 }, { name: "Arifuddin", bonus: 0 },
-      { name: "H Amier", bonus: 0 }, { name: "Rustam", bonus: 0 },
-      { name: "A. Arwan", bonus: 0 }, { name: "Laganing", bonus: 0 }
-    ],
-    categoryBMinus: [
-      { name: "Prof. Fikri", bonus: 200 }, { name: "Marzuki", bonus: 300 },
-      { name: "A. Mansur", bonus: 0 }, { name: "Darwis R.", bonus: 0 },
-      { name: "Ali", bonus: 0 }, { name: "Saldy", bonus: 0 },
-      { name: "Mulyadi", bonus: 0 }, { name: "Haedir", bonus: 0 },
-      { name: "H Fitra", bonus: 0 }, { name: "Kurnia", bonus: 0 }
-    ],
-    categoryC: [
-      { name: "Arsan", bonus: 500 }, { name: "H. Hasym", bonus: 500 },
-      { name: "H. Anwar", bonus: 300 }, { name: "Yakob", bonus: 300 },
-      { name: "Ust. Usman", bonus: 0 }, { name: "H. Tantong", bonus: 0 },
-      { name: "Surakati", bonus: 0 }, { name: "H. Faizal", bonus: 0 },
-      { name: "Markus", bonus: 0 }, { name: "H. Ude", bonus: 0 },
-      { name: "Hidayatullah", bonus: 0 }, { name: "H. Pangeran", bonus: 0 },
-      { name: "Syarifuddin", bonus: 0 }
-    ]
+  // 2. DATA DASAR PEMAIN
+  const basePlayers = {
+    categoryA: ["Agustilaar", "Herman", "Darwis (TNI)", "Salman", "Lutfi", "Udin", "Aldy Sandra", "Mustakim", "Rifai", "Acos"],
+    categoryBPlus: ["H. Wawan", "Bustan", "Dr. Khaliq", "Momota", "H. Ismail", "Saleh", "H. Zaidi", "Zainuddin", "Lumpue", "Madhy", "Vhio", "Anto", "Lukman", "Sandra", "Amri", "Nasri Lapas", "Aprijal", "Arifuddin", "H Amier", "Rustam", "A. Arwan", "Laganing"],
+    categoryBMinus: ["Prof. Fikri", "Marzuki", "A. Mansur", "Darwis R.", "Ali", "Saldy", "Mulyadi", "Haedir", "H Fitra", "Kurnia"],
+    categoryC: ["Arsan", "H. Hasym", "H. Anwar", "Yakob", "Ust. Usman", "H. Tantong", "Surakati", "H. Faizal", "Markus", "H. Ude", "Hidayatullah", "H. Pangeran", "Syarifuddin"]
   };
 
-  const allPlayers = useMemo(() => {
-    return [
-      ...rawData.categoryA.map((p, i) => ({ ...p, catGroup: 'A', catLabel: 'Seed A', base: 10000 - (i * 100) })),
-      ...rawData.categoryBPlus.map((p, i) => ({ ...p, catGroup: 'B+', catLabel: 'Seed B+', base: 8500 - (i * 50) })),
-      ...rawData.categoryBMinus.map((p, i) => ({ ...p, catGroup: 'B-', catLabel: 'Seed B-', base: 7000 - (i * 50) })),
-      ...rawData.categoryC.map((p, i) => ({ ...p, catGroup: 'C', catLabel: 'Seed C', base: 5500 - (i * 50) }))
-    ]
-    .map(player => ({
-      ...player,
-      totalPoints: player.base + player.bonus,
-      status: player.bonus > 0 ? 'up' : 'same'
-    }))
-    .sort((a, b) => b.totalPoints - a.totalPoints);
+  // 3. LOGIKA UPDATE OTOMATIS
+  const processedData = useMemo(() => {
+    const calculateBonus = (name: string) => {
+      // Menghitung poin: Setiap kali menang di event, dapat 100-500 poin (asumsi)
+      // Di sini kita filter EVENT_LOG, jika nama ada di daftar winners, tambahkan poinnya
+      return EVENT_LOG.reduce((acc, event) => {
+        return event.winners.includes(name) ? acc + 250 : acc; 
+      }, 0);
+    };
+
+    const all = [
+      ...basePlayers.categoryA.map((name, i) => ({ name, catGroup: 'A', catLabel: 'Seed A', base: 10000 - (i * 100) })),
+      ...basePlayers.categoryBPlus.map((name, i) => ({ name, catGroup: 'B+', catLabel: 'Seed B+', base: 8500 - (i * 50) })),
+      ...basePlayers.categoryBMinus.map((name, i) => ({ name, catGroup: 'B-', catLabel: 'Seed B-', base: 7000 - (i * 50) })),
+      ...basePlayers.categoryC.map((name, i) => ({ name, catGroup: 'C', catLabel: 'Seed C', base: 5500 - (i * 50) }))
+    ].map(p => {
+      const bonus = calculateBonus(p.name);
+      return {
+        ...p,
+        bonus,
+        totalPoints: p.base + bonus,
+        isWinner: bonus > 0
+      };
+    }).sort((a, b) => b.totalPoints - a.totalPoints);
+
+    return all;
   }, []);
 
   const filteredData = useMemo(() => {
-    return allPlayers.filter(p => {
+    return processedData.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = activeCategory === "All" || p.catGroup === activeCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [searchTerm, activeCategory, allPlayers]);
+  }, [searchTerm, activeCategory, processedData]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentPlayers = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const categories = [
-    { id: 'All', label: 'Semua' },
-    { id: 'A', label: 'Seed A' },
-    { id: 'B+', label: 'Seed B+' },
-    { id: 'B-', label: 'Seed B-' },
-    { id: 'C', label: 'Seed C' },
-  ];
 
   return (
     <section id="rankings" className="min-h-screen py-24 bg-slate-950 text-white font-sans scroll-mt-20">
       <div className="max-w-5xl mx-auto px-4">
         
+        {/* Header Section */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center p-2 bg-blue-500/10 rounded-full mb-4 border border-blue-500/20">
-            <Crown className="text-blue-400 mr-2" size={20} />
-            <span className="text-blue-400 text-[10px] font-bold tracking-[0.3em] uppercase">Klasemen Kategori Seeded</span>
+            <Trophy className="text-blue-400 mr-2" size={18} />
+            <span className="text-blue-400 text-[10px] font-bold tracking-[0.2em] uppercase">Sistem Poin Otomatis v2.0</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-3 bg-gradient-to-b from-white to-slate-400 bg-clip-text text-transparent">
-            PERINGKAT PB US 162
+          <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-4 bg-gradient-to-r from-white via-blue-200 to-slate-500 bg-clip-text text-transparent">
+            RANKING PEMAIN
           </h1>
-          <p className="text-slate-500 font-medium italic">Update Turnamen Internal Cup IV 2026</p>
-        </div>
-
-        {/* Toolbar Filter */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-3xl mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-              <input 
-                type="text"
-                placeholder="Cari nama atlet..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-4 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
-                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => { setActiveCategory(cat.id); setCurrentPage(1); }}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                    activeCategory === cat.id 
-                    ? 'bg-white border-white text-slate-950 shadow-lg' 
-                    : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-center gap-4 text-slate-500 text-sm font-medium">
+             <span className="flex items-center gap-1"><Calendar size={14}/> Last Event: {EVENT_LOG[EVENT_LOG.length - 1].name}</span>
           </div>
         </div>
 
-        {/* Tabel */}
+        {/* Search & Filter */}
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input 
+              type="text"
+              placeholder="Cari atlet pemenang..."
+              className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 items-center justify-md-end">
+            {['All', 'A', 'B+', 'B-', 'C'].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => { setActiveCategory(cat); setCurrentPage(1); }}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all border ${
+                  activeCategory === cat ? 'bg-blue-600 border-blue-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'
+                }`}
+              >
+                {cat === 'All' ? 'SEMUA' : `SEED ${cat}`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabel Klasemen */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                <tr>
-                  <th className="px-6 py-5">Rank</th>
-                  <th className="px-6 py-5">Atlet</th>
-                  <th className="px-6 py-5">Kategori</th>
-                  <th className="px-6 py-5 text-right">Poin</th>
-                  <th className="px-6 py-5 text-center">Hasil</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {currentPlayers.map((player) => {
-                  const globalRank = allPlayers.findIndex(p => p.name === player.name) + 1;
-                  const style = categoryStyles[player.catGroup];
-                  
-                  return (
-                    <tr key={player.name} className="hover:bg-slate-800/30 transition-all group">
-                      <td className="px-6 py-5">
-                        <span className={`font-mono font-bold ${globalRank <= 3 ? style.text : 'text-slate-600'}`}>
-                          #{String(globalRank).padStart(2, '0')}
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-800/30 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                <th className="px-6 py-6">Pos</th>
+                <th className="px-6 py-6">Nama Atlet</th>
+                <th className="px-6 py-6">Kategori</th>
+                <th className="px-6 py-6 text-right">Total Poin</th>
+                <th className="px-6 py-6 text-center">Tren</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {currentPlayers.map((player) => {
+                const globalRank = processedData.findIndex(p => p.name === player.name) + 1;
+                const style = categoryStyles[player.catGroup];
+                
+                return (
+                  <tr key={player.name} className="hover:bg-blue-500/[0.02] transition-colors group">
+                    <td className="px-6 py-5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-sm ${
+                        globalRank <= 3 ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'
+                      }`}>
+                        {globalRank}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-200 group-hover:text-white transition-colors">
+                          {player.name}
                         </span>
-                      </td>
-                      <td className="px-6 py-5 font-bold text-slate-200">
-                        <div className="flex items-center gap-2">
-                          <span className="group-hover:translate-x-1 transition-transform">{player.name}</span>
-                          {player.bonus > 0 && (
-                            <Trophy 
-                              size={14} 
-                              className={`${style.text} animate-pulse drop-shadow-sm`} 
-                            />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className={`text-[10px] font-bold px-3 py-1 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
-                          {player.catLabel}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-right font-mono font-black text-blue-400 text-lg">
-                        {player.totalPoints.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-5 text-center">
-                        {player.status === 'up' ? (
-                          <div className={`inline-flex items-center font-bold text-[10px] px-2 py-1 rounded-lg border ${style.bg} ${style.text} ${style.border}`}>
-                            <TrendingUp size={12} className="mr-1" /> +{player.bonus}
+                        {player.isWinner && (
+                          <div className="relative">
+                            <Trophy size={16} className={`${style.text} animate-bounce`} />
+                            <div className={`absolute inset-0 blur-md ${style.text} opacity-20`}></div>
                           </div>
-                        ) : <Minus size={14} className="mx-auto text-slate-800" />}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={`text-[10px] font-black px-3 py-1.5 rounded-md border ${style.bg} ${style.text} ${style.border}`}>
+                        {player.catLabel}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-right font-mono font-black text-white text-xl">
+                      {player.totalPoints.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col items-center">
+                        {player.bonus > 0 ? (
+                          <>
+                            <TrendingUp size={16} className="text-emerald-500 mb-1" />
+                            <span className="text-[9px] font-bold text-emerald-500">+{player.bonus}</span>
+                          </>
+                        ) : (
+                          <Minus size={16} className="text-slate-800" />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
           {/* Pagination */}
-          <div className="p-5 bg-slate-800/20 flex items-center justify-between border-t border-slate-800">
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-              Halaman {currentPage} dari {totalPages || 1}
-            </p>
-            <div className="flex gap-2">
-              <button 
-                disabled={currentPage === 1}
-                onClick={() => { setCurrentPage(prev => prev - 1); document.getElementById('rankings')?.scrollIntoView(); }}
-                className="p-2 bg-slate-950 border border-slate-800 rounded-lg disabled:opacity-20 hover:border-slate-500 transition-all"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button 
-                disabled={currentPage === totalPages || totalPages === 0}
-                onClick={() => { setCurrentPage(prev => prev + 1); document.getElementById('rankings')?.scrollIntoView(); }}
-                className="p-2 bg-slate-950 border border-slate-800 rounded-lg disabled:opacity-20 hover:border-slate-500 transition-all"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
+          <div className="p-6 bg-slate-900 flex items-center justify-between border-t border-slate-800">
+             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                Showing {currentPlayers.length} of {filteredData.length} Players
+             </span>
+             <div className="flex gap-2">
+                <button 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-20 transition-all"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button 
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-20 transition-all"
+                >
+                  <ChevronRight size={20} />
+                </button>
+             </div>
           </div>
         </div>
       </div>

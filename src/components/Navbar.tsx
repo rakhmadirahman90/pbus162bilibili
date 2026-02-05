@@ -8,24 +8,19 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/5 shadow-2xl">
+    <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/10 shadow-2xl">
       <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
         
-        {/* LOGO: Menggunakan Image dari folder public */}
+        {/* LOGO SECTION */}
         <div 
           className="flex items-center gap-4 cursor-pointer group" 
           onClick={() => onNavigate('home')}
         >
-          <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform duration-300 bg-white flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg border border-white/10 group-hover:scale-105 transition-transform duration-300 bg-white flex items-center justify-center">
             <img 
               src="/photo_2026-02-03_00-32-07.jpg" 
-              alt="Logo PB US 162" 
+              alt="Logo PB" 
               className="w-full h-full object-cover"
-              onError={(e) => {
-                // Fallback jika gambar gagal dimuat
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerHTML = '<div class="font-bold text-blue-600">PB</div>';
-              }}
             />
           </div>
           <div className="flex flex-col">
@@ -42,74 +37,55 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         <div className="hidden md:flex items-center gap-10">
           <button 
             onClick={() => onNavigate('home')} 
-            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
+            className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors"
           >
             Beranda
           </button>
 
-          {/* 2. Tentang Kami (Dropdown) */}
-          <div className="relative group">
+          {/* DROPDOWN TENTANG KAMI - DIPERJELAS */}
+          <div 
+            className="relative"
+            onMouseEnter={() => setIsDropdownOpen(true)}
+            onMouseLeave={() => setIsDropdownOpen(false)}
+          >
             <button 
-              onMouseEnter={() => setIsDropdownOpen(true)}
-              className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
+              onClick={() => onNavigate('about')}
+              className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${isDropdownOpen ? 'text-blue-400' : 'text-slate-300 hover:text-white'}`}
             >
-              Tentang Kami <span className="text-[7px] opacity-50 group-hover:rotate-180 transition-transform duration-300">▼</span>
+              Tentang Kami <span className={`text-[7px] transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
             </button>
             
             {isDropdownOpen && (
-              <div 
-                className="absolute top-full left-0 w-52 bg-slate-900/98 border border-white/10 rounded-xl shadow-2xl py-3 mt-2 backdrop-blur-xl"
-                onMouseLeave={() => setIsDropdownOpen(false)}
-              >
-                <button 
-                  onClick={() => { onNavigate('about', 'sejarah'); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
-                >
-                  SEJARAH
-                </button>
-                <button 
-                  onClick={() => { onNavigate('about', 'visi-misi'); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
-                >
-                  VISI & MISI
-                </button>
-                <button 
-                  onClick={() => { onNavigate('about', 'fasilitas'); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
-                >
-                  FASILITAS
-                </button>
+              <div className="absolute top-full left-0 w-56 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                {/* Box Dropdown: Menggunakan bg-slate-800 yang solid dan z-index tinggi */}
+                <div className="bg-[#1e293b] border border-slate-700 rounded-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] overflow-hidden">
+                  <button 
+                    onClick={() => { onNavigate('about', 'sejarah'); setIsDropdownOpen(false); }}
+                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50"
+                  >
+                    Sejarah
+                  </button>
+                  <button 
+                    onClick={() => { onNavigate('about', 'visi-misi'); setIsDropdownOpen(false); }}
+                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50"
+                  >
+                    Visi & Misi
+                  </button>
+                  <button 
+                    onClick={() => { onNavigate('about', 'fasilitas'); setIsDropdownOpen(false); }}
+                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all"
+                  >
+                    Fasilitas
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
-          <button 
-            onClick={() => onNavigate('news')} 
-            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
-          >
-            Berita
-          </button>
-
-          <button 
-            onClick={() => onNavigate('players')} 
-            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
-          >
-            Atlet
-          </button>
-
-          <button 
-            onClick={() => onNavigate('rankings')} 
-            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
-          >
-            Peringkat
-          </button>
-
-          <button 
-            onClick={() => onNavigate('gallery')} 
-            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
-          >
-            Galeri
-          </button>
+          <button onClick={() => onNavigate('news')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Berita</button>
+          <button onClick={() => onNavigate('players')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Atlet</button>
+          <button onClick={() => onNavigate('rankings')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Peringkat</button>
+          <button onClick={() => onNavigate('gallery')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Galeri</button>
         </div>
       </div>
     </nav>

@@ -59,7 +59,7 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
                 <div className="relative group">
                   <div className="absolute -inset-2 bg-blue-600/20 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition duration-500"></div>
                   <img 
-                    src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=800&q=80" 
+                    src="photo_2026-02-03_00-32-07.jpg" 
                     alt="Latihan PB US 162" 
                     className="relative w-full h-[450px] object-cover rounded-[2rem] shadow-2xl border-4 border-white"
                   />

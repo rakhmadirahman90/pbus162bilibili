@@ -7,197 +7,212 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
 import { 
-  X, Target, Star, ChevronLeft, ChevronRight, 
-  UserCheck, Users, Search, Award, ArrowRight, MapPin
+  X, Target, Star, Search, Award, ArrowRight, ChevronLeft, ChevronRight, Trophy 
 } from 'lucide-react';
 
-interface Player {
-  id: number;
-  name: string;
-  category: string;
-  ageGroup: string;
-  rank: number;
-  image: string;
-  bio: string;
-  isChampion?: boolean;
-}
-
-const playersData: Player[] = [
-  // --- SEEDED A (Senior) ---
-  { id: 1, name: 'Agustilaar', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 1, image: 'whatsapp_image_2026-02-05_at_11.38.00.jpeg', bio: 'Mempertahankan posisi puncak klasemen dengan konsistensi permainan yang luar biasa.' },
-  { id: 2, name: 'Darwis (TNI)', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 2, image: 'https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Runner-up turnamen terakhir, menunjukkan pertahanan komando yang sulit ditembus.' },
-  { id: 3, name: 'Salman', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 3, image: 'https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Ahli dalam permainan netting tipis yang sering membuat lawan mati langkah.' },
-  { id: 4, name: 'Lutfi', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 4, image: 'https://images.pexels.com/photos/6253570/pexels-photo-6253570.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Dikenal dengan smash keras menyilang yang menjadi senjata utama dalam menyerang.' },
-  { id: 5, name: 'Udin', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 5, image: 'https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Strategis lapangan yang mampu membaca pergerakan lawan dengan sangat cepat.' },
-  { id: 6, name: 'Aldy Sandra', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 6, image: 'https://images.pexels.com/photos/11224855/pexels-photo-11224855.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Pemain dengan mobilitas tinggi, selalu siap mengejar bola di area manapun.' },
-  { id: 7, name: 'Mustakim', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 7, image: 'whatsapp_image_2026-02-05_at_10.36.22.jpeg', bio: 'Eksekutor poin yang handal dengan penempatan bola yang cerdas.' },
-  { id: 8, name: 'Rifai', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 8, image: 'https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Mempunyai variasi pukulan lob dan drop shot yang sangat menipu.' },
-  { id: 9, name: 'Acos', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 9, image: 'https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Spesialis ganda yang sangat kompak dan komunikatif di dalam lapangan.' },
-  { id: 10, name: 'Herman', category: 'Seeded A', ageGroup: 'Atlet Senior', rank: 10, image: 'https://images.pexels.com/photos/6253570/pexels-photo-6253570.jpeg?auto=compress&cs=tinysrgb&w=600', bio: 'Pemain dengan mental juara yang stabil dalam kondisi poin kritis.' },
-
-  // --- SEEDED B+ (Senior) ---
-  { id: 11, name: 'Dr. Khaliq', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 11, bio: 'Memadukan kecerdasan strategi dengan teknik dasar yang sangat kuat.', image: 'https://images.pexels.com/photos/3777943/pexels-photo-3777943.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 12, name: 'H. Ismail', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 12, bio: 'Senior dengan jam terbang tinggi yang sangat dihormati di lapangan.', image: 'https://images.pexels.com/photos/3785079/pexels-photo-3785079.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 13, name: 'Momota', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 13, bio: 'Gaya bermain lincah dan atraktif, selalu memberikan tontonan menarik.', image: 'https://images.pexels.com/photos/4307869/pexels-photo-4307869.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 14, name: 'Saleh', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 14, bio: 'Pemain yang gigih dan tidak mudah menyerah sebelum bola menyentuh lantai.', image: 'https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 21, name: 'Vhio', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 21, bio: 'Anak muda potensial yang sudah menembus level Seeded Senior.', image: 'whatsapp_image_2026-02-05_at_10.34.12.jpeg' },
-
-  // --- SEEDED B- (Senior) ---
-  { id: 33, name: 'A. Mansur', category: 'Seeded B(-)', ageGroup: 'Atlet Senior', rank: 33, bio: 'Pemain senior yang ulet dan penuh pengalaman.', image: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 35, name: 'Prof. Fikri', category: 'Seeded B(-)', ageGroup: 'Atlet Senior', rank: 35, bio: 'Gaya bermain cerdas dan taktis sesuai dengan analisis lapangan.', image: 'https://images.pexels.com/photos/2202685/pexels-photo-2202685.jpeg?auto=compress&cs=tinysrgb&w=600' },
-
-  // --- SEEDED C (Muda) ---
-  { id: 43, name: 'Ust. Usman', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 1, bio: 'Pemimpin klasemen Seeded C dengan teknik netting paling stabil.', image: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 45, name: 'Surakati', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 3, bio: 'Andal dalam serangan smes keras yang menghujam tajam.', image: 'https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 50, name: 'Hidayatullah', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 8, isChampion: true, image: 'whatsapp_image_2025-12-30_at_15.33.37.jpeg', bio: 'Bintang muda yang baru saja menunjukkan performa gemilang di turnamen terakhir.' },
+// Sync dengan EVENT_LOG dari Rankings
+const EVENT_LOG = [
+  { 
+    id: 1, 
+    winners: [
+      "Agustilaar", "Herman", "H. Wawan", "Bustan", "Dr. Khaliq", 
+      "Momota", "Prof. Fikri", "Marzuki", "Arsan", "H. Hasym", 
+      "H. Anwar", "Yakob"
+    ] 
+  },
 ];
 
-export default function Players() {
-  const [currentTab, setCurrentTab] = useState('Atlet Senior');
+const Players: React.FC = () => {
+  const [currentTab, setCurrentTab] = useState('All');
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
-  // LOGIKA HITUNG JUMLAH PER KATEGORI
-  const counts = useMemo(() => ({
-    Senior: playersData.filter(p => p.ageGroup === 'Atlet Senior').length,
-    Muda: playersData.filter(p => p.ageGroup === 'Atlet Muda').length
-  }), []);
-
-  // FUNGSI RESET LIHAT SEMUA PEMAIN
-  const handleViewAll = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSearchTerm("");
-    setCurrentTab('Atlet Senior');
-    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 1. DATA DASAR (Sesuai Rankings)
+  const basePlayers = {
+    categoryA: ["Agustilaar", "Herman", "Darwis (TNI)", "Salman", "Lutfi", "Udin", "Aldy Sandra", "Mustakim", "Rifai", "Acos"],
+    categoryBPlus: ["H. Wawan", "Bustan", "Dr. Khaliq", "Momota", "H. Ismail", "Saleh", "H. Zaidi", "Zainuddin", "Lumpue", "Madhy", "Vhio", "Anto", "Lukman", "Sandra", "Amri", "Nasri Lapas", "Aprijal", "Arifuddin", "H Amier", "Rustam", "A. Arwan", "Laganing"],
+    categoryBMinus: ["Prof. Fikri", "Marzuki", "A. Mansur", "Darwis R.", "Ali", "Saldy", "Mulyadi", "Haedir", "H Fitra", "Kurnia"],
+    categoryC: ["Arsan", "H. Hasym", "H. Anwar", "Yakob", "Ust. Usman", "H. Tantong", "Surakati", "H. Faizal", "Markus", "H. Ude", "Hidayatullah", "H. Pangeran", "Syarifuddin"]
   };
 
+  // 2. PROSES DATA (Logic yang sama dengan Ranking untuk menentukan urutan)
+  const processedPlayers = useMemo(() => {
+    const config: Record<string, any> = {
+      'A': { base: 10000, bonus: 300, label: 'Seed A' },
+      'B+': { base: 8500, bonus: 500, label: 'Seed B+' },
+      'B-': { base: 7000, bonus: 300, label: 'Seed B-' },
+      'C': { base: 5500, bonus: 500, label: 'Seed C' },
+    };
+
+    const all = [
+      ...basePlayers.categoryA.map((name, i) => ({ name, group: 'A', rankIndex: i })),
+      ...basePlayers.categoryBPlus.map((name, i) => ({ name, group: 'B+', rankIndex: i })),
+      ...basePlayers.categoryBMinus.map((name, i) => ({ name, group: 'B-', rankIndex: i })),
+      ...basePlayers.categoryC.map((name, i) => ({ name, group: 'C', rankIndex: i }))
+    ].map(p => {
+      const conf = config[p.group];
+      const isWinner = EVENT_LOG[0].winners.includes(p.name);
+      const totalPoints = (conf.base - (p.rankIndex * 50)) + (isWinner ? conf.bonus : 0);
+      
+      return {
+        ...p,
+        totalPoints,
+        isWinner,
+        categoryLabel: conf.label,
+        // Mock image logic - sesuaikan dengan path gambar asli Anda
+        image: p.name === "Agustilaar" ? "whatsapp_image_2026-02-05_at_11.38.00.jpeg" : 
+               p.name === "Hidayatullah" ? "whatsapp_image_2025-12-30_at_15.33.37.jpeg" :
+               `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`
+      };
+    }).sort((a, b) => b.totalPoints - a.totalPoints);
+
+    return all;
+  }, []);
+
   const filteredPlayers = useMemo(() => {
-    return playersData
-      .filter(p => p.ageGroup === currentTab && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      .sort((a, b) => a.rank - b.rank);
-  }, [currentTab, searchTerm]);
+    return processedPlayers.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesTab = currentTab === "All" || p.group === currentTab;
+      return matchesSearch && matchesTab;
+    });
+  }, [searchTerm, currentTab, processedPlayers]);
 
   return (
-    <section id="atlet" ref={sectionRef} className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden">
+    <section id="players" className="py-24 bg-[#020617] text-white min-h-screen relative overflow-hidden">
       
-      {/* --- MODAL DETAIL (PRESISI TOTAL) --- */}
+      {/* Detail Modal */}
       {selectedPlayer && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
-          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center relative overflow-hidden h-[350px] md:h-auto">
-              <img src={selectedPlayer.image} className="w-full h-full object-contain p-6 md:p-12 relative z-10" alt="" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-xl bg-black/40">
+          <div className="relative bg-slate-900 border border-white/10 w-full max-w-4xl rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl">
+            <div className="w-full md:w-1/2 bg-black flex items-center justify-center p-8">
+              <img src={selectedPlayer.image} className="w-full h-80 object-contain" alt={selectedPlayer.name} />
             </div>
-            <div className="p-10 md:p-16 flex-1 bg-zinc-900 relative">
-              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white"><X size={28} /></button>
-              <h2 className="text-5xl md:text-7xl font-black uppercase mb-8 tracking-tighter">{selectedPlayer.name}</h2>
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-white/5 p-6 rounded-[2rem] border border-white/5">
-                    <p className="text-[10px] text-zinc-500 uppercase font-black">Kategori</p>
-                    <p className="text-xl font-bold">{selectedPlayer.category}</p>
+            <div className="p-10 flex-1 relative">
+              <button onClick={() => setSelectedPlayer(null)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X /></button>
+              <div className="inline-block px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full mb-4">
+                <span className="text-blue-400 text-[10px] font-bold uppercase tracking-widest">{selectedPlayer.categoryLabel}</span>
+              </div>
+              <h2 className="text-5xl font-black uppercase mb-6 leading-none">{selectedPlayer.name}</h2>
+              <div className="space-y-4 mb-8">
+                <div className="flex justify-between border-b border-white/5 pb-2">
+                  <span className="text-slate-500 text-sm">Total Points</span>
+                  <span className="font-mono font-bold text-blue-400">{selectedPlayer.totalPoints.toLocaleString()}</span>
                 </div>
-                <div className="bg-white/5 p-6 rounded-[2rem] border border-white/5">
-                    <p className="text-[10px] text-zinc-500 uppercase font-black">Ranking</p>
-                    <p className="text-xl font-bold">#{selectedPlayer.rank}</p>
+                <div className="flex justify-between border-b border-white/5 pb-2">
+                  <span className="text-slate-500 text-sm">Status Poin</span>
+                  <span className="text-sm">{selectedPlayer.isWinner ? "🔥 Bonus Aktif" : "Standard"}</span>
                 </div>
               </div>
-              <p className="text-zinc-400 text-xl italic leading-relaxed">"{selectedPlayer.bio}"</p>
+              {selectedPlayer.isWinner && (
+                <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-3">
+                  <Trophy className="text-amber-500" size={20} />
+                  <p className="text-xs text-amber-200 font-medium">Pemenang Internal Cup IV 2026. Mendapatkan bonus poin klasemen.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* --- KONTEN UTAMA --- */}
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-20">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16">
           <div>
-            <span className="text-blue-600 font-black text-xs tracking-[0.4em] uppercase mb-4 block">Database Pemain</span>
-            <h2 className="text-6xl md:text-9xl font-black leading-[0.85] tracking-tighter uppercase">KENAL LEBIH <br/> <span className="text-blue-600">DEKAT</span></h2>
+            <h2 className="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-[0.9]">
+              ATLET <br/> <span className="text-blue-600">UNGGULAN</span>
+            </h2>
           </div>
           
-          {/* TOMBOL LIHAT SEMUA (PERBAIKAN Z-INDEX) */}
-          <button 
-            onClick={handleViewAll}
-            className="relative z-[100] flex items-center gap-3 text-zinc-500 hover:text-white text-sm font-black transition-all group uppercase tracking-widest border border-white/10 px-8 py-4 rounded-full hover:bg-white/5 cursor-pointer"
-          >
-            Lihat Semua Pemain 
-            <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform text-blue-600" />
-          </button>
-        </div>
-
-        {/* TAB & SEARCH (JUMLAH KATEGORI DITAMPILKAN LAGI) */}
-        <div className="flex flex-col md:flex-row gap-8 mb-16 items-center justify-between">
-          <div className="flex bg-zinc-900/50 p-2 rounded-[2rem] border border-zinc-800">
-            <button 
-              onClick={() => setCurrentTab('Atlet Senior')} 
-              className={`px-10 py-4 rounded-[1.5rem] text-[12px] font-black transition-all flex items-center gap-3 ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'text-zinc-500'}`}
-            >
-              SENIOR <span className="opacity-40">{counts.Senior}</span>
-            </button>
-            <button 
-              onClick={() => setCurrentTab('Atlet Muda')} 
-              className={`px-10 py-4 rounded-[1.5rem] text-[12px] font-black transition-all flex items-center gap-3 ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'text-zinc-500'}`}
-            >
-              MUDA <span className="opacity-40">{counts.Muda}</span>
-            </button>
-          </div>
-
-          <div className="relative w-full md:w-[400px]">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-600" size={20} />
-            <input 
-              type="text" 
-              placeholder="Cari pemain..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-[2rem] py-5 pl-14 pr-8 focus:outline-none focus:border-blue-600 font-bold"
-            />
+          <div className="flex flex-col md:items-end gap-4 w-full md:w-auto">
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <input 
+                type="text" 
+                placeholder="Cari nama..." 
+                className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl py-3 pl-12 pr-4 focus:border-blue-500 outline-none transition-all"
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              {['All', 'A', 'B+', 'B-', 'C'].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setCurrentTab(tab)}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${
+                    currentTab === tab ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-900 text-slate-500 border border-slate-800'
+                  }`}
+                >
+                  {tab === 'All' ? 'SEMUA' : `SEED ${tab}`}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* SLIDER */}
-        <div className="relative group/slider">
+        <div className="relative group">
           <Swiper
-            key={currentTab + searchTerm}
             modules={[Navigation, Pagination, Autoplay]}
-            spaceBetween={30}
+            spaceBetween={24}
             slidesPerView={1.2}
             navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
-            onBeforeInit={(swiper) => {
-              // @ts-ignore
-              swiper.params.navigation.prevEl = prevRef.current;
-              // @ts-ignore
-              swiper.params.navigation.nextEl = nextRef.current;
+            breakpoints={{ 
+              640: { slidesPerView: 2.3 }, 
+              1024: { slidesPerView: 4 } 
             }}
-            breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
           >
-            {filteredPlayers.map((player) => (
-              <SwiperSlide key={player.id}>
+            {filteredPlayers.map((player, index) => (
+              <SwiperSlide key={player.name}>
                 <div 
-                  onClick={() => setSelectedPlayer(player)} 
-                  className="group cursor-pointer relative aspect-[3/4.5] rounded-[3rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600 transition-all duration-500 hover:-translate-y-3"
+                  onClick={() => setSelectedPlayer(player)}
+                  className="bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden cursor-pointer group/card hover:border-blue-500/50 transition-all duration-500 hover:-translate-y-2 shadow-2xl"
                 >
-                  <img src={player.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                  <div className="absolute bottom-10 left-10">
-                    <h3 className="text-3xl font-black uppercase leading-none mb-3 group-hover:text-blue-500 transition-colors">{player.name}</h3>
-                    <div className="text-[10px] font-black uppercase text-white/30 tracking-widest border-t border-white/10 pt-4">RANK #{player.rank} • {player.category}</div>
+                  <div className="relative aspect-[4/5] overflow-hidden bg-black">
+                    <img 
+                      src={player.image} 
+                      className="w-full h-full object-cover opacity-80 group-hover/card:scale-110 group-hover/card:opacity-100 transition-all duration-700" 
+                      alt={player.name} 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-transparent to-transparent" />
+                    
+                    {/* Rank Badge */}
+                    <div className="absolute top-6 left-6 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-mono font-black text-sm border-2 border-[#020617]">
+                      {index + 1}
+                    </div>
+
+                    {player.isWinner && (
+                      <div className="absolute top-6 right-6 bg-amber-500 p-2 rounded-xl shadow-lg">
+                        <Trophy size={16} className="text-black" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-8">
+                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-2">{player.categoryLabel}</p>
+                    <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 group-hover/card:text-blue-400 transition-colors line-clamp-1">
+                      {player.name}
+                    </h3>
+                    <div className="flex items-center justify-between text-slate-500 border-t border-white/5 pt-4">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-bold uppercase tracking-widest">Points</span>
+                        <span className="text-white font-mono font-bold">{player.totalPoints.toLocaleString()}</span>
+                      </div>
+                      <ArrowRight size={20} className="group-hover/card:translate-x-2 transition-transform text-slate-700 group-hover/card:text-blue-500" />
+                    </div>
                   </div>
                 </div>
               </SwiperSlide>
             ))}
           </Swiper>
-          
-          <button ref={prevRef} className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all"><ChevronLeft size={28} /></button>
-          <button ref={nextRef} className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all"><ChevronRight size={28} /></button>
+
+          {/* Navigation Controls */}
+          <button ref={prevRef} className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-xl"><ChevronLeft/></button>
+          <button ref={nextRef} className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-xl"><ChevronRight/></button>
         </div>
       </div>
     </section>
   );
-}
+};
+
+export default Players;

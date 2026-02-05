@@ -1,13 +1,12 @@
 import { Trophy, Medal, ChevronDown, ChevronUp, Users, UserCheck } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
-// Data ditambahkan properti 'ageGroup'
 const playersData = [
   {
     id: 1,
     name: 'Hidayatullah',
     category: 'Ganda Putra (Seed C)',
-    ageGroup: 'Senior',
+    ageGroup: 'Atlet Senior',
     achievements: 15,
     rank: 1,
     image: 'whatsapp_image_2025-12-30_at_15.33.37.jpeg',
@@ -16,7 +15,7 @@ const playersData = [
     id: 2,
     name: 'H. Wawan',
     category: 'Ganda Putra (Seed B+)',
-    ageGroup: 'Senior',
+    ageGroup: 'Atlet Senior',
     achievements: 12,
     rank: 2,
     image: 'https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg?auto=compress&cs=tinysrgb&w=600',
@@ -25,7 +24,7 @@ const playersData = [
     id: 3,
     name: 'Andi Junior',
     category: 'Tunggal Putra',
-    ageGroup: 'Muda',
+    ageGroup: 'Atlet Muda',
     achievements: 5,
     rank: 1,
     image: 'https://images.pexels.com/photos/6253570/pexels-photo-6253570.jpeg?auto=compress&cs=tinysrgb&w=600',
@@ -34,7 +33,7 @@ const playersData = [
     id: 4,
     name: 'Bustam',
     category: 'Ganda Putra (Seed B+)',
-    ageGroup: 'Senior',
+    ageGroup: 'Atlet Senior',
     achievements: 10,
     rank: 4,
     image: 'https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg?auto=compress&cs=tinysrgb&w=600',
@@ -43,7 +42,7 @@ const playersData = [
     id: 5,
     name: 'Rian Masa Depan',
     category: 'Tunggal Putra',
-    ageGroup: 'Muda',
+    ageGroup: 'Atlet Muda',
     achievements: 3,
     rank: 2,
     image: 'https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg?auto=compress&cs=tinysrgb&w=600',
@@ -52,7 +51,7 @@ const playersData = [
     id: 6,
     name: 'Prof. Fikri',
     category: 'Ganda Putra (Seed B-)',
-    ageGroup: 'Senior',
+    ageGroup: 'Atlet Senior',
     achievements: 8,
     rank: 6,
     image: 'https://images.pexels.com/photos/2202685/pexels-photo-2202685.jpeg?auto=compress&cs=tinysrgb&w=600',
@@ -61,9 +60,9 @@ const playersData = [
 
 export default function Players() {
   const [showAll, setShowAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<'Senior' | 'Muda'>('Senior');
+  const [activeTab, setActiveTab] = useState('Atlet Senior');
 
-  // Filter data berdasarkan kategori yang dipilih
+  // Filter data berdasarkan tab yang aktif
   const filteredPlayers = useMemo(() => {
     return playersData.filter(player => player.ageGroup === activeTab);
   }, [activeTab]);
@@ -76,74 +75,81 @@ export default function Players() {
         
         {/* Header */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tight uppercase">Daftar Atlet</h2>
-          <p className="text-xl text-gray-600">Pusat pembinaan bakat bulutangkis PB US 162</p>
-          <div className="w-20 h-1.5 bg-blue-600 mx-auto mt-4 rounded-full"></div>
+          <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight uppercase">Pilar PB US 162</h2>
+          <p className="text-xl text-slate-600 max-w-2xl mx-auto">Kenali lebih dekat para pejuang lapangan kami dari berbagai kategori usia.</p>
+          <div className="w-24 h-1.5 bg-blue-600 mx-auto mt-6 rounded-full shadow-lg shadow-blue-200"></div>
         </div>
 
-        {/* Category Switcher (Tabs) */}
-        <div className="flex justify-center mb-12">
-          <div className="inline-flex bg-slate-100 p-1.5 rounded-2xl shadow-inner border border-slate-200">
+        {/* Tab Switcher - Atlet Senior & Atlet Muda */}
+        <div className="flex justify-center mb-16">
+          <div className="inline-flex bg-slate-100 p-2 rounded-[2rem] shadow-inner border border-slate-200">
             <button
-              onClick={() => { setActiveTab('Senior'); setShowAll(false); }}
-              className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${
-                activeTab === 'Senior' 
-                ? 'bg-white text-blue-600 shadow-md scale-105' 
-                : 'text-slate-500 hover:text-slate-700'
+              onClick={() => { setActiveTab('Atlet Senior'); setShowAll(false); }}
+              className={`flex items-center gap-3 px-10 py-4 rounded-[1.5rem] font-black text-sm tracking-wider transition-all duration-300 ${
+                activeTab === 'Atlet Senior' 
+                ? 'bg-white text-blue-600 shadow-xl scale-105' 
+                : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <UserCheck size={18} /> SENIOR
+              <UserCheck size={20} /> ATLET SENIOR
             </button>
             <button
-              onClick={() => { setActiveTab('Muda'); setShowAll(false); }}
-              className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all duration-300 ${
-                activeTab === 'Muda' 
-                ? 'bg-white text-blue-600 shadow-md scale-105' 
-                : 'text-slate-500 hover:text-slate-700'
+              onClick={() => { setActiveTab('Atlet Muda'); setShowAll(false); }}
+              className={`flex items-center gap-3 px-10 py-4 rounded-[1.5rem] font-black text-sm tracking-wider transition-all duration-300 ${
+                activeTab === 'Atlet Muda' 
+                ? 'bg-white text-blue-600 shadow-xl scale-105' 
+                : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <Users size={18} /> ATLET MUDA
+              <Users size={20} /> ATLET MUDA
             </button>
           </div>
         </div>
 
-        {/* Grid Players */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {/* Grid Media */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           {visiblePlayers.map((player) => (
             <div
               key={player.id}
-              className="group relative bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 animate-in fade-in zoom-in-95"
+              className="group relative bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl hover:shadow-blue-200/50 transition-all duration-500 hover:-translate-y-4 animate-in fade-in slide-in-from-bottom-10"
             >
-              <div className="relative h-[380px]">
+              {/* Foto Profile */}
+              <div className="relative h-[420px]">
                 <img
                   src={player.image}
                   alt={player.name}
-                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
+                  className="w-full h-full object-cover opacity-85 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/10 to-transparent" />
+                
+                {/* Gradient Overlays */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-90" />
+                <div className="absolute inset-0 border-[8px] border-transparent group-hover:border-white/10 transition-all duration-500 rounded-[3rem]" />
 
                 {/* Rank Badge */}
-                <div className="absolute top-6 left-6 bg-blue-600 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black shadow-lg transform -rotate-3 group-hover:rotate-0 transition-transform">
-                  <span className="text-[10px] opacity-70 leading-none">RANK</span>
+                <div className="absolute top-8 left-8 bg-blue-600 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black shadow-lg shadow-blue-500/40 transform -rotate-6 group-hover:rotate-0 transition-transform">
+                  <span className="text-[9px] opacity-80 leading-none tracking-tighter">RANK</span>
                   <span className="text-xl">#{player.rank}</span>
                 </div>
               </div>
 
-              <div className="absolute bottom-0 left-0 right-0 p-8">
-                <p className="text-blue-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-2">
-                  {player.category}
-                </p>
-                <h3 className="text-2xl font-black text-white mb-4 group-hover:text-blue-400 transition-colors">
+              {/* Data Atlet */}
+              <div className="absolute bottom-0 left-0 right-0 p-8 pt-0">
+                <div className="mb-2">
+                  <span className="bg-blue-600/20 text-blue-400 border border-blue-600/30 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
+                    {player.category}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-black text-white mb-5 group-hover:text-blue-400 transition-colors tracking-tight">
                   {player.name}
                 </h3>
 
-                <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                  <div className="flex items-center space-x-2">
-                    <Trophy size={16} className="text-yellow-500" />
-                    <span className="text-white font-bold text-xs">{player.achievements} Prestasi</span>
+                <div className="flex items-center justify-between pt-5 border-t border-white/10">
+                  <div className="flex items-center space-x-3 text-slate-300">
+                    <Trophy size={18} className="text-yellow-500" />
+                    <span className="font-bold text-xs uppercase tracking-tighter">{player.achievements} Medali</span>
                   </div>
-                  <div className="p-2 bg-white/5 rounded-lg group-hover:bg-blue-600 transition-colors">
-                    <Medal size={18} className="text-yellow-400 group-hover:text-white" />
+                  <div className="h-10 w-10 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                    <Medal size={20} className="text-yellow-400 group-hover:text-white" />
                   </div>
                 </div>
               </div>
@@ -151,24 +157,26 @@ export default function Players() {
           ))}
         </div>
 
-        {/* Empty State jika atlet belum ada */}
+        {/* Empty State */}
         {visiblePlayers.length === 0 && (
-          <div className="text-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-            <p className="text-slate-500 font-medium">Belum ada atlet di kategori ini.</p>
+          <div className="text-center py-24 bg-slate-50 rounded-[4rem] border-4 border-dashed border-slate-200">
+            <Users size={64} className="mx-auto text-slate-300 mb-4" />
+            <h3 className="text-slate-400 text-xl font-bold">Data {activeTab} Belum Tersedia</h3>
+            <p className="text-slate-400">Sedang dalam proses pembaruan oleh admin klub.</p>
           </div>
         )}
 
-        {/* Toggle Button */}
+        {/* Muat Lebih Banyak */}
         {filteredPlayers.length > 4 && (
-          <div className="text-center mt-16">
+          <div className="text-center mt-20">
             <button 
               onClick={() => setShowAll(!showAll)}
-              className="group inline-flex items-center gap-3 bg-slate-900 hover:bg-blue-600 text-white px-10 py-4 rounded-full font-bold transition-all shadow-xl active:scale-95"
+              className="inline-flex items-center gap-4 bg-slate-900 hover:bg-blue-600 text-white px-12 py-5 rounded-full font-black text-sm uppercase tracking-[0.2em] transition-all shadow-2xl active:scale-95"
             >
               {showAll ? (
-                <>Sembunyikan <ChevronUp size={20} /></>
+                <>Sembunyikan <ChevronUp size={22} /></>
               ) : (
-                <>Lihat Semua Atlet {activeTab} <ChevronDown size={20} /></>
+                <>Lihat Semua {activeTab} <ChevronDown size={22} /></>
               )}
             </button>
           </div>

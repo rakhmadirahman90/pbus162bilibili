@@ -6,7 +6,7 @@ export default function Footer() {
     e.preventDefault();
     const element = document.getElementById(id);
     if (element) {
-      const offset = 80; // Sesuaikan dengan tinggi header Anda
+      const offset = 80; // Menyesuaikan tinggi navbar agar judul tidak tertutup
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -76,11 +76,15 @@ export default function Footer() {
               </li>
               <li className="flex items-center space-x-3">
                 <Phone size={20} className="text-blue-500 shrink-0" />
-                <span className="text-gray-400 text-sm">+62 812 1902 7234</span>
+                <a href="tel:+6281219027234" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  +62 812 1902 7234
+                </a>
               </li>
               <li className="flex items-center space-x-3">
                 <Mail size={20} className="text-blue-500 shrink-0" />
-                <span className="text-gray-400 text-sm">info@pbus162bilibili.id</span>
+                <a href="mailto:info@pbus162bilibili.id" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  info@pbus162bilibili.id
+                </a>
               </li>
             </ul>
           </div>

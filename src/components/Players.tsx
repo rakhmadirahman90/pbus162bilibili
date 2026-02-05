@@ -50,7 +50,7 @@ const Players: React.FC = () => {
       { name: "Darwis (TNI)", group: "A", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Kedisiplinan tinggi dan stamina yang luar biasa di lapangan." },
       { name: "Salman", group: "A", img: "https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg", bio: "Ahli dalam permainan net yang tipis dan mengecoh lawan." },
       { name: "Lutfi", group: "A", img: "https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg", bio: "Pemain lincah dengan kemampuan backhand yang mematikan." },
-      { name: "Udin", group: "A", img: "gemini_generated_image_7p6c0t7p6c0t7p6c.png", bio: "Andalan tim dalam serangan cepat dan drive horizontal." },
+      { name: "Udin", group: "A", img: "gemini_generated_image_ein7bkein7bkein7.png", bio: "Andalan tim dalam serangan cepat dan drive horizontal." },
       { name: "Aldy Sandra", group: "A", img: "https://images.pexels.com/photos/11224855/pexels-photo-11224855.jpeg", bio: "Kombinasi kekuatan dan teknik yang sangat seimbang." },
       { name: "Mustakim", group: "A", img: "gemini_generated_image_gh30n4gh30n4gh30.png", bio: "Memiliki kontrol permainan yang tenang di poin-poin kritis." },
       { name: "Rifai", group: "A", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Strategist lapangan yang handal membaca pergerakan lawan." },

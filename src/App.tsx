@@ -3,56 +3,55 @@ import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import About from './components/About';
 import News from './components/News';
-import Athletes from './components/Players'; 
-import Ranking from './components/Rankings'; 
+import Athletes from './components/Athletes';
+import Ranking from './components/Ranking';
 import Gallery from './components/Gallery';
-import Footer from './components/Footer';
 
 function App() {
-  const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
   const [activeSection, setActiveSection] = useState('home');
+  // State untuk tab About agar bisa dikontrol dari Navbar
+  const [aboutTab, setAboutTab] = useState('sejarah');
 
-  // Fungsi navigasi untuk menangani klik menu agar tidak blank
+  // PERBAIKAN: Tambahkan parameter tabId? agar Navbar tidak error
   const handleNavigation = (sectionId: string, tabId?: string) => {
     setActiveSection(sectionId);
+    
+    // Jika ada tabId (dari dropdown Navbar), update state tab About
     if (tabId) {
-      setAboutActiveTab(tabId);
+      setAboutTab(tabId);
     }
 
     const element = document.getElementById(sectionId);
     if (element) {
+      const offset = 80;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       window.scrollTo({
-        top: element.offsetTop - 80,
-        behavior: 'smooth',
+        top: elementPosition - offset,
+        behavior: 'smooth'
       });
     }
   };
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar 
-        activeSection={activeSection} 
-        onNavigate={handleNavigation}
-        onTabChange={(id) => {
-          setAboutActiveTab(id);
-          handleNavigation('about'); // Otomatis scroll ke About jika tab diklik
-        }} 
-      />
+      {/* Kirim handleNavigation ke Navbar */}
+      <Navbar onNavigate={handleNavigation} />
       
       <main>
         <section id="home"><Hero /></section>
-        <section id="news"><News /></section>
-        <section id="players"><Athletes /></section>
-        <section id="rankings"><Ranking /></section>
-        <section id="gallery"><Gallery /></section>
+        
         <section id="about">
           <About 
-            activeTab={aboutActiveTab} 
-            onTabChange={(id) => setAboutActiveTab(id)} 
+            activeTab={aboutTab} 
+            onTabChange={(id: string) => setAboutTab(id)} 
           />
         </section>
+
+        <section id="berita"><News /></section>
+        <section id="atlet"><Athletes /></section>
+        <section id="peringkat"><Ranking /></section>
+        <section id="galeri"><Gallery /></section>
       </main>
-      <Footer />
     </div>
   );
 }

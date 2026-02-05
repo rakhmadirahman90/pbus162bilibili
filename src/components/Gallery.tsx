@@ -40,7 +40,7 @@ const galleryData = [
   {
     id: 5,
     type: 'image',
-    image: 'https://images.unsplash.com/photo-1626224484214-4051d4bc2b84?w=800&q=80',
+    image: 'whatsapp_image_2026-02-02_at_08.39.03.jpeg',
     title: 'Penyerahan Piala',
     category: 'Prestasi',
     description: 'Kegembiraan para pemenang Turnamen Internal saat menerima trofi.'

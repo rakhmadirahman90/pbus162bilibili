@@ -1,24 +1,27 @@
-import { useState } from 'react';
-// ... import lainnya
+import React, { useState } from 'react';
+import Navbar from './components/Navbar';
+import About from './components/About';
 
 function App() {
-  const [activeSection, setActiveSection] = useState('home');
-  // Pastikan inisialisasi state ini ada!
-  const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
+  // 1. Inisialisasi state untuk tab About
+  const [aboutTab, setAboutTab] = useState('sejarah');
 
   return (
-    <div className="min-h-screen">
-      <Navbar 
-        activeSection={activeSection} 
-        onTabChange={(id) => setAboutActiveTab(id)} 
-      />
+    <div className="min-h-screen bg-white">
+      {/* 2. Kirim fungsi pengubah ke Navbar agar dropdown berfungsi */}
+      <Navbar onTabChange={(id) => setAboutTab(id)} />
+      
       <main>
-        {/* ... komponen lain */}
+        {/* ... komponen lainnya ... */}
+        
+        {/* 3. Kirim state dan fungsi ke komponen About */}
         <About 
-          activeTab={aboutActiveTab} 
-          onTabChange={(id) => setAboutActiveTab(id)} 
+          activeTab={aboutTab} 
+          onTabChange={(id) => setAboutTab(id)} 
         />
       </main>
     </div>
   );
 }
+
+export default App;

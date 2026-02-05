@@ -6,6 +6,7 @@ import News from './components/News';
 import Athletes from './components/Players'; 
 import Ranking from './components/Rankings'; 
 import Gallery from './components/Gallery';
+import Contact from './components/Contact'; // <-- Impor Komponen Kontak Baru
 import Footer from './components/Footer';
 
 function App() {
@@ -15,26 +16,22 @@ function App() {
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
   
   // Mengontrol filter atlet (Semua, Senior, Muda)
-  // State ini yang akan "memerintah" komponen Players.tsx
   const [playerActiveTab, setPlayerActiveTab] = useState('Semua');
 
   /**
    * Fungsi Navigasi Utama
    * Digunakan untuk menangani klik dari Navbar maupun Footer
-   * @param sectionId ID elemen tujuan (home, news, atlet, rankings, dll)
-   * @param tabId Parameter opsional untuk langsung memicu filter/tab tertentu
    */
   const handleNavigation = (sectionId: string, tabId?: string) => {
     
     // 1. UPDATE STATE SINKRONISASI
-    // Jika navigasi mengarah ke 'about' (Tentang Kami)
+    // Jika navigasi mengarah ke 'about'
     if (sectionId === 'about' && tabId) {
       setAboutActiveTab(tabId);
     }
 
-    // Jika navigasi mengarah ke 'atlet' (Profil Pemain)
+    // Jika navigasi mengarah ke 'atlet'
     if (sectionId === 'atlet') {
-      // Jika ada tabId (Senior/Muda), gunakan itu. Jika klik menu utama, gunakan 'Semua'.
       setPlayerActiveTab(tabId || 'Semua');
     }
 
@@ -52,18 +49,14 @@ function App() {
     }
   };
 
-  // Opsional: Logika untuk memantau scroll dan mengupdate state Navbar jika diperlukan
   useEffect(() => {
-    // Memastikan saat aplikasi dimuat, posisi scroll berada di paling atas
     window.scrollTo(0, 0);
   }, []);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white antialiased">
       
-      {/* NAVBAR: 
-          Menerima prop onNavigate untuk menghubungkan dropdown ke fungsi handleNavigation 
-      */}
+      {/* NAVBAR */}
       <Navbar onNavigate={handleNavigation} />
       
       <main className="relative">
@@ -77,13 +70,10 @@ function App() {
           <News />
         </section>
         
-        {/* --- SECTION ATLET --- 
-            Prop 'externalFilter' akan ditangkap oleh useEffect di Players.tsx
-            Prop 'onFilterChange' memastikan jika user klik filter di dalam section, state di App ikut berubah
-        */}
+        {/* --- SECTION ATLET --- */}
         <section id="atlet" className="scroll-mt-20">
           <Athletes 
-            activeTab={playerActiveTab} // Pastikan di Players.tsx menggunakan nama prop 'activeTab'
+            activeTab={playerActiveTab} 
           />
         </section>
 
@@ -104,11 +94,14 @@ function App() {
             onTabChange={(id) => setAboutActiveTab(id)} 
           />
         </section>
+
+        {/* --- SECTION KONTAK (BARU) --- */}
+        <section id="contact" className="scroll-mt-20">
+          <Contact />
+        </section>
       </main>
       
-      {/* FOOTER:
-          Bisa juga ditambahkan handleNavigation agar link di footer berfungsi sama 
-      */}
+      {/* FOOTER */}
       <Footer onNavigate={handleNavigation} />
     </div>
   );

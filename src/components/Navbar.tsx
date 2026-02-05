@@ -7,10 +7,8 @@ interface NavbarProps {
 
 export default function Navbar({ onNavigate }: NavbarProps) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [currentLang, setCurrentLang] = useState('ID');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Fungsi helper untuk navigasi dan menutup menu
   const handleNavClick = (section: string, tab?: string) => {
     onNavigate(section, tab);
     setActiveDropdown(null);
@@ -20,179 +18,54 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   return (
     <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/10 shadow-2xl">
       <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
-        
-        {/* --- LOGO SECTION --- */}
-        <div 
-          className="flex items-center gap-4 cursor-pointer group" 
-          onClick={() => handleNavClick('home')}
-        >
-          <div className="w-11 h-11 rounded-xl overflow-hidden shadow-lg border border-white/10 group-hover:scale-105 transition-transform duration-300 bg-white flex items-center justify-center">
-            <img 
-              src="/photo_2026-02-03_00-32-07.jpg" 
-              alt="Logo PB" 
-              className="w-full h-full object-cover"
-            />
+        {/* LOGO */}
+        <div className="flex items-center gap-4 cursor-pointer group" onClick={() => handleNavClick('home')}>
+          <div className="w-11 h-11 rounded-xl overflow-hidden bg-white flex items-center justify-center">
+            <img src="/photo_2026-02-03_00-32-07.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-xl md:text-2xl tracking-tight leading-none mb-1">
-              US 162 <span className="text-blue-500">BILIBILI</span>
-            </span>
-            <span className="text-[8px] md:text-[9px] text-slate-400 font-medium tracking-[0.3em] uppercase">
-              Professional Badminton
-            </span>
+            <span className="font-extrabold text-xl tracking-tight">US 162 <span className="text-blue-500">BILIBILI</span></span>
+            <span className="text-[8px] text-slate-400 tracking-[0.3em] uppercase">Professional Badminton</span>
           </div>
         </div>
 
-        {/* --- DESKTOP NAVIGATION --- */}
+        {/* DESKTOP MENU */}
         <div className="hidden md:flex items-center gap-8">
-          <button onClick={() => handleNavClick('home')} className="nav-link">Beranda</button>
-
-          {/* DROPDOWN TENTANG KAMI */}
-          <div 
-            className="relative h-20 flex items-center"
-            onMouseEnter={() => setActiveDropdown('about')}
-            onMouseLeave={() => setActiveDropdown(null)}
-          >
-            <button className={`nav-link flex items-center gap-1.5 ${activeDropdown === 'about' ? 'text-blue-400' : ''}`}>
-              Tentang Kami <ChevronDown size={10} className={`transition-transform ${activeDropdown === 'about' ? 'rotate-180' : ''}`} />
-            </button>
-            {activeDropdown === 'about' && (
-              <div className="dropdown-container">
-                <div className="dropdown-content">
-                  <button onClick={() => handleNavClick('about', 'sejarah')} className="dropdown-item">Sejarah</button>
-                  <button onClick={() => handleNavClick('about', 'visi-misi')} className="dropdown-item">Visi & Misi</button>
-                  <button onClick={() => handleNavClick('about', 'fasilitas')} className="dropdown-item">Fasilitas</button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button onClick={() => handleNavClick('news')} className="nav-link">Berita</button>
-
-          {/* DROPDOWN ATLET (FIXED LINKS) */}
-          <div 
-            className="relative h-20 flex items-center"
-            onMouseEnter={() => setActiveDropdown('atlet')}
-            onMouseLeave={() => setActiveDropdown(null)}
-          >
-            <button className={`nav-link flex items-center gap-1.5 ${activeDropdown === 'atlet' ? 'text-blue-400' : ''}`}>
-              Atlet <ChevronDown size={10} className={`transition-transform ${activeDropdown === 'atlet' ? 'rotate-180' : ''}`} />
+          <button onClick={() => handleNavClick('home')} className="text-[11px] font-bold uppercase tracking-widest hover:text-blue-400 transition-colors">Beranda</button>
+          
+          {/* DROPDOWN ATLET */}
+          <div className="relative h-20 flex items-center" onMouseEnter={() => setActiveDropdown('atlet')} onMouseLeave={() => setActiveDropdown(null)}>
+            <button className="text-[11px] font-bold uppercase tracking-widest flex items-center gap-1">
+              Atlet <ChevronDown size={10} />
             </button>
             {activeDropdown === 'atlet' && (
-              <div className="dropdown-container">
-                <div className="dropdown-content">
-                  {/* String disesuaikan dengan state 'Senior' & 'Muda' di Players.tsx */}
-                  <button onClick={() => handleNavClick('atlet', 'Senior')} className="dropdown-item">Atlet Senior</button>
-                  <button onClick={() => handleNavClick('atlet', 'Muda')} className="dropdown-item">Atlet Muda</button>
+              <div className="absolute top-[80%] left-0 w-48 pt-4 animate-in fade-in slide-in-from-top-2">
+                <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl">
+                  <button onClick={() => handleNavClick('atlet', 'Senior')} className="w-full text-left px-5 py-3 text-[10px] font-bold uppercase hover:bg-blue-600 transition-colors">Atlet Senior</button>
+                  <button onClick={() => handleNavClick('atlet', 'Muda')} className="w-full text-left px-5 py-3 text-[10px] font-bold uppercase hover:bg-blue-600 transition-colors">Atlet Muda</button>
                 </div>
               </div>
             )}
           </div>
 
-          <button onClick={() => handleNavClick('rankings')} className="nav-link">Peringkat</button>
-          <button onClick={() => handleNavClick('gallery')} className="nav-link">Galeri</button>
-
-          <div className="w-px h-6 bg-white/10 mx-2"></div>
-
-          {/* LANGUAGE PICKER */}
-          <div 
-            className="relative h-20 flex items-center"
-            onMouseEnter={() => setActiveDropdown('lang')}
-            onMouseLeave={() => setActiveDropdown(null)}
-          >
-            <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg transition-all border border-white/10">
-              <Globe size={14} className="text-blue-400" />
-              <span className="text-[10px] font-black tracking-widest">{currentLang}</span>
-              <ChevronDown size={10} />
-            </button>
-            {activeDropdown === 'lang' && (
-              <div className="dropdown-container right-0">
-                <div className="dropdown-content">
-                  <button onClick={() => { setCurrentLang('ID'); setActiveDropdown(null); }} className="dropdown-item text-center">Indonesia</button>
-                  <button onClick={() => { setCurrentLang('EN'); setActiveDropdown(null); }} className="dropdown-item text-center">English</button>
-                </div>
-              </div>
-            )}
-          </div>
+          <button onClick={() => handleNavClick('rankings')} className="text-[11px] font-bold uppercase tracking-widest hover:text-blue-400">Peringkat</button>
+          <button onClick={() => handleNavClick('gallery')} className="text-[11px] font-bold uppercase tracking-widest hover:text-blue-400">Galeri</button>
         </div>
 
-        {/* --- MOBILE TOGGLE --- */}
-        <button className="md:hidden p-2 text-slate-300" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+        {/* MOBILE MENU TOGGLE */}
+        <button className="md:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <X /> : <Menu />}
         </button>
       </div>
 
-      {/* --- MOBILE MENU --- */}
+      {/* MOBILE DRAWER */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 animate-in slide-in-from-top duration-300">
-          <div className="flex flex-col p-6 gap-4">
-            <button onClick={() => handleNavClick('home')} className="mobile-nav-link text-left">Beranda</button>
-            <div className="h-px bg-white/5" />
-            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Kategori Atlet</p>
-            <button onClick={() => handleNavClick('atlet', 'Senior')} className="mobile-nav-link text-left text-blue-400">Atlet Senior</button>
-            <button onClick={() => handleNavClick('atlet', 'Muda')} className="mobile-nav-link text-left text-blue-400">Atlet Muda</button>
-            <div className="h-px bg-white/5" />
-            <button onClick={() => handleNavClick('rankings')} className="mobile-nav-link text-left">Peringkat</button>
-            <button onClick={() => handleNavClick('gallery')} className="mobile-nav-link text-left">Galeri</button>
-          </div>
+        <div className="md:hidden bg-slate-900 border-b border-white/10 p-6 flex flex-col gap-4 uppercase font-bold text-xs">
+          <button onClick={() => handleNavClick('atlet', 'Senior')} className="text-blue-400">Atlet Senior</button>
+          <button onClick={() => handleNavClick('atlet', 'Muda')} className="text-blue-400">Atlet Muda</button>
+          <button onClick={() => handleNavClick('rankings')}>Peringkat</button>
         </div>
       )}
-
-      {/* --- INTERNAL CSS --- */}
-      <style>{`
-        .nav-link {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-          color: #cbd5e1;
-          transition: all 0.3s;
-        }
-        .nav-link:hover { color: white; }
-        
-        .dropdown-container {
-          position: absolute;
-          top: 80%;
-          width: 13rem;
-          padding-top: 1rem;
-          animation: fadeIn 0.2s ease-out;
-        }
-        
-        .dropdown-content {
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 0.75rem;
-          overflow: hidden;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-        
-        .dropdown-item {
-          width: 100%;
-          text-align: left;
-          padding: 1rem 1.5rem;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: #e2e8f0;
-          border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-          transition: all 0.2s;
-        }
-        .dropdown-item:last-child { border: none; }
-        .dropdown-item:hover { background: #2563eb; color: white; }
-
-        .mobile-nav-link {
-          font-size: 14px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </nav>
   );
 }

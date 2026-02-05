@@ -74,7 +74,7 @@ export default function Contact() {
           {/* --- GOOGLE MAPS EMBED --- */}
           <div className="w-full h-[450px] lg:h-full min-h-[450px] rounded-3xl overflow-hidden border-4 border-slate-800 shadow-2xl relative group">
             <iframe 
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3966.2974653556535!2d106.8016463!3d-6.2244547!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14d30027f21%3A0x6920313d0a13d78d!2sIstora%20Senayan!5e0!3m2!1sid!2sid!4v1700000000000!5m2!1sid!2sid" 
+              src="https://www.google.com/maps/embed?https://www.google.com/maps/place/Jl.+Andi+Makkasau+No.171,+Ujung+Lare,+Kec.+Soreang,+Kota+Parepare,+Sulawesi+Selatan+91131/@-4.008211,119.6265653,17z/data=!3m1!4b1!4m6!3m5!1s0x2d95bb1f2c5f6249:0xee8a433e727588ca!8m2!3d-4.0082164!4d119.6291402!16s%2Fg%2F11jq768k95?entry=ttu&g_ep=EgoyMDI2MDIwMS4wIKXMDSoKLDEwMDc5MjA3M0gBUAM%3D" 
               width="100%" 
               height="100%" 
               style={{ border: 0, filter: 'grayscale(0.2) invert(0.9) contrast(1.2)' }} 

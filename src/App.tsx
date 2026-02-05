@@ -11,38 +11,39 @@ import Footer from './components/Footer';
 function App() {
   // --- 1. STATE MANAGEMENT ---
   
-  // State untuk mengontrol tab aktif di section About (Sejarah, Visi, Struktur)
+  // Mengontrol tab aktif di section About
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
   
-  // State untuk filter atlet (Semua, Senior, Muda)
-  // State ini dikirim ke Navbar untuk kontrol dan ke Players untuk penyaringan data
+  // Mengontrol filter atlet yang disinkronkan dengan Navbar dan tombol internal
   const [playerActiveTab, setPlayerActiveTab] = useState('Semua');
 
   /**
    * --- 2. LOGIKA NAVIGASI UTAMA ---
-   * Fungsi untuk menangani perpindahan antar section dan sinkronisasi tab
+   * Menangani perpindahan section, update state tab, dan smooth scrolling.
    */
   const handleNavigation = useCallback((sectionId: string, tabId?: string) => {
     
-    // Update tab About jika tujuannya adalah section about
+    // Update state About jika navigasi mengarah ke sana
     if (sectionId === 'about' && tabId) {
       setAboutActiveTab(tabId);
     }
 
-    // Update filter Atlet (Senior/Muda) jika tujuannya adalah section atlet
+    // Update state Atlet jika navigasi mengarah ke kategori tertentu
     if (sectionId === 'atlet') {
-      // Jika tabId tidak ada, default kembali ke 'Semua'
+      // tabId bisa berisi 'Senior', 'Muda', atau undefined (default 'Semua')
       setPlayerActiveTab(tabId || 'Semua');
     }
 
-    // Eksekusi Smooth Scroll dengan sedikit delay
-    // Delay 50ms memberikan waktu bagi React untuk merender ulang filter/tab
-    // agar browser bisa menghitung posisi elemen dengan presisi (setelah tinggi konten berubah)
+    // Eksekusi Smooth Scroll
+    // Delay 50ms memastikan komponen telah render ulang dengan filter baru
+    // sebelum browser menghitung koordinat scroll.
     setTimeout(() => {
       const element = document.getElementById(sectionId);
       if (element) {
-        const navbarHeight = 80; // Sesuaikan dengan tinggi h-20 di Navbar Anda
-        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        const navbarHeight = 80; // Sesuai dengan h-20 di Navbar
+        const bodyRect = document.body.getBoundingClientRect().top;
+        const elementRect = element.getBoundingClientRect().top;
+        const elementPosition = elementRect - bodyRect;
         const offsetPosition = elementPosition - navbarHeight;
 
         window.scrollTo({
@@ -55,23 +56,24 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white">
-      {/* NAVBAR: Mengontrol navigasi ke seluruh aplikasi 
+      {/* NAVBAR: Mengirimkan fungsi navigasi ke logo dan menu link.
+          Memungkinkan klik logo kembali ke 'home' atau klik 'Atlet Muda' langsung memfilter.
       */}
       <Navbar onNavigate={handleNavigation} />
       
       <main>
-        {/* --- SECTION HOME --- */}
+        {/* SECTION HOME / HERO */}
         <section id="home">
           <Hero />
         </section>
 
-        {/* --- SECTION BERITA --- */}
+        {/* SECTION BERITA */}
         <section id="news" className="scroll-mt-20">
           <News />
         </section>
         
-        {/* --- SECTION ATLET --- 
-            Prop externalFilter disinkronkan dengan state playerActiveTab
+        {/* SECTION ATLET (PLAYERS)
+            Menggunakan externalFilter untuk sinkronisasi dengan Navbar
         */}
         <section id="atlet" className="scroll-mt-20">
           <Athletes 
@@ -80,18 +82,18 @@ function App() {
           />
         </section>
 
-        {/* --- SECTION RANKING --- */}
+        {/* SECTION RANKING */}
         <section id="rankings" className="scroll-mt-20">
           <Ranking />
         </section>
 
-        {/* --- SECTION GALERI --- */}
+        {/* SECTION GALERI */}
         <section id="gallery" className="scroll-mt-20">
           <Gallery />
         </section>
         
-        {/* --- SECTION TENTANG (ABOUT) --- 
-            Prop activeTab disinkronkan dengan state aboutActiveTab
+        {/* SECTION TENTANG (ABOUT)
+            Menggunakan activeTab untuk sinkronisasi tab sejarah/visi-misi
         */}
         <section id="about" className="scroll-mt-20">
           <About 
@@ -101,7 +103,7 @@ function App() {
         </section>
       </main>
       
-      {/* --- FOOTER --- */}
+      {/* FOOTER: Menyediakan akses navigasi cepat di bagian bawah halaman */}
       <Footer onNavigate={handleNavigation} />
     </div>
   );

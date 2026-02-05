@@ -94,6 +94,13 @@ export default function Players() {
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  // FUNGSI AKTIF UNTUK TOMBOL "LIHAT SEMUA PEMAIN"
+  const handleViewAll = () => {
+    setSearchTerm(""); 
+    sectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const counts = useMemo(() => ({
     Senior: playersData.filter(p => p.ageGroup === 'Atlet Senior').length,
@@ -107,13 +114,13 @@ export default function Players() {
   }, [currentTab, searchTerm]);
 
   return (
-    <section id="atlet" className="py-20 bg-[#050505] text-white min-h-screen font-sans">
+    <section id="atlet" ref={sectionRef} className="py-20 bg-[#050505] text-white min-h-screen font-sans">
       
       {/* --- MODAL DETAIL --- */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setSelectedPlayer(null)} />
-          <div className="relative bg-[#111] border border-white/10 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row">
+          <div className="relative bg-[#111] border border-white/10 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in zoom-in duration-300">
             <button onClick={() => setSelectedPlayer(null)} className="absolute top-4 right-4 z-20 text-white/50 hover:text-white transition-colors">
               <X size={28} />
             </button>
@@ -155,8 +162,12 @@ export default function Players() {
             </div>
             
             <div className="flex items-center gap-4">
-               <button className="hidden md:flex items-center gap-2 text-zinc-500 hover:text-white text-xs font-bold transition-colors">
-                 Lihat Semua Pemain <ArrowRight size={16} />
+               <button 
+                 onClick={handleViewAll}
+                 className="flex items-center gap-2 text-zinc-500 hover:text-white text-xs font-bold transition-colors group"
+               >
+                 Lihat Semua Pemain 
+                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                </button>
             </div>
           </div>
@@ -192,7 +203,7 @@ export default function Players() {
           </div>
         </div>
 
-        {/* --- SWIPER SLIDER --- */}
+        {/* --- SWIPER CARDS --- */}
         <div className="relative group/slider">
           <Swiper
             key={currentTab + searchTerm}
@@ -232,10 +243,10 @@ export default function Players() {
                   <img 
                     src={player.image} 
                     alt={player.name} 
-                    className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-700" 
+                    className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700" 
                   />
                   
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
                   
                   <div className="absolute bottom-6 left-6 right-6">
                     <p className="text-blue-400 font-bold text-[9px] uppercase mb-1 tracking-widest">

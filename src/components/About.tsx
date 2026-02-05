@@ -4,15 +4,22 @@ import {
   History, Building2, Trophy, Maximize2, X 
 } from 'lucide-react';
 
-// Tambahkan Interface Props untuk sinkronisasi dengan App.js
+// Interface tetap sama
 interface AboutProps {
-  activeTab: string;
-  onTabChange: (id: string) => void;
+  activeTab?: string; // Dibuat opsional agar tidak crash jika undefined
+  onTabChange?: (id: string) => void; // Dibuat opsional
 }
 
-export default function About({ activeTab, onTabChange }: AboutProps) {
-  // State internal hanya untuk Lightbox Gambar
+export default function About({ activeTab = 'sejarah', onTabChange }: AboutProps) {
+  // State internal hanya untuk Lightbox
   const [selectedImg, setSelectedImg] = useState<any>(null);
+
+  // Fallback function jika onTabChange tidak dikirim dari App.js
+  const handleTabClick = (id: string) => {
+    if (onTabChange) {
+      onTabChange(id);
+    }
+  };
 
   const tabs = [
     { id: 'sejarah', label: 'Sejarah', icon: History },
@@ -67,7 +74,7 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-white text-blue-600 shadow-md ring-1 ring-slate-200'
@@ -84,79 +91,40 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
         {/* --- TAB CONTENT AREA --- */}
         <div className="bg-slate-50 rounded-[40px] p-8 md:p-16 border border-slate-100 shadow-sm min-h-[500px] relative">
           
-          {/* TAB: SEJARAH */}
           {activeTab === 'sejarah' && (
             <div className="grid lg:grid-cols-2 gap-16 items-center animate-in fade-in slide-in-from-bottom-6 duration-700">
               <div className="order-2 lg:order-1">
                 <h3 className="text-3xl font-black text-slate-900 mb-6">Akar Perjuangan di Parepare</h3>
                 <div className="space-y-4 text-slate-600 text-lg leading-relaxed">
-                  <p>
-                    Didirikan pada tahun 2020, <span className="font-bold text-slate-900">PB US 162</span> lahir dari visi untuk menciptakan fasilitas olahraga berkualitas internasional bagi pemuda di Kota Parepare.
-                  </p>
-                  <p>
-                    Dimulai dari komunitas lokal di Bilibili, klub ini bertransformasi menjadi sekolah bulutangkis dengan sistem pemeringkatan digital pertama di wilayah ini.
-                  </p>
-                </div>
-                <div className="mt-8 flex items-center gap-4">
-                    <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-                        <div className="text-2xl font-black text-blue-600">2020</div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tahun Berdiri</div>
-                    </div>
-                    <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-                        <div className="text-2xl font-black text-blue-600">6+</div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gelar Juara</div>
-                    </div>
+                  <p>Didirikan pada tahun 2020, <span className="font-bold text-slate-900">PB US 162</span> lahir dari visi untuk menciptakan fasilitas berkualitas internasional.</p>
+                  <p>Berawal dari komunitas Bilibili, kini bertransformasi menjadi sekolah bulutangkis dengan sistem digital pertama di wilayah ini.</p>
                 </div>
               </div>
               <div className="order-1 lg:order-2">
-                <img 
-                  src="https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg?auto=compress&cs=tinysrgb&w=800" 
-                  className="rounded-3xl shadow-2xl grayscale hover:grayscale-0 transition-all duration-700 aspect-square object-cover"
-                  alt="Historis PB US 162"
-                />
+                <img src={galleryImages[0].url} className="rounded-3xl shadow-2xl aspect-square object-cover" alt="History" />
               </div>
             </div>
           )}
 
-          {/* TAB: FASILITAS + GALERI */}
           {activeTab === 'fasilitas' && (
             <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <div className="flex flex-col lg:flex-row gap-12 mb-12">
-                <div className="lg:w-1/3">
-                  <h3 className="text-3xl font-black text-slate-900 mb-6 leading-tight">Gedung Olahraga Standard BWF</h3>
-                  <p className="text-slate-600 mb-8 leading-relaxed">
-                    Setiap sudut fasilitas kami dirancang untuk mendukung performa atlet dari tingkat pemula hingga profesional.
-                  </p>
+              <div className="grid lg:grid-cols-3 gap-8 mb-12">
+                <div className="lg:col-span-1">
+                  <h3 className="text-3xl font-black text-slate-900 mb-6">Gedung Olahraga Standard BWF</h3>
                   <div className="space-y-4">
-                    {["Lantai Karpet 4.5mm Anti-Slip", "Pencahayaan LED 500 Lux", "Ruang Ganti & Shower", "Area Parkir Luas"].map((item, i) => (
+                    {["Lantai Karpet 4.5mm", "LED 500 Lux", "Ruang Ganti & Shower"].map((item, i) => (
                       <div key={i} className="flex items-center gap-3 text-slate-700 font-bold text-sm">
-                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                            <CheckCircle2 className="text-blue-600" size={14} />
-                        </div>
-                        {item}
+                        <CheckCircle2 className="text-blue-600" size={18} /> {item}
                       </div>
                     ))}
                   </div>
                 </div>
-
-                <div className="lg:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {galleryImages.map((img, i) => (
-                    <div 
-                      key={i} 
-                      onClick={() => setSelectedImg(img)}
-                      className="group relative overflow-hidden rounded-2xl h-52 shadow-md cursor-pointer border border-slate-200"
-                    >
-                      <img 
-                        src={img.url} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        alt={img.title}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-5">
-                        <p className="text-white font-bold text-sm mb-1">{img.title}</p>
-                        <div className="flex items-center text-blue-400 gap-1">
-                          <Maximize2 size={12} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Klik untuk Zoom</span>
-                        </div>
+                    <div key={i} onClick={() => setSelectedImg(img)} className="group relative overflow-hidden rounded-2xl h-48 cursor-pointer shadow-lg">
+                      <img src={img.url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={img.title} />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Maximize2 className="text-white" />
                       </div>
                     </div>
                   ))}
@@ -165,74 +133,56 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
             </div>
           )}
 
-          {/* TAB: PRESTASI */}
           {activeTab === 'prestasi' && (
-            <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
                 {[
-                  { year: "2025", title: "Juara Umum Kejurda", rank: "1st Place", desc: "Berhasil menyabet 4 medali emas di kategori tunggal putra/putri." },
-                  { year: "2026", title: "Internal Cup IV", rank: "Grand Finale", desc: "Turnamen bergengsi klub dengan partisipasi 150+ atlet." },
-                  { year: "2024", title: "Invitasi Parepare Open", rank: "Runner Up", desc: "Prestasi gemilang di tingkat undangan antar klub Sulawesi." },
+                  { year: "2025", title: "Juara Umum Kejurda", rank: "1st Place" },
+                  { year: "2026", title: "Internal Cup IV", rank: "Grand Finale" },
+                  { year: "2024", title: "Parepare Open", rank: "Runner Up" },
                 ].map((p, i) => (
-                  <div key={i} className="bg-white p-8 rounded-3xl border border-slate-200 hover:border-blue-600 hover:-translate-y-2 transition-all group">
-                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                        <Trophy size={24} />
-                    </div>
-                    <div className="text-xs font-black text-blue-600 uppercase tracking-[0.2em] mb-2">{p.year}</div>
-                    <h4 className="text-xl font-bold text-slate-900 mb-1">{p.title}</h4>
-                    <p className="text-sm font-bold text-slate-400 mb-4">{p.rank}</p>
-                    <p className="text-slate-500 text-sm leading-relaxed">{p.desc}</p>
+                  <div key={i} className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                    <Trophy className="text-blue-600 mb-4" size={32} />
+                    <div className="text-xs font-black text-blue-600 uppercase tracking-widest">{p.year}</div>
+                    <h4 className="text-xl font-bold text-slate-900">{p.title}</h4>
+                    <p className="text-slate-500 text-sm mt-2">{p.rank}</p>
                   </div>
                 ))}
-              </div>
             </div>
           )}
         </div>
 
-        {/* --- LIGHTBOX MODAL --- */}
-        {selectedImg && (
-          <div 
-            className="fixed inset-0 z-[110] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-6"
-            onClick={() => setSelectedImg(null)}
-          >
-            <div className="relative max-w-5xl w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
-              <button 
-                className="absolute -top-14 right-0 text-white hover:text-blue-400 transition-all flex items-center gap-2 font-black text-xs tracking-widest"
-                onClick={() => setSelectedImg(null)}
-              >
-                CLOSE <X size={24} />
-              </button>
-              <img 
-                src={selectedImg.url} 
-                className="w-full h-auto max-h-[70vh] object-contain rounded-2xl shadow-2xl border border-white/10"
-                alt="Fullscreen"
-              />
-              <div className="mt-8 text-center max-w-2xl">
-                <h4 className="text-white text-3xl font-black mb-3">{selectedImg.title}</h4>
-                <p className="text-slate-400 text-lg">{selectedImg.desc}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- VISION & MISSION GRID --- */}
-        <div className="mt-24 grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {/* --- VISION & MISSION --- */}
+        <div className="mt-24 grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { icon: Target, title: "Visi", desc: "Menciptakan atlet bermental juara, religius, dan menjunjung sportivitas." },
-            { icon: Award, title: "Misi", desc: "Menerapkan latihan disiplin tinggi berbasis sport-science nasional." },
-            { icon: Users, title: "Koneksi", desc: "Menjalin kerjasama strategis dengan klub-klub besar di Jawa & Makassar." },
-            { icon: MapPin, title: "Akses", desc: "Membuka peluang olahraga inklusif bagi talenta muda di Kota Parepare." },
+            { icon: Target, title: "Visi", text: "Atlet bermental juara." },
+            { icon: Award, title: "Misi", text: "Disiplin tinggi." },
+            { icon: Users, title: "Koneksi", text: "Kerjasama strategis." },
+            { icon: MapPin, title: "Akses", text: "Olahraga inklusif." },
           ].map((item, i) => (
-            <div key={i} className="group p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-xl transition-all duration-300">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:shadow-md transition-all mb-6">
-                <item.icon size={24} />
-              </div>
-              <h4 className="font-black text-slate-900 mb-3 uppercase text-xs tracking-[0.2em]">{item.title}</h4>
-              <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
+            <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+              <item.icon className="text-blue-600 mb-4" size={24} />
+              <h4 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-2">{item.title}</h4>
+              <p className="text-slate-500 text-xs leading-relaxed">{item.text}</p>
             </div>
           ))}
         </div>
       </div>
+
+      {/* --- LIGHTBOX --- */}
+      {selectedImg && (
+        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedImg(null)}>
+          <div className="relative max-w-4xl w-full animate-in zoom-in-95 duration-300">
+            <button className="absolute -top-12 right-0 text-white flex items-center gap-2 font-bold" onClick={() => setSelectedImg(null)}>
+              CLOSE <X />
+            </button>
+            <img src={selectedImg.url} className="w-full rounded-xl" alt="Zoom" />
+            <div className="mt-4 text-center">
+              <h3 className="text-white text-2xl font-bold">{selectedImg.title}</h3>
+              <p className="text-slate-400">{selectedImg.desc}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

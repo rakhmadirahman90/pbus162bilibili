@@ -9,39 +9,39 @@ import Gallery from './components/Gallery';
 import Footer from './components/Footer';
 
 function App() {
-  // 1. STATE MANAGEMENT
-  // State untuk tab di section 'About'
+  // --- 1. STATE MANAGEMENT ---
+  
+  // State untuk mengontrol tab aktif di section About (Sejarah, Visi, Struktur)
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
   
   // State untuk filter atlet (Semua, Senior, Muda)
-  // State ini dikirim ke Navbar untuk memicu perubahan dan ke Players untuk memfilter data
+  // State ini dikirim ke Navbar untuk kontrol dan ke Players untuk penyaringan data
   const [playerActiveTab, setPlayerActiveTab] = useState('Semua');
 
   /**
-   * 2. LOGIKA NAVIGASI & SCROLL
-   * Fungsi ini dipanggil dari Navbar saat user mengklik menu
+   * --- 2. LOGIKA NAVIGASI UTAMA ---
+   * Fungsi untuk menangani perpindahan antar section dan sinkronisasi tab
    */
   const handleNavigation = useCallback((sectionId: string, tabId?: string) => {
     
-    // A. Update State Tab About jika tujuannya section about
+    // Update tab About jika tujuannya adalah section about
     if (sectionId === 'about' && tabId) {
       setAboutActiveTab(tabId);
     }
 
-    // B. Update State Filter Atlet (Senior/Muda/Semua)
+    // Update filter Atlet (Senior/Muda) jika tujuannya adalah section atlet
     if (sectionId === 'atlet') {
-      // Jika tabId ada (misal dari dropdown Navbar), set filter tersebut.
-      // Jika tidak ada (klik menu Atlet utama), default ke 'Semua'.
+      // Jika tabId tidak ada, default kembali ke 'Semua'
       setPlayerActiveTab(tabId || 'Semua');
     }
 
-    // C. Eksekusi Smooth Scroll
-    // Menggunakan setTimeout agar React sempat melakukan re-render filter 
-    // sebelum browser menghitung posisi koordinat elemen.
+    // Eksekusi Smooth Scroll dengan sedikit delay
+    // Delay 50ms memberikan waktu bagi React untuk merender ulang filter/tab
+    // agar browser bisa menghitung posisi elemen dengan presisi (setelah tinggi konten berubah)
     setTimeout(() => {
       const element = document.getElementById(sectionId);
       if (element) {
-        const navbarHeight = 80; // Tinggi navbar (h-20 = 80px)
+        const navbarHeight = 80; // Sesuaikan dengan tinggi h-20 di Navbar Anda
         const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
         const offsetPosition = elementPosition - navbarHeight;
 
@@ -55,24 +55,23 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white">
-      {/* NAVBAR: 
-        Menerima fungsi handleNavigation untuk mengontrol seluruh aplikasi 
+      {/* NAVBAR: Mengontrol navigasi ke seluruh aplikasi 
       */}
       <Navbar onNavigate={handleNavigation} />
       
       <main>
-        {/* Setiap section memiliki ID yang unik untuk target scroll */}
-        
+        {/* --- SECTION HOME --- */}
         <section id="home">
           <Hero />
         </section>
 
+        {/* --- SECTION BERITA --- */}
         <section id="news" className="scroll-mt-20">
           <News />
         </section>
         
-        {/* PLAYERS SECTION:
-          Menerima 'externalFilter' dari state App agar sinkron dengan klik di Navbar
+        {/* --- SECTION ATLET --- 
+            Prop externalFilter disinkronkan dengan state playerActiveTab
         */}
         <section id="atlet" className="scroll-mt-20">
           <Athletes 
@@ -81,16 +80,18 @@ function App() {
           />
         </section>
 
+        {/* --- SECTION RANKING --- */}
         <section id="rankings" className="scroll-mt-20">
           <Ranking />
         </section>
 
+        {/* --- SECTION GALERI --- */}
         <section id="gallery" className="scroll-mt-20">
           <Gallery />
         </section>
         
-        {/* ABOUT SECTION:
-          Menerima activeTab agar jika diklik 'Visi Misi' di footer/navbar, tab langsung terbuka
+        {/* --- SECTION TENTANG (ABOUT) --- 
+            Prop activeTab disinkronkan dengan state aboutActiveTab
         */}
         <section id="about" className="scroll-mt-20">
           <About 
@@ -100,8 +101,8 @@ function App() {
         </section>
       </main>
       
-      {/* FOOTER: Bisa juga ditambahkan onNavigate jika ada link di bawah */}
-      <Footer />
+      {/* --- FOOTER --- */}
+      <Footer onNavigate={handleNavigation} />
     </div>
   );
 }

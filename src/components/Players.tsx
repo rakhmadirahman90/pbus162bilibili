@@ -77,7 +77,7 @@ const Players: React.FC = () => {
       { name: "Laganing", group: "B+", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Memiliki semangat juang tinggi di setiap turnamen internal." },
 
       // SEEDED B- (10) - SENIOR
-      { name: "Prof. Fikri", group: "B-", img: "https://images.pexels.com/photos/2202685/pexels-photo-2202685.jpeg", bio: "Akademisi di lapangan yang bermain dengan logika dan strategi matang." },
+      { name: "Prof. Fikri", group: "B-", img: "gemini_generated_image_mzatg7mzatg7mzat.png", bio: "Akademisi di lapangan yang bermain dengan logika dan strategi matang." },
       { name: "Marzuki", group: "B-", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Andalan dalam mengamankan area depan net." },
       { name: "A. Mansur", group: "B-", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Gaya main klasik dengan efisiensi tenaga yang luar biasa." },
       { name: "Darwis R.", group: "B-", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Pemain yang gigih dalam mengejar bola-bola sulit." },

@@ -2,9 +2,12 @@ import React from 'react';
 import { MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-react';
 
 export default function Contact() {
+  // Link ini telah dikonversi ke format Embed agar gambar muncul otomatis di website
+  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3977.567086053303!2d119.62438847424608!3d-4.006509943891461!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5f6249%3A0xe88a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1707153000000!5m2!1sid!2sid";
+
   return (
     <section id="contact" className="py-24 bg-[#050505] text-white relative overflow-hidden scroll-mt-20">
-      {/* Efek Cahaya Latar Belakang */}
+      {/* Background Decor */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -mr-64 -mt-64"></div>
       
       <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -19,7 +22,7 @@ export default function Contact() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           
-          {/* --- PANEL INFORMASI --- */}
+          {/* --- INFO CARD --- */}
           <div className="space-y-8">
             <div className="bg-slate-900/50 p-8 rounded-3xl border border-white/10 backdrop-blur-sm shadow-xl">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
@@ -28,7 +31,6 @@ export default function Contact() {
               </h3>
               
               <div className="space-y-6">
-                {/* Alamat berdasarkan link Map Anda */}
                 <div className="flex gap-4">
                   <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center shrink-0 border border-blue-500/20">
                     <MapPin className="text-blue-400" size={24} />
@@ -36,13 +38,12 @@ export default function Contact() {
                   <div>
                     <h4 className="font-bold text-slate-400 text-sm uppercase tracking-wider mb-1">Alamat Utama</h4>
                     <p className="text-slate-100 leading-relaxed">
-                      Jl. Andi Makkasau No. 171, Ujung Lare, <br />
+                      Jl. Andi Makkasau No.171, Ujung Lare, <br />
                       Kec. Soreang, Kota Parepare, Sulawesi Selatan 91131
                     </p>
                   </div>
                 </div>
 
-                {/* Jam Operasional */}
                 <div className="flex gap-4">
                   <div className="w-12 h-12 bg-emerald-600/20 rounded-2xl flex items-center justify-center shrink-0 border border-emerald-500/20">
                     <Clock className="text-emerald-400" size={24} />
@@ -54,22 +55,21 @@ export default function Contact() {
                   </div>
                 </div>
 
-                {/* Kontak */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                   <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
                     <Phone size={18} className="text-blue-400" />
-                    <span className="text-sm font-semibold text-slate-200">+62 812-3456-789</span>
+                    <span className="text-sm font-semibold">+62 812-3456-789</span>
                   </div>
                   <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
                     <Mail size={18} className="text-blue-400" />
-                    <span className="text-sm font-semibold text-slate-200">info@us162bilibili.com</span>
+                    <span className="text-sm font-semibold">info@us162bilibili.com</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <a 
-              href="https://maps.app.goo.gl/SWJfLB-7lS0Ryoh1cj5Diu4" 
+              href="https://maps.app.goo.gl/uXv7o9H6mQ2PzS8S7" 
               target="_blank" 
               rel="noopener noreferrer"
               className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-lg transition-all flex items-center justify-center gap-2 group"
@@ -79,21 +79,19 @@ export default function Contact() {
             </a>
           </div>
 
-          {/* --- KOTAK GOOGLE MAPS (DENGAN IFRAME ANDA) --- */}
-          <div className="w-full h-[450px] lg:h-full min-h-[450px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative group">
+          {/* --- GOOGLE MAPS EMBED --- */}
+          <div className="w-full h-[450px] lg:h-full min-h-[450px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative">
             <iframe 
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3980.059371153246!2d119.6291402!3d-4.0082164!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5f6249%3A0xee8a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sen!2sid!4v1770307146841!5m2!1sen!2sid" 
+              src={googleMapEmbedUrl}
               width="100%" 
               height="100%" 
               style={{ border: 0 }} 
               allowFullScreen={true} 
               loading="lazy" 
               referrerPolicy="no-referrer-when-downgrade"
-              title="Lokasi PB US 162 BILIBILI"
-              className="grayscale-[20%] opacity-90 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+              title="Lokasi Markas"
+              className="opacity-90 hover:opacity-100 transition-opacity duration-500"
             ></iframe>
-            {/* Overlay Halus */}
-            <div className="absolute inset-0 pointer-events-none ring-1 ring-inset ring-white/10 rounded-3xl"></div>
           </div>
 
         </div>

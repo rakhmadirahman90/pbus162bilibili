@@ -11,13 +11,22 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/5 shadow-2xl">
       <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
         
-        {/* LOGO: Desain Simpel & Kuat */}
+        {/* LOGO: Menggunakan Image dari folder public */}
         <div 
           className="flex items-center gap-4 cursor-pointer group" 
           onClick={() => onNavigate('home')}
         >
-          <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl italic shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform duration-300">
-            PB
+          <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform duration-300 bg-white flex items-center justify-center">
+            <img 
+              src="/photo_2026-02-03_00-32-07.jpg" 
+              alt="Logo PB US 162" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback jika gambar gagal dimuat
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML = '<div class="font-bold text-blue-600">PB</div>';
+              }}
+            />
           </div>
           <div className="flex flex-col">
             <span className="font-extrabold text-2xl tracking-tight leading-none mb-1">
@@ -29,7 +38,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
           </div>
         </div>
 
-        {/* MENU NAVIGASI: Tipografi Elegan */}
+        {/* MENU NAVIGASI */}
         <div className="hidden md:flex items-center gap-10">
           <button 
             onClick={() => onNavigate('home')} 
@@ -38,11 +47,10 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             Beranda
           </button>
 
-          {/* Dropdown Tentang Kami */}
+          {/* 2. Tentang Kami (Dropdown) */}
           <div className="relative group">
             <button 
               onMouseEnter={() => setIsDropdownOpen(true)}
-              onClick={() => onNavigate('about')}
               className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
             >
               Tentang Kami <span className="text-[7px] opacity-50 group-hover:rotate-180 transition-transform duration-300">▼</span>
@@ -50,18 +58,27 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             
             {isDropdownOpen && (
               <div 
-                className="absolute top-full left-0 w-52 bg-slate-900/98 border border-white/10 rounded-xl shadow-2xl py-3 mt-2 backdrop-blur-xl animate-in fade-in slide-in-from-top-2"
+                className="absolute top-full left-0 w-52 bg-slate-900/98 border border-white/10 rounded-xl shadow-2xl py-3 mt-2 backdrop-blur-xl"
                 onMouseLeave={() => setIsDropdownOpen(false)}
               >
-                {['sejarah', 'visi-misi', 'fasilitas'].map((tab) => (
-                  <button 
-                    key={tab}
-                    onClick={() => { onNavigate('about', tab); setIsDropdownOpen(false); }}
-                    className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
-                  >
-                    {tab.replace('-', ' ')}
-                  </button>
-                ))}
+                <button 
+                  onClick={() => { onNavigate('about', 'sejarah'); setIsDropdownOpen(false); }}
+                  className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
+                >
+                  SEJARAH
+                </button>
+                <button 
+                  onClick={() => { onNavigate('about', 'visi-misi'); setIsDropdownOpen(false); }}
+                  className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
+                >
+                  VISI & MISI
+                </button>
+                <button 
+                  onClick={() => { onNavigate('about', 'fasilitas'); setIsDropdownOpen(false); }}
+                  className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
+                >
+                  FASILITAS
+                </button>
               </div>
             )}
           </div>

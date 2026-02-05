@@ -9,7 +9,7 @@ import 'swiper/css/pagination';
 import { 
   X, Target, Star, ShieldCheck, 
   ChevronLeft, ChevronRight, UserCheck, Users, 
-  Search, Award, TrendingUp
+  Search, Award
 } from 'lucide-react';
 
 interface Player {
@@ -80,7 +80,7 @@ const playersData: Player[] = [
   { id: 47, name: 'H. Faizal', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 5, bio: 'Pemain cerdas yang pandai memanfaatkan kesalahan lawan.', image: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=600' },
   { id: 48, name: 'Markus', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 6, bio: 'Semangat muda dengan pukulan drive yang sangat bertenaga.', image: 'https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg?auto=compress&cs=tinysrgb&w=600' },
   { id: 49, name: 'H. Ude', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 7, bio: 'Ketenangan luar biasa dalam menghadapi serangan bertubi-tubi.', image: 'https://images.pexels.com/photos/1212984/pexels-photo-1212984.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 50, name: 'Hidayatullah', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 8, isChampion: true, image: 'whatsapp_image_2025-12-30_at_15.33.37.jpeg', bio: 'Bintang muda yang baru saja menunjukkan performa gemilang di turnamen terakhir, berhasil naik ke peringkat 8 besar.' },
+  { id: 50, name: 'Hidayatullah', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 8, isChampion: true, image: 'whatsapp_image_2025-12-30_at_15.33.37.jpeg', bio: 'Bintang muda yang baru saja menunjukkan performa gemilang di turnamen terakhir.' },
   { id: 51, name: 'H. Pangeran', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 9, bio: 'Gaya bermain yang rapi dan minim kesalahan sendiri.', image: 'https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=600' },
   { id: 52, name: 'H. Anwar', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 10, bio: 'Andal dalam bola-bola lob panjang yang merepotkan posisi lawan.', image: 'https://images.pexels.com/photos/2202685/pexels-photo-2202685.jpeg?auto=compress&cs=tinysrgb&w=600' },
   { id: 53, name: 'Syarifuddin', category: 'Seeded C', ageGroup: 'Atlet Muda', rank: 11, bio: 'Ulet dalam bertahan dan cepat dalam melakukan serangan transisi.', image: 'https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg?auto=compress&cs=tinysrgb&w=600' },
@@ -95,7 +95,6 @@ export default function Players() {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  // Menghitung jumlah orang per kategori secara dinamis
   const counts = useMemo(() => {
     return {
       Senior: playersData.filter(p => p.ageGroup === 'Atlet Senior').length,
@@ -158,13 +157,10 @@ export default function Players() {
         <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16 border-b border-white/5 pb-12">
           
           <div className="space-y-4 max-w-2xl">
-            <p className="text-blue-500 font-bold text-sm uppercase tracking-[0.5em]">DATABASE</p>
+            <p className="text-blue-500 font-bold text-sm uppercase tracking-[0.5em]">PROFIL PEMAIN</p>
             <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none">
-              DAFTAR<br/><span className="text-blue-600">PEMAIN</span>
+              KENAL LEBIH<br/><span className="text-blue-600">DEKAT</span>
             </h2>
-            <p className="text-zinc-500 font-medium text-sm md:text-lg leading-relaxed mt-6 max-w-lg">
-              Profil eksklusif dan peringkat resmi atlet PB US 162. Temukan data performa terbaru dari setiap kategori pemain.
-            </p>
           </div>
 
           <div className="flex flex-col items-end gap-6 w-full md:w-auto">

@@ -63,7 +63,7 @@ const Players: React.FC = () => {
       { name: "Zainuddin", group: "B+", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Agresif dalam melakukan serangan-serangan cepat depan net." },
       { name: "Lumpue", group: "B+", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Pemain enerjik yang mengandalkan kecepatan kaki (footwork)." },
       { name: "Madhy", group: "B+", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Spesialis bola-bola atas dengan jangkauan yang luas." },
-      { name: "Vhio", group: "B+", img: "whatsapp_image_2026-02-05_at_10.34.12.jpeg", bio: "Pemain muda berbakat dengan potensi besar di kategori Senior." },
+      { name: "Vhio", group: "B+", img: "gemini_generated_image_3ntq3x3ntq3x3ntq.png", bio: "Pemain muda berbakat dengan potensi besar di kategori Senior." },
       { name: "Anto", group: "B+", img: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg", bio: "Handal dalam melakukan drive cepat satu lawan satu." },
       { name: "Lukman", group: "B+", img: "https://images.pexels.com/photos/775358/pexels-photo-775358.jpeg", bio: "Visi bermain ganda yang sangat baik dan suportif bagi partner." },
       { name: "Sandra", group: "B+", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Memiliki kontrol emosi yang stabil di lapangan pertandingan." },

@@ -10,57 +10,43 @@ import Footer from './components/Footer';
 
 function App() {
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
-  // Tambahkan state untuk mengontrol tab di komponen Players
-  const [playerActiveTab, setPlayerActiveTab] = useState('Atlet Senior');
-  const [activeSection, setActiveSection] = useState('home');
+  const [playerActiveTab, setPlayerActiveTab] = useState('Semua');
 
   const handleNavigation = (sectionId: string, tabId?: string) => {
-    setActiveSection(sectionId);
+    // 1. Update tab jika ada parameter tabId
+    if (sectionId === 'about' && tabId) setAboutActiveTab(tabId);
+    if (sectionId === 'atlet' && tabId) setPlayerActiveTab(tabId);
 
-    // Logika jika yang diklik adalah bagian 'about'
-    if (sectionId === 'about' && tabId) {
-      setAboutActiveTab(tabId);
-    }
-
-    // Logika jika yang diklik adalah bagian 'atlet' (sesuaikan ID dengan Navbar)
-    if (sectionId === 'atlet' && tabId) {
-      setPlayerActiveTab(tabId);
-    }
-
-    // Scroll ke section tujuan
+    // 2. Scroll ke section
     const element = document.getElementById(sectionId);
     if (element) {
+      const offset = 80; // Tinggi Navbar
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       window.scrollTo({
-        top: element.offsetTop - 80,
+        top: elementPosition - offset,
         behavior: 'smooth',
       });
     }
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white">
       <Navbar onNavigate={handleNavigation} />
-      
       <main>
-        <section id="home"><Hero /></section>
+        <section id="home"><Hero onNavigate={handleNavigation}/></section>
         <section id="news"><News /></section>
         
-        {/* Update ID menjadi 'atlet' agar sinkron dengan Navbar, 
-            lalu kirim props tab-nya */}
-        <section id="atlet">
-          <Athletes 
-            activeTab={playerActiveTab} 
-            onTabChange={(id) => setPlayerActiveTab(id)} 
-          />
-        </section>
+        {/* PROPS DIKIRIM KE PEMAIN */}
+        <Athletes 
+          externalFilter={playerActiveTab} 
+          onFilterChange={setPlayerActiveTab} 
+        />
 
         <section id="rankings"><Ranking /></section>
         <section id="gallery"><Gallery /></section>
+        
         <section id="about">
-          <About 
-            activeTab={aboutActiveTab} 
-            onTabChange={(id) => setAboutActiveTab(id)} 
-          />
+          <About activeTab={aboutActiveTab} onTabChange={setAboutActiveTab} />
         </section>
       </main>
       <Footer />

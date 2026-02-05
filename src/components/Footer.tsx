@@ -46,9 +46,9 @@ export default function Footer() {
               {[
                 { name: 'Beranda', id: 'home' },
                 { name: 'Berita', id: 'news' },
-                { name: 'Atlet', id: 'atlet' },      // Sudah Aktif
-                { name: 'Peringkat', id: 'ranking' }, // Sudah Aktif
-                { name: 'Galeri', id: 'gallery' },   // Sudah Aktif
+                { name: 'Atlet', id: 'atlet' },      
+                { name: 'Peringkat', id: 'ranking' }, 
+                { name: 'Galeri', id: 'gallery' },   
                 { name: 'Tentang', id: 'about' }
               ].map((item) => (
                 <li key={item.id}>
@@ -64,9 +64,50 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Bagian Kontak & Social Media tetap sama seperti sebelumnya... */}
-          {/* ... */}
+          {/* Kontak */}
+          <div>
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Kontak</h4>
+            <ul className="space-y-4">
+              <li className="flex items-start space-x-3">
+                <MapPin size={20} className="text-blue-500 mt-1 shrink-0" />
+                <span className="text-gray-400 text-sm">
+                  Jl. Andi Makkasau No. 171, Parepare, Indonesia
+                </span>
+              </li>
+              <li className="flex items-center space-x-3">
+                <Phone size={20} className="text-blue-500 shrink-0" />
+                <span className="text-gray-400 text-sm">+62 812 1902 7234</span>
+              </li>
+              <li className="flex items-center space-x-3">
+                <Mail size={20} className="text-blue-500 shrink-0" />
+                <span className="text-gray-400 text-sm">info@pbus162bilibili.id</span>
+              </li>
+            </ul>
+          </div>
 
+          {/* Social Media */}
+          <div>
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Ikuti Kami</h4>
+            <div className="flex space-x-4">
+              {[Facebook, Instagram, Twitter, Youtube].map((Icon, index) => (
+                <a
+                  key={index}
+                  href="#"
+                  className="bg-slate-800 hover:bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg"
+                >
+                  <Icon size={18} />
+                </a>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Bottom Footer */}
+        <div className="border-t border-slate-800 pt-8 text-center">
+          <p className="text-gray-500 text-xs">
+            &copy; {new Date().getFullYear()} PB US 162 Bilibili. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

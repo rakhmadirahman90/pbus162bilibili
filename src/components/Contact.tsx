@@ -27,7 +27,7 @@ export default function Contact() {
             <div className="bg-slate-900/50 p-8 rounded-3xl border border-white/10 backdrop-blur-sm shadow-xl">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
                 <span className="w-2 h-8 bg-blue-500 rounded-full"></span>
-                Informasi Markas
+                Informasi Markas Besar
               </h3>
               
               <div className="space-y-6">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Globe, ChevronDown, Menu, X } from 'lucide-react';
+import { Globe, ChevronDown, Menu, X, MapPin } from 'lucide-react';
 
 interface NavbarProps {
   onNavigate: (sectionId: string, tabId?: string) => void;
@@ -11,17 +11,13 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleNavClick = (section: string, tab?: string) => {
-    // 1. Jalankan fungsi navigasi (scroll ke section)
     onNavigate(section, tab);
 
-    // 2. Kirim sinyal global untuk filter di Players.tsx
-    // Jika section adalah 'atlet', kita kirim tab-nya (Semua/Senior/Muda)
     if (section === 'atlet' && tab) {
       const event = new CustomEvent('filterAtlet', { detail: tab });
       window.dispatchEvent(event);
     }
 
-    // 3. UI Cleanup
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
   };
@@ -56,7 +52,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         <div className="hidden md:flex items-center gap-8">
           <button onClick={() => handleNavClick('home')} className="nav-link">Beranda</button>
 
-          {/* DROPDOWN TENTANG KAMI */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('about')}
@@ -78,7 +73,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           <button onClick={() => handleNavClick('news')} className="nav-link">Berita</button>
 
-          {/* DROPDOWN ATLET - DENGAN MENU "SEMUA" */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('atlet')}
@@ -90,7 +84,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             {activeDropdown === 'atlet' && (
               <div className="dropdown-container">
                 <div className="dropdown-content">
-                  {/* Tambahan Menu Semua */}
                   <button onClick={() => handleNavClick('atlet', 'Semua')} className="dropdown-item">Semua Atlet</button>
                   <button onClick={() => handleNavClick('atlet', 'Senior')} className="dropdown-item">Atlet Senior</button>
                   <button onClick={() => handleNavClick('atlet', 'Muda')} className="dropdown-item">Atlet Muda</button>
@@ -101,6 +94,15 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           <button onClick={() => handleNavClick('rankings')} className="nav-link">Peringkat</button>
           <button onClick={() => handleNavClick('gallery')} className="nav-link">Galeri</button>
+          
+          {/* MENU BARU: KONTAK */}
+          <button 
+            onClick={() => handleNavClick('contact')} 
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2"
+          >
+            <MapPin size={12} />
+            Kontak
+          </button>
 
           <div className="w-px h-6 bg-white/10 mx-2"></div>
 
@@ -147,7 +149,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             <div className="h-px bg-white/5" />
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Kategori Atlet</p>
             <div className="flex flex-col gap-3 pl-4">
-              {/* Tambahan Menu Semua di Mobile */}
               <button onClick={() => handleNavClick('atlet', 'Semua')} className="mobile-sub-link">Semua Atlet</button>
               <button onClick={() => handleNavClick('atlet', 'Senior')} className="mobile-sub-link">Atlet Senior</button>
               <button onClick={() => handleNavClick('atlet', 'Muda')} className="mobile-sub-link">Atlet Muda</button>
@@ -156,6 +157,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             <button onClick={() => handleNavClick('rankings')} className="mobile-nav-link text-left">Peringkat</button>
             <button onClick={() => handleNavClick('gallery')} className="mobile-nav-link text-left">Galeri</button>
             <button onClick={() => handleNavClick('news')} className="mobile-nav-link text-left">Berita</button>
+            <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-blue-400 text-left">Kontak Kami</button>
           </div>
         </div>
       )}

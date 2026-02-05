@@ -38,8 +38,9 @@ const playersData: Player[] = [
   // --- SEEDED B+ (Senior) ---
   { id: 11, name: 'Dr. Khaliq', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 11, bio: 'Memadukan kecerdasan strategi dengan teknik dasar yang sangat kuat.', image: 'https://images.pexels.com/photos/3777943/pexels-photo-3777943.jpeg?auto=compress&cs=tinysrgb&w=600' },
   { id: 12, name: 'H. Ismail', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 12, bio: 'Senior dengan jam terbang tinggi yang sangat dihormati di lapangan.', image: 'https://images.pexels.com/photos/3785079/pexels-photo-3785079.jpeg?auto=compress&cs=tinysrgb&w=600' },
-  { id: 21, name: 'Vhio', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 21, bio: 'Anak muda potensial yang sudah menembus level Seeded Senior.', image: 'whatsapp_image_2026-02-05_at_10.34.12.jpeg' },
   { id: 13, name: 'Momota', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 13, bio: 'Gaya bermain lincah dan atraktif, selalu memberikan tontonan menarik.', image: 'https://images.pexels.com/photos/4307869/pexels-photo-4307869.jpeg?auto=compress&cs=tinysrgb&w=600' },
+  { id: 14, name: 'Saleh', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 14, bio: 'Pemain yang gigih dan tidak mudah menyerah sebelum bola menyentuh lantai.', image: 'https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg?auto=compress&cs=tinysrgb&w=600' },
+  { id: 21, name: 'Vhio', category: 'Seeded B(+)', ageGroup: 'Atlet Senior', rank: 21, bio: 'Anak muda potensial yang sudah menembus level Seeded Senior.', image: 'whatsapp_image_2026-02-05_at_10.34.12.jpeg' },
 
   // --- SEEDED B- (Senior) ---
   { id: 33, name: 'A. Mansur', category: 'Seeded B(-)', ageGroup: 'Atlet Senior', rank: 33, bio: 'Pemain senior yang ulet dan penuh pengalaman.', image: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600' },
@@ -60,6 +61,13 @@ export default function Players() {
   const nextRef = useRef<HTMLButtonElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
 
+  // LOGIKA HITUNG JUMLAH PER KATEGORI
+  const counts = useMemo(() => ({
+    Senior: playersData.filter(p => p.ageGroup === 'Atlet Senior').length,
+    Muda: playersData.filter(p => p.ageGroup === 'Atlet Muda').length
+  }), []);
+
+  // FUNGSI RESET LIHAT SEMUA PEMAIN
   const handleViewAll = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -79,117 +87,81 @@ export default function Players() {
       
       {/* --- MODAL DETAIL (PRESISI TOTAL) --- */}
       {selectedPlayer && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-8">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
-          
-          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.9)] flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
-            
-            {/* Area Foto - SEKARANG PRESISI MENGIKUTI LEKUKAN KOTAK */}
-            <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center relative overflow-hidden h-[400px] md:h-auto">
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/30 to-transparent opacity-50" />
-              <img 
-                src={selectedPlayer.image} 
-                className="w-full h-full object-contain relative z-10 p-6 md:p-14" 
-                alt={selectedPlayer.name} 
-              />
-              {selectedPlayer.isChampion && (
-                <div className="absolute bottom-8 left-8 z-20 bg-yellow-500 text-black px-5 py-2.5 rounded-2xl font-black text-[10px] flex items-center gap-2 shadow-2xl">
-                  <Award size={18} /> NEW CHAMPION
-                </div>
-              )}
+          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center relative overflow-hidden h-[350px] md:h-auto">
+              <img src={selectedPlayer.image} className="w-full h-full object-contain p-6 md:p-12 relative z-10" alt="" />
             </div>
-
-            {/* Area Info Profil */}
-            <div className="p-10 md:p-16 flex flex-col justify-center flex-1 bg-gradient-to-br from-zinc-900 via-zinc-900 to-black relative">
-              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-all bg-white/5 p-2 rounded-full border border-white/5">
-                <X size={24} />
-              </button>
-
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-[2px] w-10 bg-blue-600"></div>
-                <p className="text-blue-500 font-black text-[11px] uppercase tracking-[0.4em]">Official Passport</p>
-              </div>
-
-              <h2 className="text-5xl md:text-7xl font-black uppercase mb-10 leading-none tracking-tighter">
-                {selectedPlayer.name}
-              </h2>
-
-              <div className="grid grid-cols-2 gap-5 mb-12">
-                <div className="bg-white/5 border border-white/5 p-8 rounded-[2.5rem]">
-                  <Target className="text-blue-500 mb-4" size={26} />
-                  <p className="text-zinc-500 text-[11px] uppercase font-black mb-1">Kategori</p>
-                  <p className="font-bold text-xl text-zinc-100">{selectedPlayer.category}</p>
+            <div className="p-10 md:p-16 flex-1 bg-zinc-900 relative">
+              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white"><X size={28} /></button>
+              <h2 className="text-5xl md:text-7xl font-black uppercase mb-8 tracking-tighter">{selectedPlayer.name}</h2>
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-white/5 p-6 rounded-[2rem] border border-white/5">
+                    <p className="text-[10px] text-zinc-500 uppercase font-black">Kategori</p>
+                    <p className="text-xl font-bold">{selectedPlayer.category}</p>
                 </div>
-                <div className="bg-white/5 border border-white/5 p-8 rounded-[2.5rem]">
-                  <Star className="text-yellow-500 mb-4" size={26} />
-                  <p className="text-zinc-500 text-[11px] uppercase font-black mb-1">Ranking</p>
-                  <p className="font-bold text-xl text-zinc-100">#{selectedPlayer.rank}</p>
+                <div className="bg-white/5 p-6 rounded-[2rem] border border-white/5">
+                    <p className="text-[10px] text-zinc-500 uppercase font-black">Ranking</p>
+                    <p className="text-xl font-bold">#{selectedPlayer.rank}</p>
                 </div>
               </div>
-
-              <div className="relative pl-8">
-                <div className="absolute left-0 top-0 bottom-0 w-[5px] bg-blue-600 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.7)]"></div>
-                <p className="text-zinc-300 text-xl md:text-2xl leading-relaxed italic">
-                  "{selectedPlayer.bio}"
-                </p>
-              </div>
+              <p className="text-zinc-400 text-xl italic leading-relaxed">"{selectedPlayer.bio}"</p>
             </div>
           </div>
         </div>
       )}
 
+      {/* --- KONTEN UTAMA --- */}
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         
-        {/* --- HEADER --- */}
+        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-20">
-          <div className="space-y-4">
-            <span className="bg-blue-600/10 text-blue-500 border border-blue-600/20 text-[10px] font-black px-5 py-2 rounded-lg tracking-[0.4em] inline-block uppercase">DATABASE ATLET</span>
-            <h2 className="text-6xl md:text-9xl font-black tracking-tighter leading-[0.85] uppercase">
-              KENAL LEBIH <br/> <span className="text-blue-600">DEKAT</span>
-            </h2>
+          <div>
+            <span className="text-blue-600 font-black text-xs tracking-[0.4em] uppercase mb-4 block">Database Pemain</span>
+            <h2 className="text-6xl md:text-9xl font-black leading-[0.85] tracking-tighter uppercase">KENAL LEBIH <br/> <span className="text-blue-600">DEKAT</span></h2>
           </div>
           
-          {/* TOMBOL LIHAT SEMUA - DIPERBAIKI PRIORITAS KLIKNYA */}
+          {/* TOMBOL LIHAT SEMUA (PERBAIKAN Z-INDEX) */}
           <button 
-            type="button"
             onClick={handleViewAll}
-            className="relative z-[70] flex items-center gap-3 text-zinc-500 hover:text-white text-sm font-black transition-all group uppercase tracking-widest border border-white/10 px-10 py-5 rounded-full hover:bg-white/5 cursor-pointer pointer-events-auto active:scale-95"
+            className="relative z-[100] flex items-center gap-3 text-zinc-500 hover:text-white text-sm font-black transition-all group uppercase tracking-widest border border-white/10 px-8 py-4 rounded-full hover:bg-white/5 cursor-pointer"
           >
             Lihat Semua Pemain 
-            <ArrowRight size={22} className="group-hover:translate-x-2 transition-transform text-blue-600" />
+            <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform text-blue-600" />
           </button>
         </div>
 
-        {/* --- FILTER & SEARCH --- */}
+        {/* TAB & SEARCH (JUMLAH KATEGORI DITAMPILKAN LAGI) */}
         <div className="flex flex-col md:flex-row gap-8 mb-16 items-center justify-between">
-          <div className="flex bg-zinc-900/50 p-2 rounded-[2rem] border border-zinc-800 backdrop-blur-xl">
+          <div className="flex bg-zinc-900/50 p-2 rounded-[2rem] border border-zinc-800">
             <button 
               onClick={() => setCurrentTab('Atlet Senior')} 
-              className={`px-12 py-5 rounded-[1.5rem] text-[12px] font-black tracking-wider transition-all ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/40' : 'text-zinc-500 hover:text-white'}`}
+              className={`px-10 py-4 rounded-[1.5rem] text-[12px] font-black transition-all flex items-center gap-3 ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'text-zinc-500'}`}
             >
-              SENIOR
+              SENIOR <span className="opacity-40">{counts.Senior}</span>
             </button>
             <button 
               onClick={() => setCurrentTab('Atlet Muda')} 
-              className={`px-12 py-5 rounded-[1.5rem] text-[12px] font-black tracking-wider transition-all ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/40' : 'text-zinc-500 hover:text-white'}`}
+              className={`px-10 py-4 rounded-[1.5rem] text-[12px] font-black transition-all flex items-center gap-3 ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'text-zinc-500'}`}
             >
-              MUDA
+              MUDA <span className="opacity-40">{counts.Muda}</span>
             </button>
           </div>
 
-          <div className="relative w-full md:w-[450px] group">
-            <Search className="absolute left-7 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={24} />
+          <div className="relative w-full md:w-[400px]">
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-600" size={20} />
             <input 
               type="text" 
               placeholder="Cari pemain..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-[2.5rem] py-6 pl-16 pr-8 focus:outline-none focus:border-blue-600 text-base font-bold transition-all placeholder:text-zinc-700 shadow-inner"
+              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-[2rem] py-5 pl-14 pr-8 focus:outline-none focus:border-blue-600 font-bold"
             />
           </div>
         </div>
 
-        {/* --- SLIDER CARDS --- */}
+        {/* SLIDER */}
         <div className="relative group/slider">
           <Swiper
             key={currentTab + searchTerm}
@@ -203,38 +175,27 @@ export default function Players() {
               // @ts-ignore
               swiper.params.navigation.nextEl = nextRef.current;
             }}
-            breakpoints={{ 
-              640: { slidesPerView: 2.2 }, 
-              1024: { slidesPerView: 4 } 
-            }}
-            className="!pb-24"
+            breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
           >
             {filteredPlayers.map((player) => (
               <SwiperSlide key={player.id}>
                 <div 
                   onClick={() => setSelectedPlayer(player)} 
-                  className="group cursor-pointer relative aspect-[3/4.5] rounded-[3rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
+                  className="group cursor-pointer relative aspect-[3/4.5] rounded-[3rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600 transition-all duration-500 hover:-translate-y-3"
                 >
-                  <img src={player.image} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-90 group-hover:opacity-100 transition-opacity" />
-                  
-                  <div className="absolute bottom-10 left-10 right-10">
-                    <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4">{player.name}</h3>
-                    <div className="flex items-center gap-3 text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
-                      RANK #{player.rank} • {player.category}
-                    </div>
+                  <img src={player.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                  <div className="absolute bottom-10 left-10">
+                    <h3 className="text-3xl font-black uppercase leading-none mb-3 group-hover:text-blue-500 transition-colors">{player.name}</h3>
+                    <div className="text-[10px] font-black uppercase text-white/30 tracking-widest border-t border-white/10 pt-4">RANK #{player.rank} • {player.category}</div>
                   </div>
                 </div>
               </SwiperSlide>
             ))}
           </Swiper>
           
-          <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all active:scale-90">
-            <ChevronLeft size={32} />
-          </button>
-          <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all active:scale-90">
-            <ChevronRight size={32} />
-          </button>
+          <button ref={prevRef} className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all"><ChevronLeft size={28} /></button>
+          <button ref={nextRef} className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all"><ChevronRight size={28} /></button>
         </div>
       </div>
     </section>

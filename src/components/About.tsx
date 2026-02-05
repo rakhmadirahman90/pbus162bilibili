@@ -150,13 +150,13 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
 
               <div className="grid grid-cols-2 gap-4 h-[350px]">
                 <img 
-                  src="https://images.unsplash.com/photo-1626224484214-4051d4bc2b84?w=800&q=80" 
+                  src="dpnkwabotttfihp7gf3r.jpg" 
                   alt="Badminton Court" 
                   className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
                 />
                 <div className="grid grid-rows-2 gap-4">
                   <img 
-                    src="https://images.unsplash.com/photo-1613918431703-09432328198f?w=400&q=80" 
+                    src="dpnkwabotttfihp7gf3r.jpg" 
                     alt="Racket" 
                     className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
                   />

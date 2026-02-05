@@ -34,7 +34,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         </div>
 
         {/* MENU NAVIGASI */}
-        <div className="hidden md:flex items-center gap-10">
+        <div className="hidden md:flex items-center gap-8">
           <button 
             onClick={() => onNavigate('home')} 
             className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors"
@@ -44,23 +44,32 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           {/* DROPDOWN TENTANG KAMI */}
           <div 
-            className="relative"
+            className="relative h-20 flex items-center" // Menambah area hover agar dropdown tidak mudah hilang
             onMouseEnter={() => setActiveDropdown('about')}
             onMouseLeave={() => setActiveDropdown(null)}
           >
             <button 
-              onClick={() => onNavigate('about')}
               className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${activeDropdown === 'about' ? 'text-blue-400' : 'text-slate-300 hover:text-white'}`}
             >
               Tentang Kami <span className={`text-[7px] transition-transform duration-300 ${activeDropdown === 'about' ? 'rotate-180' : ''}`}>▼</span>
             </button>
             
             {activeDropdown === 'about' && (
-              <div className="absolute top-full left-0 w-56 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                <div className="bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
-                  <button onClick={() => { onNavigate('about', 'sejarah'); setActiveDropdown(null); }} className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50">Sejarah</button>
-                  <button onClick={() => { onNavigate('about', 'visi-misi'); setActiveDropdown(null); }} className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50">Visi & Misi</button>
-                  <button onClick={() => { onNavigate('about', 'fasilitas'); setActiveDropdown(null); }} className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all">Fasilitas</button>
+              <div className="absolute top-[80%] left-0 w-52 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                  {[
+                    { label: 'Sejarah', id: 'sejarah' },
+                    { label: 'Visi & Misi', id: 'visi-misi' },
+                    { label: 'Fasilitas', id: 'fasilitas' }
+                  ].map((item) => (
+                    <button 
+                      key={item.id}
+                      onClick={() => { onNavigate('about', item.id); setActiveDropdown(null); }} 
+                      className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50 last:border-0"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -68,22 +77,21 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           <button onClick={() => onNavigate('news')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Berita</button>
 
-          {/* DROPDOWN ATLET - BARU */}
+          {/* DROPDOWN ATLET */}
           <div 
-            className="relative"
+            className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('atlet')}
             onMouseLeave={() => setActiveDropdown(null)}
           >
             <button 
-              onClick={() => onNavigate('atlet')}
               className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${activeDropdown === 'atlet' ? 'text-blue-400' : 'text-slate-300 hover:text-white'}`}
             >
               Atlet <span className={`text-[7px] transition-transform duration-300 ${activeDropdown === 'atlet' ? 'rotate-180' : ''}`}>▼</span>
             </button>
             
             {activeDropdown === 'atlet' && (
-              <div className="absolute top-full left-0 w-56 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                <div className="bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+              <div className="absolute top-[80%] left-0 w-52 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
                   <button 
                     onClick={() => { onNavigate('atlet', 'Atlet Senior'); setActiveDropdown(null); }} 
                     className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50"

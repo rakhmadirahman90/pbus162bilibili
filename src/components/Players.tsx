@@ -95,6 +95,14 @@ export default function Players() {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
+  // Menghitung jumlah orang per kategori secara dinamis
+  const counts = useMemo(() => {
+    return {
+      Senior: playersData.filter(p => p.ageGroup === 'Atlet Senior').length,
+      Muda: playersData.filter(p => p.ageGroup === 'Atlet Muda').length
+    };
+  }, []);
+
   const filteredPlayers = useMemo(() => {
     return playersData
       .filter(p => p.ageGroup === currentTab && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -104,7 +112,7 @@ export default function Players() {
   return (
     <section id="atlet" className="py-24 bg-[#0a0a0a] text-white min-h-screen relative overflow-hidden font-sans">
       
-      {/* --- MODAL DETAIL (Profil Lengkap) --- */}
+      {/* --- MODAL DETAIL --- */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setSelectedPlayer(null)} />
@@ -148,22 +156,52 @@ export default function Players() {
       {/* --- KONTEN UTAMA --- */}
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16 border-b border-white/5 pb-12">
-          <div className="space-y-4">
-            <p className="text-blue-500 font-bold text-sm uppercase tracking-[0.5em]">KLASEMEN TERBARU</p>
-            <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none">RANKING<br/><span className="text-blue-600">PEMAIN</span></h2>
+          
+          <div className="space-y-4 max-w-2xl">
+            <p className="text-blue-500 font-bold text-sm uppercase tracking-[0.5em]">DATABASE</p>
+            <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none">
+              DAFTAR<br/><span className="text-blue-600">PEMAIN</span>
+            </h2>
+            <p className="text-zinc-500 font-medium text-sm md:text-lg leading-relaxed mt-6 max-w-lg">
+              Profil eksklusif dan peringkat resmi atlet PB US 162. Temukan data performa terbaru dari setiap kategori pemain.
+            </p>
           </div>
+
           <div className="flex flex-col items-end gap-6 w-full md:w-auto">
+            {/* TAB KATEGORI DENGAN JUMLAH ORANG */}
             <div className="flex bg-zinc-900/80 p-1.5 rounded-2xl border border-zinc-800 w-full md:w-auto">
-              <button onClick={() => setCurrentTab('Atlet Senior')} className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-black text-xs tracking-widest transition-all ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}>
-                <UserCheck size={18} /> SENIOR
+              <button 
+                onClick={() => setCurrentTab('Atlet Senior')} 
+                className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-black text-xs tracking-widest transition-all ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
+              >
+                <UserCheck size={18} /> 
+                SENIOR 
+                <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] ${currentTab === 'Atlet Senior' ? 'bg-white text-blue-600' : 'bg-zinc-800 text-zinc-400'}`}>
+                  {counts.Senior}
+                </span>
               </button>
-              <button onClick={() => setCurrentTab('Atlet Muda')} className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-black text-xs tracking-widest transition-all ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}>
-                <Users size={18} /> MUDA
+              <button 
+                onClick={() => setCurrentTab('Atlet Muda')} 
+                className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-black text-xs tracking-widest transition-all ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
+              >
+                <Users size={18} /> 
+                MUDA 
+                <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] ${currentTab === 'Atlet Muda' ? 'bg-white text-blue-600' : 'bg-zinc-800 text-zinc-400'}`}>
+                  {counts.Muda}
+                </span>
               </button>
             </div>
+
+            {/* SEARCH BAR */}
             <div className="relative w-full group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={20} />
-              <input type="text" placeholder="Cari nama pemain..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-blue-600 transition-all font-bold text-sm" />
+              <input 
+                type="text" 
+                placeholder="Cari nama pemain..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-blue-600 transition-all font-bold text-sm" 
+              />
             </div>
           </div>
         </div>
@@ -196,11 +234,6 @@ export default function Players() {
                     <div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-black text-[10px] tracking-widest shadow-xl border border-white/10">
                       RANK #{player.rank}
                     </div>
-                    {player.isChampion && (
-                      <div className="bg-yellow-500 text-black px-2 py-1 rounded-md font-black text-[8px] tracking-tighter flex items-center gap-1 animate-pulse">
-                        <TrendingUp size={10} /> TRENDING
-                      </div>
-                    )}
                   </div>
 
                   <div className="absolute bottom-8 left-8 right-8">
@@ -212,8 +245,12 @@ export default function Players() {
             ))}
           </Swiper>
           
-          <button ref={prevRef} className="absolute left-0 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center -translate-x-7 opacity-0 group-hover/slider:opacity-100 transition-all shadow-2xl hover:scale-110"><ChevronLeft size={28} /></button>
-          <button ref={nextRef} className="absolute right-0 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center translate-x-7 opacity-0 group-hover/slider:opacity-100 transition-all shadow-2xl hover:scale-110"><ChevronRight size={28} /></button>
+          <button ref={prevRef} className="absolute left-0 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center -translate-x-7 opacity-0 group-hover/slider:opacity-100 transition-all shadow-2xl hover:scale-110">
+            <ChevronLeft size={28} />
+          </button>
+          <button ref={nextRef} className="absolute right-0 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center translate-x-7 opacity-0 group-hover/slider:opacity-100 transition-all shadow-2xl hover:scale-110">
+            <ChevronRight size={28} />
+          </button>
         </div>
       </div>
       

@@ -10,7 +10,7 @@ import {
   X, Target, Search, Trophy, ArrowRight, ChevronLeft, ChevronRight, Users, Star, Award, Zap, Info
 } from 'lucide-react';
 
-// --- DATA SOURCE & PEMENANG ---
+// --- DATA SOURCE & PEMENANG (Sync dengan Klasemen) ---
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -30,7 +30,7 @@ const Players: React.FC = () => {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  // 1. DATABASE LENGKAP (54 ATLET) DENGAN LINK FOTO & BASE DATA
+  // 1. DATABASE LENGKAP (54 ATLET)
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
       'A': { base: 10000, bonus: 300, label: 'Seed A', age: 'Senior' },
@@ -40,7 +40,7 @@ const Players: React.FC = () => {
     };
 
     const rawData = [
-      // SEEDED A (10)
+      // SEEDED A (10) - SENIOR
       { name: "Agustilaar", group: "A", img: "whatsapp_image_2026-02-05_at_11.38.00.jpeg", bio: "Pemain kunci dengan pertahanan solid dan visi bermain yang tajam." },
       { name: "Herman", group: "A", img: "https://images.pexels.com/photos/6253570/pexels-photo-6253570.jpeg", bio: "Spesialis smash tajam dengan akurasi penempatan bola yang tinggi." },
       { name: "Darwis (TNI)", group: "A", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Kedisiplinan tinggi dan stamina yang luar biasa di lapangan." },
@@ -52,7 +52,7 @@ const Players: React.FC = () => {
       { name: "Rifai", group: "A", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Strategist lapangan yang handal membaca pergerakan lawan." },
       { name: "Acos", group: "A", img: "https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg", bio: "Power player dengan serangan bertubi-tubi yang sulit dibendung." },
 
-      // SEEDED B+ (22)
+      // SEEDED B+ (22) - SENIOR
       { name: "H. Wawan", group: "B+", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Pengalaman tinggi dalam mengatur ritme permainan ganda." },
       { name: "Bustan", group: "B+", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain yang ulet dan pantang menyerah dalam mengejar bola." },
       { name: "Dr. Khaliq", group: "B+", img: "https://images.pexels.com/photos/3777943/pexels-photo-3777943.jpeg", bio: "Akurasi penempatan bola yang presisi dan cerdas." },
@@ -76,7 +76,7 @@ const Players: React.FC = () => {
       { name: "A. Arwan", group: "B+", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Pemain dengan variasi pukulan yang sulit ditebak lawan." },
       { name: "Laganing", group: "B+", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Memiliki semangat juang tinggi di setiap turnamen internal." },
 
-      // SEEDED B- (10)
+      // SEEDED B- (10) - SENIOR
       { name: "Prof. Fikri", group: "B-", img: "https://images.pexels.com/photos/2202685/pexels-photo-2202685.jpeg", bio: "Akademisi di lapangan yang bermain dengan logika dan strategi matang." },
       { name: "Marzuki", group: "B-", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Andalan dalam mengamankan area depan net." },
       { name: "A. Mansur", group: "B-", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Gaya main klasik dengan efisiensi tenaga yang luar biasa." },
@@ -88,7 +88,7 @@ const Players: React.FC = () => {
       { name: "H Fitra", group: "B-", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Pemain dengan pergerakan yang lincah dan cepat." },
       { name: "Kurnia", group: "B-", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Cerdas dalam menaruh bola-bola tipis di area depan lawan." },
 
-      // SEEDED C / MUDA (12)
+      // SEEDED C (12) - MUDA
       { name: "Arsan", group: "C", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Rising star di kategori C dengan perkembangan teknik yang sangat pesat." },
       { name: "H. Hasym", group: "C", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain muda dengan semangat kompetisi yang luar biasa." },
       { name: "H. Anwar", group: "C", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Gaya main menyerang yang menjadi ciri khas generasi muda PB US 162." },
@@ -97,19 +97,18 @@ const Players: React.FC = () => {
       { name: "Surakati", group: "C", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Pemain muda yang ulet dan sangat rajin melatih footwork." },
       { name: "H. Faizal", group: "C", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Muda dan berbahaya dengan smash keras yang mematikan." },
       { name: "H. Ude", group: "C", img: "https://images.pexels.com/photos/775358/pexels-photo-775358.jpeg", bio: "Selalu tampil maksimal dan memberikan kejutan di lapangan." },
-      { name: "Hidayatullah", group: "C", img: "whatsapp_image_2025-12-30_at_15.33.37.jpeg", bio: "Recent Champion! Pemain muda paling menonjol saat ini." },
-      { name: "H. Pangeran", group: "C", img: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg", bio: "Memiliki insting mencuri poin yang sangat baik." },
-      { name: "Syarifuddin", group: "C", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain yang cerdas dalam memilih momen untuk menyerang." },
-      { name: "H. Tantong", group: "C", img: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg", bio: "Pemain muda penutup daftar roster dengan ambisi juara." }
+      { name: "Hidayatullah", group: "C", img: "whatsapp_image_2025-12-30_at_15.33.37.jpeg", bio: "Recent Champion! Pemain muda paling menonjol saat ini dengan determinasi tinggi." },
+      { name: "H. Pangeran", group: "C", img: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg", bio: "Memiliki insting mencuri poin yang sangat baik di depan net." },
+      { name: "Syarifuddin", group: "C", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain yang cerdas dalam memilih momen untuk menyerang balik." },
+      { name: "H. Tantong", group: "C", img: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg", bio: "Pemain muda penutup daftar roster dengan potensi juara yang besar." }
     ];
 
-    return rawData.map((p, i) => {
+    return rawData.map((p) => {
       const conf = config[p.group];
       const isWinner = EVENT_LOG[0].winners.includes(p.name);
       
-      // Hitung rank index per group untuk poin (p.group spesifik)
-      const rankIndexInGroup = rawData.filter(x => x.group === p.group).findIndex(y => y.name === p.name);
-      const totalPoints = (conf.base - (rankIndexInGroup * 50)) + (isWinner ? conf.bonus : 0);
+      const rankInGroup = rawData.filter(x => x.group === p.group).findIndex(y => y.name === p.name);
+      const totalPoints = (conf.base - (rankInGroup * 50)) + (isWinner ? conf.bonus : 0);
       
       return {
         ...p,
@@ -121,7 +120,7 @@ const Players: React.FC = () => {
     }).sort((a, b) => b.totalPoints - a.totalPoints);
   }, []);
 
-  // --- LOGIC FILTER ---
+  // Filter Logic
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -133,7 +132,7 @@ const Players: React.FC = () => {
   return (
     <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
       
-      {/* --- MODAL DETAIL (Deskripsi Lengkap) --- */}
+      {/* --- MODAL DETAIL PEMAIN --- */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
@@ -142,7 +141,7 @@ const Players: React.FC = () => {
               <img src={selectedPlayer.img} className="w-full h-full object-contain p-8 md:p-14" alt={selectedPlayer.name} />
               {selectedPlayer.isWinner && (
                 <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl">
-                  <Award size={18} /> PEMENANG INTERNAL CUP IV
+                  <Award size={18} /> WINNER - INTERNAL CUP IV
                 </div>
               )}
             </div>
@@ -157,7 +156,7 @@ const Players: React.FC = () => {
               <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
                 <div className="flex items-center gap-3 mb-4 text-blue-500">
                     <Info size={20} />
-                    <span className="text-xs font-black uppercase tracking-widest">Profil Atlet</span>
+                    <span className="text-xs font-black uppercase tracking-widest">Profil Singkat</span>
                 </div>
                 <p className="text-zinc-400 text-lg leading-relaxed italic">"{selectedPlayer.bio}"</p>
               </div>
@@ -170,7 +169,7 @@ const Players: React.FC = () => {
                 </div>
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
                     <Trophy className="text-yellow-500 mb-2" size={20} />
-                    <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Total Poin</p>
+                    <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Poin Klasemen</p>
                     <p className="text-2xl font-black">{selectedPlayer.totalPoints.toLocaleString()}</p>
                 </div>
               </div>
@@ -181,17 +180,21 @@ const Players: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         
-        {/* --- HEADER --- */}
+        {/* --- HEADER TERBARU --- */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-20">
           <div>
-            <span className="text-blue-600 font-black text-xs tracking-[0.4em] uppercase mb-4 block underline decoration-2 underline-offset-8">Official Database</span>
-            <h2 className="text-6xl md:text-9xl font-black leading-[0.85] tracking-tighter uppercase">ROSTER <br/> <span className="text-blue-600">PB US 162</span></h2>
+            <span className="text-blue-600 font-black text-xs tracking-[0.4em] uppercase mb-4 block underline decoration-2 underline-offset-8">
+              Profil Pemain
+            </span>
+            <h2 className="text-6xl md:text-9xl font-black leading-[0.85] tracking-tighter uppercase">
+              KENAL LEBIH <br/> <span className="text-blue-600">DEKAT</span>
+            </h2>
           </div>
           <div className="relative w-full md:w-[350px]">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-600" size={20} />
             <input 
               type="text" 
-              placeholder="Cari nama atlet..." 
+              placeholder="Cari atlet..." 
               className="w-full bg-zinc-900 border border-zinc-800 rounded-full py-5 pl-14 pr-6 focus:outline-none focus:border-blue-600 font-bold transition-all placeholder:text-zinc-700 shadow-2xl"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -200,7 +203,7 @@ const Players: React.FC = () => {
 
         {/* --- STATS & FILTER TAB --- */}
         <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
-            <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full shadow-inner">
+            <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
               {[
                 { label: 'Semua', count: 54 },
                 { label: 'Senior', count: 42 },
@@ -209,7 +212,7 @@ const Players: React.FC = () => {
                 <button 
                   key={tab.label}
                   onClick={() => setCurrentAgeGroup(tab.label)} 
-                  className={`px-10 py-4 rounded-[2rem] text-[12px] font-black transition-all flex items-center gap-3 whitespace-nowrap ${currentAgeGroup === tab.label ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' : 'text-zinc-500 hover:text-white hover:bg-white/5'}`}
+                  className={`px-10 py-4 rounded-[2rem] text-[12px] font-black transition-all flex items-center gap-3 whitespace-nowrap ${currentAgeGroup === tab.label ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' : 'text-zinc-500 hover:text-white'}`}
                 >
                   {tab.label.toUpperCase()} 
                   <span className="opacity-40 text-[10px]">{tab.count}</span>
@@ -249,7 +252,7 @@ const Players: React.FC = () => {
                   <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
                   
-                  {/* Global Rank Badge */}
+                  {/* Rank Badge */}
                   <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
                     {processedPlayers.findIndex(p => p.name === player.name) + 1}
                   </div>

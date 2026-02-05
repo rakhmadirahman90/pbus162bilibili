@@ -2,8 +2,8 @@ import React from 'react';
 import { MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-react';
 
 export default function Contact() {
-  // Link ini menggunakan koordinat koordinat absolut untuk Parepare agar tidak diblokir Bolt
-  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3978.78363768822!2d119.6253480743638!3d-3.9926315443209353!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5f6249%3A0xee8a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1715830000000!5m2!1sid!2sid";
+  // Menggunakan protokol HTTPS dan koordinat absolut agar tidak diblokir oleh Bolt.new
+  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3973.911041040356!2d119.6231904!3d-3.9972379!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bc1f2c616249%3A0xe88a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1715600000000!5m2!1sid!2sid";
 
   return (
     <section id="contact" className="py-24 bg-[#050505] text-white relative overflow-hidden scroll-mt-20">
@@ -68,7 +68,7 @@ export default function Contact() {
             </div>
 
             <a 
-              href="https://maps.app.goo.gl/SWJfLB-7lS0Ryoh1cj5Diu4" 
+              href="https://www.google.com/maps/search/?api=1&query=Jl.+Andi+Makkasau+No.171+Parepare" 
               target="_blank" 
               rel="noopener noreferrer"
               className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-lg transition-all flex items-center justify-center gap-2"
@@ -88,7 +88,7 @@ export default function Contact() {
               loading="lazy" 
               referrerPolicy="no-referrer-when-downgrade"
               title="Lokasi Markas Parepare"
-              className="opacity-100"
+              className="w-full h-full bg-slate-800"
             ></iframe>
           </div>
 

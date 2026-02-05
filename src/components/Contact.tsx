@@ -1,13 +1,13 @@
 import React from 'react';
-import { MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-react';
+import { MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-center';
 
 export default function Contact() {
-  // Link ini sudah diperbaiki ke format 'Embed' agar gambar muncul di Bolt
-  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3972.10025700762!2d119.6263546!3d-4.008432!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb667f37435f%3A0xc66581452a20a6e3!2sJl.%20Andi%20Makkasau%20No.171%2C%20Lumpue%2C%20Kec.%20Bacukiki%20Bar.%2C%20Kota%20Pare-Pare%2C%20Sulawesi%20Selatan%2091122!5e0!3m2!1sid!2sid!4v1707150000000!5m2!1sid!2sid";
+  // Link ini telah dikonversi ke format Embed agar gambar muncul otomatis di website
+  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3977.83226993437!2d119.62656527497746!3d-4.008216395965413!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5f6249%3A0xee8a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1700000000000!5m2!1sid!2sid";
 
   return (
     <section id="contact" className="py-24 bg-[#050505] text-white relative overflow-hidden scroll-mt-20">
-      {/* Background Glow */}
+      {/* Background Decor */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -mr-64 -mt-64"></div>
       
       <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -24,7 +24,7 @@ export default function Contact() {
           
           {/* --- INFO CARD --- */}
           <div className="space-y-8">
-            <div className="bg-[#0a0a0a] p-8 rounded-3xl border border-white/10 backdrop-blur-sm shadow-xl">
+            <div className="bg-slate-900/50 p-8 rounded-3xl border border-white/10 backdrop-blur-sm shadow-xl">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
                 <span className="w-2 h-8 bg-blue-500 rounded-full"></span>
                 Informasi Markas
@@ -38,8 +38,8 @@ export default function Contact() {
                   <div>
                     <h4 className="font-bold text-slate-400 text-sm uppercase tracking-wider mb-1">Alamat Utama</h4>
                     <p className="text-slate-100 leading-relaxed">
-                      Jl. Andi Makkasau No. 171, Parepare, <br />
-                      Sulawesi Selatan, Indonesia
+                      Jl. Andi Makkasau No.171, Ujung Lare, <br />
+                      Kec. Soreang, Kota Parepare, Sulawesi Selatan 91131
                     </p>
                   </div>
                 </div>
@@ -69,7 +69,7 @@ export default function Contact() {
             </div>
 
             <a 
-              href="https://maps.app.goo.gl/3wGvR3L8A3D5D7Lp9" 
+              href="https://maps.google.com/?cid=17188624863300257994&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNl" 
               target="_blank" 
               rel="noopener noreferrer"
               className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-lg transition-all flex items-center justify-center gap-2 group"
@@ -80,17 +80,17 @@ export default function Contact() {
           </div>
 
           {/* --- GOOGLE MAPS EMBED --- */}
-          <div className="w-full h-[450px] lg:h-[500px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative">
+          <div className="w-full h-[450px] lg:h-full min-h-[450px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative">
             <iframe 
               src={googleMapEmbedUrl}
               width="100%" 
               height="100%" 
-              style={{ border: 0 }} 
+              style={{ border: 0, filter: 'grayscale(0.3) contrast(1.1)' }} 
               allowFullScreen={true} 
               loading="lazy" 
               referrerPolicy="no-referrer-when-downgrade"
-              title="Lokasi PB US 162 BILIBILI"
-              className="grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-700"
+              title="Lokasi Markas"
+              className="opacity-90 hover:opacity-100 transition-opacity duration-500"
             ></iframe>
           </div>
 

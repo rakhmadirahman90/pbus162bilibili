@@ -42,25 +42,57 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
         {/* Tab Content Box */}
         <div className="bg-slate-50 rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-sm min-h-[450px]">
           
-          {/* SEJARAH */}
+          {/* SEJARAH - Sesuai Gambar Referensi */}
           {activeTab === 'sejarah' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex flex-col md:flex-row gap-8 items-start">
-                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <BookOpen size={32} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black mb-6 text-slate-800 uppercase tracking-tight">Perjalanan PB US 162</h3>
-                  <div className="space-y-4 text-slate-600 leading-relaxed text-lg max-w-4xl">
-                    <p className="flex gap-3">
-                      <MapPin className="text-blue-500 flex-shrink-0 mt-1" size={20} />
-                      Didirikan dengan semangat untuk memajukan olahraga bulutangkis di Parepare, Sulawesi Selatan.
-                    </p>
-                    <p className="flex gap-3">
-                      <Award className="text-blue-500 flex-shrink-0 mt-1" size={20} />
-                      Kami berfokus pada pembinaan atlet usia dini hingga profesional dengan metode pelatihan yang modern dan disiplin tinggi.
-                    </p>
+              <div className="text-center mb-12">
+                <h3 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 uppercase tracking-tight">
+                  MEMBINA <span className="text-blue-600">LEGENDA</span> MASA DEPAN
+                </h3>
+                <p className="text-slate-500 text-lg max-w-3xl mx-auto leading-relaxed font-medium">
+                  PB US 162 Bilibili bukan sekadar klub, melainkan ekosistem pembinaan bulutangkis terpadu yang menggabungkan disiplin, teknik modern, dan semangat juang.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-12 items-center">
+                {/* Gambar di Kiri */}
+                <div className="relative group">
+                  <div className="absolute -inset-2 bg-blue-600/20 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                  <img 
+                    src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=800&q=80" 
+                    alt="Latihan PB US 162" 
+                    className="relative w-full h-[450px] object-cover rounded-[2rem] shadow-2xl border-4 border-white"
+                  />
+                  {/* Dekorasi Logo di Pojok Gambar */}
+                  <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white p-4 rounded-3xl shadow-xl hidden md:flex items-center justify-center border border-slate-100">
+                    <img src="/photo_2026-02-03_00-32-07.jpg" alt="Logo" className="w-full h-full object-contain" />
                   </div>
+                </div>
+
+                {/* Teks di Kanan */}
+                <div className="space-y-6">
+                  <h4 className="text-2xl font-black text-slate-800 leading-tight">
+                    Pusat Pelatihan Berstandar Tinggi di Parepare
+                  </h4>
+                  <p className="text-slate-600 text-lg leading-relaxed">
+                    Lahir dari semangat memajukan olahraga di Sulawesi Selatan, **PB US 162** kini menjadi barometer pembinaan bulutangkis regional. Kami menerapkan kurikulum latihan yang mengadaptasi standar nasional untuk memastikan setiap atlet memiliki fondasi teknik yang kuat.
+                  </p>
+                  
+                  <ul className="space-y-4">
+                    {[
+                      "Pelatihan intensif berbasis sport-science",
+                      "Fasilitas GOR modern dengan pencahayaan standar BWF",
+                      "Jenjang karier atlet dari pemula hingga profesional",
+                      "Monitoring perkembangan poin melalui sistem klasemen digital"
+                    ].map((item, index) => (
+                      <li key={index} className="flex items-start gap-3 text-slate-700 font-semibold group">
+                        <div className="mt-1 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 transition-colors">
+                          <CheckCircle2 size={16} className="text-blue-600 group-hover:text-white" />
+                        </div>
+                        <span className="text-[16px] leading-tight">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
@@ -99,7 +131,7 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
             </div>
           )}
 
-          {/* FASILITAS - PERBAIKAN GAMBAR */}
+          {/* FASILITAS */}
           {activeTab === 'fasilitas' && (
             <div className="animate-in fade-in duration-500 grid md:grid-cols-2 gap-12 items-center">
               <div>
@@ -117,22 +149,19 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
               </div>
 
               <div className="grid grid-cols-2 gap-4 h-[350px]">
-                {/* Gambar 1: Court (Utama) */}
                 <img 
                   src="https://images.unsplash.com/photo-1626224484214-4051d4bc2b84?w=800&q=80" 
                   alt="Badminton Court" 
                   className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
                 />
                 <div className="grid grid-rows-2 gap-4">
-                  {/* Gambar 2: Gear */}
                   <img 
-                    src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" 
+                    src="https://images.unsplash.com/photo-1613918431703-09432328198f?w=400&q=80" 
                     alt="Racket" 
                     className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
                   />
-                  {/* Gambar 3: Training/Shuttlecock */}
                   <img 
-                    src="https://images.unsplash.com/photo-1613918431703-09432328198f?w=400&q=80" 
+                    src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" 
                     alt="Training Gear" 
                     className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
                   />

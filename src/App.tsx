@@ -10,20 +10,31 @@ import Footer from './components/Footer';
 
 function App() {
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
+  // Pastikan defaultnya 'Semua' agar saat awal semua atlet tampil
   const [playerActiveTab, setPlayerActiveTab] = useState('Semua');
 
   const handleNavigation = (sectionId: string, tabId?: string) => {
-    // Logic Tab
-    if (sectionId === 'about' && tabId) setAboutActiveTab(tabId);
-    if (sectionId === 'atlet' && tabId) setPlayerActiveTab(tabId);
+    // 1. LOGIKA TAB: Update state tab sebelum melakukan scroll
+    if (sectionId === 'about' && tabId) {
+      setAboutActiveTab(tabId);
+    }
 
-    // Scroll Logic
+    // Ini yang menyambungkan Navbar "Atlet Senior/Muda" ke filter di Players.tsx
+    if (sectionId === 'atlet' && tabId) {
+      setPlayerActiveTab(tabId);
+    }
+
+    // 2. LOGIKA SCROLL: Cari elemen berdasarkan ID
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 80;
-      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const navbarHeight = 80; // Sesuaikan dengan h-20 di Navbar
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - navbarHeight;
+
       window.scrollTo({
-        top: elementPosition - offset,
+        top: offsetPosition,
         behavior: 'smooth',
       });
     }
@@ -34,22 +45,35 @@ function App() {
       <Navbar onNavigate={handleNavigation} />
       
       <main>
-        <section id="home"><Hero /></section>
-        <section id="news"><News /></section>
-        
-        {/* SECTION ATLET */}
-        <Athletes 
-          externalFilter={playerActiveTab} 
-          onFilterChange={setPlayerActiveTab} 
-        />
+        {/* Setiap section HARUS memiliki ID yang sama dengan yang dipanggil di Navbar */}
+        <section id="home">
+          <Hero />
+        </section>
 
-        <section id="rankings"><Ranking /></section>
-        <section id="gallery"><Gallery /></section>
+        <section id="news">
+          <News />
+        </section>
+        
+        {/* ID 'atlet' digunakan untuk scroll, props digunakan untuk filter */}
+        <section id="atlet">
+          <Athletes 
+            externalFilter={playerActiveTab} 
+            onFilterChange={(id) => setPlayerActiveTab(id)} 
+          />
+        </section>
+
+        <section id="rankings">
+          <Ranking />
+        </section>
+
+        <section id="gallery">
+          <Gallery />
+        </section>
         
         <section id="about">
           <About 
             activeTab={aboutActiveTab} 
-            onTabChange={setAboutActiveTab} 
+            onTabChange={(id) => setAboutActiveTab(id)} 
           />
         </section>
       </main>

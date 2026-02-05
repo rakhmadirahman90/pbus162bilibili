@@ -41,7 +41,7 @@ const Players: React.FC = () => {
 
     const rawData = [
       // SEEDED A (10) - SENIOR
-      { name: "Agustilaar", group: "A", img: "whatsapp_image_2026-02-05_at_11.38.00.jpeg", bio: "Pemain kunci dengan pertahanan solid dan visi bermain yang tajam." },
+      { name: "Agustilaar", group: "A", img: "gemini_generated_image_qdfwfpqdfwfpqdfw.png", bio: "Pemain kunci dengan pertahanan solid dan visi bermain yang tajam." },
       { name: "Herman", group: "A", img: "https://images.pexels.com/photos/6253570/pexels-photo-6253570.jpeg", bio: "Spesialis smash tajam dengan akurasi penempatan bola yang tinggi." },
       { name: "Darwis (TNI)", group: "A", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Kedisiplinan tinggi dan stamina yang luar biasa di lapangan." },
       { name: "Salman", group: "A", img: "https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg", bio: "Ahli dalam permainan net yang tipis dan mengecoh lawan." },

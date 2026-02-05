@@ -10,10 +10,18 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [currentLang, setCurrentLang] = useState('ID');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // PERBAIKAN: Menambahkan pengecekan eksplisit agar parameter tab tidak hilang
+  // PERBAIKAN: Fungsi ini sekarang mengirimkan sinyal global (CustomEvent)
   const handleNavClick = (section: string, tab?: string) => {
-    // Pastikan tab dikirim apa adanya (Senior/Muda) ke App.tsx
+    // 1. Jalankan fungsi navigasi bawaan (untuk scroll/pindah halaman)
     onNavigate(section, tab);
+
+    // 2. Jika yang diklik adalah kategori atlet, kirim sinyal ke Players.tsx
+    if (section === 'atlet' && tab) {
+      const event = new CustomEvent('filterAtlet', { detail: tab });
+      window.dispatchEvent(event);
+    }
+
+    // 3. UI Cleanup
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
   };
@@ -70,7 +78,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           <button onClick={() => handleNavClick('news')} className="nav-link">Berita</button>
 
-          {/* DROPDOWN ATLET - Pastikan string 'Senior' & 'Muda' sama dengan data di Players.tsx */}
+          {/* DROPDOWN ATLET */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('atlet')}
@@ -82,7 +90,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             {activeDropdown === 'atlet' && (
               <div className="dropdown-container">
                 <div className="dropdown-content">
-                  {/* PENTING: String 'Senior' harus cocok dengan p.ageGroup di Players.tsx */}
+                  {/* Pastikan 'Senior' & 'Muda' sama persis dengan ageGroup di Players.tsx */}
                   <button onClick={() => handleNavClick('atlet', 'Senior')} className="dropdown-item">Atlet Senior</button>
                   <button onClick={() => handleNavClick('atlet', 'Muda')} className="dropdown-item">Atlet Muda</button>
                 </div>
@@ -128,26 +136,20 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 animate-in slide-in-from-top duration-300 overflow-y-auto max-h-[calc(100vh-80px)] shadow-2xl">
           <div className="flex flex-col p-6 gap-4">
             <button onClick={() => handleNavClick('home')} className="mobile-nav-link text-left">Beranda</button>
-            
             <div className="h-px bg-white/5" />
-            
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Tentang Kami</p>
             <div className="flex flex-col gap-3 pl-4">
               <button onClick={() => handleNavClick('about', 'sejarah')} className="mobile-sub-link">Sejarah</button>
               <button onClick={() => handleNavClick('about', 'visi-misi')} className="mobile-sub-link">Visi & Misi</button>
               <button onClick={() => handleNavClick('about', 'fasilitas')} className="mobile-sub-link">Fasilitas</button>
             </div>
-
             <div className="h-px bg-white/5" />
-
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Kategori Atlet</p>
             <div className="flex flex-col gap-3 pl-4">
               <button onClick={() => handleNavClick('atlet', 'Senior')} className="mobile-sub-link">Atlet Senior</button>
               <button onClick={() => handleNavClick('atlet', 'Muda')} className="mobile-sub-link">Atlet Muda</button>
             </div>
-            
             <div className="h-px bg-white/5" />
-            
             <button onClick={() => handleNavClick('rankings')} className="mobile-nav-link text-left">Peringkat</button>
             <button onClick={() => handleNavClick('gallery')} className="mobile-nav-link text-left">Galeri</button>
             <button onClick={() => handleNavClick('news')} className="mobile-nav-link text-left">Berita</button>
@@ -155,17 +157,16 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         </div>
       )}
 
-      {/* CSS Styles tetap sama seperti sebelumnya */}
       <style>{`
-        .nav-link { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #cbd5e1; transition: all 0.3s ease; cursor: pointer; }
+        .nav-link { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #cbd5e1; transition: all 0.3s ease; cursor: pointer; border: none; background: none; }
         .nav-link:hover { color: #3b82f6; }
         .dropdown-container { position: absolute; top: 80%; width: 13rem; padding-top: 1rem; animation: dropdownFade 0.2s ease-out; z-index: 110; }
         .dropdown-content { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-        .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #e2e8f0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); transition: all 0.2s; cursor: pointer; }
+        .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #e2e8f0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); transition: all 0.2s; cursor: pointer; background: none; }
         .dropdown-item:last-child { border: none; }
         .dropdown-item:hover { background: #2563eb; color: white; }
-        .mobile-nav-link { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #f8fafc; }
-        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 600; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; }
+        .mobile-nav-link { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #f8fafc; background: none; border: none; }
+        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 600; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; background: none; border: none; }
         @keyframes dropdownFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </nav>

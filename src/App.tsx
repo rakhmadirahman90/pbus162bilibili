@@ -1,47 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
-import Hero from './components/Hero'; // Pastikan import ini ada
+import Hero from './components/Hero';
 import About from './components/About';
-import News from './components/News'; // Asumsi nama komponen berita Anda
-import Athletes from './components/Athletes'; // Asumsi nama komponen atlet Anda
+import News from './components/News';
+import Athletes from './components/Athletes';
+import Gallery from './components/Gallery'; // Tambahkan jika ada
+import Ranking from './components/Ranking'; // Tambahkan jika ada
 
 function App() {
-  // 1. State untuk navigasi menu utama (Beranda, Tentang, Berita, dll)
+  // State untuk melacak posisi scroll (aktif menu di navbar)
   const [activeSection, setActiveSection] = useState('home');
   
-  // 2. State khusus untuk tab di dalam komponen About
+  // State untuk tab di dalam komponen About (Sejarah/Fasilitas/Prestasi)
   const [aboutTab, setAboutTab] = useState('sejarah');
 
-  // Fungsi untuk menangani navigasi dari Navbar
+  // Fungsi navigasi yang sinkron dengan Navbar
   const handleNavigation = (sectionId: string, tabId?: string) => {
+    // 1. Update state section agar Navbar tahu menu mana yang aktif
     setActiveSection(sectionId);
     
-    // Jika user mengklik dropdown di "Tentang", kita update tab-nya juga
+    // 2. Jika ada tabId (dari dropdown Tentang), update tab di komponen About
     if (tabId) {
       setAboutTab(tabId);
     }
 
-    // Scroll otomatis ke section tersebut agar user tahu halaman berpindah
+    // 3. Scroll ke section yang dituju
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      const offset = 80; // Sesuaikan dengan tinggi Navbar Anda
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
     }
   };
 
   return (
     <div className="min-h-screen bg-white">
-      {/* 3. Navbar sekarang menerima fungsi navigasi utama dan fungsi ganti tab */}
+      {/* Navbar menerima state aktif dan fungsi navigasi */}
       <Navbar 
         activeSection={activeSection}
         onNavigate={handleNavigation} 
       />
       
       <main>
-        {/* Render komponen berdasarkan activeSection */}
-        {activeSection === 'home' && <Hero />}
-        
-        {/* Section About biasanya tetap muncul atau di-scroll, 
-            tapi pastikan props dikirim dengan benar */}
+        {/* Gunakan ID pada setiap section agar fungsi scroll bekerja */}
+        <section id="home">
+          <Hero />
+        </section>
+
         <section id="about">
           <About 
             activeTab={aboutTab} 
@@ -49,10 +61,24 @@ function App() {
           />
         </section>
 
-        {/* Contoh render section lain jika Anda menggunakan sistem conditional rendering */}
-        {activeSection === 'berita' && <News />}
-        {activeSection === 'atlet' && <Athletes />}
+        <section id="berita">
+          <News />
+        </section>
+
+        <section id="atlet">
+          <Athletes />
+        </section>
+
+        <section id="peringkat">
+          <Ranking />
+        </section>
+
+        <section id="galeri">
+          <Gallery />
+        </section>
       </main>
+
+      {/* Footer bisa ditambahkan di sini */}
     </div>
   );
 }

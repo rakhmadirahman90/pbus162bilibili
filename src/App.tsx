@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import About from './components/About';
-
-// Komponen-komponen ini harus ada filenya di folder components
 import News from './components/News'; 
 import Athletes from './components/Athletes';
 import Ranking from './components/Ranking';
@@ -17,11 +15,15 @@ function App() {
     setActiveSection(sectionId);
     if (tabId) setAboutTab(tabId);
 
+    // Mencari elemen berdasarkan ID section
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 80;
+      const offset = 80; // Jarak agar tidak tertutup Navbar
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - offset;
+
       window.scrollTo({
-        top: element.offsetTop - offset,
+        top: offsetPosition,
         behavior: 'smooth'
       });
     }
@@ -32,32 +34,26 @@ function App() {
       <Navbar activeSection={activeSection} onNavigate={handleNavigation} />
       
       <main>
-        {/* Konten Beranda */}
         <section id="home">
           <Hero />
         </section>
 
-        {/* Konten Tentang (About) */}
         <section id="about">
           <About activeTab={aboutTab} onTabChange={(id) => setAboutTab(id)} />
         </section>
 
-        {/* Konten Berita */}
         <section id="berita">
           <News />
         </section>
 
-        {/* Konten Atlet */}
         <section id="atlet">
           <Athletes />
         </section>
 
-        {/* Konten Peringkat */}
         <section id="peringkat">
           <Ranking />
         </section>
 
-        {/* Konten Galeri */}
         <section id="galeri">
           <Gallery />
         </section>

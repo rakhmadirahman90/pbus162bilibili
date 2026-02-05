@@ -5,7 +5,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onNavigate }: NavbarProps) {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   return (
     <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/10 shadow-2xl">
@@ -42,48 +42,65 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             Beranda
           </button>
 
-          {/* DROPDOWN TENTANG KAMI - DIPERJELAS */}
+          {/* DROPDOWN TENTANG KAMI */}
           <div 
             className="relative"
-            onMouseEnter={() => setIsDropdownOpen(true)}
-            onMouseLeave={() => setIsDropdownOpen(false)}
+            onMouseEnter={() => setActiveDropdown('about')}
+            onMouseLeave={() => setActiveDropdown(null)}
           >
             <button 
               onClick={() => onNavigate('about')}
-              className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${isDropdownOpen ? 'text-blue-400' : 'text-slate-300 hover:text-white'}`}
+              className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${activeDropdown === 'about' ? 'text-blue-400' : 'text-slate-300 hover:text-white'}`}
             >
-              Tentang Kami <span className={`text-[7px] transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+              Tentang Kami <span className={`text-[7px] transition-transform duration-300 ${activeDropdown === 'about' ? 'rotate-180' : ''}`}>▼</span>
             </button>
             
-            {isDropdownOpen && (
+            {activeDropdown === 'about' && (
               <div className="absolute top-full left-0 w-56 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                {/* Box Dropdown: Menggunakan bg-slate-800 yang solid dan z-index tinggi */}
-                <div className="bg-[#1e293b] border border-slate-700 rounded-xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] overflow-hidden">
-                  <button 
-                    onClick={() => { onNavigate('about', 'sejarah'); setIsDropdownOpen(false); }}
-                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50"
-                  >
-                    Sejarah
-                  </button>
-                  <button 
-                    onClick={() => { onNavigate('about', 'visi-misi'); setIsDropdownOpen(false); }}
-                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50"
-                  >
-                    Visi & Misi
-                  </button>
-                  <button 
-                    onClick={() => { onNavigate('about', 'fasilitas'); setIsDropdownOpen(false); }}
-                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all"
-                  >
-                    Fasilitas
-                  </button>
+                <div className="bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                  <button onClick={() => { onNavigate('about', 'sejarah'); setActiveDropdown(null); }} className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50">Sejarah</button>
+                  <button onClick={() => { onNavigate('about', 'visi-misi'); setActiveDropdown(null); }} className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50">Visi & Misi</button>
+                  <button onClick={() => { onNavigate('about', 'fasilitas'); setActiveDropdown(null); }} className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all">Fasilitas</button>
                 </div>
               </div>
             )}
           </div>
 
           <button onClick={() => onNavigate('news')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Berita</button>
-          <button onClick={() => onNavigate('players')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Atlet</button>
+
+          {/* DROPDOWN ATLET - BARU */}
+          <div 
+            className="relative"
+            onMouseEnter={() => setActiveDropdown('atlet')}
+            onMouseLeave={() => setActiveDropdown(null)}
+          >
+            <button 
+              onClick={() => onNavigate('atlet')}
+              className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${activeDropdown === 'atlet' ? 'text-blue-400' : 'text-slate-300 hover:text-white'}`}
+            >
+              Atlet <span className={`text-[7px] transition-transform duration-300 ${activeDropdown === 'atlet' ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+            
+            {activeDropdown === 'atlet' && (
+              <div className="absolute top-full left-0 w-56 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                  <button 
+                    onClick={() => { onNavigate('atlet', 'Atlet Senior'); setActiveDropdown(null); }} 
+                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all border-b border-slate-700/50"
+                  >
+                    Atlet Senior
+                  </button>
+                  <button 
+                    onClick={() => { onNavigate('atlet', 'Atlet Muda'); setActiveDropdown(null); }} 
+                    className="w-full text-left px-6 py-4 text-[10px] font-bold tracking-[0.1em] uppercase text-slate-200 hover:bg-blue-600 hover:text-white transition-all"
+                  >
+                    Atlet Muda
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button onClick={() => onNavigate('rankings')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Peringkat</button>
           <button onClick={() => onNavigate('gallery')} className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 hover:text-white transition-colors">Galeri</button>
         </div>

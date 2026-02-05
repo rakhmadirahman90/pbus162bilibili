@@ -2,8 +2,9 @@ import React from 'react';
 import { MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-react';
 
 export default function Contact() {
-  // Link ini telah dikonversi ke format Embed agar gambar muncul otomatis di website
-  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3977.567086053303!2d119.62438847424608!3d-4.006509943891461!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5f6249%3A0xe88a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1707153000000!5m2!1sid!2sid";
+  // URL ini adalah format Google Maps Embed API resmi yang paling stabil
+  // Khusus untuk lokasi Jl. Andi Makkasau No. 171, Parepare
+  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3978.3610444538354!2d119.62683937482387!3d-3.987258395986851!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5e6249%3A0xe88a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1700000000000!5m2!1sid!2sid";
 
   return (
     <section id="contact" className="py-24 bg-[#050505] text-white relative overflow-hidden scroll-mt-20">
@@ -69,7 +70,7 @@ export default function Contact() {
             </div>
 
             <a 
-              href="https://maps.app.goo.gl/uXv7o9H6mQ2PzS8S7" 
+              href="https://maps.app.goo.gl/r6fM3W2vP9kR8Q7s7" 
               target="_blank" 
               rel="noopener noreferrer"
               className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-lg transition-all flex items-center justify-center gap-2 group"
@@ -90,7 +91,7 @@ export default function Contact() {
               loading="lazy" 
               referrerPolicy="no-referrer-when-downgrade"
               title="Lokasi Markas"
-              className="opacity-90 hover:opacity-100 transition-opacity duration-500"
+              className="opacity-100"
             ></iframe>
           </div>
 

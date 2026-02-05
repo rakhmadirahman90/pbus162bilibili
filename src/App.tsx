@@ -3,19 +3,31 @@ import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import About from './components/About';
 import News from './components/News';
-import Athletes from './components/Players'; // Disesuaikan ke file Players.tsx
-import Ranking from './components/Rankings'; // Disesuaikan ke file Rankings.tsx
+import Athletes from './components/Players'; 
+import Ranking from './components/Rankings'; 
 import Gallery from './components/Gallery';
 import Footer from './components/Footer';
 
 function App() {
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
+  // Tambahkan state untuk mengontrol tab di komponen Players
+  const [playerActiveTab, setPlayerActiveTab] = useState('Atlet Senior');
   const [activeSection, setActiveSection] = useState('home');
 
   const handleNavigation = (sectionId: string, tabId?: string) => {
     setActiveSection(sectionId);
-    if (tabId) setAboutActiveTab(tabId);
 
+    // Logika jika yang diklik adalah bagian 'about'
+    if (sectionId === 'about' && tabId) {
+      setAboutActiveTab(tabId);
+    }
+
+    // Logika jika yang diklik adalah bagian 'atlet' (sesuaikan ID dengan Navbar)
+    if (sectionId === 'atlet' && tabId) {
+      setPlayerActiveTab(tabId);
+    }
+
+    // Scroll ke section tujuan
     const element = document.getElementById(sectionId);
     if (element) {
       window.scrollTo({
@@ -32,7 +44,16 @@ function App() {
       <main>
         <section id="home"><Hero /></section>
         <section id="news"><News /></section>
-        <section id="players"><Athletes /></section>
+        
+        {/* Update ID menjadi 'atlet' agar sinkron dengan Navbar, 
+            lalu kirim props tab-nya */}
+        <section id="atlet">
+          <Athletes 
+            activeTab={playerActiveTab} 
+            onTabChange={(id) => setPlayerActiveTab(id)} 
+          />
+        </section>
+
         <section id="rankings"><Ranking /></section>
         <section id="gallery"><Gallery /></section>
         <section id="about">

@@ -32,6 +32,23 @@ const Players: React.FC = () => {
   const nextRef = useRef<HTMLButtonElement>(null);
   const [_, setInit] = useState(false);
 
+  // 1. TAMBAHKAN INI: Listener agar Navbar bisa mengubah filter di sini
+  useEffect(() => {
+    const handleFilterAtlet = (event: any) => {
+      const category = event.detail; // Mengambil 'Senior' atau 'Muda'
+      if (category) {
+        setCurrentAgeGroup(category);
+      }
+    };
+
+    // Mendengarkan sinyal 'filterAtlet' dari Navbar
+    window.addEventListener('filterAtlet', handleFilterAtlet);
+    
+    return () => {
+      window.removeEventListener('filterAtlet', handleFilterAtlet);
+    };
+  }, []);
+
   useEffect(() => {
     setInit(true);
   }, []);
@@ -217,9 +234,9 @@ const Players: React.FC = () => {
         <div className="relative group/slider">
           <Swiper
             modules={[Navigation, Pagination, Autoplay]}
-            key={currentAgeGroup} // SANGAT PENTING: Force re-render saat filter ganti
-            observer={true} // Memantau perubahan DOM
-            observeParents={true} // Memantau perubahan pada parent
+            key={currentAgeGroup} 
+            observer={true} 
+            observeParents={true} 
             spaceBetween={25}
             slidesPerView={1.2}
             navigation={{

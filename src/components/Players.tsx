@@ -1,18 +1,14 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
-import { 
-  Trophy, X, Search, ChevronLeft, ChevronRight, 
-  UserCheck, Users, ArrowRight, LayoutDashboard 
-} from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, X, Trophy } from 'lucide-react';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
-import 'swiper/css/pagination';
 
-// --- DATA PEMAIN LENGKAP (54 PEMAIN) ---
+// --- DATA PEMAIN BERDASARKAN GAMBAR TABEL ---
 const rawPlayersData = [
-  // SEEDED A (10 Pemain)
+  // KOLOM A (Seeded A)
   { id: 1, name: 'Agustilaar', category: 'Seeded A', ageGroup: 'Atlet Senior' },
   { id: 2, name: 'Darwis (TNI)', category: 'Seeded A', ageGroup: 'Atlet Senior' },
   { id: 3, name: 'Salman', category: 'Seeded A', ageGroup: 'Atlet Senior' },
@@ -24,7 +20,7 @@ const rawPlayersData = [
   { id: 9, name: 'Acos', category: 'Seeded A', ageGroup: 'Atlet Senior' },
   { id: 10, name: 'Herman', category: 'Seeded A', ageGroup: 'Atlet Senior' },
 
-  // SEEDED B (+) (22 Pemain)
+  // KOLOM B (+) (Seeded B+)
   { id: 11, name: 'Dr. Khaliq', category: 'Seeded B(+)', ageGroup: 'Atlet Senior' },
   { id: 12, name: 'H. Ismail', category: 'Seeded B(+)', ageGroup: 'Atlet Senior' },
   { id: 13, name: 'Momota', category: 'Seeded B(+)', ageGroup: 'Atlet Senior' },
@@ -48,7 +44,7 @@ const rawPlayersData = [
   { id: 31, name: 'A. Arwan', category: 'Seeded B(+)', ageGroup: 'Atlet Senior' },
   { id: 32, name: 'Laganing', category: 'Seeded B(+)', ageGroup: 'Atlet Senior' },
 
-  // SEEDED B (-) (10 Pemain)
+  // KOLOM B (-) (Seeded B-)
   { id: 33, name: 'A. Mansur', category: 'Seeded B(-)', ageGroup: 'Atlet Senior' },
   { id: 34, name: 'Darwis R.', category: 'Seeded B(-)', ageGroup: 'Atlet Senior' },
   { id: 35, name: 'Prof. Fikri', category: 'Seeded B(-)', ageGroup: 'Atlet Senior' },
@@ -60,7 +56,7 @@ const rawPlayersData = [
   { id: 41, name: 'Marzuki', category: 'Seeded B(-)', ageGroup: 'Atlet Senior' },
   { id: 42, name: 'Kurnia', category: 'Seeded B(-)', ageGroup: 'Atlet Senior' },
 
-  // SEEDED C (12 Pemain)
+  // KOLOM C (Seeded C)
   { id: 43, name: 'Ust. Usman', category: 'Seeded C', ageGroup: 'Atlet Muda' },
   { id: 44, name: 'H. Tantong', category: 'Seeded C', ageGroup: 'Atlet Muda' },
   { id: 45, name: 'Surakati', category: 'Seeded C', ageGroup: 'Atlet Muda' },
@@ -75,15 +71,8 @@ const rawPlayersData = [
   { id: 54, name: 'Yakob', category: 'Seeded C', ageGroup: 'Atlet Muda' },
 ].map(p => ({
   ...p,
-  image: `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}` // Placeholder foto profil unik per nama
+  image: `https://api.dicebear.com/7.x/initials/svg?seed=${p.name}&backgroundColor=0066ff`
 }));
-
-const categorySettings: Record<string, any> = {
-  'Seeded A': { base: 10000, winBonus: 500 },
-  'Seeded B(+)': { base: 8500, winBonus: 400 },
-  'Seeded B(-)': { base: 7500, winBonus: 300 },
-  'Seeded C': { base: 6000, winBonus: 200 },
-};
 
 export default function Players() {
   const [currentTab, setCurrentTab] = useState('Atlet Senior');
@@ -93,11 +82,6 @@ export default function Players() {
 
   const filteredPlayers = useMemo(() => {
     return rawPlayersData
-      .map((p, idx) => ({
-        ...p,
-        totalPoints: (categorySettings[p.category]?.base || 5000) - (idx * 10),
-        globalRank: idx + 1
-      }))
       .filter(p => {
         const matchesTab = p.ageGroup === currentTab;
         const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -106,19 +90,18 @@ export default function Players() {
   }, [currentTab, searchTerm]);
 
   return (
-    <section id="atlet" className="py-20 bg-[#0a0a0a] text-white">
+    <section className="py-20 bg-[#0a0a0a] text-white">
       <div className="max-w-7xl mx-auto px-6">
         
-        {/* HEADER & SEARCH */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
-          <div className="space-y-4 w-full md:w-auto">
-            <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter">Database Pemain</h2>
-            
-            <div className="relative max-w-sm">
+        {/* HEADER & SEARCH AREA */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+          <div className="space-y-4">
+            <h2 className="text-5xl font-black uppercase italic tracking-tighter">Profil Pemain</h2>
+            <div className="relative w-full max-w-sm">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
               <input 
                 type="text"
-                placeholder="Cari 54 Nama Pemain..."
+                placeholder="Cari nama pemain..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-12 pr-4 focus:border-blue-600 outline-none transition-all text-sm"
@@ -126,15 +109,15 @@ export default function Players() {
             </div>
           </div>
 
-          <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800">
-            <button onClick={() => setCurrentTab('Atlet Senior')} className={`px-6 py-3 rounded-lg font-bold text-xs transition-all ${currentTab === 'Atlet Senior' ? 'bg-blue-600' : 'text-zinc-500'}`}>SENIOR (A, B+, B-)</button>
-            <button onClick={() => setCurrentTab('Atlet Muda')} className={`px-6 py-3 rounded-lg font-bold text-xs transition-all ${currentTab === 'Atlet Muda' ? 'bg-blue-600' : 'text-zinc-500'}`}>MUDA (C)</button>
+          <div className="flex bg-zinc-900 p-1.5 rounded-2xl border border-zinc-800">
+            <button onClick={() => {setCurrentTab('Atlet Senior'); setSearchTerm("")}} className={`px-6 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all ${currentTab === 'Atlet Senior' ? 'bg-blue-600' : 'text-zinc-500'}`}>SENIOR</button>
+            <button onClick={() => {setCurrentTab('Atlet Muda'); setSearchTerm("")}} className={`px-6 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all ${currentTab === 'Atlet Muda' ? 'bg-blue-600' : 'text-zinc-500'}`}>MUDA</button>
           </div>
         </div>
 
-        {/* SLIDER */}
+        {/* SLIDER PEMAIN */}
         {filteredPlayers.length > 0 ? (
-          <div className="relative">
+          <div className="relative group">
             <Swiper
               key={`${currentTab}-${searchTerm}`}
               modules={[Navigation, Pagination]}
@@ -145,26 +128,26 @@ export default function Players() {
             >
               {filteredPlayers.map((player) => (
                 <SwiperSlide key={player.id}>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-[2rem] overflow-hidden group hover:border-blue-600/50 transition-all">
-                    <div className="aspect-[4/5] relative bg-zinc-800">
-                      <img src={player.image} alt={player.name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" />
-                      <div className="absolute top-4 left-4 bg-blue-600 px-3 py-1 rounded-lg font-black text-xs italic">#{player.globalRank}</div>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-[2.5rem] overflow-hidden hover:border-blue-600 transition-all">
+                    <div className="aspect-[3/4] relative bg-zinc-800">
+                      <img src={player.image} alt={player.name} className="w-full h-full object-cover opacity-80" />
+                      <div className="absolute top-6 left-6 bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-black italic">RANKED</div>
                     </div>
-                    <div className="p-6">
-                      <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">{player.category}</span>
-                      <h3 className="text-xl font-black uppercase truncate mt-1">{player.name}</h3>
+                    <div className="p-8">
+                      <span className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{player.category}</span>
+                      <h3 className="text-xl font-black uppercase mt-1 truncate">{player.name}</h3>
                     </div>
                   </div>
                 </SwiperSlide>
               ))}
             </Swiper>
             
-            <button ref={prevRef} className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-xl hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft size={20}/></button>
-            <button ref={nextRef} className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-xl hover:bg-blue-600 hover:text-white transition-all"><ChevronRight size={20}/></button>
+            <button ref={prevRef} className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-2xl hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft/></button>
+            <button ref={nextRef} className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-2xl hover:bg-blue-600 hover:text-white transition-all"><ChevronRight/></button>
           </div>
         ) : (
-          <div className="text-center py-20 bg-zinc-900/50 rounded-3xl border border-dashed border-zinc-800">
-            <p className="text-zinc-500 font-bold uppercase">Nama "{searchTerm}" tidak ditemukan di database</p>
+          <div className="py-20 text-center bg-zinc-900/50 rounded-[3rem] border border-dashed border-zinc-800">
+            <p className="text-zinc-500 font-bold uppercase tracking-widest">Pemain tidak ditemukan</p>
           </div>
         )}
       </div>

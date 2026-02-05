@@ -65,7 +65,7 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
                   />
                   {/* Dekorasi Logo di Pojok Gambar */}
                   <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white p-4 rounded-3xl shadow-xl hidden md:flex items-center justify-center border border-slate-100">
-                    <img src="/photo_2026-02-03_00-32-07.jpg" alt="Logo" className="w-full h-full object-contain" />
+                    <img src="whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg" alt="Logo" className="w-full h-full object-contain" />
                   </div>
                 </div>
 

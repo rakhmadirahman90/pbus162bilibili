@@ -54,7 +54,7 @@ const Players: React.FC = () => {
 
       // SEEDED B+ (22) - SENIOR
       { name: "H. Wawan", group: "B+", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Pengalaman tinggi dalam mengatur ritme permainan ganda." },
-      { name: "Bustan", group: "B+", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain yang ulet dan pantang menyerah dalam mengejar bola." },
+      { name: "Bustan", group: "B+", img: "gemini_generated_image_abml4qabml4qabml.png", bio: "Pemain yang ulet dan pantang menyerah dalam mengejar bola." },
       { name: "Dr. Khaliq", group: "B+", img: "gemini_generated_image_l4hhwml4hhwml4hh.png", bio: "Akurasi penempatan bola yang presisi dan cerdas." },
       { name: "Momota", group: "B+", img: "https://images.pexels.com/photos/4307869/pexels-photo-4307869.jpeg", bio: "Gaya bermain teknis yang terinspirasi dari legenda bulutangkis." },
       { name: "H. Ismail", group: "B+", img: "https://images.pexels.com/photos/3785079/pexels-photo-3785079.jpeg", bio: "Pemain senior dengan teknik drop shot yang sangat halus." },

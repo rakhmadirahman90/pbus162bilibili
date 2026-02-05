@@ -8,19 +8,21 @@ import Ranking from './components/Ranking';
 import Gallery from './components/Gallery';
 
 function App() {
-  // State navigasi sederhana
+  // State navigasi sederhana untuk melacak menu yang aktif
   const [activeSection, setActiveSection] = useState('home');
 
-  // Fungsi navigasi standar awal
+  // Fungsi navigasi standar untuk scroll ke section
   const handleNavigation = (sectionId: string) => {
     setActiveSection(sectionId);
 
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 80;
+      const offset = 80; // Jarak agar judul section tidak tertutup Navbar
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - offset;
+
       window.scrollTo({
-        top: elementPosition - offset,
+        top: offsetPosition,
         behavior: 'smooth'
       });
     }
@@ -28,35 +30,45 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Menggunakan prop standar: onNavigate */}
-      <Navbar activeSection={activeSection} onNavigate={handleNavigation} />
+      {/* Navbar menerima fungsi navigasi */}
+      <Navbar onNavigate={handleNavigation} />
       
       <main>
+        {/* Section Beranda */}
         <section id="home">
           <Hero />
         </section>
 
+        {/* Section Tentang */}
         <section id="about">
-          {/* Mengembalikan About ke kondisi awal (tanpa kontrol state dari luar) */}
           <About />
         </section>
 
+        {/* Section Berita */}
         <section id="berita">
           <News />
         </section>
 
+        {/* Section Atlet */}
         <section id="atlet">
           <Athletes />
         </section>
 
+        {/* Section Peringkat */}
         <section id="peringkat">
           <Ranking />
         </section>
 
+        {/* Section Galeri */}
         <section id="galeri">
           <Gallery />
-        </div>
+        </section> 
       </main>
+
+      {/* Footer bisa diletakkan di sini jika diperlukan */}
+      <footer className="py-8 bg-slate-900 text-slate-500 text-center text-sm border-t border-slate-800">
+        <p>&copy; 2024 PB US 162 BILIBILI. All rights reserved.</p>
+      </footer>
     </div>
   );
 }

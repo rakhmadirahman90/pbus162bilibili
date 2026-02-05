@@ -89,7 +89,7 @@ const Players: React.FC = () => {
       { name: "Kurnia", group: "B-", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Cerdas dalam menaruh bola-bola tipis di area depan lawan." },
 
       // SEEDED C (12) - MUDA
-      { name: "Arsan", group: "C", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Rising star di kategori C dengan perkembangan teknik yang sangat pesat." },
+      { name: "Arsan", group: "C", img: "gemini_generated_image_yz5sjxyz5sjxyz5s.png", bio: "Rising star di kategori C dengan perkembangan teknik yang sangat pesat." },
       { name: "H. Hasym", group: "C", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain muda dengan semangat kompetisi yang luar biasa." },
       { name: "H. Anwar", group: "C", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Gaya main menyerang yang menjadi ciri khas generasi muda PB US 162." },
       { name: "Yakob", group: "C", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Stamina prima yang menjadi momok bagi lawan di reli-reli panjang." },

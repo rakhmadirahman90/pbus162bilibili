@@ -8,23 +8,19 @@ import Ranking from './components/Ranking';
 import Gallery from './components/Gallery';
 
 function App() {
+  // State navigasi sederhana
   const [activeSection, setActiveSection] = useState('home');
-  const [aboutTab, setAboutTab] = useState('sejarah');
 
-  const handleNavigation = (sectionId: string, tabId?: string) => {
+  // Fungsi navigasi standar awal
+  const handleNavigation = (sectionId: string) => {
     setActiveSection(sectionId);
-    if (tabId) setAboutTab(tabId);
 
     const element = document.getElementById(sectionId);
     if (element) {
       const offset = 80;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
-      const offsetPosition = elementPosition - offset;
-
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       window.scrollTo({
-        top: offsetPosition,
+        top: elementPosition - offset,
         behavior: 'smooth'
       });
     }
@@ -32,17 +28,34 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Menggunakan prop standar: onNavigate */}
       <Navbar activeSection={activeSection} onNavigate={handleNavigation} />
       
       <main>
-        <section id="home"><Hero /></section>
-        <section id="about">
-          <About activeTab={aboutTab} onTabChange={(id) => setAboutTab(id)} />
+        <section id="home">
+          <Hero />
         </section>
-        <section id="berita"><News /></section>
-        <section id="atlet"><Athletes /></section>
-        <section id="peringkat"><Ranking /></section>
-        <section id="galeri"><Gallery /></section>
+
+        <section id="about">
+          {/* Mengembalikan About ke kondisi awal (tanpa kontrol state dari luar) */}
+          <About />
+        </section>
+
+        <section id="berita">
+          <News />
+        </section>
+
+        <section id="atlet">
+          <Athletes />
+        </section>
+
+        <section id="peringkat">
+          <Ranking />
+        </section>
+
+        <section id="galeri">
+          <Gallery />
+        </div>
       </main>
     </div>
   );

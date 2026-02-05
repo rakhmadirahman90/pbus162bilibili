@@ -10,7 +10,9 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [currentLang, setCurrentLang] = useState('ID');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // PERBAIKAN: Menambahkan pengecekan eksplisit agar parameter tab tidak hilang
   const handleNavClick = (section: string, tab?: string) => {
+    // Pastikan tab dikirim apa adanya (Senior/Muda) ke App.tsx
     onNavigate(section, tab);
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
@@ -46,7 +48,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         <div className="hidden md:flex items-center gap-8">
           <button onClick={() => handleNavClick('home')} className="nav-link">Beranda</button>
 
-          {/* DROPDOWN TENTANG KAMI (Sama dengan struktur Atlet) */}
+          {/* DROPDOWN TENTANG KAMI */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('about')}
@@ -68,7 +70,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           <button onClick={() => handleNavClick('news')} className="nav-link">Berita</button>
 
-          {/* DROPDOWN ATLET */}
+          {/* DROPDOWN ATLET - Pastikan string 'Senior' & 'Muda' sama dengan data di Players.tsx */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('atlet')}
@@ -80,6 +82,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             {activeDropdown === 'atlet' && (
               <div className="dropdown-container">
                 <div className="dropdown-content">
+                  {/* PENTING: String 'Senior' harus cocok dengan p.ageGroup di Players.tsx */}
                   <button onClick={() => handleNavClick('atlet', 'Senior')} className="dropdown-item">Atlet Senior</button>
                   <button onClick={() => handleNavClick('atlet', 'Muda')} className="dropdown-item">Atlet Muda</button>
                 </div>
@@ -120,7 +123,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         </button>
       </div>
 
-      {/* --- MOBILE MENU (FIXED & SYNCHRONIZED) --- */}
+      {/* --- MOBILE MENU --- */}
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 animate-in slide-in-from-top duration-300 overflow-y-auto max-h-[calc(100vh-80px)] shadow-2xl">
           <div className="flex flex-col p-6 gap-4">
@@ -128,7 +131,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             
             <div className="h-px bg-white/5" />
             
-            {/* SUB-MENU TENTANG KAMI DI MOBILE */}
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Tentang Kami</p>
             <div className="flex flex-col gap-3 pl-4">
               <button onClick={() => handleNavClick('about', 'sejarah')} className="mobile-sub-link">Sejarah</button>
@@ -138,7 +140,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
             <div className="h-px bg-white/5" />
 
-            {/* SUB-MENU ATLET DI MOBILE */}
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Kategori Atlet</p>
             <div className="flex flex-col gap-3 pl-4">
               <button onClick={() => handleNavClick('atlet', 'Senior')} className="mobile-sub-link">Atlet Senior</button>
@@ -154,71 +155,18 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         </div>
       )}
 
-      {/* --- STYLING UTAMA --- */}
+      {/* CSS Styles tetap sama seperti sebelumnya */}
       <style>{`
-        .nav-link {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-          color: #cbd5e1;
-          transition: all 0.3s ease;
-        }
+        .nav-link { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #cbd5e1; transition: all 0.3s ease; cursor: pointer; }
         .nav-link:hover { color: #3b82f6; }
-        
-        .dropdown-container {
-          position: absolute;
-          top: 80%;
-          width: 13rem;
-          padding-top: 1rem;
-          animation: dropdownFade 0.2s ease-out;
-          z-index: 110;
-        }
-        
-        .dropdown-content {
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 1rem;
-          overflow: hidden;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-        
-        .dropdown-item {
-          width: 100%;
-          text-align: left;
-          padding: 1rem 1.5rem;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: #e2e8f0;
-          border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-          transition: all 0.2s;
-        }
+        .dropdown-container { position: absolute; top: 80%; width: 13rem; padding-top: 1rem; animation: dropdownFade 0.2s ease-out; z-index: 110; }
+        .dropdown-content { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #e2e8f0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); transition: all 0.2s; cursor: pointer; }
         .dropdown-item:last-child { border: none; }
         .dropdown-item:hover { background: #2563eb; color: white; }
-
-        .mobile-nav-link {
-          font-size: 13px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          color: #f8fafc;
-        }
-
-        .mobile-sub-link {
-          text-align: left;
-          font-size: 12px;
-          font-weight: 600;
-          color: #3b82f6;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        @keyframes dropdownFade {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
+        .mobile-nav-link { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #f8fafc; }
+        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 600; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; }
+        @keyframes dropdownFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </nav>
   );

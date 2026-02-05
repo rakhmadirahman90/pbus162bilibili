@@ -9,7 +9,7 @@ import 'swiper/css/pagination';
 import { 
   X, Target, Star, ShieldCheck, 
   ChevronLeft, ChevronRight, UserCheck, Users, 
-  Search, Award, ArrowRight
+  Search, Award, ArrowRight, MapPin
 } from 'lucide-react';
 
 interface Player {
@@ -96,7 +96,6 @@ export default function Players() {
   const nextRef = useRef<HTMLButtonElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  // FUNGSI AKTIF UNTUK TOMBOL "LIHAT SEMUA PEMAIN"
   const handleViewAll = () => {
     setSearchTerm(""); 
     sectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,91 +113,123 @@ export default function Players() {
   }, [currentTab, searchTerm]);
 
   return (
-    <section id="atlet" ref={sectionRef} className="py-20 bg-[#050505] text-white min-h-screen font-sans">
+    <section id="atlet" ref={sectionRef} className="py-24 bg-[#050505] text-white min-h-screen font-sans">
       
-      {/* --- MODAL DETAIL --- */}
+      {/* --- MODAL DETAIL (Ditingkatkan: Foto Utuh & Jelas) --- */}
       {selectedPlayer && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setSelectedPlayer(null)} />
-          <div className="relative bg-[#111] border border-white/10 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in zoom-in duration-300">
-            <button onClick={() => setSelectedPlayer(null)} className="absolute top-4 right-4 z-20 text-white/50 hover:text-white transition-colors">
-              <X size={28} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setSelectedPlayer(null)} />
+          
+          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
+            
+            {/* Tombol Close */}
+            <button onClick={() => setSelectedPlayer(null)} className="absolute top-6 right-6 z-50 bg-white/10 hover:bg-white/20 text-white p-2 rounded-full backdrop-blur-md transition-all">
+              <X size={24} />
             </button>
-            <div className="w-full md:w-1/2 aspect-square">
-              <img src={selectedPlayer.image} className="w-full h-full object-cover" alt={selectedPlayer.name} />
-            </div>
-            <div className="p-8 flex flex-col justify-center flex-1">
-              <p className="text-blue-500 font-bold text-[10px] tracking-widest mb-2 flex items-center gap-2">
-                <ShieldCheck size={14} /> ELITE MEMBER
-              </p>
-              <h2 className="text-3xl font-black uppercase mb-4 tracking-tighter">{selectedPlayer.name}</h2>
-              <div className="flex gap-4 mb-6">
-                <div className="bg-white/5 p-3 rounded-xl flex-1">
-                  <p className="text-zinc-500 text-[9px] uppercase font-bold tracking-wider">Kategori</p>
-                  <p className="text-sm font-bold">{selectedPlayer.category}</p>
+
+            {/* Area Foto (Object Contain agar utuh 1 badan) */}
+            <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative group">
+              <img 
+                src={selectedPlayer.image} 
+                className="w-full h-full object-contain max-h-[80vh] transition-transform duration-700" 
+                alt={selectedPlayer.name} 
+              />
+              {selectedPlayer.isChampion && (
+                <div className="absolute bottom-6 left-6 bg-yellow-500 text-black px-4 py-2 rounded-full font-black text-[10px] flex items-center gap-2 shadow-2xl">
+                  <Award size={16} /> NEW CHAMPION
                 </div>
-                <div className="bg-white/5 p-3 rounded-xl flex-1">
-                  <p className="text-zinc-500 text-[9px] uppercase font-bold tracking-wider">Rank</p>
-                  <p className="text-sm font-bold">#{selectedPlayer.rank}</p>
+              )}
+            </div>
+
+            {/* Area Info Profil */}
+            <div className="p-8 md:p-14 flex flex-col justify-center flex-1 bg-gradient-to-br from-zinc-900 to-black">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="h-[2px] w-8 bg-blue-600"></div>
+                <p className="text-blue-500 font-black text-[10px] uppercase tracking-[0.3em]">Official Athlete Profile</p>
+              </div>
+
+              <h2 className="text-4xl md:text-6xl font-black uppercase mb-8 leading-none tracking-tighter">
+                {selectedPlayer.name}
+              </h2>
+
+              <div className="grid grid-cols-2 gap-4 mb-10">
+                <div className="bg-white/5 border border-white/5 p-6 rounded-3xl">
+                  <Target className="text-blue-500 mb-3" size={20} />
+                  <p className="text-zinc-500 text-[10px] uppercase font-black mb-1">Kategori</p>
+                  <p className="font-bold text-lg text-zinc-100">{selectedPlayer.category}</p>
+                </div>
+                <div className="bg-white/5 border border-white/5 p-6 rounded-3xl">
+                  <Star className="text-yellow-500 mb-3" size={20} />
+                  <p className="text-zinc-500 text-[10px] uppercase font-black mb-1">Ranking</p>
+                  <p className="font-bold text-lg text-zinc-100">#{selectedPlayer.rank}</p>
                 </div>
               </div>
-              <p className="text-zinc-400 text-sm leading-relaxed italic border-l-2 border-blue-600 pl-4">
-                "{selectedPlayer.bio}"
-              </p>
+
+              <div className="relative">
+                <div className="absolute -left-4 top-0 bottom-0 w-[3px] bg-blue-600 rounded-full"></div>
+                <p className="text-zinc-400 text-sm md:text-base leading-relaxed italic pl-2">
+                  "{selectedPlayer.bio}"
+                </p>
+              </div>
+
+              <div className="mt-10 flex items-center gap-4 text-zinc-500 text-[10px] font-black tracking-widest uppercase">
+                <MapPin size={14} className="text-blue-600" /> PB US 162 PAREPARE
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* --- KONTEN UTAMA --- */}
       <div className="max-w-7xl mx-auto px-6">
         {/* --- HEADER --- */}
-        <div className="mb-12 relative">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-2">
-              <span className="bg-blue-600 text-[10px] font-black px-2 py-1 rounded tracking-[0.2em] inline-block mb-2 uppercase">PROFIL PEMAIN</span>
-              <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-none uppercase">
-                KENAL LEBIH <span className="text-blue-600">DEKAT</span>
+        <div className="mb-16 relative">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="space-y-3">
+              <span className="bg-blue-600 text-[10px] font-black px-3 py-1.5 rounded-md tracking-[0.2em] inline-block mb-2 uppercase shadow-lg shadow-blue-600/20">PROFIL PEMAIN</span>
+              <h2 className="text-5xl md:text-8xl font-black tracking-tighter leading-none uppercase">
+                KENAL LEBIH <br/> <span className="text-blue-600">DEKAT</span>
               </h2>
             </div>
             
             <div className="flex items-center gap-4">
                <button 
                  onClick={handleViewAll}
-                 className="flex items-center gap-2 text-zinc-500 hover:text-white text-xs font-bold transition-colors group"
+                 className="flex items-center gap-2 text-zinc-500 hover:text-white text-sm font-black transition-colors group uppercase tracking-widest"
                >
                  Lihat Semua Pemain 
-                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                 <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform text-blue-600" />
                </button>
             </div>
           </div>
-          <div className="h-px bg-zinc-800 w-full mt-8" />
+          <div className="h-px bg-gradient-to-r from-blue-600/50 via-zinc-800 to-transparent w-full mt-10" />
         </div>
 
         {/* --- FILTER & SEARCH --- */}
         <div className="flex flex-col md:flex-row gap-6 mb-12 items-center justify-between">
-          <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+          <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800 backdrop-blur-md">
             <button 
               onClick={() => setCurrentTab('Atlet Senior')} 
-              className={`px-6 py-2.5 rounded-lg text-[11px] font-black tracking-wider transition-all flex items-center gap-2 ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
+              className={`px-8 py-3 rounded-xl text-[11px] font-black tracking-wider transition-all flex items-center gap-3 ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'text-zinc-500 hover:text-white'}`}
             >
-              SENIOR <span className="opacity-50">{counts.Senior}</span>
+              <UserCheck size={16} /> SENIOR <span className="opacity-40">{counts.Senior}</span>
             </button>
             <button 
               onClick={() => setCurrentTab('Atlet Muda')} 
-              className={`px-6 py-2.5 rounded-lg text-[11px] font-black tracking-wider transition-all flex items-center gap-2 ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
+              className={`px-8 py-3 rounded-xl text-[11px] font-black tracking-wider transition-all flex items-center gap-3 ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30' : 'text-zinc-500 hover:text-white'}`}
             >
-              MUDA <span className="opacity-50">{counts.Muda}</span>
+              <Users size={16} /> MUDA <span className="opacity-40">{counts.Muda}</span>
             </button>
           </div>
 
-          <div className="relative w-full md:w-80 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={18} />
+          <div className="relative w-full md:w-96 group">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={20} />
             <input 
               type="text" 
-              placeholder="Cari nama pemain..." 
+              placeholder="Cari nama pemain terbaik..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-blue-600 text-sm font-medium transition-all"
+              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-14 pr-6 focus:outline-none focus:border-blue-600 text-sm font-bold transition-all placeholder:text-zinc-700 placeholder:font-medium"
             />
           </div>
         </div>
@@ -208,7 +239,7 @@ export default function Players() {
           <Swiper
             key={currentTab + searchTerm}
             modules={[Navigation, Pagination, Autoplay]}
-            spaceBetween={20}
+            spaceBetween={25}
             slidesPerView={1}
             navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
             onBeforeInit={(swiper) => {
@@ -221,42 +252,46 @@ export default function Players() {
               640: { slidesPerView: 2 }, 
               1024: { slidesPerView: 4 } 
             }}
-            className="!pb-16"
+            className="!pb-20"
           >
             {filteredPlayers.map((player) => (
               <SwiperSlide key={player.id}>
                 <div 
                   onClick={() => setSelectedPlayer(player)} 
-                  className="group cursor-pointer relative aspect-[4/5.5] rounded-2xl overflow-hidden bg-zinc-900 transition-transform duration-500 hover:-translate-y-2 border border-zinc-800"
+                  className="group cursor-pointer relative aspect-[4/5.5] rounded-[2rem] overflow-hidden bg-zinc-900 transition-all duration-500 hover:-translate-y-3 border border-zinc-800 hover:border-blue-600/50 shadow-2xl"
                 >
-                  <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-                    <span className="bg-blue-600 text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                  {/* Badge Atas */}
+                  <div className="absolute top-5 left-5 z-10 flex flex-col gap-2">
+                    <span className="bg-blue-600 text-[8px] font-black px-3 py-1.5 rounded-lg uppercase tracking-[0.15em] shadow-lg backdrop-blur-md">
                       {player.category}
                     </span>
                     {player.isChampion && (
-                      <span className="bg-yellow-500 text-black text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 shadow-lg">
-                        <Award size={10} /> CHAMPION
+                      <span className="bg-yellow-500 text-black text-[8px] font-black px-3 py-1.5 rounded-lg uppercase tracking-[0.15em] flex items-center gap-1.5 shadow-lg">
+                        <Award size={12} /> CHAMPION
                       </span>
                     )}
                   </div>
 
+                  {/* Foto Kartu */}
                   <img 
                     src={player.image} 
                     alt={player.name} 
-                    className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700" 
+                    className="w-full h-full object-cover grayscale-[0.4] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700" 
                   />
                   
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                  {/* Overlay Gradasi */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80" />
                   
-                  <div className="absolute bottom-6 left-6 right-6">
-                    <p className="text-blue-400 font-bold text-[9px] uppercase mb-1 tracking-widest">
+                  {/* Info di dalam Kartu */}
+                  <div className="absolute bottom-8 left-8 right-8">
+                    <p className="text-blue-400 font-black text-[9px] uppercase mb-1 tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       Kenal Lebih Dekat
                     </p>
-                    <h3 className="text-xl font-black uppercase leading-tight tracking-tighter group-hover:text-blue-400 transition-colors mb-3">
+                    <h3 className="text-2xl font-black uppercase leading-none tracking-tighter group-hover:text-white transition-colors mb-4">
                       {player.name}
                     </h3>
-                    <div className="flex items-center gap-2 text-white/50 text-[10px] font-bold uppercase tracking-[0.1em] border-t border-white/10 pt-3">
-                      Rank #{player.rank} • {player.ageGroup}
+                    <div className="flex items-center gap-3 text-white/40 text-[9px] font-black uppercase tracking-widest border-t border-white/10 pt-4">
+                      Rank #{player.rank} <span className="text-blue-600">•</span> {player.category}
                     </div>
                   </div>
                 </div>
@@ -264,11 +299,12 @@ export default function Players() {
             ))}
           </Swiper>
           
-          <button ref={prevRef} className="absolute left-[-24px] top-1/2 -translate-y-1/2 z-40 w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center hover:bg-blue-600 transition-all shadow-xl invisible group-hover/slider:visible hover:scale-110">
-            <ChevronLeft size={24} />
+          {/* Tombol Navigasi Custom */}
+          <button ref={prevRef} className="absolute left-[-30px] top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center hover:bg-blue-600 hover:border-blue-600 transition-all shadow-2xl opacity-0 group-hover/slider:opacity-100 hover:scale-110">
+            <ChevronLeft size={28} />
           </button>
-          <button ref={nextRef} className="absolute right-[-24px] top-1/2 -translate-y-1/2 z-40 w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center hover:bg-blue-600 transition-all shadow-xl invisible group-hover/slider:visible hover:scale-110">
-            <ChevronRight size={24} />
+          <button ref={nextRef} className="absolute right-[-30px] top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center hover:bg-blue-600 hover:border-blue-600 transition-all shadow-2xl opacity-0 group-hover/slider:opacity-100 hover:scale-110">
+            <ChevronRight size={28} />
           </button>
         </div>
       </div>

@@ -8,102 +8,88 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-sm text-white z-[100] h-20 border-b border-white/10 shadow-2xl">
-      <div className="max-w-7xl mx-auto px-4 h-full flex justify-between items-center">
+    <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/5 shadow-2xl">
+      <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
         
-        {/* LOGO: Kotak Biru dengan Teks Putih & Nama Klub */}
+        {/* LOGO: Desain Simpel & Kuat */}
         <div 
-          className="flex items-center gap-3 cursor-pointer group" 
+          className="flex items-center gap-4 cursor-pointer group" 
           onClick={() => onNavigate('home')}
         >
-          {/* Ikon Kotak PB */}
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-xl italic shadow-lg group-hover:bg-blue-500 transition-colors">
+          <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl italic shadow-lg shadow-blue-900/20 group-hover:scale-105 transition-transform duration-300">
             PB
           </div>
-          {/* Nama Klub */}
-          <div className="flex flex-col leading-none">
-            <span className="font-black text-xl tracking-tighter">
+          <div className="flex flex-col">
+            <span className="font-extrabold text-2xl tracking-tight leading-none mb-1">
               US 162 <span className="text-blue-500">BILIBILI</span>
             </span>
-            <span className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase">Badminton Club</span>
+            <span className="text-[9px] text-slate-400 font-medium tracking-[0.3em] uppercase">
+              Professional Badminton
+            </span>
           </div>
         </div>
 
-        {/* MENU NAVIGASI: Tentang Kami sekarang di urutan ke-2 */}
-        <div className="hidden md:flex items-center gap-8">
-          {/* 1. Beranda */}
+        {/* MENU NAVIGASI: Tipografi Elegan */}
+        <div className="hidden md:flex items-center gap-10">
           <button 
             onClick={() => onNavigate('home')} 
-            className="text-xs font-black uppercase tracking-widest hover:text-blue-500 transition-colors"
+            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
           >
             Beranda
           </button>
 
-          {/* 2. Tentang Kami (Dropdown) */}
+          {/* Dropdown Tentang Kami */}
           <div className="relative group">
             <button 
               onMouseEnter={() => setIsDropdownOpen(true)}
               onClick={() => onNavigate('about')}
-              className="flex items-center gap-1 text-xs font-black uppercase tracking-widest hover:text-blue-500 transition-colors"
+              className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
             >
-              Tentang Kami <span className="text-[8px] ml-1">▼</span>
+              Tentang Kami <span className="text-[7px] opacity-50 group-hover:rotate-180 transition-transform duration-300">▼</span>
             </button>
             
             {isDropdownOpen && (
               <div 
-                className="absolute top-full left-0 w-48 bg-slate-800 border border-white/10 rounded-xl shadow-2xl py-2 mt-2"
+                className="absolute top-full left-0 w-52 bg-slate-900/98 border border-white/10 rounded-xl shadow-2xl py-3 mt-2 backdrop-blur-xl animate-in fade-in slide-in-from-top-2"
                 onMouseLeave={() => setIsDropdownOpen(false)}
               >
-                <button 
-                  onClick={() => { onNavigate('about', 'sejarah'); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-blue-600 transition-colors"
-                >
-                  SEJARAH
-                </button>
-                <button 
-                  onClick={() => { onNavigate('about', 'visi-misi'); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-blue-600 transition-colors"
-                >
-                  VISI & MISI
-                </button>
-                <button 
-                  onClick={() => { onNavigate('about', 'fasilitas'); setIsDropdownOpen(false); }}
-                  className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-blue-600 transition-colors"
-                >
-                  FASILITAS
-                </button>
+                {['sejarah', 'visi-misi', 'fasilitas'].map((tab) => (
+                  <button 
+                    key={tab}
+                    onClick={() => { onNavigate('about', tab); setIsDropdownOpen(false); }}
+                    className="w-full text-left px-6 py-2.5 text-[10px] font-bold tracking-[0.1em] uppercase hover:bg-blue-600 transition-colors"
+                  >
+                    {tab.replace('-', ' ')}
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          {/* 3. Berita */}
           <button 
             onClick={() => onNavigate('news')} 
-            className="text-xs font-black uppercase tracking-widest hover:text-blue-500 transition-colors"
+            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
           >
             Berita
           </button>
 
-          {/* 4. Atlet */}
           <button 
             onClick={() => onNavigate('players')} 
-            className="text-xs font-black uppercase tracking-widest hover:text-blue-500 transition-colors"
+            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
           >
             Atlet
           </button>
 
-          {/* 5. Peringkat */}
           <button 
             onClick={() => onNavigate('rankings')} 
-            className="text-xs font-black uppercase tracking-widest hover:text-blue-500 transition-colors"
+            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
           >
             Peringkat
           </button>
 
-          {/* 6. Galeri */}
           <button 
             onClick={() => onNavigate('gallery')} 
-            className="text-xs font-black uppercase tracking-widest hover:text-blue-500 transition-colors"
+            className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-300 hover:text-blue-400 transition-all duration-300"
           >
             Galeri
           </button>

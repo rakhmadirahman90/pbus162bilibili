@@ -63,10 +63,10 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
                     alt="Latihan PB US 162" 
                     className="relative w-full h-[450px] object-cover rounded-[2rem] shadow-2xl border-4 border-white"
                   />
-                  {/* Dekorasi Logo di Pojok Gambar */}
+                  {/* Dekorasi Logo di Pojok Gambar 
                   <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white p-4 rounded-3xl shadow-xl hidden md:flex items-center justify-center border border-slate-100">
                     <img src="whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg" alt="Logo" className="w-full h-full object-contain" />
-                  </div>
+                  </div>*/}
                 </div>
 
                 {/* Teks di Kanan */}

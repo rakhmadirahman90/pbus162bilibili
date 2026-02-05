@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Target, Rocket, Shield, Award, MapPin } from 'lucide-react';
+import { BookOpen, Target, Rocket, Shield, Award, MapPin, CheckCircle2 } from 'lucide-react';
 
 interface AboutProps {
   activeTab: string;
@@ -42,7 +42,7 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
         {/* Tab Content Box */}
         <div className="bg-slate-50 rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-sm min-h-[450px]">
           
-          {/* SEJARAH DENGAN IKON */}
+          {/* SEJARAH */}
           {activeTab === 'sejarah' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -66,10 +66,9 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
             </div>
           )}
 
-          {/* VISI MISI DENGAN IKON */}
+          {/* VISI MISI */}
           {activeTab === 'visi-misi' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 grid md:grid-cols-2 gap-8">
-              {/* Box VISI */}
               <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-6 opacity-10 text-blue-600 group-hover:scale-110 transition-transform">
                   <Target size={120} />
@@ -77,13 +76,12 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
                 <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200">
                   <Target size={24} />
                 </div>
-                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase">Visi Utama</span>
+                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase font-sans">Visi Utama</span>
                 <p className="text-slate-700 text-2xl font-bold leading-tight italic">
                   "Menjadi klub bulutangkis rujukan nasional yang mencetak atlet berprestasi dunia."
                 </p>
               </div>
 
-              {/* Box MISI */}
               <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-6 opacity-10 text-blue-600 group-hover:scale-110 transition-transform">
                   <Rocket size={120} />
@@ -91,27 +89,21 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
                 <div className="w-12 h-12 bg-slate-800 text-white rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-slate-200">
                   <Rocket size={24} />
                 </div>
-                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase">Misi Kami</span>
+                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase font-sans">Misi Kami</span>
                 <ul className="space-y-3 text-slate-700 font-medium">
-                  <li className="flex items-center gap-2">
-                    <Shield size={16} className="text-blue-500" /> Pelatihan terstruktur & disiplin
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Shield size={16} className="text-blue-500" /> Fasilitas berstandar internasional
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Shield size={16} className="text-blue-500" /> Kompetisi rutin berkala
-                  </li>
+                  <li className="flex items-center gap-2 italic"><CheckCircle2 size={16} className="text-blue-500" /> Pelatihan terstruktur & disiplin</li>
+                  <li className="flex items-center gap-2 italic"><CheckCircle2 size={16} className="text-blue-500" /> Fasilitas berstandar internasional</li>
+                  <li className="flex items-center gap-2 italic"><CheckCircle2 size={16} className="text-blue-500" /> Kompetisi rutin berkala</li>
                 </ul>
               </div>
             </div>
           )}
 
-          {/* FASILITAS (Tetap seperti sebelumnya namun lebih rapi) */}
+          {/* FASILITAS - PERBAIKAN GAMBAR */}
           {activeTab === 'fasilitas' && (
             <div className="animate-in fade-in duration-500 grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h3 className="text-2xl font-black mb-8 text-slate-800">Fasilitas Standar Nasional</h3>
+                <h3 className="text-2xl font-black mb-8 text-slate-800 uppercase">Fasilitas Standar Nasional</h3>
                 <ul className="space-y-5">
                   {['Lapangan karpet standar BWF', 'Pencahayaan LED anti-silau', 'Fitness & Conditioning center', 'Asrama atlet (Home base)', 'Shower & Locker room'].map((item, index) => (
                     <li key={index} className="flex items-center gap-4 text-slate-600 text-lg font-medium group">
@@ -125,10 +117,25 @@ export default function About({ activeTab, onTabChange }: AboutProps) {
               </div>
 
               <div className="grid grid-cols-2 gap-4 h-[350px]">
-                <img src="https://images.unsplash.com/photo-1626224484214-4051d4bc2b84?auto=format&fit=crop&q=80&w=600" alt="Court" className="w-full h-full object-cover rounded-2xl shadow-md border-4 border-white hover:scale-105 transition-transform duration-500" />
+                {/* Gambar 1: Court (Utama) */}
+                <img 
+                  src="https://images.unsplash.com/photo-1626224484214-4051d4bc2b84?w=800&q=80" 
+                  alt="Badminton Court" 
+                  className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
+                />
                 <div className="grid grid-rows-2 gap-4">
-                  <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?auto=format&fit=crop&q=80&w=600" alt="Racket" className="w-full h-full object-cover rounded-2xl shadow-md border-4 border-white hover:scale-105 transition-transform duration-500" />
-                  <img src="https://images.unsplash.com/photo-1622279457486-62dcc4a4bd13?auto=format&fit=crop&q=80&w=600" alt="Training" className="w-full h-full object-cover rounded-2xl shadow-md border-4 border-white hover:scale-105 transition-transform duration-500" />
+                  {/* Gambar 2: Gear */}
+                  <img 
+                    src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" 
+                    alt="Racket" 
+                    className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
+                  />
+                  {/* Gambar 3: Training/Shuttlecock */}
+                  <img 
+                    src="https://images.unsplash.com/photo-1613918431703-09432328198f?w=400&q=80" 
+                    alt="Training Gear" 
+                    className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
+                  />
                 </div>
               </div>
             </div>

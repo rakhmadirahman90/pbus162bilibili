@@ -10,12 +10,12 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [currentLang, setCurrentLang] = useState('ID');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // PERBAIKAN: Fungsi ini sekarang mengirimkan sinyal global (CustomEvent)
   const handleNavClick = (section: string, tab?: string) => {
-    // 1. Jalankan fungsi navigasi bawaan (untuk scroll/pindah halaman)
+    // 1. Jalankan fungsi navigasi (scroll ke section)
     onNavigate(section, tab);
 
-    // 2. Jika yang diklik adalah kategori atlet, kirim sinyal ke Players.tsx
+    // 2. Kirim sinyal global untuk filter di Players.tsx
+    // Jika section adalah 'atlet', kita kirim tab-nya (Semua/Senior/Muda)
     if (section === 'atlet' && tab) {
       const event = new CustomEvent('filterAtlet', { detail: tab });
       window.dispatchEvent(event);
@@ -78,7 +78,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           <button onClick={() => handleNavClick('news')} className="nav-link">Berita</button>
 
-          {/* DROPDOWN ATLET */}
+          {/* DROPDOWN ATLET - DENGAN MENU "SEMUA" */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('atlet')}
@@ -90,7 +90,8 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             {activeDropdown === 'atlet' && (
               <div className="dropdown-container">
                 <div className="dropdown-content">
-                  {/* Pastikan 'Senior' & 'Muda' sama persis dengan ageGroup di Players.tsx */}
+                  {/* Tambahan Menu Semua */}
+                  <button onClick={() => handleNavClick('atlet', 'Semua')} className="dropdown-item">Semua Atlet</button>
                   <button onClick={() => handleNavClick('atlet', 'Senior')} className="dropdown-item">Atlet Senior</button>
                   <button onClick={() => handleNavClick('atlet', 'Muda')} className="dropdown-item">Atlet Muda</button>
                 </div>
@@ -146,6 +147,8 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             <div className="h-px bg-white/5" />
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Kategori Atlet</p>
             <div className="flex flex-col gap-3 pl-4">
+              {/* Tambahan Menu Semua di Mobile */}
+              <button onClick={() => handleNavClick('atlet', 'Semua')} className="mobile-sub-link">Semua Atlet</button>
               <button onClick={() => handleNavClick('atlet', 'Senior')} className="mobile-sub-link">Atlet Senior</button>
               <button onClick={() => handleNavClick('atlet', 'Muda')} className="mobile-sub-link">Atlet Muda</button>
             </div>

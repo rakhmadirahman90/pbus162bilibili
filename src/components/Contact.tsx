@@ -2,13 +2,11 @@ import React from 'react';
 import { MapPin, Clock, Phone, Mail, ExternalLink } from 'lucide-react';
 
 export default function Contact() {
-  // URL ini adalah format Google Maps Embed API resmi yang paling stabil
-  // Khusus untuk lokasi Jl. Andi Makkasau No. 171, Parepare
-  const googleMapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3978.3610444538354!2d119.62683937482387!3d-3.987258395986851!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5e6249%3A0xe88a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1700000000000!5m2!1sid!2sid";
+  // Gunakan URL dengan parameter !1m18 agar browser mengenali ini sebagai data sematan resmi
+  const mapSource = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3972.6465452292357!2d119.6247963741009!3d-3.991206644265492!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2d95bb1f2c5f6249%3A0xee8a433e727588ca!2sJl.%20Andi%20Makkasau%20No.171%2C%20Ujung%20Lare%2C%20Kec.%20Soreang%2C%20Kota%20Parepare%2C%20Sulawesi%20Selatan%2091131!5e0!3m2!1sid!2sid!4v1707153000000!5m2!1sid!2sid";
 
   return (
     <section id="contact" className="py-24 bg-[#050505] text-white relative overflow-hidden scroll-mt-20">
-      {/* Background Decor */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -mr-64 -mt-64"></div>
       
       <div className="max-w-7xl mx-auto px-6 relative z-10">
@@ -17,13 +15,11 @@ export default function Contact() {
             HUBUNGI <span className="text-blue-500">KAMI</span>
           </h2>
           <p className="text-slate-400 max-w-2xl mx-auto uppercase tracking-widest text-[10px] md:text-xs font-bold">
-            Kunjungi markas besar PB US 162 BILIBILI dan mulailah perjalanan profesionalmu
+            Kunjungi markas besar PB US 162 BILIBILI di Parepare
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-          
-          {/* --- INFO CARD --- */}
           <div className="space-y-8">
             <div className="bg-slate-900/50 p-8 rounded-3xl border border-white/10 backdrop-blur-sm shadow-xl">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
@@ -52,38 +48,24 @@ export default function Contact() {
                   <div>
                     <h4 className="font-bold text-slate-400 text-sm uppercase tracking-wider mb-1">Jam Operasional</h4>
                     <p className="text-slate-100 font-medium">Senin - Sabtu: 08.00 - 22.00 WITA</p>
-                    <p className="text-slate-500 text-sm italic">Minggu: Khusus Pertandingan Internal</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <Phone size={18} className="text-blue-400" />
-                    <span className="text-sm font-semibold">+62 812-3456-789</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <Mail size={18} className="text-blue-400" />
-                    <span className="text-sm font-semibold">info@us162bilibili.com</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <a 
-              href="https://maps.app.goo.gl/r6fM3W2vP9kR8Q7s7" 
+              href="https://maps.app.goo.gl/SWJfLB-7lS0Ryoh1cj5Diu4" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-lg transition-all flex items-center justify-center gap-2 group"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold uppercase tracking-[0.2em] shadow-lg transition-all flex items-center justify-center gap-2"
             >
-              Buka di Google Maps
-              <ExternalLink size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              BUKA DI GOOGLE MAPS <ExternalLink size={18} />
             </a>
           </div>
 
-          {/* --- GOOGLE MAPS EMBED --- */}
-          <div className="w-full h-[450px] lg:h-full min-h-[450px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative">
+          <div className="w-full h-[450px] lg:h-[500px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative">
             <iframe 
-              src={googleMapEmbedUrl}
+              src={mapSource}
               width="100%" 
               height="100%" 
               style={{ border: 0 }} 
@@ -94,7 +76,6 @@ export default function Contact() {
               className="opacity-100"
             ></iframe>
           </div>
-
         </div>
       </div>
     </section>

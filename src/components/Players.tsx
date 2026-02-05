@@ -1,5 +1,11 @@
 import { Trophy, Medal, ChevronDown, ChevronUp, Users, UserCheck } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+
+// Pastikan interface props didefinisikan agar bisa menerima data dari Navbar/App.tsx
+interface PlayersProps {
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
+}
 
 const playersData = [
   {
@@ -58,35 +64,55 @@ const playersData = [
   },
 ];
 
-export default function Players() {
+// Menambahkan parameter props { activeTab, onTabChange }
+export default function Players({ activeTab: externalTab, onTabChange }: PlayersProps) {
   const [showAll, setShowAll] = useState(false);
-  const [activeTab, setActiveTab] = useState('Atlet Senior');
+  const [localTab, setLocalTab] = useState('Atlet Senior');
 
-  // Filter data berdasarkan tab yang aktif
+  // SINKRONISASI: Jika ada perubahan tab dari Navbar, update state lokal
+  useEffect(() => {
+    if (externalTab) {
+      setLocalTab(externalTab);
+      setShowAll(false); // Reset tampilan "Lihat Semua" saat ganti kategori
+    }
+  }, [externalTab]);
+
+  // Menentukan tab mana yang aktif (prioritas dari props luar)
+  const currentTab = externalTab || localTab;
+
   const filteredPlayers = useMemo(() => {
-    return playersData.filter(player => player.ageGroup === activeTab);
-  }, [activeTab]);
+    return playersData.filter(player => player.ageGroup === currentTab);
+  }, [currentTab]);
 
   const visiblePlayers = showAll ? filteredPlayers : filteredPlayers.slice(0, 4);
+
+  // Fungsi untuk menangani klik pada tab di dalam komponen
+  const handleTabClick = (tabName: string) => {
+    if (onTabChange) {
+      onTabChange(tabName);
+    } else {
+      setLocalTab(tabName);
+    }
+    setShowAll(false);
+  };
 
   return (
     <section id="atlet" className="py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight uppercase">Pilar PB US 162</h2>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">Kenali lebih dekat para pejuang lapangan kami dari berbagai kategori usia.</p>
           <div className="w-24 h-1.5 bg-blue-600 mx-auto mt-6 rounded-full shadow-lg shadow-blue-200"></div>
         </div>
 
-        {/* Tab Switcher - Atlet Senior & Atlet Muda */}
+        {/* Tab Switcher */}
         <div className="flex justify-center mb-16">
           <div className="inline-flex bg-slate-100 p-2 rounded-[2rem] shadow-inner border border-slate-200">
             <button
-              onClick={() => { setActiveTab('Atlet Senior'); setShowAll(false); }}
+              onClick={() => handleTabClick('Atlet Senior')}
               className={`flex items-center gap-3 px-10 py-4 rounded-[1.5rem] font-black text-sm tracking-wider transition-all duration-300 ${
-                activeTab === 'Atlet Senior' 
+                currentTab === 'Atlet Senior' 
                 ? 'bg-white text-blue-600 shadow-xl scale-105' 
                 : 'text-slate-500 hover:text-slate-800'
               }`}
@@ -94,9 +120,9 @@ export default function Players() {
               <UserCheck size={20} /> ATLET SENIOR
             </button>
             <button
-              onClick={() => { setActiveTab('Atlet Muda'); setShowAll(false); }}
+              onClick={() => handleTabClick('Atlet Muda')}
               className={`flex items-center gap-3 px-10 py-4 rounded-[1.5rem] font-black text-sm tracking-wider transition-all duration-300 ${
-                activeTab === 'Atlet Muda' 
+                currentTab === 'Atlet Muda' 
                 ? 'bg-white text-blue-600 shadow-xl scale-105' 
                 : 'text-slate-500 hover:text-slate-800'
               }`}
@@ -113,26 +139,21 @@ export default function Players() {
               key={player.id}
               className="group relative bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl hover:shadow-blue-200/50 transition-all duration-500 hover:-translate-y-4 animate-in fade-in slide-in-from-bottom-10"
             >
-              {/* Foto Profile */}
               <div className="relative h-[420px]">
                 <img
                   src={player.image}
                   alt={player.name}
                   className="w-full h-full object-cover opacity-85 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
                 />
-                
-                {/* Gradient Overlays */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-90" />
                 <div className="absolute inset-0 border-[8px] border-transparent group-hover:border-white/10 transition-all duration-500 rounded-[3rem]" />
 
-                {/* Rank Badge */}
                 <div className="absolute top-8 left-8 bg-blue-600 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black shadow-lg shadow-blue-500/40 transform -rotate-6 group-hover:rotate-0 transition-transform">
                   <span className="text-[9px] opacity-80 leading-none tracking-tighter">RANK</span>
                   <span className="text-xl">#{player.rank}</span>
                 </div>
               </div>
 
-              {/* Data Atlet */}
               <div className="absolute bottom-0 left-0 right-0 p-8 pt-0">
                 <div className="mb-2">
                   <span className="bg-blue-600/20 text-blue-400 border border-blue-600/30 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
@@ -158,10 +179,10 @@ export default function Players() {
         </div>
 
         {/* Empty State */}
-        {visiblePlayers.length === 0 && (
+        {filteredPlayers.length === 0 && (
           <div className="text-center py-24 bg-slate-50 rounded-[4rem] border-4 border-dashed border-slate-200">
             <Users size={64} className="mx-auto text-slate-300 mb-4" />
-            <h3 className="text-slate-400 text-xl font-bold">Data {activeTab} Belum Tersedia</h3>
+            <h3 className="text-slate-400 text-xl font-bold">Data {currentTab} Belum Tersedia</h3>
             <p className="text-slate-400">Sedang dalam proses pembaruan oleh admin klub.</p>
           </div>
         )}
@@ -176,7 +197,7 @@ export default function Players() {
               {showAll ? (
                 <>Sembunyikan <ChevronUp size={22} /></>
               ) : (
-                <>Lihat Semua {activeTab} <ChevronDown size={22} /></>
+                <>Lihat Semua {currentTab} <ChevronDown size={22} /></>
               )}
             </button>
           </div>

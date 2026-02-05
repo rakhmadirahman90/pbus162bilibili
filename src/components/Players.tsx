@@ -362,44 +362,26 @@ const Players: React.FC = () => {
 
         
 
-        {/* --- HEADER TERBARU --- */}
-
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-20">
-
+        {/* --- HEADER STANDAR (Sesuai Section Lain) --- */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
           <div>
-
-            <span className="text-blue-600 font-black text-xs tracking-[0.4em] uppercase mb-4 block underline decoration-2 underline-offset-8">
-
-              Profil Pemain
-
-            </span>
-
-            <h2 className="text-6xl md:text-9xl font-black leading-[0.85] tracking-tighter uppercase">
-
-              KENAL LEBIH <br/> <span className="text-blue-600">DEKAT</span>
-
+            <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">
+              PROFIL <span className="text-blue-600">PEMAIN</span>
             </h2>
-
+            <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">
+              Kenal Lebih Dekat Dengan Atlet Kami
+            </p>
           </div>
 
-          <div className="relative w-full md:w-[350px]">
-
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-600" size={20} />
-
+          <div className="relative w-full md:w-[320px]">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
             <input 
-
               type="text" 
-
               placeholder="Cari atlet..." 
-
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-full py-5 pl-14 pr-6 focus:outline-none focus:border-blue-600 font-bold transition-all placeholder:text-zinc-700 shadow-2xl"
-
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold transition-all placeholder:text-zinc-700 shadow-xl"
               onChange={(e) => setSearchTerm(e.target.value)}
-
             />
-
           </div>
-
         </div>
 
 

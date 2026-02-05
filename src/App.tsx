@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import About from './components/About';
-// Hapus atau beri komentar pada baris yang menyebabkan error
-// import News from './components/News'; 
-// import Athletes from './components/Athletes';
-// import Gallery from './components/Gallery';
-// import Ranking from './components/Ranking';
+
+// Komponen-komponen ini harus ada filenya di folder components
+import News from './components/News'; 
+import Athletes from './components/Athletes';
+import Ranking from './components/Ranking';
+import Gallery from './components/Gallery';
 
 function App() {
   const [activeSection, setActiveSection] = useState('home');
@@ -29,14 +30,37 @@ function App() {
   return (
     <div className="min-h-screen bg-white">
       <Navbar activeSection={activeSection} onNavigate={handleNavigation} />
+      
       <main>
-        <section id="home"><Hero /></section>
+        {/* Konten Beranda */}
+        <section id="home">
+          <Hero />
+        </section>
+
+        {/* Konten Tentang (About) */}
         <section id="about">
           <About activeTab={aboutTab} onTabChange={(id) => setAboutTab(id)} />
         </section>
-        
-        {/* Sementara beri teks placeholder agar tidak error */}
-        <section id="berita" className="py-20 text-center">Konten Berita Segera Hadir</section>
+
+        {/* Konten Berita */}
+        <section id="berita">
+          <News />
+        </section>
+
+        {/* Konten Atlet */}
+        <section id="atlet">
+          <Athletes />
+        </section>
+
+        {/* Konten Peringkat */}
+        <section id="peringkat">
+          <Ranking />
+        </section>
+
+        {/* Konten Galeri */}
+        <section id="galeri">
+          <Gallery />
+        </section>
       </main>
     </div>
   );

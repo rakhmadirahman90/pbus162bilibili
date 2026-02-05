@@ -20,13 +20,15 @@ import Footer from './components/Footer';
 
 function App() {
 
-  // State untuk kontrol tab di About
+  // State untuk mengontrol tab aktif di section About
 
   const [aboutActiveTab, setAboutActiveTab] = useState('sejarah');
 
   
 
-  // State filter atlet yang disinkronkan dengan Navbar dan Players.tsx
+  // State untuk mengontrol filter atlet (Semua, Senior, Muda)
+
+  // State ini disinkronkan dengan Navbar
 
   const [playerActiveTab, setPlayerActiveTab] = useState('Semua');
 
@@ -34,17 +36,17 @@ function App() {
 
   /**
 
-   * handleNavigation
+   * Fungsi Navigasi Utama
 
-   * Fungsi untuk menangani scroll dan perubahan filter/tab secara sinkron
+   * @param sectionId ID elemen tujuan (home, news, atlet, rankings, dll)
+
+   * @param tabId Parameter opsional untuk langsung membuka kategori tertentu
 
    */
 
   const handleNavigation = (sectionId: string, tabId?: string) => {
 
-    
-
-    // 1. UPDATE FILTER/TAB (Dilakukan sebelum scroll)
+    // 1. UPDATE STATE (Logika Sinkronisasi Tab)
 
     if (sectionId === 'about' && tabId) {
 
@@ -56,57 +58,39 @@ function App() {
 
     if (sectionId === 'atlet') {
 
-      // Jika tabId kosong (klik menu utama), reset ke 'Semua'
+      // Jika tabId ada (Senior/Muda), set filter tersebut. 
 
-      // Jika ada (Senior/Muda), gunakan tabId tersebut
+      // Jika tidak ada (klik menu utama Atlet), default ke 'Semua'
 
-      const targetFilter = tabId || 'Semua';
-
-      setPlayerActiveTab(targetFilter);
+      setPlayerActiveTab(tabId || 'Semua');
 
     }
 
 
 
-    // 2. LOGIKA SCROLL
+    // 2. LOGIKA SCROLL (Smooth Scroll dengan Offset Navbar)
 
-    // Kita gunakan setTimeout 0 agar React selesai memperbarui state 
+    const element = document.getElementById(sectionId);
 
-    // sebelum browser menghitung posisi elemen
+    if (element) {
 
-    setTimeout(() => {
+      const navbarHeight = 80; // Tinggi navbar h-20 = 80px
 
-      const element = document.getElementById(sectionId);
+      const elementPosition = element.getBoundingClientRect().top;
 
-      if (element) {
-
-        const navbarHeight = 80; // Sesuaikan h-20 di Navbar
-
-        
-
-        // Perhitungan posisi yang lebih akurat
-
-        const bodyRect = document.body.getBoundingClientRect().top;
-
-        const elementRect = element.getBoundingClientRect().top;
-
-        const elementPosition = elementRect - bodyRect;
-
-        const offsetPosition = elementPosition - navbarHeight;
+      const offsetPosition = elementPosition + window.pageYOffset - navbarHeight;
 
 
 
-        window.scrollTo({
+      window.scrollTo({
 
-          top: offsetPosition,
+        top: offsetPosition,
 
-          behavior: 'smooth',
+        behavior: 'smooth',
 
-        });
+      });
 
-      }
-
-    }, 10);
+    }
 
   };
 
@@ -116,13 +100,15 @@ function App() {
 
     <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white">
 
-      {/* Navbar menerima fungsi navigasi */}
+      {/* Navbar mengirimkan fungsi navigasi ke semua link di dalamnya */}
 
       <Navbar onNavigate={handleNavigation} />
 
       
 
       <main>
+
+        {/* --- SECTION HERO / HOME --- */}
 
         <section id="home">
 
@@ -132,7 +118,9 @@ function App() {
 
 
 
-        <section id="news" className="scroll-mt-20">
+        {/* --- SECTION BERITA --- */}
+
+        <section id="news">
 
           <News />
 
@@ -140,7 +128,11 @@ function App() {
 
         
 
-        {/* --- ATLET SECTION --- */}
+        {/* --- SECTION ATLET --- 
+
+            Penting: Prop 'externalFilter' akan dipantau oleh useEffect di Players.tsx
+
+        */}
 
         <section id="atlet" className="scroll-mt-20">
 
@@ -148,7 +140,7 @@ function App() {
 
             externalFilter={playerActiveTab} 
 
-            onFilterChange={(newFilter) => setPlayerActiveTab(newFilter)} 
+            onFilterChange={(id) => setPlayerActiveTab(id)} 
 
           />
 
@@ -156,7 +148,9 @@ function App() {
 
 
 
-        <section id="rankings" className="scroll-mt-20">
+        {/* --- SECTION RANKING --- */}
+
+        <section id="rankings">
 
           <Ranking />
 
@@ -164,7 +158,9 @@ function App() {
 
 
 
-        <section id="gallery" className="scroll-mt-20">
+        {/* --- SECTION GALERI --- */}
+
+        <section id="gallery">
 
           <Gallery />
 
@@ -172,15 +168,15 @@ function App() {
 
         
 
-        {/* --- ABOUT SECTION --- */}
+        {/* --- SECTION TENTANG KAMI --- */}
 
-        <section id="about" className="scroll-mt-20">
+        <section id="about">
 
           <About 
 
             activeTab={aboutActiveTab} 
 
-            onTabChange={(newTab) => setAboutActiveTab(newTab)} 
+            onTabChange={(id) => setAboutActiveTab(id)} 
 
           />
 

@@ -46,8 +46,8 @@ export default function Footer() {
               {[
                 { name: 'Beranda', id: 'home' },
                 { name: 'Berita', id: 'news' },
-                { name: 'Atlet', id: 'atlet' },      
-                { name: 'Peringkat', id: 'ranking' }, 
+                { name: 'Atlet', id: 'palyers' },      
+                { name: 'Peringkat', id: 'rankings' }, 
                 { name: 'Galeri', id: 'gallery' },   
                 { name: 'Tentang', id: 'about' }
               ].map((item) => (

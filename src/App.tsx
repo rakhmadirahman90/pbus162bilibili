@@ -13,14 +13,14 @@ function App() {
   const [playerActiveTab, setPlayerActiveTab] = useState('Semua');
 
   const handleNavigation = (sectionId: string, tabId?: string) => {
-    // 1. Update tab jika ada parameter tabId
+    // Logic Tab
     if (sectionId === 'about' && tabId) setAboutActiveTab(tabId);
     if (sectionId === 'atlet' && tabId) setPlayerActiveTab(tabId);
 
-    // 2. Scroll ke section
+    // Scroll Logic
     const element = document.getElementById(sectionId);
     if (element) {
-      const offset = 80; // Tinggi Navbar
+      const offset = 80;
       const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
       window.scrollTo({
         top: elementPosition - offset,
@@ -32,11 +32,12 @@ function App() {
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white">
       <Navbar onNavigate={handleNavigation} />
+      
       <main>
-        <section id="home"><Hero onNavigate={handleNavigation}/></section>
+        <section id="home"><Hero /></section>
         <section id="news"><News /></section>
         
-        {/* PROPS DIKIRIM KE PEMAIN */}
+        {/* SECTION ATLET */}
         <Athletes 
           externalFilter={playerActiveTab} 
           onFilterChange={setPlayerActiveTab} 
@@ -46,9 +47,13 @@ function App() {
         <section id="gallery"><Gallery /></section>
         
         <section id="about">
-          <About activeTab={aboutActiveTab} onTabChange={setAboutActiveTab} />
+          <About 
+            activeTab={aboutActiveTab} 
+            onTabChange={setAboutActiveTab} 
+          />
         </section>
       </main>
+      
       <Footer />
     </div>
   );

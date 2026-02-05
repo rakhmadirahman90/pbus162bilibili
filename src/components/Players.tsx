@@ -9,7 +9,7 @@ import 'swiper/css/pagination';
 import { 
   X, Target, Star, ShieldCheck, 
   ChevronLeft, ChevronRight, UserCheck, Users, 
-  Search, Award
+  Search, Award, ArrowRight
 } from 'lucide-react';
 
 interface Player {
@@ -95,12 +95,10 @@ export default function Players() {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  const counts = useMemo(() => {
-    return {
-      Senior: playersData.filter(p => p.ageGroup === 'Atlet Senior').length,
-      Muda: playersData.filter(p => p.ageGroup === 'Atlet Muda').length
-    };
-  }, []);
+  const counts = useMemo(() => ({
+    Senior: playersData.filter(p => p.ageGroup === 'Atlet Senior').length,
+    Muda: playersData.filter(p => p.ageGroup === 'Atlet Muda').length
+  }), []);
 
   const filteredPlayers = useMemo(() => {
     return playersData
@@ -109,96 +107,88 @@ export default function Players() {
   }, [currentTab, searchTerm]);
 
   return (
-    <section id="atlet" className="py-24 bg-[#0a0a0a] text-white min-h-screen relative overflow-hidden font-sans">
+    <section id="atlet" className="py-20 bg-[#050505] text-white min-h-screen font-sans">
       
       {/* --- MODAL DETAIL --- */}
       {selectedPlayer && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setSelectedPlayer(null)} />
-          <div className="relative bg-[#111] border border-white/10 w-full max-w-4xl rounded-[3rem] overflow-hidden shadow-2xl flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
-            <button onClick={() => setSelectedPlayer(null)} className="absolute top-6 right-6 z-20 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full transition-all">
-              <X size={24} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setSelectedPlayer(null)} />
+          <div className="relative bg-[#111] border border-white/10 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row">
+            <button onClick={() => setSelectedPlayer(null)} className="absolute top-4 right-4 z-20 text-white/50 hover:text-white transition-colors">
+              <X size={28} />
             </button>
-            <div className="w-full md:w-5/12 aspect-square md:aspect-auto relative">
+            <div className="w-full md:w-1/2 aspect-square">
               <img src={selectedPlayer.image} className="w-full h-full object-cover" alt={selectedPlayer.name} />
-              {selectedPlayer.isChampion && (
-                <div className="absolute bottom-4 left-4 bg-yellow-500 text-black px-4 py-2 rounded-full font-black text-xs flex items-center gap-2">
-                  <Award size={16} /> NEW CHAMPION
-                </div>
-              )}
             </div>
-            <div className="p-8 md:p-14 flex flex-col justify-center flex-1">
-              <div className="flex items-center gap-2 mb-6 text-blue-500 font-bold text-xs uppercase tracking-[0.3em]">
-                <ShieldCheck size={18} strokeWidth={2.5} /> ELITE MEMBER PB US 162
-              </div>
-              <h2 className="text-4xl md:text-6xl font-black uppercase mb-6 leading-none tracking-tighter">{selectedPlayer.name}</h2>
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-white/5 border border-white/5 p-5 rounded-[1.5rem]">
-                  <Target className="text-blue-500 mb-2" size={20} />
-                  <p className="text-zinc-500 text-[10px] uppercase font-black">Kategori</p>
-                  <p className="font-bold text-lg">{selectedPlayer.category}</p>
+            <div className="p-8 flex flex-col justify-center flex-1">
+              <p className="text-blue-500 font-bold text-[10px] tracking-widest mb-2 flex items-center gap-2">
+                <ShieldCheck size={14} /> ELITE MEMBER
+              </p>
+              <h2 className="text-3xl font-black uppercase mb-4 tracking-tighter">{selectedPlayer.name}</h2>
+              <div className="flex gap-4 mb-6">
+                <div className="bg-white/5 p-3 rounded-xl flex-1">
+                  <p className="text-zinc-500 text-[9px] uppercase font-bold tracking-wider">Kategori</p>
+                  <p className="text-sm font-bold">{selectedPlayer.category}</p>
                 </div>
-                <div className="bg-white/5 border border-white/5 p-5 rounded-[1.5rem]">
-                  <Star className="text-yellow-500 mb-2" size={20} />
-                  <p className="text-zinc-500 text-[10px] uppercase font-black">Ranking</p>
-                  <p className="font-bold text-lg">Peringkat {selectedPlayer.rank}</p>
+                <div className="bg-white/5 p-3 rounded-xl flex-1">
+                  <p className="text-zinc-500 text-[9px] uppercase font-bold tracking-wider">Rank</p>
+                  <p className="text-sm font-bold">#{selectedPlayer.rank}</p>
                 </div>
               </div>
-              <div className="relative italic text-zinc-400 border-l-4 border-blue-600 pl-6 py-2">
-                <p className="text-sm md:text-base leading-relaxed">{selectedPlayer.bio}</p>
-              </div>
+              <p className="text-zinc-400 text-sm leading-relaxed italic border-l-2 border-blue-600 pl-4">
+                "{selectedPlayer.bio}"
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- KONTEN UTAMA --- */}
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16 border-b border-white/5 pb-12">
-          
-          <div className="space-y-4 max-w-2xl">
-            <p className="text-blue-500 font-bold text-sm uppercase tracking-[0.5em]">PROFIL PEMAIN</p>
-            <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none">
-              KENAL LEBIH<br/><span className="text-blue-600">DEKAT</span>
-            </h2>
+        {/* --- HEADER --- */}
+        <div className="mb-12 relative">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-2">
+              <span className="bg-blue-600 text-[10px] font-black px-2 py-1 rounded tracking-[0.2em] inline-block mb-2 uppercase">PROFIL PEMAIN</span>
+              <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-none uppercase">
+                KENAL LEBIH <span className="text-blue-600">DEKAT</span>
+              </h2>
+            </div>
+            
+            <div className="flex items-center gap-4">
+               <button className="hidden md:flex items-center gap-2 text-zinc-500 hover:text-white text-xs font-bold transition-colors">
+                 Lihat Semua Pemain <ArrowRight size={16} />
+               </button>
+            </div>
+          </div>
+          <div className="h-px bg-zinc-800 w-full mt-8" />
+        </div>
+
+        {/* --- FILTER & SEARCH --- */}
+        <div className="flex flex-col md:flex-row gap-6 mb-12 items-center justify-between">
+          <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+            <button 
+              onClick={() => setCurrentTab('Atlet Senior')} 
+              className={`px-6 py-2.5 rounded-lg text-[11px] font-black tracking-wider transition-all flex items-center gap-2 ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
+            >
+              SENIOR <span className="opacity-50">{counts.Senior}</span>
+            </button>
+            <button 
+              onClick={() => setCurrentTab('Atlet Muda')} 
+              className={`px-6 py-2.5 rounded-lg text-[11px] font-black tracking-wider transition-all flex items-center gap-2 ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
+            >
+              MUDA <span className="opacity-50">{counts.Muda}</span>
+            </button>
           </div>
 
-          <div className="flex flex-col items-end gap-6 w-full md:w-auto">
-            {/* TAB KATEGORI DENGAN JUMLAH ORANG */}
-            <div className="flex bg-zinc-900/80 p-1.5 rounded-2xl border border-zinc-800 w-full md:w-auto">
-              <button 
-                onClick={() => setCurrentTab('Atlet Senior')} 
-                className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-black text-xs tracking-widest transition-all ${currentTab === 'Atlet Senior' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
-              >
-                <UserCheck size={18} /> 
-                SENIOR 
-                <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] ${currentTab === 'Atlet Senior' ? 'bg-white text-blue-600' : 'bg-zinc-800 text-zinc-400'}`}>
-                  {counts.Senior}
-                </span>
-              </button>
-              <button 
-                onClick={() => setCurrentTab('Atlet Muda')} 
-                className={`flex-1 md:flex-none flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-black text-xs tracking-widest transition-all ${currentTab === 'Atlet Muda' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-500 hover:text-white'}`}
-              >
-                <Users size={18} /> 
-                MUDA 
-                <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] ${currentTab === 'Atlet Muda' ? 'bg-white text-blue-600' : 'bg-zinc-800 text-zinc-400'}`}>
-                  {counts.Muda}
-                </span>
-              </button>
-            </div>
-
-            {/* SEARCH BAR */}
-            <div className="relative w-full group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={20} />
-              <input 
-                type="text" 
-                placeholder="Cari nama pemain..." 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-blue-600 transition-all font-bold text-sm" 
-              />
-            </div>
+          <div className="relative w-full md:w-80 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500 transition-colors" size={18} />
+            <input 
+              type="text" 
+              placeholder="Cari nama pemain..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-blue-600 text-sm font-medium transition-all"
+            />
           </div>
         </div>
 
@@ -207,7 +197,7 @@ export default function Players() {
           <Swiper
             key={currentTab + searchTerm}
             modules={[Navigation, Pagination, Autoplay]}
-            spaceBetween={25}
+            spaceBetween={20}
             slidesPerView={1}
             navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
             onBeforeInit={(swiper) => {
@@ -216,44 +206,61 @@ export default function Players() {
               // @ts-ignore
               swiper.params.navigation.nextEl = nextRef.current;
             }}
-            pagination={{ clickable: true, dynamicBullets: true }}
-            breakpoints={{ 640: { slidesPerView: 2 }, 1024: { slidesPerView: 4 } }}
-            className="player-swiper !pb-24"
+            breakpoints={{ 
+              640: { slidesPerView: 2 }, 
+              1024: { slidesPerView: 4 } 
+            }}
+            className="!pb-16"
           >
             {filteredPlayers.map((player) => (
               <SwiperSlide key={player.id}>
-                <div onClick={() => setSelectedPlayer(player)} className="group cursor-pointer relative aspect-[3/4.5] rounded-[2.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 transition-all duration-500 hover:-translate-y-4 shadow-2xl">
-                  <img src={player.image} alt={player.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                  
-                  <div className="absolute top-6 left-6 flex flex-col gap-2">
-                    <div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-black text-[10px] tracking-widest shadow-xl border border-white/10">
-                      RANK #{player.rank}
-                    </div>
+                <div 
+                  onClick={() => setSelectedPlayer(player)} 
+                  className="group cursor-pointer relative aspect-[4/5.5] rounded-2xl overflow-hidden bg-zinc-900 transition-transform duration-500 hover:-translate-y-2 border border-zinc-800"
+                >
+                  <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                    <span className="bg-blue-600 text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                      {player.category}
+                    </span>
+                    {player.isChampion && (
+                      <span className="bg-yellow-500 text-black text-[8px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 shadow-lg">
+                        <Award size={10} /> CHAMPION
+                      </span>
+                    )}
                   </div>
 
-                  <div className="absolute bottom-8 left-8 right-8">
-                    <p className="text-blue-400 font-black text-[10px] uppercase tracking-widest mb-2">{player.category}</p>
-                    <h3 className="text-2xl font-black uppercase leading-none group-hover:text-blue-400 transition-colors tracking-tighter">{player.name}</h3>
+                  <img 
+                    src={player.image} 
+                    alt={player.name} 
+                    className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-700" 
+                  />
+                  
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+                  
+                  <div className="absolute bottom-6 left-6 right-6">
+                    <p className="text-blue-400 font-bold text-[9px] uppercase mb-1 tracking-widest">
+                      Kenal Lebih Dekat
+                    </p>
+                    <h3 className="text-xl font-black uppercase leading-tight tracking-tighter group-hover:text-blue-400 transition-colors mb-3">
+                      {player.name}
+                    </h3>
+                    <div className="flex items-center gap-2 text-white/50 text-[10px] font-bold uppercase tracking-[0.1em] border-t border-white/10 pt-3">
+                      Rank #{player.rank} • {player.ageGroup}
+                    </div>
                   </div>
                 </div>
               </SwiperSlide>
             ))}
           </Swiper>
           
-          <button ref={prevRef} className="absolute left-0 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center -translate-x-7 opacity-0 group-hover/slider:opacity-100 transition-all shadow-2xl hover:scale-110">
-            <ChevronLeft size={28} />
+          <button ref={prevRef} className="absolute left-[-24px] top-1/2 -translate-y-1/2 z-40 w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center hover:bg-blue-600 transition-all shadow-xl invisible group-hover/slider:visible hover:scale-110">
+            <ChevronLeft size={24} />
           </button>
-          <button ref={nextRef} className="absolute right-0 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center translate-x-7 opacity-0 group-hover/slider:opacity-100 transition-all shadow-2xl hover:scale-110">
-            <ChevronRight size={28} />
+          <button ref={nextRef} className="absolute right-[-24px] top-1/2 -translate-y-1/2 z-40 w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700 text-white flex items-center justify-center hover:bg-blue-600 transition-all shadow-xl invisible group-hover/slider:visible hover:scale-110">
+            <ChevronRight size={24} />
           </button>
         </div>
       </div>
-      
-      <style>{`
-        .player-swiper .swiper-pagination-bullet { background: #333; opacity: 1; height: 6px; width: 6px; }
-        .player-swiper .swiper-pagination-bullet-active { background: #2563eb !important; width: 30px; border-radius: 10px; }
-      `}</style>
     </section>
   );
 }

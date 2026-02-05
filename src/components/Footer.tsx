@@ -1,12 +1,22 @@
 import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin } from 'lucide-react';
 
 export default function Footer() {
-  // Fungsi helper untuk scroll halus saat link diklik
+  // Fungsi untuk scroll halus
   const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      // Menghitung offset jika Anda memiliki header fixed (sekitar 80px)
+      const offset = 80; 
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
     }
   };
 
@@ -15,27 +25,24 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-8 mb-12">
           
-          {/* Brand Section */}
-          <div>
-            <div className="flex items-center space-x-3 mb-4">
+          {/* Brand */}
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3">
               <img
                 src="/photo_2026-02-03_00-32-07.jpg"
-                alt="PB US 162 Parepare Logo"
+                alt="Logo"
                 className="w-12 h-12 rounded-full object-cover border-2 border-slate-700"
               />
-              <div>
-                <h3 className="text-xl font-bold">PB US 162 Bilibili</h3>
-              </div>
+              <h3 className="text-xl font-bold">PB US 162 Bilibili</h3>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Pusat pembinaan atlet bulutangkis terbaik dengan fasilitas berstandar
-              internasional dan pelatih berpengalaman.
+              Ekosistem pembinaan bulutangkis terpadu yang menggabungkan disiplin, teknik modern, dan semangat juang.
             </p>
           </div>
 
-          {/* Navigation - FIXED & WORKING */}
+          {/* Navigation - LENGKAP & BISA DIKLIK */}
           <div>
-            <h4 className="text-lg font-bold mb-4 uppercase tracking-wider text-blue-400">Navigasi</h4>
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Navigasi</h4>
             <ul className="space-y-3">
               {[
                 { name: 'Beranda', id: 'home' },
@@ -43,13 +50,13 @@ export default function Footer() {
                 { name: 'Atlet', id: 'atlet' },
                 { name: 'Peringkat', id: 'ranking' },
                 { name: 'Galeri', id: 'gallery' },
-                { name: 'Tentang Kami', id: 'about' }
+                { name: 'Tentang', id: 'about' }
               ].map((item) => (
                 <li key={item.id}>
                   <a 
                     href={`#${item.id}`}
                     onClick={(e) => handleScroll(e, item.id)}
-                    className="text-gray-400 hover:text-white hover:translate-x-1 inline-block transition-all duration-300 text-sm"
+                    className="text-gray-400 hover:text-white hover:translate-x-2 transition-all duration-300 text-sm inline-block"
                   >
                     {item.name}
                   </a>
@@ -58,73 +65,40 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact Section */}
+          {/* Kontak */}
           <div>
-            <h4 className="text-lg font-bold mb-4 uppercase tracking-wider text-blue-400">Kontak</h4>
-            <ul className="space-y-4">
-              <li className="flex items-start space-x-3 group">
-                <MapPin size={20} className="text-blue-500 mt-1 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <span className="text-gray-400 text-sm leading-snug">
-                  Jl. Andi Makkasau no. 171 kel. Uj. Lare kec. Soreang kota Parepare, Indonesia
-                </span>
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Kontak</h4>
+            <ul className="space-y-4 text-sm">
+              <li className="flex items-start space-x-3 text-gray-400">
+                <MapPin size={18} className="text-blue-500 shrink-0" />
+                <span>Parepare, Sulawesi Selatan, Indonesia</span>
               </li>
-              <li className="flex items-center space-x-3 group">
-                <Phone size={20} className="text-blue-500 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <a href="tel:+6281219027234" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  +62 812 1902 7234
-                </a>
+              <li className="flex items-center space-x-3 text-gray-400">
+                <Phone size={18} className="text-blue-500 shrink-0" />
+                <span>+62 812 1902 7234</span>
               </li>
-              <li className="flex items-center space-x-3 group">
-                <Mail size={20} className="text-blue-500 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <a href="mailto:info@pbus162bilibili.id" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  info@pbus162bilibili.id
-                </a>
+              <li className="flex items-center space-x-3 text-gray-400">
+                <Mail size={18} className="text-blue-500 shrink-0" />
+                <span>info@pbus162bilibili.id</span>
               </li>
             </ul>
           </div>
 
-          {/* Social Media */}
+          {/* Social */}
           <div>
-            <h4 className="text-lg font-bold mb-4 uppercase tracking-wider text-blue-400">Ikuti Kami</h4>
-            <div className="flex space-x-4 mb-6">
-              {[
-                { Icon: Facebook, href: "https://facebook.com" },
-                { Icon: Instagram, href: "https://instagram.com" },
-                { Icon: Twitter, href: "https://twitter.com" },
-                { Icon: Youtube, href: "https://youtube.com" }
-              ].map((social, index) => (
-                <a
-                  key={index}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-slate-800 hover:bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:-translate-y-1 shadow-lg"
-                >
-                  <social.Icon size={18} />
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Ikuti Kami</h4>
+            <div className="flex space-x-4">
+              {[Facebook, Instagram, Twitter, Youtube].map((Icon, i) => (
+                <a key={i} href="#" className="p-2 bg-slate-800 rounded-full hover:bg-blue-600 transition-colors">
+                  <Icon size={20} />
                 </a>
               ))}
             </div>
-            <p className="text-gray-400 text-sm">
-              Dapatkan update terbaru tentang prestasi dan kegiatan klub kami.
-            </p>
           </div>
         </div>
 
-        {/* Bottom Footer */}
-        <div className="border-t border-slate-800 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <p className="text-gray-500 text-xs text-center md:text-left">
-              &copy; {new Date().getFullYear()} PB US 162 Bilibili Badminton Club. All rights reserved.
-            </p>
-            <div className="flex space-x-6">
-              <a href="#privacy" className="text-gray-500 hover:text-white text-xs transition-colors">
-                Kebijakan Privasi
-              </a>
-              <a href="#terms" className="text-gray-500 hover:text-white text-xs transition-colors">
-                Syarat & Ketentuan
-              </a>
-            </div>
-          </div>
+        <div className="border-t border-slate-800 pt-8 text-center text-gray-500 text-xs">
+          <p>&copy; {new Date().getFullYear()} PB US 162 Bilibili. All rights reserved.</p>
         </div>
       </div>
     </footer>

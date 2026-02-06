@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../supabase';
 import { Loader2, Send, CheckCircle2 } from 'lucide-react';
 
 export default function RegistrationForm() {

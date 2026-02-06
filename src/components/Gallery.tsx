@@ -24,7 +24,7 @@ const galleryData = [
     id: 3,
     type: 'video',
     image: '/whatsapp_image_2026-02-02_at_09.53.05_(2).jpeg',
-    videoUrl: '/vid-20260206-wa0019.mp4',
+    videoUrl: 'hangatpagi.mp4',
     isLocal: true,
     title: 'Behind The Scenes Turnamen',
     category: 'Pertandingan',

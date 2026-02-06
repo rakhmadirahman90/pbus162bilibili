@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // Gunakan path relatif '../lib/supabase' agar lebih aman didekteksi Vite
-import { supabase } from '../lib/supabase'; 
+import { supabase } from '../supabase'; 
 import { Loader2, Send, CheckCircle2, User, Phone, Image as ImageIcon } from 'lucide-react';
 
 export default function RegistrationForm() {

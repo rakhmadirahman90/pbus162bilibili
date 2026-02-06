@@ -1,16 +1,28 @@
 import React, { useState } from 'react';
-// Pastikan path ini benar sesuai struktur folder Anda di Bolt
 import { supabase } from '../supabase'; 
-import { Loader2, Send, CheckCircle2, User, Phone, MapPin, Award, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Send, CheckCircle2, User, Phone, MapPin, Award, Image as ImageIcon, ChevronDown } from 'lucide-react';
 
 export default function RegistrationForm() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  
+  // Daftar kategori umur lengkap termasuk VETERAN
+  const kategoriUmur = [
+    "Pra Dini (U-9)",
+    "Usia Dini (U-11)",
+    "Anak-anak (U-13)",
+    "Pemula (U-15)",
+    "Remaja (U-17)",
+    "Taruna (U-19)",
+    "Dewasa / Umum",
+    "Veteran (35+ / 40+)"
+  ];
+
   const [formData, setFormData] = useState({
     nama: '',
     whatsapp: '',
-    kategori: 'Anak-anak (U-11/U-13)', // Nilai awal sesuai opsi pertama
+    kategori: kategoriUmur[0],
     domisili: '',
     pengalaman: ''
   });
@@ -22,20 +34,17 @@ export default function RegistrationForm() {
     try {
       let publicUrl = "";
 
-      // 1. Logika Upload Foto ke Supabase Storage
       if (file) {
         const fileExt = file.name.split('.').pop();
-        // Menambahkan timestamp agar nama file unik
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-        const filePath = `identitas/${fileName}`; // Disimpan dalam folder 'identitas'
+        const filePath = `identitas/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('identitas-atlet') // PASTIKAN Nama Bucket ini sudah dibuat di Supabase
+          .from('identitas-atlet')
           .upload(filePath, file);
 
         if (uploadError) throw new Error("Gagal upload foto: " + uploadError.message);
 
-        // Ambil Public URL setelah upload berhasil
         const { data: urlData } = supabase.storage
           .from('identitas-atlet')
           .getPublicUrl(filePath);
@@ -43,9 +52,8 @@ export default function RegistrationForm() {
         publicUrl = urlData.publicUrl;
       }
 
-      // 2. Simpan Data ke Database Supabase
       const { error: dbError } = await supabase
-        .from('pendaftaran') // PASTIKAN Nama Tabel ini sudah dibuat di Database
+        .from('pendaftaran')
         .insert([{ 
           nama: formData.nama, 
           whatsapp: formData.whatsapp, 
@@ -57,20 +65,18 @@ export default function RegistrationForm() {
 
       if (dbError) throw new Error("Gagal simpan ke database: " + dbError.message);
 
-      // 3. Kirim Notifikasi WhatsApp ke Admin
       const adminPhoneNumber = "6281219027234";
-      const message = `*PENDAFTARAN ATLET BARU*%0A%0A` +
+      const message = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
                       `*Nama:* ${formData.nama}%0A` +
                       `*Domisili:* ${formData.domisili}%0A` +
                       `*Kategori:* ${formData.kategori}%0A` +
-                      `*Pengalaman:* ${formData.pengalaman}%0A` +
+                      `*Pengalaman:* ${formData.pengalaman || '-'}%0A` +
                       `*Link Foto:* ${publicUrl}`;
       
       window.open(`https://wa.me/${adminPhoneNumber}?text=${message}`, '_blank');
       
       setSubmitted(true);
-      // Reset form setelah berhasil
-      setFormData({ nama: '', whatsapp: '', kategori: 'Anak-anak (U-11/U-13)', domisili: '', pengalaman: '' });
+      setFormData({ nama: '', whatsapp: '', kategori: kategoriUmur[0], domisili: '', pengalaman: '' });
       setFile(null);
 
     } catch (err: any) {
@@ -105,7 +111,6 @@ export default function RegistrationForm() {
         <h2 className="text-2xl font-black text-slate-900 mb-8 text-center uppercase tracking-tight">Formulir Pendaftaran</h2>
         
         <div className="space-y-4">
-          {/* Input Nama */}
           <div className="relative">
             <User className="absolute left-4 top-4 text-slate-400" size={18} />
             <input 
@@ -117,7 +122,6 @@ export default function RegistrationForm() {
             />
           </div>
 
-          {/* Input WhatsApp */}
           <div className="relative">
             <Phone className="absolute left-4 top-4 text-slate-400" size={18} />
             <input 
@@ -130,7 +134,6 @@ export default function RegistrationForm() {
             />
           </div>
 
-          {/* Input Domisili */}
           <div className="relative">
             <MapPin className="absolute left-4 top-4 text-slate-400" size={18} />
             <input 
@@ -142,26 +145,26 @@ export default function RegistrationForm() {
             />
           </div>
 
-          {/* Pilih Kategori */}
+          {/* Kategori Umur dengan Veteran */}
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-widest">Kategori Umur</label>
-            <div className="relative">
+            <div className="relative group">
+              <Award className="absolute left-4 top-4 text-slate-400" size={18} />
               <select 
                 value={formData.kategori}
-                className="w-full px-4 py-3.5 rounded-2xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all appearance-none cursor-pointer"
+                className="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all appearance-none cursor-pointer"
                 onChange={e => setFormData({...formData, kategori: e.target.value})}
               >
-                <option value="Anak-anak (U-11/U-13)">Anak-anak (U-11/U-13)</option>
-                <option value="Remaja (U-15/U-17)">Remaja (U-15/U-17)</option>
-                <option value="Dewasa/Umum">Dewasa/Umum</option>
+                {kategoriUmur.map((kat) => (
+                  <option key={kat} value={kat}>
+                    {kat}
+                  </option>
+                ))}
               </select>
-              <div className="absolute right-4 top-4 pointer-events-none text-slate-400">
-                ▼
-              </div>
+              <ChevronDown className="absolute right-4 top-4 pointer-events-none text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
             </div>
           </div>
 
-          {/* Input Pengalaman */}
           <div className="relative">
             <Award className="absolute left-4 top-4 text-slate-400" size={18} />
             <textarea 
@@ -172,7 +175,6 @@ export default function RegistrationForm() {
             />
           </div>
 
-          {/* Upload File */}
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-widest">Foto Identitas (Akte/KK/KTP)</label>
             <div className="relative group">
@@ -192,7 +194,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* Tombol Submit */}
           <button 
             type="submit"
             disabled={loading} 

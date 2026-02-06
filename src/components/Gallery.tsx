@@ -33,7 +33,7 @@ const galleryData = [
   {
     id: 4,
     type: 'image',
-    image: '/whatsapp_image_2026-02-05_at_10.31.02.jpeg',
+    image: 'latiharutinpagi.jpg',
     title: 'Latihan Rutin Pagi',
     category: 'Latihan',
     description: 'Sesi latihan pagi yang intensif untuk meningkatkan stamina dan teknik dasar.'
@@ -41,7 +41,7 @@ const galleryData = [
   {
     id: 5,
     type: 'image',
-    image: '/whatsapp_image_2026-02-05_at_10.34.12.jpeg',
+    image: 'pemanasan.jpg',
     title: 'Pemanasan Tim',
     category: 'Latihan',
     description: 'Momen pemanasan bersama sebelum memulai latihan inti di lapangan.'
@@ -49,7 +49,7 @@ const galleryData = [
   {
     id: 6,
     type: 'image',
-    image: '/whatsapp_image_2026-02-05_at_10.36.22.jpeg',
+    image: 'drilling.jpg',
     title: 'Drilling Session',
     category: 'Latihan',
     description: 'Latihan drill intensif untuk meningkatkan kecepatan reaksi dan footwork.'
@@ -121,7 +121,7 @@ const galleryData = [
   {
     id: 15,
     type: 'image',
-    image: 'https://images.pexels.com/photos/6253573/pexels-photo-6253573.jpeg?auto=compress&cs=tinysrgb&w=800',
+    image: 'kondisi.jpg',
     title: 'Conditioning Training',
     category: 'Latihan',
     description: 'Program latihan fisik khusus untuk meningkatkan stamina dan power.'

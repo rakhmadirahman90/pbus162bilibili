@@ -14,7 +14,7 @@ const galleryData = [
     id: 2,
     type: 'video',
     image: '/whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg',
-    videoUrl: '/vid-20260206-wa0018.mp4',
+    videoUrl: 'https://youtu.be/yI-YxprE9-s?si=dFQxBBMK7y7DwFs0',
     isLocal: true,
     title: 'Highlight Pertandingan Cup IV',
     category: 'Pertandingan',

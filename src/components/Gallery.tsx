@@ -59,7 +59,7 @@ const galleryData = [
   {
     id: 7,
     type: 'image',
-    image: '/whatsapp_image_2026-02-05_at_11.38.00.jpeg',
+    image: 'sparing.jpg',
     title: 'Sesi Sparring',
     category: 'Latihan',
     description: 'Latihan tanding antar atlet untuk mengasah mental bertanding dan strategi.'

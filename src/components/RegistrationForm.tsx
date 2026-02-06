@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // Perbaikan path import: Menyesuaikan dengan lokasi file supabase.ts Anda
-import { supabase } from '../lib/supabase'; 
+import { supabase } from '@/lib/supabase'; 
 import { Loader2, Send, CheckCircle2, User, Phone, Image as ImageIcon } from 'lucide-react';
 
 export default function RegistrationForm() {

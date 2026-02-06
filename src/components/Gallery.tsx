@@ -14,11 +14,14 @@ const galleryData = [
     id: 2,
     type: 'video',
     image: '/whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg',
-    videoUrl: 'https://www.youtube.com/embed/yI-YxprE9-s', // Gunakan format embed
-    isLocal: false, // Ubah ke false karena ini link eksternal
+    // Gunakan URL embed murni tanpa parameter tambahan agar lebih stabil
+    videoUrl: 'https://www.youtube.com/embed/yI-YxprE9-s', 
+    isLocal: false, 
     title: 'Highlight Pertandingan Cup IV',
     category: 'Pertandingan',
-    description: 'Rekaman momen terbaik dari turnamen internal PB US 162 Cup IV 2026.'
+    description: 'Rekaman momen terbaik dari turnamen internal PB US 162 Cup IV 2026.',
+    // Tambahkan properti aspek rasio jika komponen Bolt Anda mendukungnya
+    aspectRatio: '16/9'
   },
   {
     id: 3,

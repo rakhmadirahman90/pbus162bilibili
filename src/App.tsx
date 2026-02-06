@@ -6,7 +6,8 @@ import News from './components/News';
 import Athletes from './components/Players'; 
 import Ranking from './components/Rankings'; 
 import Gallery from './components/Gallery';
-import Contact from './components/Contact'; // <-- Impor Komponen Kontak Baru
+import RegistrationForm from './components/RegistrationForm'; // <-- Impor Komponen Pendaftaran
+import Contact from './components/Contact'; 
 import Footer from './components/Footer';
 
 function App() {
@@ -86,6 +87,11 @@ function App() {
         <section id="gallery" className="scroll-mt-20">
           <Gallery />
         </section>
+
+        {/* --- SECTION PENDAFTARAN ATLET (BARU) --- */}
+        <section id="register" className="scroll-mt-20">
+          <RegistrationForm />
+        </section>
         
         {/* --- SECTION TENTANG KAMI --- */}
         <section id="about" className="scroll-mt-20">
@@ -95,7 +101,7 @@ function App() {
           />
         </section>
 
-        {/* --- SECTION KONTAK (BARU) --- */}
+        {/* --- SECTION KONTAK --- */}
         <section id="contact" className="scroll-mt-20">
           <Contact />
         </section>

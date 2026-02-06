@@ -165,7 +165,7 @@ export default function RegistrationForm() {
                 name="domisili" 
                 type="text" 
                 onChange={handleInputChange} 
-                placeholder="Contoh: Makassar" 
+                placeholder="Contoh: Parepare" 
                 className={inputClass} 
               />
             </div>

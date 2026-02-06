@@ -26,9 +26,9 @@ const galleryData = [
     image: 'files_8978464-2026-02-06t03-11-06-499z-img-20260206-wa0015.jpg',
     videoUrl: 'hangatpagi.mp4',
     isLocal: true,
-    title: 'Behind The Scenes Turnamen',
-    category: 'Pertandingan',
-    description: 'Dokumentasi di balik layar persiapan dan jalannya turnamen internal.'
+    title: 'Jumat Berkah, Jumat Sehat',
+    category: 'Latihan Rutin',
+    description: 'Menampilkan cuplikan di balik layar bagaimana kerja keras dibangun di atas lapangan. Mari jadikan hari Jumat ini langkah awal menuju fisik yang lebih kuat dan mental juara.'
   },
   {
     id: 4,

@@ -48,12 +48,12 @@ const galleryData = [
   {
     id: 19, // VIDEO BARU YANG DITAMBAHKAN
     type: 'video',
-    image: 'juaracup1.jpeg',
-    videoUrl: 'https://youtu.be/Cu1zuyhpOCw?si=hJ6GmjqP9TBeACRH',
+    image: 'https://img.youtube.com/vi/Cu1zuyhpOCw/maxresdefault.jpg',
+    videoUrl: 'https://www.youtube.com/embed/Cu1zuyhpOCw',
     isLocal: false,
-    title: 'Final Pertandingan Cup I 2025',
+    title: 'Final Pertandingan Cup II 2025',
     category: 'Pertandingan',
-    description: 'Rekaman Final terbaik dari turnamen internal PB US 162 Cup I 2025.',
+    description: 'Pertandingan final luar biasa antara Mustakim/M. Nur vs H. Wawan/Bustan.',
     className: 'aspect-video w-full'
   },
 {

@@ -14,8 +14,8 @@ const galleryData = [
     id: 2,
     type: 'video',
     image: '/whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg',
-    videoUrl: 'https://youtu.be/yI-YxprE9-s?si=dFQxBBMK7y7DwFs0',
-    isLocal: true,
+    videoUrl: 'https://www.youtube.com/embed/yI-YxprE9-s', // Gunakan format embed
+    isLocal: false, // Ubah ke false karena ini link eksternal
     title: 'Highlight Pertandingan Cup IV',
     category: 'Pertandingan',
     description: 'Rekaman momen terbaik dari turnamen internal PB US 162 Cup IV 2026.'

@@ -51,9 +51,20 @@ const galleryData = [
     image: 'juaracup1.jpeg',
     videoUrl: 'https://youtu.be/Cu1zuyhpOCw?si=hJ6GmjqP9TBeACRH',
     isLocal: false,
-    title: 'Highlight Pertandingan Cup I',
+    title: 'Final Pertandingan Cup I 2025',
     category: 'Pertandingan',
-    description: 'Rekaman Final terbaik dari turnamen internal PB US 162 Cup I 2026.',
+    description: 'Rekaman Final terbaik dari turnamen internal PB US 162 Cup I 2025.',
+    className: 'aspect-video w-full'
+  },
+{
+    id: 20, // VIDEO BARU: CUP II
+    type: 'video',
+    image: 'https://img.youtube.com/vi/2zC11ROoouQ/maxresdefault.jpg',
+    videoUrl: 'https://www.youtube.com/embed/2zC11ROoouQ',
+    isLocal: false,
+    title: 'Final Pertandingan Cup II 2025',
+    category: 'Pertandingan',
+    description: 'Pertarungan sengit babak Final Cup II antara Nasri/Aco vs Rifai/Rustam.',
     className: 'aspect-video w-full'
   },
 

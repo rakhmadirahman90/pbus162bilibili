@@ -45,6 +45,17 @@ const galleryData = [
     className: 'aspect-video w-full'
 
   },
+  {
+    id: 19, // VIDEO BARU YANG DITAMBAHKAN
+    type: 'video',
+    image: 'https://img.youtube.com/vi/iBvJCgfWcb0/maxresdefault.jpg',
+    videoUrl: 'https://youtu.be/Cu1zuyhpOCw?si=hJ6GmjqP9TBeACRH',
+    isLocal: false,
+    title: 'Highlight Pertandingan Cup I',
+    category: 'Pertandingan',
+    description: 'Rekaman Final terbaik dari turnamen internal PB US 162 Cup I 2026.',
+    className: 'aspect-video w-full'
+  },
 
   {
 

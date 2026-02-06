@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Globe, ChevronDown, Menu, X, MapPin } from 'lucide-react';
+import { Globe, ChevronDown, Menu, X, MapPin, UserPlus } from 'lucide-react';
 
 interface NavbarProps {
   onNavigate: (sectionId: string, tabId?: string) => void;
@@ -95,14 +95,33 @@ export default function Navbar({ onNavigate }: NavbarProps) {
           <button onClick={() => handleNavClick('rankings')} className="nav-link">Peringkat</button>
           <button onClick={() => handleNavClick('gallery')} className="nav-link">Galeri</button>
           
-          {/* MENU BARU: KONTAK */}
-          <button 
-            onClick={() => handleNavClick('contact')} 
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2"
+          {/* --- MENU DROPDOWN KONTAK & DAFTAR --- */}
+          <div 
+            className="relative h-20 flex items-center"
+            onMouseEnter={() => setActiveDropdown('contact')}
+            onMouseLeave={() => setActiveDropdown(null)}
           >
-            <MapPin size={12} />
-            Kontak
-          </button>
+            <button 
+              className={`px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20 ${activeDropdown === 'contact' ? 'ring-2 ring-white/20' : ''}`}
+            >
+              <MapPin size={12} />
+              Kontak
+              <ChevronDown size={10} className={`transition-transform duration-300 ${activeDropdown === 'contact' ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {activeDropdown === 'contact' && (
+              <div className="dropdown-container right-0">
+                <div className="dropdown-content">
+                  <button onClick={() => handleNavClick('contact')} className="dropdown-item flex items-center gap-3">
+                    <MapPin size={14} className="text-blue-400" /> Hubungi Kami
+                  </button>
+                  <button onClick={() => handleNavClick('register')} className="dropdown-item flex items-center gap-3 bg-blue-600/10">
+                    <UserPlus size={14} className="text-blue-400" /> Pendaftaran Atlet
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="w-px h-6 bg-white/10 mx-2"></div>
 
@@ -140,24 +159,36 @@ export default function Navbar({ onNavigate }: NavbarProps) {
           <div className="flex flex-col p-6 gap-4">
             <button onClick={() => handleNavClick('home')} className="mobile-nav-link text-left">Beranda</button>
             <div className="h-px bg-white/5" />
+            
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Tentang Kami</p>
             <div className="flex flex-col gap-3 pl-4">
               <button onClick={() => handleNavClick('about', 'sejarah')} className="mobile-sub-link">Sejarah</button>
               <button onClick={() => handleNavClick('about', 'visi-misi')} className="mobile-sub-link">Visi & Misi</button>
               <button onClick={() => handleNavClick('about', 'fasilitas')} className="mobile-sub-link">Fasilitas</button>
             </div>
+            
             <div className="h-px bg-white/5" />
+            
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Kategori Atlet</p>
             <div className="flex flex-col gap-3 pl-4">
               <button onClick={() => handleNavClick('atlet', 'Semua')} className="mobile-sub-link">Semua Atlet</button>
               <button onClick={() => handleNavClick('atlet', 'Senior')} className="mobile-sub-link">Atlet Senior</button>
               <button onClick={() => handleNavClick('atlet', 'Muda')} className="mobile-sub-link">Atlet Muda</button>
             </div>
+            
             <div className="h-px bg-white/5" />
+            
             <button onClick={() => handleNavClick('rankings')} className="mobile-nav-link text-left">Peringkat</button>
             <button onClick={() => handleNavClick('gallery')} className="mobile-nav-link text-left">Galeri</button>
             <button onClick={() => handleNavClick('news')} className="mobile-nav-link text-left">Berita</button>
-            <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-blue-400 text-left">Kontak Kami</button>
+            
+            <div className="h-px bg-white/5" />
+            
+            <p className="text-[10px] uppercase tracking-widest text-blue-500 font-bold">Kontak & Daftar</p>
+            <div className="flex flex-col gap-3 pl-4">
+              <button onClick={() => handleNavClick('contact')} className="mobile-sub-link">Hubungi Kami</button>
+              <button onClick={() => handleNavClick('register')} className="mobile-sub-link text-white bg-blue-600 px-3 py-1 rounded-md w-fit">Daftar Atlet Baru</button>
+            </div>
           </div>
         </div>
       )}
@@ -165,7 +196,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
       <style>{`
         .nav-link { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #cbd5e1; transition: all 0.3s ease; cursor: pointer; border: none; background: none; }
         .nav-link:hover { color: #3b82f6; }
-        .dropdown-container { position: absolute; top: 80%; width: 13rem; padding-top: 1rem; animation: dropdownFade 0.2s ease-out; z-index: 110; }
+        .dropdown-container { position: absolute; top: 80%; width: 14rem; padding-top: 1rem; animation: dropdownFade 0.2s ease-out; z-index: 110; }
         .dropdown-content { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
         .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #e2e8f0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); transition: all 0.2s; cursor: pointer; background: none; }
         .dropdown-item:last-child { border: none; }

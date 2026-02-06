@@ -67,7 +67,17 @@ const galleryData = [
     description: 'Pertarungan sengit babak Final Cup II antara Nasri/Aco vs Rifai/Rustam.',
     className: 'aspect-video w-full'
   },
-
+{
+    id: 21, // VIDEO BARU: FINAL KELAS AB/BB CUP IV 2026
+    type: 'video',
+    image: 'https://img.youtube.com/vi/iBvJCgfWcb0/maxresdefault.jpg',
+    videoUrl: 'https://www.youtube.com/embed/iBvJCgfWcb0',
+    isLocal: false,
+    title: 'Final Pertandingan Cup IV 2026',
+    category: 'Pertandingan',
+    description: 'Partai puncak yang mempertemukan H. Wawan/Bustan vs Herman/Marzuki di Liga Intern Bosowa 162.',
+    className: 'aspect-video w-full'
+  },
   {
 
     id: 3,

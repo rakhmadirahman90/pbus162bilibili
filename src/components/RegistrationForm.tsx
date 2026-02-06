@@ -27,7 +27,7 @@ export default function RegistrationForm() {
     e.preventDefault();
 
     // --- PENGATURAN NOMOR PENGURUS ---
-    const adminPhoneNumber = "6281234567890"; // GANTI DENGAN NOMOR ANDA
+    const adminPhoneNumber = "6281219027234"; // GANTI DENGAN NOMOR ANDA
     
     // Format pesan untuk WhatsApp
     const message = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +

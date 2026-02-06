@@ -48,7 +48,7 @@ const galleryData = [
   {
     id: 19, // VIDEO BARU YANG DITAMBAHKAN
     type: 'video',
-    image: 'https://img.youtube.com/vi/iBvJCgfWcb0/maxresdefault.jpg',
+    image: 'juaracup1.jpeg',
     videoUrl: 'https://youtu.be/Cu1zuyhpOCw?si=hJ6GmjqP9TBeACRH',
     isLocal: false,
     title: 'Highlight Pertandingan Cup I',

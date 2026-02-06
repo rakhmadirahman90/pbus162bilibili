@@ -5,53 +5,150 @@ const galleryData = [
   {
     id: 1,
     type: 'image',
-    image: 'https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg?auto=compress&cs=tinysrgb&w=800',
-    title: 'Smash Tajam di Final',
+    image: '/img-20260206-wa0015.jpg',
+    title: 'Pertandingan Sengit Cup IV',
     category: 'Pertandingan',
-    description: 'Momen krusial saat atlet utama kami melakukan jumping smash untuk mengamankan poin kemenangan.'
+    description: 'Aksi seru dari pertandingan internal Cup IV 2026 yang menampilkan atlet terbaik kami.'
   },
   {
     id: 2,
     type: 'video',
-    image: 'https://images.pexels.com/photos/2202685/pexels-photo-2202685.jpeg?auto=compress&cs=tinysrgb&w=800',
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    image: '/whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg',
+    videoUrl: '/vid-20260206-wa0018.mp4',
+    isLocal: true,
     title: 'Highlight Pertandingan Cup IV',
     category: 'Pertandingan',
-    description: 'Kumpulan momen terbaik dari turnamen internal PB US 162 Cup IV 2026.'
+    description: 'Rekaman momen terbaik dari turnamen internal PB US 162 Cup IV 2026.'
   },
   {
     id: 3,
-    type: 'image',
-    image: 'https://images.pexels.com/photos/6253573/pexels-photo-6253573.jpeg?auto=compress&cs=tinysrgb&w=800',
-    title: 'Sesi Latihan Fisik',
-    category: 'Latihan',
-    description: 'Latihan rutin setiap Selasa dan Kamis yang fokus pada penguatan otot kaki.'
+    type: 'video',
+    image: '/whatsapp_image_2026-02-02_at_09.53.05_(2).jpeg',
+    videoUrl: '/vid-20260206-wa0019.mp4',
+    isLocal: true,
+    title: 'Behind The Scenes Turnamen',
+    category: 'Pertandingan',
+    description: 'Dokumentasi di balik layar persiapan dan jalannya turnamen internal.'
   },
   {
     id: 4,
-    type: 'video',
-    image: 'https://images.pexels.com/photos/1263426/pexels-photo-1263426.jpeg?auto=compress&cs=tinysrgb&w=800',
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', 
-    title: 'Tutorial Footwork Dasar',
+    type: 'image',
+    image: '/whatsapp_image_2026-02-05_at_10.31.02.jpeg',
+    title: 'Latihan Rutin Pagi',
     category: 'Latihan',
-    description: 'Video edukasi mengenai penempatan posisi kaki yang benar untuk pemula.'
+    description: 'Sesi latihan pagi yang intensif untuk meningkatkan stamina dan teknik dasar.'
   },
   {
     id: 5,
     type: 'image',
-    image: 'whatsapp_image_2026-02-02_at_08.39.03.jpeg',
-    title: 'Penyerahan Piala',
-    category: 'Prestasi',
-    description: 'Kegembiraan para pemenang Turnamen Internal saat menerima trofi.'
+    image: '/whatsapp_image_2026-02-05_at_10.34.12.jpeg',
+    title: 'Pemanasan Tim',
+    category: 'Latihan',
+    description: 'Momen pemanasan bersama sebelum memulai latihan inti di lapangan.'
   },
   {
     id: 6,
-    type: 'video',
-    image: 'https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg?auto=compress&cs=tinysrgb&w=800',
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-    title: 'Vlog Fasilitas GOR',
+    type: 'image',
+    image: '/whatsapp_image_2026-02-05_at_10.36.22.jpeg',
+    title: 'Drilling Session',
+    category: 'Latihan',
+    description: 'Latihan drill intensif untuk meningkatkan kecepatan reaksi dan footwork.'
+  },
+  {
+    id: 7,
+    type: 'image',
+    image: '/whatsapp_image_2026-02-05_at_11.38.00.jpeg',
+    title: 'Sesi Sparring',
+    category: 'Latihan',
+    description: 'Latihan tanding antar atlet untuk mengasah mental bertanding dan strategi.'
+  },
+  {
+    id: 8,
+    type: 'image',
+    image: '/whatsapp_image_2026-02-02_at_08.39.03.jpeg',
+    title: 'Penyerahan Piala Juara',
+    category: 'Prestasi',
+    description: 'Kegembiraan para pemenang Turnamen Internal saat menerima trofi kemenangan.'
+  },
+  {
+    id: 9,
+    type: 'image',
+    image: '/whatsapp_image_2025-12-30_at_15.33.37.jpeg',
+    title: 'Juara Kategori C',
+    category: 'Prestasi',
+    description: 'Hidayatullah meraih kemenangan gemilang di kategori C Cup IV 2026.'
+  },
+  {
+    id: 10,
+    type: 'image',
+    image: '/whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg',
+    title: 'Keluarga Besar Atlet',
+    category: 'Prestasi',
+    description: 'Foto bersama seluruh atlet dan pelatih setelah turnamen internal.'
+  },
+  {
+    id: 11,
+    type: 'image',
+    image: '/whatsapp_image_2026-02-02_at_09.53.05_(3).jpeg',
+    title: 'Semangat Juara Bersama',
+    category: 'Prestasi',
+    description: 'Kebersamaan dan solidaritas tim yang menjadi kunci kesuksesan kami.'
+  },
+  {
+    id: 12,
+    type: 'image',
+    image: '/dpnkwabotttfihp7gf3r.jpg',
+    title: 'Fasilitas Lapangan Berkelas',
     category: 'Fasilitas',
-    description: 'Tur singkat melihat standar lapangan dan asrama atlet kami.'
+    description: 'Lapangan dengan karpet standar BWF dan pencahayaan LED profesional.'
+  },
+  {
+    id: 13,
+    type: 'image',
+    image: '/photo_2026-02-03_00-32-07.jpg',
+    title: 'GOR PB US 162',
+    category: 'Fasilitas',
+    description: 'Gedung olahraga modern yang menjadi pusat pelatihan atlet kami.'
+  },
+  {
+    id: 14,
+    type: 'image',
+    image: 'https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg?auto=compress&cs=tinysrgb&w=800',
+    title: 'Teknik Smash Profesional',
+    category: 'Latihan',
+    description: 'Demonstrasi teknik smash yang benar oleh pelatih kepala kami.'
+  },
+  {
+    id: 15,
+    type: 'image',
+    image: 'https://images.pexels.com/photos/6253573/pexels-photo-6253573.jpeg?auto=compress&cs=tinysrgb&w=800',
+    title: 'Conditioning Training',
+    category: 'Latihan',
+    description: 'Program latihan fisik khusus untuk meningkatkan stamina dan power.'
+  },
+  {
+    id: 16,
+    type: 'image',
+    image: '/gemini_generated_image_qdfwfpqdfwfpqdfw.png',
+    title: 'Atlet Senior Berprestasi',
+    category: 'Prestasi',
+    description: 'Agustilaar, salah satu atlet terbaik kami di kategori Seed A.'
+  },
+  {
+    id: 17,
+    type: 'image',
+    image: '/gemini_generated_image_ein7bkein7bkein7.png',
+    title: 'Rising Star PB US 162',
+    category: 'Prestasi',
+    description: 'Udin, pemain andalan dengan teknik serangan cepat yang mematikan.'
+  },
+  {
+    id: 18,
+    type: 'image',
+    image: '/gemini_generated_image_abml4qabml4qabml.png',
+    title: 'Pemenang Seed B+',
+    category: 'Prestasi',
+    description: 'Bustan meraih prestasi gemilang di kategori Seed B+.'
   }
 ];
 
@@ -181,25 +278,36 @@ export default function Gallery() {
               <X size={36} strokeWidth={2.5} />
             </button>
             
-            <div 
-              className="relative max-w-5xl w-full flex flex-col items-center z-[1000]" 
+            <div
+              className="relative max-w-5xl w-full flex flex-col items-center z-[1000]"
               onClick={(e) => e.stopPropagation()}
             >
               {activeMedia.type === 'video' ? (
                 <div className="w-full aspect-video rounded-3xl overflow-hidden shadow-2xl bg-black border border-white/10">
-                  <iframe 
-                    className="w-full h-full"
-                    src={activeMedia.videoUrl}
-                    title={activeMedia.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
+                  {activeMedia.isLocal ? (
+                    <video
+                      className="w-full h-full"
+                      controls
+                      autoPlay
+                    >
+                      <source src={activeMedia.videoUrl} type="video/mp4" />
+                      Browser Anda tidak mendukung tag video.
+                    </video>
+                  ) : (
+                    <iframe
+                      className="w-full h-full"
+                      src={activeMedia.videoUrl}
+                      title={activeMedia.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  )}
                 </div>
               ) : (
-                <img 
-                  src={activeMedia.image} 
-                  alt={activeMedia.title} 
-                  className="max-w-full max-h-[60vh] object-contain rounded-3xl shadow-2xl border border-white/10" 
+                <img
+                  src={activeMedia.image}
+                  alt={activeMedia.title}
+                  className="max-w-full max-h-[60vh] object-contain rounded-3xl shadow-2xl border border-white/10"
                 />
               )}
 

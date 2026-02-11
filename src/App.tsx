@@ -61,7 +61,8 @@ const AdminLogin = ({ onLoginSuccess }: { onLoginSuccess: (session: any) => void
     </div>
   );
 };
-
+const [showConfirmModal, setShowConfirmModal] = useState(false);
+const [selectedPendaftar, setSelectedPendaftar] = useState<any>(null);
 // --- KOMPONEN DASHBOARD ---
 const AdminDashboard = ({ session }: { session: any }) => {
   const [activeTab, setActiveTab] = useState('pendaftaran');

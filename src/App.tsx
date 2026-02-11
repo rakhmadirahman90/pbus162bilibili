@@ -273,13 +273,7 @@ const handleSaveAthlete = async () => {
     };
   }
 }, [activeTab]);
-// --- STATE UTAMA (Hanya tulis sekali!) ---
-const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
-const [isAthleteLoading, setIsAthleteLoading] = useState(false);
-const [currentPage, setCurrentPage] = useState(1); // Taruh di sini
-
-// --- LOGIKA PERHITUNGAN (Letakkan setelah state di atas) ---
-const itemsPerPage = 5;
+  
 const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1;
 const indexOfLastItem = currentPage * itemsPerPage;
 const indexOfFirstItem = indexOfLastItem - itemsPerPage;

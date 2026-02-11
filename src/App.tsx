@@ -467,19 +467,19 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
 
       {/* Table Section */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm mx-6">
-        <table className="w-full text-left">
+        <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr>
               <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</th>
               <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">WhatsApp / Info</th>
-              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Dokumen</th>
-              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Aksi</th>
+              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Dokumen</th>
+              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Aksi Manajemen</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {registrants.length > 0 ? (
               registrants.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/50 transition-all border-b border-slate-50">
+                <tr key={item.id} className="hover:bg-slate-50/50 transition-all border-b border-slate-50 group">
                   <td className="p-5">
                     <p className="font-bold text-slate-800 uppercase text-sm">{item.nama}</p>
                     <p className="text-[10px] text-blue-600 font-black uppercase italic tracking-tighter">
@@ -492,7 +492,7 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                     <p className="text-[10px] text-green-500 uppercase font-black tracking-widest italic">WA Aktif</p>
                   </td>
 
-                  <td className="p-5">
+                  <td className="p-5 text-center">
                     {item.foto_url || item.foto_identitas_url ? (
                       <a 
                         href={item.foto_url || item.foto_identitas_url} 
@@ -510,8 +510,20 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                     )}
                   </td>
 
-                  <td className="p-5 text-center">
+                  <td className="p-5">
                     <div className="flex items-center justify-center gap-2">
+                      {/* TOMBOL TERIMA (MIGRASI KE ATLET) */}
+                      <button 
+                        onClick={() => handleAcceptAthlete(item)}
+                        className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all active:scale-95 shadow-sm group/btn"
+                        title="Terima sebagai Atlet Resmi"
+                      >
+                        <svg className="w-4 h-4 group-hover/btn:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+
+                      {/* TOMBOL EDIT */}
                       <button 
                         onClick={() => {
                           setEditingRegistrant(item);
@@ -524,6 +536,8 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                       </button>
+
+                      {/* TOMBOL HAPUS */}
                       <button 
                         onClick={() => handleDeleteRegistrant(item.id)}
                         className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all active:scale-95 shadow-sm"
@@ -541,7 +555,7 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
               <tr>
                 <td colSpan={4} className="p-20 text-center">
                   <div className="flex flex-col items-center gap-3">
-                    <span className="text-4xl">🔍</span>
+                    <span className="text-4xl animate-bounce">🔍</span>
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] italic">
                       Data pendaftaran belum masuk atau tabel kosong.
                     </p>

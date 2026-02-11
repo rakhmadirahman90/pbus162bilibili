@@ -615,7 +615,7 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                 <input 
                   type="text" placeholder="Contoh: AGUSTILAAR" 
                   value={athleteForm.name}
-                  onChange={(e) => setAthleteForm({...athleteForm, name: e.target.value.toUpperCase()})}
+                  onChange={handleNameChange}
                   className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 font-bold uppercase transition-all"
                 />
               </div>

@@ -61,8 +61,16 @@ const AdminLogin = ({ onLoginSuccess }: { onLoginSuccess: (session: any) => void
     </div>
   );
 };
-const [showConfirmModal, setShowConfirmModal] = useState(false);
-const [selectedPendaftar, setSelectedPendaftar] = useState<any>(null);
+// --- STATE UNTUK MANAJEMEN PENERIMAAN ATLET ---
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedPendaftar, setSelectedPendaftar] = useState<any>(null);
+  const [isAthleteLoading, setIsAthleteLoading] = useState(false);
+
+  // Fungsi untuk memicu munculnya modal konfirmasi
+  const prepareAcceptance = (pendaftar: any) => {
+    setSelectedPendaftar(pendaftar);
+    setShowConfirmModal(true);
+  };
 // --- KOMPONEN DASHBOARD ---
 const AdminDashboard = ({ session }: { session: any }) => {
   const [activeTab, setActiveTab] = useState('pendaftaran');

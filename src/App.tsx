@@ -164,18 +164,18 @@ const fetchRegistrants = async () => {
  const fetchAthletes = async () => {
   try {
     const { data, error } = await supabase
-      .from('rankings')
+      .from('rankings') // AMBIL DARI SINI
       .select('*')
       .order('points', { ascending: false });
 
     if (error) throw error;
 
-    // ISI KEDUA STATE
+    // Semua data ranking masuk ke manajemen atlet
     setRankingAthletes(data || []);
     setAthletes(data || []);
 
   } catch (err: any) {
-    console.error("Gagal sinkronisasi data:", err.message);
+    console.error('Fetch atlet error:', err.message);
   }
 };
   const handleSaveAthlete = async () => {

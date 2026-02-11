@@ -273,17 +273,16 @@ const handleSaveAthlete = async () => {
     };
   }
 }, [activeTab]);
-// --- STATE UNTUK MANAJEMEN ATLET ---
-const [rankingAthletes, setRankingAthletes] = useState([]); // Data dari database
+// --- STATE UTAMA (Hanya tulis sekali!) ---
+const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
 const [isAthleteLoading, setIsAthleteLoading] = useState(false);
-// --- LOGIKA PAGINATION (WAJIB ADA AGAR TIDAK BLANK) ---
-const [currentPage, setCurrentPage] = useState(1);
-const itemsPerPage = 5; 
+const [currentPage, setCurrentPage] = useState(1); // Taruh di sini
+
+// --- LOGIKA PERHITUNGAN (Letakkan setelah state di atas) ---
+const itemsPerPage = 5;
 const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1;
 const indexOfLastItem = currentPage * itemsPerPage;
 const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-
-// Ambil data untuk halaman aktif saja
 const currentAthletes = rankingAthletes?.slice(indexOfFirstItem, indexOfLastItem) || [];
 
   const handleUpdateRank = async () => {

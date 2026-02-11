@@ -144,18 +144,37 @@ const fetchRegistrants = async () => {
   const [athletes, setAthletes] = useState([]);
 
   // Fungsi untuk mengambil data dari tabel 'rankings'
-  const fetchAthletes = async () => {
+  const handleDeleteAthlete = async (id: string) => {
+  if (!confirm('Hapus atlet ini?')) return;
+
+  try {
+    const { error } = await supabase
+      .from('rankings')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    alert('Atlet berhasil dihapus');
+    fetchAthletes();
+  } catch (err: any) {
+    alert('Gagal hapus: ' + err.message);
+  }
+};
+ const fetchAthletes = async () => {
   try {
     const { data, error } = await supabase
       .from('rankings')
       .select('*')
-      .order('points', { ascending: false }); // Urutkan berdasarkan poin tertinggi
+      .order('points', { ascending: false });
 
     if (error) throw error;
-    
-    // Set data ke state yang digunakan oleh tabel Manajemen Atlet
-    setRankingAthletes(data || []); 
-  } catch (err) {
+
+    // ISI KEDUA STATE
+    setRankingAthletes(data || []);
+    setAthletes(data || []);
+
+  } catch (err: any) {
     console.error("Gagal sinkronisasi data:", err.message);
   }
 };

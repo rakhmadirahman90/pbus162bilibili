@@ -294,28 +294,23 @@ const fetchRegistrants = async () => {
     };
   }
 }, [activeTab]);
-// --- STATE UNTUK MANAJEMEN ATLET ---
-const [rankingAthletes, setRankingAthletes] = useState([]); // Data dari database
-const [isAthleteLoading, setIsAthleteLoading] = useState(false);
-const [athleteForm, setAthleteForm] = useState({
-  name: '',
-  global_rank: '',
-  bio: '',
-  category: 'Senior',
-  seed: 'Non-Seed',
-  points: 0,
-  image_url: ''
-});
+// --- STATE MANAJEMEN ATLET ---
+  // Hapus baris di bawah ini jika sudah ada di baris lain!
+  const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
+  const [isAthleteLoading, setIsAthleteLoading] = useState(false);
+  const [athleteForm, setAthleteForm] = useState({
+    name: '',
+    global_rank: '',
+    bio: '',
+    category: 'Senior',
+    seed: 'Non-Seed',
+    points: 0,
+    image_url: ''
+  });
 
-// --- LOGIKA PAGINATION (WAJIB ADA AGAR TIDAK BLANK) ---
-const [currentPage, setCurrentPage] = useState(1);
-const itemsPerPage = 5; 
-const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1;
-const indexOfLastItem = currentPage * itemsPerPage;
-const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-
-// Ambil data untuk halaman aktif saja
-const currentAthletes = rankingAthletes?.slice(indexOfFirstItem, indexOfLastItem) || [];
+  // --- LOGIKA PAGINATION ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const handleUpdateRank = async () => {
   try {

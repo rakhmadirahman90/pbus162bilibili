@@ -75,9 +75,6 @@ const AdminDashboard = ({ session }: { session: any }) => {
   const [isFetchLoading, setIsFetchLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5; // Jumlah atlet yang tampil per "sheet"
-  const totalPages = Math.ceil(
-  rankingAthletes.length / itemsPerPage
-);
 
   // --- FUNGSI AMBIL DATA DARI SUPABASE ---
   // 1. Fungsi Fetch Data
@@ -332,7 +329,7 @@ const [activityType, setActivityType] = useState('Harian');
 const [matchResult, setMatchResult] = useState('Win');
 const [isRankingLoading, setIsRankingLoading] = useState(false);
 
-const handleUpdateRank = async () => {
+  const handleUpdateRank = async () => {
   try {
     if (!selectedAthlete) {
       alert('Pilih atlet dulu');
@@ -341,6 +338,7 @@ const handleUpdateRank = async () => {
 
     setIsRankingLoading(true);
 
+    // Validasi activity
     const activity = pointTable[activityType];
     if (!activity) {
       alert('Tipe aktivitas tidak valid');
@@ -349,6 +347,7 @@ const handleUpdateRank = async () => {
 
     const addedPoint = activity[matchResult] || 0;
 
+    // Ambil data lama
     const { data, error } = await supabase
       .from('rankings')
       .select('points')
@@ -360,6 +359,7 @@ const handleUpdateRank = async () => {
     const currentPoint = data?.points || 0;
     const totalPoint = currentPoint + addedPoint;
 
+    // Update poin baru
     const { error: updateError } = await supabase
       .from('rankings')
       .update({
@@ -372,11 +372,52 @@ const handleUpdateRank = async () => {
 
     alert('Ranking berhasil diupdate');
 
+    // 🔥 AUTO REFRESH MANAGEMEN ATLET
     await fetchAthletes();
 
   } catch (err) {
     console.error(err);
     alert('Terjadi kesalahan saat update ranking');
+  } finally {
+    setIsRankingLoading(false);
+  }
+};
+    const added = activity[matchResult] || 0;
+
+    // Ambil data lama
+    const { data, error } = await supabase
+      .from('rankings')
+      .select('points')
+      .eq('player_name', selectedAthlete)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      alert('Gagal ambil data');
+      return;
+    }
+
+    const currentPoint = data?.points || 0;
+    const total = currentPoint + added;
+
+    // Update poin
+    const { error: updateError } = await supabase
+      .from('rankings')
+      .update({ points: total })
+      .eq('player_name', selectedAthlete);
+
+    if (updateError) {
+      console.error(updateError);
+      alert('Gagal update ranking');
+      return;
+    }
+
+    alert('Ranking berhasil diupdate');
+
+    await fetchAthletes();
+  } catch (err) {
+    console.error(err);
+    alert('Terjadi error sistem');
   } finally {
     setIsRankingLoading(false);
   }

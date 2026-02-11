@@ -138,6 +138,7 @@ const fetchRegistrants = async () => {
     global_rank: '',
     points: 0
   });
+  const [isAthleteLoading, setIsAthleteLoading] = useState(false);
   
   // State untuk menampung daftar atlet dari database
   const [athletes, setAthletes] = useState([]);
@@ -158,27 +159,47 @@ const fetchRegistrants = async () => {
     console.error("Gagal sinkronisasi data:", err.message);
   }
 };
-const handleSaveAthlete = async () => {
-    if (!athleteForm.name) return;
+  const handleSaveAthlete = async () => {
+    if (!athleteForm.name.trim()) {
+      alert("Nama Atlet tidak boleh kosong!");
+      return;
+    }
+    if (!athleteForm.bio.trim()) {
+      alert("Profil Singkat (Bio) wajib diisi!");
+      return;
+    }
+
     setIsAthleteLoading(true);
     try {
       const { error } = await supabase
-        .from('rankings') // Sesuaikan dengan nama tabel Anda
+        .from('rankings') 
         .upsert({
-          player_name: athleteForm.name,
-          global_rank: athleteForm.global_rank,
+          player_name: athleteForm.name.toUpperCase(),
           category: athleteForm.category,
           seed: athleteForm.seed,
-          points: athleteForm.points,
-          image_url: athleteForm.image_url,
           bio: athleteForm.bio,
-          updated_at: new Date()
+          image_url: athleteForm.image_url,
+          global_rank: parseInt(athleteForm.global_rank) || 0,
+          points: parseInt(athleteForm.points.toString()) || 0,
+          updated_at: new Date().toISOString()
+        }, { 
+          onConflict: 'player_name'
         });
 
       if (error) throw error;
-      alert("Profil atlet berhasil diperbarui!");
-      fetchAthletes(); // Panggil fungsi refresh data
-    } catch (err: any) {
+
+      alert(`Profil ${athleteForm.name} Berhasil Disimpan!`);
+
+      // Reset Form
+      setAthleteForm({ 
+        name: '', category: 'Senior', seed: 'Non-Seed', 
+        bio: '', image_url: '', global_rank: '', points: 0 
+      });
+
+      // Refresh tabel agar data langsung muncul
+      fetchAthletes();
+
+    } catch (err) {
       alert("Gagal menyimpan: " + err.message);
     } finally {
       setIsAthleteLoading(false);
@@ -273,6 +294,15 @@ const handleSaveAthlete = async () => {
     };
   }
 }, [activeTab]);
+// --- STATE RANKING (Nama variabel diperuniki agar tidak bentrok) ---
+  // STATE DATA ATLET
+  const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
+  // --- STATE UPDATE RANKING ---
+const [selectedAthlete, setSelectedAthlete] = useState('');
+const [activityType, setActivityType] = useState('Harian');
+const [matchResult, setMatchResult] = useState('Win');
+const [isRankingLoading, setIsRankingLoading] = useState(false);
+
   const handleUpdateRank = async () => {
   try {
     if (!selectedAthlete) {
@@ -523,9 +553,9 @@ const handleSaveAthlete = async () => {
       )}
     </div>
   );
-    case 'atlet':
+     case 'atlet':
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20 p-4">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">
       {/* HEADER SECTION */}
       <div className="flex justify-between items-center px-2">
         <div>
@@ -643,7 +673,7 @@ const handleSaveAthlete = async () => {
             </button>
           </div>
 
-          {/* LIVE PREVIEW CARD */}
+          {/* PREVIEW CARD */}
           <div className="space-y-3">
              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Live Preview</label>
              <div className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden flex items-center">
@@ -676,86 +706,91 @@ const handleSaveAthlete = async () => {
         <div className="flex items-center justify-between px-2 mt-10">
            <h3 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">Database Atlet Terdaftar</h3>
            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-             Total: {rankingAthletes?.length || 0} Atlet
+             Total: {rankingAthletes.length} Atlet
            </span>
         </div>
         
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden text-sm">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
           <table className="w-full text-left">
-            <thead className="bg-slate-50/50 border-b border-slate-100 text-center">
+            <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-left">Atlet</th>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Kategori</th>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Seed / Rank</th>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Aksi</th>
+                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-blue-600">Atlet</th>
+                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Kategori</th>
+                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Seed / Rank</th>
+                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {/* Menggunakan currentAthletes agar pagination berfungsi */}
-              {currentAthletes && currentAthletes.length > 0 ? (
-                currentAthletes.map((atlet) => (
-                  <tr key={atlet.id} className="hover:bg-slate-50/50 transition-all group">
-                    <td className="p-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-white font-black shrink-0 uppercase">
-                          {atlet.player_name ? atlet.player_name.substring(0, 3) : '???'}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800 uppercase">{atlet.player_name}</p>
-                          <p className="text-[9px] text-blue-600 font-black uppercase tracking-widest">
-                            {atlet.points} POINTS
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-5 text-center">
-                      <span className={`text-[9px] px-2 py-1 rounded-lg font-black uppercase ${
-                        atlet.category === 'Senior' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'
-                      }`}>
-                        {atlet.category}
-                      </span>
-                    </td>
-                    <td className="p-5 text-center">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-black text-slate-700 uppercase">{atlet.seed}</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Rank #{atlet.global_rank || '-'}</span>
-                      </div>
-                    </td>
-                    <td className="p-5">
-                      <div className="flex items-center justify-center gap-2">
-                        <button 
-                          onClick={() => setAthleteForm({
-                            ...atlet,
-                            name: atlet.player_name 
-                          })}
-                          className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteAthlete(atlet.id)}
-                          className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="p-20 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest italic">
-                    Data atlet tidak ditemukan.
-                  </td>
-                </tr>
-              )}
-            </tbody>
+            {/* Ganti athletes.map menjadi rankingAthletes.map atau currentAthletes.map */}
+<tbody className="divide-y divide-slate-50">
+  {rankingAthletes && rankingAthletes.length > 0 ? (
+    rankingAthletes.map((atlet) => (
+      <tr key={atlet.id} className="hover:bg-slate-50/50 transition-all group">
+        <td className="p-5">
+          <div className="flex items-center gap-3">
+            {/* Circle Inisial */}
+            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-white font-black shrink-0">
+              {atlet.player_name ? atlet.player_name.substring(0, 3) : '???'}
+            </div>
+            <div>
+              <p className="font-bold text-slate-800 text-sm uppercase">{atlet.player_name}</p>
+              <p className="text-[9px] text-blue-600 font-black uppercase tracking-widest">
+                {atlet.points} POINTS
+              </p>
+            </div>
+          </div>
+        </td>
+        <td className="p-5 text-center">
+          <span className={`text-[9px] px-2 py-1 rounded-lg font-black uppercase ${
+            atlet.category === 'Senior' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'
+          }`}>
+            {atlet.category}
+          </span>
+        </td>
+        <td className="p-5 text-center">
+          <div className="flex flex-col">
+            <span className="text-xs font-black text-slate-700 uppercase">{atlet.seed}</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase">Rank #{atlet.global_rank || '-'}</span>
+          </div>
+        </td>
+        <td className="p-5">
+          <div className="flex items-center justify-center gap-2">
+            <button 
+              onClick={() => setAthleteForm({
+                ...atlet,
+                name: atlet.player_name // Mapping kembali ke field form
+              })}
+              className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+            <button 
+              onClick={() => handleDeleteAthlete(atlet.id)}
+              className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan={4} className="p-20 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest italic">
+        Data atlet tidak ditemukan. Pastikan koneksi database aktif.
+      </td>
+    </tr>
+  )}
+</tbody>
           </table>
 
-          {/* FOOTER PAGINATION */}
+          {/* FOOTER NAVIGATION (PAGINATION SHEET) */}
           <div className="flex items-center justify-between px-8 py-4 bg-slate-50 border-t border-slate-100">
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sheet:</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Sheet:</span>
               <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
                   <button
@@ -771,7 +806,7 @@ const handleSaveAthlete = async () => {
               </div>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase italic">
-              Hal {currentPage} dari {totalPages}
+              Menampilkan {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, rankingAthletes.length)} dari {rankingAthletes.length} Atlet
             </p>
           </div>
         </div>

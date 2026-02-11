@@ -273,12 +273,6 @@ const handleSaveAthlete = async () => {
     };
   }
 }, [activeTab]);
-  
-const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1;
-const indexOfLastItem = currentPage * itemsPerPage;
-const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-const currentAthletes = rankingAthletes?.slice(indexOfFirstItem, indexOfLastItem) || [];
-
   const handleUpdateRank = async () => {
   try {
     if (!selectedAthlete) {

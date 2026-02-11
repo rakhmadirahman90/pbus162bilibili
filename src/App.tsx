@@ -185,27 +185,42 @@ const AdminDashboard = ({ session }: { session: any }) => {
 
   // --- RENDER TAB CONTENT ---
   const renderTabContent = () => {
-    switch (activeTab) {
-      case 'pendaftaran':
-        return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 pb-20">
-             {/* Gunakan kode UI yang Anda miliki di sini, pastikan memanggil handleConfirmAcceptance */}
-             {/* ... (Tabel Anda sudah cukup bagus, pastikan tombol 'Ya, Terima' memanggil handleConfirmAcceptance) ... */}
-          </div>
-        );
-      // case lainnya...
-      default: return null;
-    }
-  };
+  switch (activeTab) {
+    case 'pendaftaran':
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 pb-20">
+          {/* ... Isi Konten Pendaftaran Anda ... */}
+          <h3 className="px-6 text-xl font-black text-slate-900 uppercase italic">Manajemen Pendaftaran</h3>
+          {/* Tabel pendaftaran di sini */}
+        </div>
+      );
 
-  return (
-    <div className="flex h-screen bg-slate-50">
-      {/* Sidebar Anda di sini */}
-      <main className="flex-1 overflow-y-auto">
-        {renderTabContent()}
-      </main>
-    </div>
-  );
+    case 'atlet':
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">
+          <div className="px-6">
+            <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Manajemen Atlet</h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Database Atlet Resmi</p>
+          </div>
+          {/* Konten Manajemen Atlet Anda di sini */}
+        </div>
+      );
+
+    case 'update_ranking':
+      return (
+        <div className="p-6">
+          <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Update Ranking</h3>
+          {/* Form update ranking di sini */}
+        </div>
+      );
+
+    default:
+      return (
+        <div className="p-20 text-center text-slate-400 font-bold uppercase italic tracking-widest">
+          Pilih menu di sidebar
+        </div>
+      );
+  }
 };
      case 'atlet':
   return (

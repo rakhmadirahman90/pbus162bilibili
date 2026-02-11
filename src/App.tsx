@@ -294,9 +294,6 @@ const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1
 const indexOfLastItem = currentPage * itemsPerPage;
 const indexOfFirstItem = indexOfLastItem - itemsPerPage;
 
-// Ambil data untuk halaman aktif saja
-const currentAthletes = rankingAthletes?.slice(indexOfFirstItem, indexOfLastItem) || [];
-
   const handleUpdateRank = async () => {
   try {
     if (!selectedAthlete) {

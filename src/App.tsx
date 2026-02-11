@@ -1064,41 +1064,21 @@ function App() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white antialiased">
-      <Navbar onNavigate={handleNavigation} />
-      <main className="relative">
-        <section id="home">
-          <Hero onNavigate={handleNavigation} />
-        </section>
-        <section id="news" className="scroll-mt-20">
-          <News />
-        </section>
-        <section id="atlet" className="scroll-mt-20">
-          <Athletes activeTab={playerActiveTab} />
-        </section>
-        <section id="rankings" className="scroll-mt-20">
-          <Ranking />
-        </section>
-        <section id="gallery" className="scroll-mt-20">
-          <Gallery />
-        </section>
-        <section id="register" className="scroll-mt-20">
-          <RegistrationForm />
-        </section>
-        <section id="about" className="scroll-mt-20">
-          <About 
-            activeTab={aboutActiveTab} 
-            onTabChange={(id) => setAboutActiveTab(id)} 
-          />
-        </section>
-        <section id="contact" className="scroll-mt-20">
-          <Contact />
-        </section>
-      </main>
-      <Footer onNavigate={handleNavigation} />
-    </div>
-  );
-}
+ return (
+    <div className="flex h-screen bg-slate-50">
+      {/* Sidebar Anda */}
+      <main className="flex-1 overflow-y-auto">
+        {renderTabContent()}
+      </main>
+      
+      {/* Pastikan Modal Konfirmasi tetap ada di sini agar bisa muncul */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[9999]">
+           {/* Isi modal konfirmasi yang saya berikan sebelumnya */}
+        </div>
+      )}
+    </div>
+  );
+}; // Penutup AdminDashboard
 
 export default App;

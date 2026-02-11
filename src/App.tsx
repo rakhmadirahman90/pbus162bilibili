@@ -330,54 +330,70 @@ const [matchResult, setMatchResult] = useState('Win');
 const [isRankingLoading, setIsRankingLoading] = useState(false);
 
   const handleUpdateRank = async () => {
+  setIsRankingLoading(true);
+
   try {
+    // Validasi atlet
     if (!selectedAthlete) {
       alert('Pilih atlet dulu');
       return;
     }
 
-    setIsRankingLoading(true);
-
-    // Validasi activity
-    const activity = pointTable[activityType];
+    // Validasi aktivitas
+    const activity = pointTable?.[activityType];
     if (!activity) {
       alert('Tipe aktivitas tidak valid');
       return;
     }
 
-    const addedPoint = activity[matchResult] || 0;
+    const addedPoint = activity?.[matchResult] || 0;
 
-    // Ambil data lama
+    // Ambil data lama (kalau belum ada, null)
     const { data, error } = await supabase
       .from('rankings')
-      .select('points')
+      .select('id, points')
       .eq('player_name', selectedAthlete)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
 
     const currentPoint = data?.points || 0;
     const totalPoint = currentPoint + addedPoint;
 
-    // Update poin baru
-    const { error: updateError } = await supabase
-      .from('rankings')
-      .update({
-        points: totalPoint,
-        updated_at: new Date().toISOString()
-      })
-      .eq('player_name', selectedAthlete);
+    // Kalau belum ada di DB → insert
+    if (!data) {
+      const { error: insertError } = await supabase
+        .from('rankings')
+        .insert({
+          player_name: selectedAthlete,
+          points: totalPoint,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
 
-    if (updateError) throw updateError;
+      if (insertError) throw insertError;
+
+    } else {
+      // Kalau sudah ada → update
+      const { error: updateError } = await supabase
+        .from('rankings')
+        .update({
+          points: totalPoint,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', data.id);
+
+      if (updateError) throw updateError;
+    }
 
     alert('Ranking berhasil diupdate');
 
-    // 🔥 AUTO REFRESH MANAGEMEN ATLET
+    // Refresh data
     await fetchAthletes();
 
-  } catch (err) {
-    console.error(err);
-    alert('Terjadi kesalahan saat update ranking');
+  } catch (err: any) {
+    console.error('Update ranking error:', err);
+    alert('Gagal update ranking: ' + (err?.message || 'Unknown error'));
   } finally {
     setIsRankingLoading(false);
   }

@@ -183,36 +183,84 @@ const AdminDashboard = ({ session }: { session: any }) => {
     if (activeTab === 'pendaftaran') fetchRegistrants();
   }, [activeTab]);
 
-  // --- FUNGSI RENDER TAMPILAN PER TAB ---
- // --- FUNGSI RENDER TAMPILAN PER TAB ---
-  const renderTabContent = () => {
+ const renderTabContent = () => {
     switch (activeTab) {
       case 'pendaftaran':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 pb-20">
-            <div className="flex justify-between items-center px-6">
+            <div className="flex justify-between items-center px-6 py-4">
               <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Data Calon Atlet</h3>
             </div>
-            {/* ... ISI TABEL PENDAFTARAN ANDA DISINI ... */}
+            {/* Tabel Pendaftaran */}
+            <div className="mx-6 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Nama</th>
+                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {registrants.map((item) => (
+                    <tr key={item.id}>
+                      <td className="p-5 font-bold uppercase text-sm">{item.nama || item.nama_lengkap}</td>
+                      <td className="p-5 text-center">
+                        <button 
+                          onClick={() => { setSelectedPendaftar(item); setShowConfirmModal(true); }}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase"
+                        >
+                          Terima
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
 
       case 'atlet':
         return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">
-            <div className="px-6">
-              <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Manajemen Atlet</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Database Atlet Resmi</p>
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20 px-6 py-4">
+            <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Database Atlet</h3>
+            {/* List Atlet Berdasarkan Rankings */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {athletes.map((athlete: any) => (
+                <div key={athlete.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-100 rounded-full overflow-hidden">
+                    <img src={athlete.image_url || 'https://via.placeholder.com/150'} alt={athlete.player_name} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-900 uppercase italic text-sm">{athlete.player_name}</p>
+                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{athlete.category}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-            {/* ... ISI DAFTAR ATLET / RANKINGS ANDA DISINI ... */}
           </div>
         );
 
       case 'update_ranking':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">
-             <h3 className="text-xl font-black text-slate-900 uppercase italic mb-6">Input Skor Pertandingan</h3>
-             {/* ... ISI FORM UPDATE POIN ANDA DISINI ... */}
+            <h3 className="text-xl font-black text-slate-900 uppercase italic mb-6">Update Poin</h3>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl max-w-md">
+               {/* Form Sederhana */}
+               <select 
+                className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold mb-4"
+                onChange={(e) => setSelectedAthlete(e.target.value)}
+               >
+                 <option value="">Pilih Atlet</option>
+                 {athletes.map((a: any) => <option key={a.id} value={a.player_name}>{a.player_name}</option>)}
+               </select>
+               <button 
+                onClick={handleUpdateRank}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]"
+               >
+                 Update Ranking
+               </button>
+            </div>
           </div>
         );
 
@@ -222,33 +270,8 @@ const AdminDashboard = ({ session }: { session: any }) => {
             Pilih menu di sidebar
           </div>
         );
-    case 'atlet':
-      return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">
-          <div className="px-6">
-            <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Manajemen Atlet</h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Database Atlet Resmi</p>
-          </div>
-          {/* Konten Manajemen Atlet Anda di sini */}
-        </div>
-      );
-
-    case 'update_ranking':
-      return (
-        <div className="p-6">
-          <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Update Ranking</h3>
-          {/* Form update ranking di sini */}
-        </div>
-      );
-
-    default:
-      return (
-        <div className="p-20 text-center text-slate-400 font-bold uppercase italic tracking-widest">
-          Pilih menu di sidebar
-        </div>
-      );
-  }
-};
+    }
+  };
      case 'atlet':
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">

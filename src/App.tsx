@@ -74,7 +74,10 @@ const AdminDashboard = ({ session }: { session: any }) => {
   // --- STATE pendaftaran ---
   const [isFetchLoading, setIsFetchLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 100; // Jumlah atlet yang tampil per "sheet"
+  const itemsPerPage = 5; // Jumlah atlet yang tampil per "sheet"
+  const totalPages = Math.ceil(
+  rankingAthletes.length / itemsPerPage
+);
 
   // --- FUNGSI AMBIL DATA DARI SUPABASE ---
   // 1. Fungsi Fetch Data

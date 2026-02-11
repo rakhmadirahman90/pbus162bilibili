@@ -329,7 +329,7 @@ const [activityType, setActivityType] = useState('Harian');
 const [matchResult, setMatchResult] = useState('Win');
 const [isRankingLoading, setIsRankingLoading] = useState(false);
 
-  const handleUpdateRank = async () => {
+ const handleUpdateRank = async () => {
   try {
     if (!selectedAthlete) {
       alert('Pilih atlet dulu');
@@ -338,13 +338,50 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
 
     setIsRankingLoading(true);
 
-    // Cegah undefined
+    // Validasi activity
     const activity = pointTable[activityType];
     if (!activity) {
       alert('Tipe aktivitas tidak valid');
       return;
     }
 
+    const addedPoint = activity[matchResult] || 0;
+
+    // Ambil data lama
+    const { data, error } = await supabase
+      .from('rankings')
+      .select('points')
+      .eq('player_name', selectedAthlete)
+      .single();
+
+    if (error) throw error;
+
+    const currentPoint = data?.points || 0;
+    const totalPoint = currentPoint + addedPoint;
+
+    // Update poin baru
+    const { error: updateError } = await supabase
+      .from('rankings')
+      .update({
+        points: totalPoint,
+        updated_at: new Date().toISOString()
+      })
+      .eq('player_name', selectedAthlete);
+
+    if (updateError) throw updateError;
+
+    alert('Ranking berhasil diupdate');
+
+    // 🔥 AUTO REFRESH MANAGEMEN ATLET
+    await fetchAthletes();
+
+  } catch (err) {
+    console.error(err);
+    alert('Terjadi kesalahan saat update ranking');
+  } finally {
+    setIsRankingLoading(false);
+  }
+};
     const added = activity[matchResult] || 0;
 
     // Ambil data lama

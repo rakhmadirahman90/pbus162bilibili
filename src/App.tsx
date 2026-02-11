@@ -643,6 +643,53 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
       )}
     </div>
   );
+  {/* --- MODAL KONFIRMASI TERIMA ATLET --- */}
+      {showConfirmModal && selectedPendaftar && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[1000] p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] w-full max-w-sm p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300 text-center">
+            
+            {/* Status Icon */}
+            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              {isAthleteLoading ? (
+                <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </div>
+            
+            <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Konfirmasi Atlet</h3>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed mt-2">
+              Apakah Anda yakin ingin menerima <br/>
+              <span className="font-bold text-slate-800 underline uppercase italic">
+                {(selectedPendaftar.nama || selectedPendaftar.nama_lengkap)}
+              </span> <br/>
+              sebagai atlet resmi PB US 162?
+            </p>
+
+            <div className="flex flex-col gap-3 pt-8">
+              <button
+                onClick={handleConfirmAcceptance}
+                disabled={isAthleteLoading}
+                className="w-full py-4 bg-green-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-green-200 hover:bg-green-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isAthleteLoading ? 'Sedang Memproses...' : 'Ya, Terima Atlet'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setSelectedPendaftar(null);
+                }}
+                disabled={isAthleteLoading}
+                className="w-full py-4 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-100 hover:text-slate-600 transition-all"
+              >
+                Batalkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
      case 'atlet':
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">

@@ -164,20 +164,20 @@ const fetchRegistrants = async () => {
  const fetchAthletes = async () => {
   try {
     const { data, error } = await supabase
-      .from('rankings') // AMBIL DARI SINI
+      .from('rankings')
       .select('*')
       .order('points', { ascending: false });
 
     if (error) throw error;
 
-    // Semua data ranking masuk ke manajemen atlet
+    // ISI KEDUA STATE
     setRankingAthletes(data || []);
     setAthletes(data || []);
 
   } catch (err: any) {
-    console.error('Fetch atlet error:', err.message);
+    console.error("Gagal sinkronisasi data:", err.message);
   }
-};
+}; 
   const handleSaveAthlete = async () => {
     if (!athleteForm.name.trim()) {
       alert("Nama Atlet tidak boleh kosong!");
@@ -330,74 +330,21 @@ const [matchResult, setMatchResult] = useState('Win');
 const [isRankingLoading, setIsRankingLoading] = useState(false);
 
   const handleUpdateRank = async () => {
-  setIsRankingLoading(true);
-
   try {
-    // Validasi atlet
     if (!selectedAthlete) {
       alert('Pilih atlet dulu');
       return;
     }
 
-    // Validasi aktivitas
-    const activity = pointTable?.[activityType];
+    setIsRankingLoading(true);
+
+    // Cegah undefined
+    const activity = pointTable[activityType];
     if (!activity) {
       alert('Tipe aktivitas tidak valid');
       return;
     }
 
-    const addedPoint = activity?.[matchResult] || 0;
-
-    // Ambil data lama (kalau belum ada, null)
-    const { data, error } = await supabase
-      .from('rankings')
-      .select('id, points')
-      .eq('player_name', selectedAthlete)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    const currentPoint = data?.points || 0;
-    const totalPoint = currentPoint + addedPoint;
-
-    // Kalau belum ada di DB → insert
-    if (!data) {
-      const { error: insertError } = await supabase
-        .from('rankings')
-        .insert({
-          player_name: selectedAthlete,
-          points: totalPoint,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-
-      if (insertError) throw insertError;
-
-    } else {
-      // Kalau sudah ada → update
-      const { error: updateError } = await supabase
-        .from('rankings')
-        .update({
-          points: totalPoint,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', data.id);
-
-      if (updateError) throw updateError;
-    }
-
-    alert('Ranking berhasil diupdate');
-
-    // Refresh data
-    await fetchAthletes();
-
-  } catch (err: any) {
-    console.error('Update ranking error:', err);
-    alert('Gagal update ranking: ' + (err?.message || 'Unknown error'));
-  } finally {
-    setIsRankingLoading(false);
-  }
-};
     const added = activity[matchResult] || 0;
 
     // Ambil data lama

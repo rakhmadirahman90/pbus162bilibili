@@ -138,7 +138,6 @@ const fetchRegistrants = async () => {
     global_rank: '',
     points: 0
   });
-  const [isAthleteLoading, setIsAthleteLoading] = useState(false);
   
   // State untuk menampung daftar atlet dari database
   const [athletes, setAthletes] = useState([]);
@@ -293,6 +292,9 @@ const itemsPerPage = 5;
 const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1;
 const indexOfLastItem = currentPage * itemsPerPage;
 const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+// Ambil data untuk halaman aktif saja
+const currentAthletes = rankingAthletes?.slice(indexOfFirstItem, indexOfLastItem) || [];
 
   const handleUpdateRank = async () => {
   try {

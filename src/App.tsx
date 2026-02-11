@@ -276,16 +276,6 @@ const handleSaveAthlete = async () => {
 // --- STATE UNTUK MANAJEMEN ATLET ---
 const [rankingAthletes, setRankingAthletes] = useState([]); // Data dari database
 const [isAthleteLoading, setIsAthleteLoading] = useState(false);
-const [athleteForm, setAthleteForm] = useState({
-  name: '',
-  global_rank: '',
-  bio: '',
-  category: 'Senior',
-  seed: 'Non-Seed',
-  points: 0,
-  image_url: ''
-});
-
 // --- LOGIKA PAGINATION (WAJIB ADA AGAR TIDAK BLANK) ---
 const [currentPage, setCurrentPage] = useState(1);
 const itemsPerPage = 5; 

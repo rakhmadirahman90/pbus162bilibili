@@ -329,7 +329,7 @@ const [activityType, setActivityType] = useState('Harian');
 const [matchResult, setMatchResult] = useState('Win');
 const [isRankingLoading, setIsRankingLoading] = useState(false);
 
- const handleUpdateRank = async () => {
+  const handleUpdateRank = async () => {
   try {
     if (!selectedAthlete) {
       alert('Pilih atlet dulu');

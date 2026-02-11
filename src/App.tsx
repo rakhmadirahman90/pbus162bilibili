@@ -159,47 +159,27 @@ const fetchRegistrants = async () => {
     console.error("Gagal sinkronisasi data:", err.message);
   }
 };
-  const handleSaveAthlete = async () => {
-    if (!athleteForm.name.trim()) {
-      alert("Nama Atlet tidak boleh kosong!");
-      return;
-    }
-    if (!athleteForm.bio.trim()) {
-      alert("Profil Singkat (Bio) wajib diisi!");
-      return;
-    }
-
+const handleSaveAthlete = async () => {
+    if (!athleteForm.name) return;
     setIsAthleteLoading(true);
     try {
       const { error } = await supabase
-        .from('rankings') 
+        .from('rankings') // Sesuaikan dengan nama tabel Anda
         .upsert({
-          player_name: athleteForm.name.toUpperCase(),
+          player_name: athleteForm.name,
+          global_rank: athleteForm.global_rank,
           category: athleteForm.category,
           seed: athleteForm.seed,
-          bio: athleteForm.bio,
+          points: athleteForm.points,
           image_url: athleteForm.image_url,
-          global_rank: parseInt(athleteForm.global_rank) || 0,
-          points: parseInt(athleteForm.points.toString()) || 0,
-          updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'player_name'
+          bio: athleteForm.bio,
+          updated_at: new Date()
         });
 
       if (error) throw error;
-
-      alert(`Profil ${athleteForm.name} Berhasil Disimpan!`);
-
-      // Reset Form
-      setAthleteForm({ 
-        name: '', category: 'Senior', seed: 'Non-Seed', 
-        bio: '', image_url: '', global_rank: '', points: 0 
-      });
-
-      // Refresh tabel agar data langsung muncul
-      fetchAthletes();
-
-    } catch (err) {
+      alert("Profil atlet berhasil diperbarui!");
+      fetchAthletes(); // Panggil fungsi refresh data
+    } catch (err: any) {
       alert("Gagal menyimpan: " + err.message);
     } finally {
       setIsAthleteLoading(false);
@@ -294,23 +274,28 @@ const fetchRegistrants = async () => {
     };
   }
 }, [activeTab]);
-// --- STATE MANAJEMEN ATLET ---
-  // Hapus baris di bawah ini jika sudah ada di baris lain!
-  const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
-  const [isAthleteLoading, setIsAthleteLoading] = useState(false);
-  const [athleteForm, setAthleteForm] = useState({
-    name: '',
-    global_rank: '',
-    bio: '',
-    category: 'Senior',
-    seed: 'Non-Seed',
-    points: 0,
-    image_url: ''
-  });
+// --- STATE UNTUK MANAJEMEN ATLET ---
+const [rankingAthletes, setRankingAthletes] = useState([]); // Data dari database
+const [isAthleteLoading, setIsAthleteLoading] = useState(false);
+const [athleteForm, setAthleteForm] = useState({
+  name: '',
+  global_rank: '',
+  bio: '',
+  category: 'Senior',
+  seed: 'Non-Seed',
+  points: 0,
+  image_url: ''
+});
 
-  // --- LOGIKA PAGINATION ---
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+// --- LOGIKA PAGINATION (WAJIB ADA AGAR TIDAK BLANK) ---
+const [currentPage, setCurrentPage] = useState(1);
+const itemsPerPage = 5; 
+const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1;
+const indexOfLastItem = currentPage * itemsPerPage;
+const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+// Ambil data untuk halaman aktif saja
+const currentAthletes = rankingAthletes?.slice(indexOfFirstItem, indexOfLastItem) || [];
 
   const handleUpdateRank = async () => {
   try {

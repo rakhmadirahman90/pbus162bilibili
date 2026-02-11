@@ -222,7 +222,6 @@ const AdminDashboard = ({ session }: { session: any }) => {
             Pilih menu di sidebar
           </div>
         );
-    } // <-- HANYA ADA SATU PENUTUP SWITCH DI SINI
     case 'atlet':
       return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">

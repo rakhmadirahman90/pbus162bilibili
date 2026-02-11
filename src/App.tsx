@@ -294,14 +294,28 @@ const fetchRegistrants = async () => {
     };
   }
 }, [activeTab]);
-// --- STATE RANKING (Nama variabel diperuniki agar tidak bentrok) ---
-  // STATE DATA ATLET
-  const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
-  // --- STATE UPDATE RANKING ---
-const [selectedAthlete, setSelectedAthlete] = useState('');
-const [activityType, setActivityType] = useState('Harian');
-const [matchResult, setMatchResult] = useState('Win');
-const [isRankingLoading, setIsRankingLoading] = useState(false);
+// --- STATE UNTUK MANAJEMEN ATLET ---
+const [rankingAthletes, setRankingAthletes] = useState([]); // Data dari database
+const [isAthleteLoading, setIsAthleteLoading] = useState(false);
+const [athleteForm, setAthleteForm] = useState({
+  name: '',
+  global_rank: '',
+  bio: '',
+  category: 'Senior',
+  seed: 'Non-Seed',
+  points: 0,
+  image_url: ''
+});
+
+// --- LOGIKA PAGINATION (WAJIB ADA AGAR TIDAK BLANK) ---
+const [currentPage, setCurrentPage] = useState(1);
+const itemsPerPage = 5; 
+const totalPages = Math.ceil((rankingAthletes?.length || 0) / itemsPerPage) || 1;
+const indexOfLastItem = currentPage * itemsPerPage;
+const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+// Ambil data untuk halaman aktif saja
+const currentAthletes = rankingAthletes?.slice(indexOfFirstItem, indexOfLastItem) || [];
 
   const handleUpdateRank = async () => {
   try {

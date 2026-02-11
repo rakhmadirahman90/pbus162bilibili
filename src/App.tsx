@@ -248,9 +248,9 @@ const fetchRegistrants = async () => {
       });
     }
   };
-  const handleAcceptAthlete = async (pendaftar: any) => {
+  const handleAcceptAthlete = async (pendaftaran: any) => {
   // Pastikan ada konfirmasi agar tidak salah klik
-  const confirmAccept = window.confirm(`Terima ${pendaftar.nama_lengkap} sebagai atlet resmi?`);
+  const confirmAccept = window.confirm(`Terima ${pendaftaran.nama_lengkap} sebagai atlet resmi?`);
   if (!confirmAccept) return;
 
   setIsAthleteLoading(true); // Gunakan loading state agar tombol tidak diklik berkali-kali
@@ -260,11 +260,11 @@ const fetchRegistrants = async () => {
     const { error: insertError } = await supabase
       .from('rankings')
       .insert([{
-        player_name: pendaftar.nama_lengkap.toUpperCase(),
-        category: pendaftar.kategori || 'Senior',
+        player_name: pendaftaran.nama_lengkap.toUpperCase(),
+        category: pendaftaran.kategori || 'Senior',
         points: 0, 
         seed: 'Non-Seed',
-        image_url: pendaftar.foto_url || '',
+        image_url: pendaftaran.foto_url || '',
         bio: `Atlet pendaftaran dari ${pendaftar.whatsapp || 'kontak langsung'}`
       }]);
 
@@ -274,7 +274,7 @@ const fetchRegistrants = async () => {
     const { error: deleteError } = await supabase
       .from('registrants') // Pastikan nama tabel pendaftaran Anda sesuai
       .delete()
-      .eq('id', pendaftar.id);
+      .eq('id', pendaftaran.id);
 
     if (deleteError) throw deleteError;
 

@@ -184,46 +184,45 @@ const AdminDashboard = ({ session }: { session: any }) => {
   }, [activeTab]);
 
   // --- FUNGSI RENDER TAMPILAN PER TAB ---
+ // --- FUNGSI RENDER TAMPILAN PER TAB ---
   const renderTabContent = () => {
     switch (activeTab) {
       case 'pendaftaran':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 pb-20">
-            {/* ... Isi Konten Pendaftaran Anda ... */}
-            <div className="px-6 py-4">
-               <h3 className="text-xl font-black text-slate-900 uppercase italic">Data Calon Atlet</h3>
+            <div className="flex justify-between items-center px-6">
+              <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Data Calon Atlet</h3>
             </div>
-            {/* Masukkan tabel pendaftaran Anda di sini */}
+            {/* ... ISI TABEL PENDAFTARAN ANDA DISINI ... */}
           </div>
         );
 
       case 'atlet':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">
-            <div className="px-6 py-4">
+            <div className="px-6">
               <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Manajemen Atlet</h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Database Atlet Resmi</p>
             </div>
-            {/* ... Isi Tabel/Konten Atlet Anda di sini ... */}
+            {/* ... ISI DAFTAR ATLET / RANKINGS ANDA DISINI ... */}
           </div>
         );
 
       case 'update_ranking':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">
-            <h3 className="text-xl font-black text-slate-900 uppercase italic mb-6">Update Poin Ranking</h3>
-            {/* Form Update Ranking Anda di sini */}
+             <h3 className="text-xl font-black text-slate-900 uppercase italic mb-6">Input Skor Pertandingan</h3>
+             {/* ... ISI FORM UPDATE POIN ANDA DISINI ... */}
           </div>
         );
 
       default:
         return (
           <div className="flex items-center justify-center h-64 text-slate-400 font-bold uppercase italic tracking-widest">
-            Silakan pilih menu di sidebar
+            Pilih menu di sidebar
           </div>
         );
-    } // Penutup Switch (Penting!)
-  }; // Penutup Fungsi renderTabContent (Penting!)
+    } // <-- HANYA ADA SATU PENUTUP SWITCH DI SINI
     case 'atlet':
       return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">

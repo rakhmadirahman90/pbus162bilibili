@@ -248,8 +248,49 @@ const fetchRegistrants = async () => {
       });
     }
   };
+  const handleAcceptAthlete = async (pendaftar: any) => {
+  // Pastikan ada konfirmasi agar tidak salah klik
+  const confirmAccept = window.confirm(`Terima ${pendaftar.nama_lengkap} sebagai atlet resmi?`);
+  if (!confirmAccept) return;
 
+  setIsAthleteLoading(true); // Gunakan loading state agar tombol tidak diklik berkali-kali
 
+  try {
+    // 1. Masukkan data pendaftar ke tabel rankings (Atle Pusat)
+    const { error: insertError } = await supabase
+      .from('rankings')
+      .insert([{
+        player_name: pendaftar.nama_lengkap.toUpperCase(),
+        category: pendaftar.kategori || 'Senior',
+        points: 0, 
+        seed: 'Non-Seed',
+        image_url: pendaftar.foto_url || '',
+        bio: `Atlet pendaftaran dari ${pendaftar.whatsapp || 'kontak langsung'}`
+      }]);
+
+    if (insertError) throw insertError;
+
+    // 2. Hapus dari tabel pendaftaran agar list tetap bersih
+    const { error: deleteError } = await supabase
+      .from('registrants') // Pastikan nama tabel pendaftaran Anda sesuai
+      .delete()
+      .eq('id', pendaftar.id);
+
+    if (deleteError) throw deleteError;
+
+    alert("Sukses! Atlet berhasil dipindahkan ke Database Pusat.");
+    
+    // 3. Refresh data kedua tabel
+    fetchRegistrants(); 
+    fetchAthletes(); 
+
+  } catch (error: any) {
+    console.error("Error migrasi:", error);
+    alert("Gagal memindahkan data: " + error.message);
+  } finally {
+    setIsAthleteLoading(false);
+  }
+};
   
 // State untuk Form Berita
   const [newsForm, setNewsForm] = useState({

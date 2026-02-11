@@ -316,6 +316,13 @@ const fetchRegistrants = async () => {
 // --- STATE RANKING (Nama variabel diperuniki agar tidak bentrok) ---
   // STATE DATA ATLET
   const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
+  // PAGINATION
+const indexOfLastItem = currentPage * itemsPerPage;
+const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+const totalPages = Math.ceil(
+  rankingAthletes.length / itemsPerPage
+);
   // --- STATE UPDATE RANKING ---
 const [selectedAthlete, setSelectedAthlete] = useState('');
 const [activityType, setActivityType] = useState('Harian');

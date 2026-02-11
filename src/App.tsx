@@ -446,7 +446,7 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'pendaftaran':
+    case 'pendaftaran':
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 pb-20">
       {/* Header Section */}
@@ -490,7 +490,7 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
               registrants.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-all border-b border-slate-50 group">
                   <td className="p-5">
-                    <p className="font-bold text-slate-800 uppercase text-sm">{item.nama}</p>
+                    <p className="font-bold text-slate-800 uppercase text-sm">{item.nama || item.nama_lengkap}</p>
                     <p className="text-[10px] text-blue-600 font-black uppercase italic tracking-tighter">
                       {item.kategori}
                     </p>
@@ -523,7 +523,10 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                     <div className="flex items-center justify-center gap-2">
                       {/* TOMBOL TERIMA (MIGRASI KE ATLET) */}
                       <button 
-                        onClick={() => handleAcceptAthlete(item)}
+                        onClick={() => {
+                          setSelectedPendaftar(item);
+                          setShowConfirmModal(true);
+                        }}
                         className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all active:scale-95 shadow-sm group/btn"
                         title="Terima sebagai Atlet Resmi"
                       >
@@ -581,19 +584,17 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999] p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-in fade-in zoom-in duration-300">
             <h3 className="text-xl font-black text-slate-900 uppercase italic mb-6 tracking-tighter">Edit Data Calon Atlet</h3>
-            
             <form onSubmit={handleUpdateRegistrant} className="space-y-5">
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Nama Lengkap</label>
                 <input 
                   type="text"
                   required
-                  className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-slate-700"
+                  className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-slate-700 font-sans"
                   value={editingRegistrant.nama}
                   onChange={(e) => setEditingRegistrant({...editingRegistrant, nama: e.target.value})}
                 />
               </div>
-
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">WhatsApp</label>
                 <input 
@@ -604,7 +605,6 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                   onChange={(e) => setEditingRegistrant({...editingRegistrant, whatsapp: e.target.value})}
                 />
               </div>
-
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block tracking-widest">Kategori Umur</label>
                 <select 
@@ -621,7 +621,6 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                   <option value="Dewasa / Umum">Dewasa / Umum</option>
                 </select>
               </div>
-
               <div className="flex gap-4 mt-8">
                 <button 
                   type="button"
@@ -641,14 +640,11 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
           </div>
         </div>
       )}
-    </div>
-  );
-  {/* --- MODAL KONFIRMASI TERIMA ATLET --- */}
+
+      {/* MODAL KONFIRMASI TERIMA ATLET */}
       {showConfirmModal && selectedPendaftar && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[1000] p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3rem] w-full max-w-sm p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300 text-center">
-            
-            {/* Status Icon */}
+          <div className="bg-white rounded-[3rem] w-full max-w-sm p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300 text-center font-sans">
             <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
               {isAthleteLoading ? (
                 <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
@@ -658,7 +654,6 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
                 </svg>
               )}
             </div>
-            
             <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Konfirmasi Atlet</h3>
             <p className="text-sm text-slate-500 font-medium leading-relaxed mt-2">
               Apakah Anda yakin ingin menerima <br/>
@@ -667,7 +662,6 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
               </span> <br/>
               sebagai atlet resmi PB US 162?
             </p>
-
             <div className="flex flex-col gap-3 pt-8">
               <button
                 onClick={handleConfirmAcceptance}
@@ -690,6 +684,8 @@ const [isRankingLoading, setIsRankingLoading] = useState(false);
           </div>
         </div>
       )}
+    </div>
+  );
      case 'atlet':
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">

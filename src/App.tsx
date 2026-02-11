@@ -61,477 +61,551 @@ const AdminLogin = ({ onLoginSuccess }: { onLoginSuccess: (session: any) => void
     </div>
   );
 };
-const AdminDashboard = ({ session }: { session: any }) => {
-  const [activeTab, setActiveTab] = useState('pendaftaran');
-  const [registrants, setRegistrants] = useState<any[]>([]);
-  const [athletes, setAthletes] = useState<any[]>([]);
-  const [rankingAthletes, setRankingAthletes] = useState<any[]>([]);
-  
-  // State UI & Loading (Hanya satu dideklarasikan di sini)
-  const [loading, setLoading] = useState(false);
-  const [isFetchLoading, setIsFetchLoading] = useState(false);
-  const [isAthleteLoading, setIsAthleteLoading] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedPendaftar, setSelectedPendaftar] = useState<any>(null);
-  const [editingRegistrant, setEditingRegistrant] = useState<any>(null);
 
-  // --- FUNGSI AMBIL DATA ---
+// --- KOMPONEN DASHBOARD ---
+const AdminDashboard = ({ session }: { session: any }) => {
+  const [activeTab, setActiveTab] = useState('pendaftaran');
+  const [galleryType, setGalleryType] = useState<'foto' | 'video'>('foto');
+  
+  const [registrants, setRegistrants] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  // --- STATE PENDAFTAR ---
+  const [isFetchLoading, setIsFetchLoading] = useState(false);
+  const [editingRegistrant, setEditingRegistrant] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const handleUpdateRegistrant = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Menampilkan loading sederhana (opsional)
+  const btn = e.currentTarget.querySelector('button[type="submit"]');
+  if (btn) btn.disabled = true;
+
+  try {
+    const { error } = await supabase
+      .from('pendaftaran') // Sesuai nama tabel di DB Anda
+      .update({
+        nama: editingRegistrant.nama,
+        whatsapp: editingRegistrant.whatsapp,
+        kategori: editingRegistrant.kategori,
+        domisili: editingRegistrant.domisili
+      })
+      .eq('id', editingRegistrant.id);
+
+    if (error) throw error;
+    
+    // Sukses: Tutup modal dan refresh data
+    setIsEditModalOpen(false);
+    fetchRegistrants(); 
+    alert("Data " + editingRegistrant.nama + " berhasil diperbarui!");
+    
+  } catch (err: any) {
+    alert("Gagal memperbarui data: " + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+  // --- FUNGSI AMBIL DATA DARI SUPABASE ---
   const fetchRegistrants = async () => {
     setIsFetchLoading(true);
     try {
       const { data, error } = await supabase
-        .from('pendaftaran') // Sesuaikan dengan nama tabel di Supabase Anda
+        .from('pendaftaran') // Pastikan nama tabel di Supabase adalah 'pendaftaran'
         .select('*')
         .order('created_at', { ascending: false });
+
       if (error) throw error;
       setRegistrants(data || []);
     } catch (err: any) {
-      console.error("Fetch error:", err.message);
+      console.error("Gagal memuat data:", err.message);
     } finally {
       setIsFetchLoading(false);
     }
   };
 
-  const fetchAthletes = async () => {
+  // --- FUNGSI HAPUS DATA ---
+  const handleDeleteRegistrant = async (id: string) => {
+    if (!confirm("Hapus pendaftar ini secara permanen?")) return;
     try {
-      const { data, error } = await supabase
-        .from('rankings')
-        .select('*')
-        .order('points', { ascending: false });
-      if (error) throw error;
-      setRankingAthletes(data || []);
-      setAthletes(data || []);
-    } catch (err: any) {
-      console.error("Gagal sinkronisasi data:", err.message);
-    }
-  };
-
-  // --- FUNGSI MIGRASI (TERIMA ATLET) ---
-  const handleConfirmAcceptance = async () => {
-    if (!selectedPendaftar) return;
-    
-    // Proteksi error toUpperCase: Cek semua kemungkinan nama kolom
-    const namaMentah = selectedPendaftar.nama || selectedPendaftar.nama_lengkap || "Tanpa Nama";
-    
-    setIsAthleteLoading(true);
-    try {
-      // 1. Masukkan ke tabel rankings
-      const { error: insertError } = await supabase
-        .from('rankings')
-        .insert([{
-          player_name: namaMentah.toUpperCase(),
-          category: selectedPendaftar.kategori || 'Dewasa / Umum',
-          points: 0,
-          seed: 'Non-Seed',
-          image_url: selectedPendaftar.foto_url || selectedPendaftar.foto_identitas_url || '',
-          bio: `Atlet terdaftar via online (${selectedPendaftar.whatsapp || '-'})`
-        }]);
-
-      if (insertError) throw insertError;
-
-      // 2. Hapus dari pendaftaran
-      const { error: deleteError } = await supabase
+      const { error } = await supabase
         .from('pendaftaran')
         .delete()
-        .eq('id', selectedPendaftar.id);
-
-      if (deleteError) throw deleteError;
-
-      alert("Sukses! Atlet berhasil diterima.");
-      setShowConfirmModal(false);
-      setSelectedPendaftar(null);
-      fetchRegistrants();
-      fetchAthletes();
+        .eq('id', id);
+      if (error) throw error;
+      setRegistrants(registrants.filter(r => r.id !== id));
     } catch (err: any) {
-      alert("Gagal: " + err.message);
+      alert("Error: " + err.message);
+    }
+  };
+  // --- STATE MANAJEMEN ATLET (SESUAI PROFIL KARTU) ---
+  const [athleteForm, setAthleteForm] = useState({
+    name: '',
+    category: 'Senior',
+    seed: 'Seed A',
+    bio: '',
+    image_url: '',
+    global_rank: '',
+    points: 0
+  });
+  const [isAthleteLoading, setIsAthleteLoading] = useState(false);
+
+  // Fungsi Simpan Atlet ke Supabase
+  const handleSaveAthlete = async () => {
+    if (!athleteForm.name || !athleteForm.bio) {
+      alert("Nama dan Profil Singkat wajib diisi!");
+      return;
+    }
+
+    setIsAthleteLoading(true);
+    try {
+      const { error } = await supabase
+        .from('rankings') // Menggunakan tabel yang sama dengan ranking
+        .upsert({
+          player_name: athleteForm.name,
+          category: athleteForm.category,
+          seed: athleteForm.seed,
+          bio: athleteForm.bio,
+          image_url: athleteForm.image_url,
+          global_rank: athleteForm.global_rank,
+          points: athleteForm.points,
+          updated_at: new Date()
+        }, { onConflict: 'player_name' });
+
+      if (error) throw error;
+      alert("Profil Atlet berhasil diperbarui!");
+      // Reset Form
+      setAthleteForm({ name: '', category: 'Senior', seed: 'Seed A', bio: '', image_url: '', global_rank: '', points: 0 });
+    } catch (err: any) {
+      alert("Gagal menyimpan: " + err.message);
     } finally {
       setIsAthleteLoading(false);
     }
   };
+// State untuk Form Berita
+  const [newsForm, setNewsForm] = useState({
+    title: '',
+    category: 'Prestasi',
+    summary: '',
+    content: '',
+    image_url: ''
+  });
+  const [isNewsLoading, setIsNewsLoading] = useState(false);
 
-  // --- FUNGSI DELETE & UPDATE ---
-  const handleDeleteRegistrant = async (id: string) => {
-    if (!confirm("Hapus pendaftaran ini?")) return;
-    try {
-      const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
-      if (error) throw error;
-      setRegistrants(registrants.filter(r => r.id !== id));
-    } catch (err: any) { alert(err.message); }
-  };
+  // Fungsi Kirim ke Supabase
+  const handlePublishNews = async () => {
+    if (!newsForm.title || !newsForm.content) {
+      alert("Judul dan Konten berita tidak boleh kosong!");
+      return;
+    }
 
-  const handleUpdateRegistrant = async (e: React.FormEvent) => {
-    e.preventDefault();
+    setIsNewsLoading(true);
     try {
       const { error } = await supabase
-        .from('pendaftaran')
-        .update({
-          nama: editingRegistrant.nama,
-          whatsapp: editingRegistrant.whatsapp,
-          kategori: editingRegistrant.kategori
-        })
-        .eq('id', editingRegistrant.id);
+        .from('posts') // Pastikan nama tabel di Supabase adalah 'posts'
+        .insert([{
+          title: newsForm.title,
+          category: newsForm.category,
+          summary: newsForm.summary,
+          content: newsForm.content,
+          image_url: newsForm.image_url || 'https://images.unsplash.com/photo-1544652478-6653e09f18a2',
+          created_at: new Date().toISOString()
+        }]);
+
       if (error) throw error;
-      alert('Data diperbarui!');
-      setShowEditModal(false);
-      fetchRegistrants();
-    } catch (err: any) { alert(err.message); }
-  };
 
-  useEffect(() => {
-    fetchAthletes();
-    if (activeTab === 'pendaftaran') fetchRegistrants();
-  }, [activeTab]);
-
- const renderTabContent = () => {
-    switch (activeTab) {
-      case 'pendaftaran':
-        return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 pb-20">
-            <div className="flex justify-between items-center px-6 py-4">
-              <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Data Calon Atlet</h3>
-            </div>
-            {/* Tabel Pendaftaran */}
-            <div className="mx-6 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-100">
-                  <tr>
-                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Nama</th>
-                    <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {registrants.map((item) => (
-                    <tr key={item.id}>
-                      <td className="p-5 font-bold uppercase text-sm">{item.nama || item.nama_lengkap}</td>
-                      <td className="p-5 text-center">
-                        <button 
-                          onClick={() => { setSelectedPendaftar(item); setShowConfirmModal(true); }}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase"
-                        >
-                          Terima
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-
-      case 'atlet':
-        return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20 px-6 py-4">
-            <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Database Atlet</h3>
-            {/* List Atlet Berdasarkan Rankings */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {athletes.map((athlete: any) => (
-                <div key={athlete.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-slate-100 rounded-full overflow-hidden">
-                    <img src={athlete.image_url || 'https://via.placeholder.com/150'} alt={athlete.player_name} className="w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <p className="font-black text-slate-900 uppercase italic text-sm">{athlete.player_name}</p>
-                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{athlete.category}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'update_ranking':
-        return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">
-            <h3 className="text-xl font-black text-slate-900 uppercase italic mb-6">Update Poin</h3>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl max-w-md">
-               {/* Form Sederhana */}
-               <select 
-                className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold mb-4"
-                onChange={(e) => setSelectedAthlete(e.target.value)}
-               >
-                 <option value="">Pilih Atlet</option>
-                 {athletes.map((a: any) => <option key={a.id} value={a.player_name}>{a.player_name}</option>)}
-               </select>
-               <button 
-                onClick={handleUpdateRank}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px]"
-               >
-                 Update Ranking
-               </button>
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="flex items-center justify-center h-64 text-slate-400 font-bold uppercase italic tracking-widest">
-            Pilih menu di sidebar
-          </div>
-        );
+      alert("Berita berhasil dipublikasikan!");
+      // Reset Form
+      setNewsForm({ title: '', category: 'Prestasi', summary: '', content: '', image_url: '' });
+    } catch (err: any) {
+      alert("Gagal: " + err.message);
+    } finally {
+      setIsNewsLoading(false);
     }
   };
-     case 'atlet':
+  useEffect(() => {
+    if (activeTab === 'pendaftaran') {
+      fetchRegistrants();
+    }
+  }, [activeTab]);
+// --- STATE RANKING (Nama variabel diperuniki agar tidak bentrok) ---
+  // --- STATE UPDATE RANKING ---
+const [selectedAthlete, setSelectedAthlete] = useState('');
+const [activityType, setActivityType] = useState('Harian');
+const [matchResult, setMatchResult] = useState('Win');
+const [isRankingLoading, setIsRankingLoading] = useState(false);
+
+  const handleUpdateRank = async () => {
+  try {
+    if (!selectedAthlete) {
+      alert('Pilih atlet dulu');
+      return;
+    }
+
+    setIsRankingLoading(true);
+
+    // Cegah undefined
+    const activity = pointTable[activityType];
+    if (!activity) {
+      alert('Tipe aktivitas tidak valid');
+      return;
+    }
+
+    const added = activity[matchResult] || 0;
+
+    // Ambil data lama
+    const { data, error } = await supabase
+      .from('rankings')
+      .select('points')
+      .eq('player_name', selectedAthlete)
+      .maybeSingle();
+
+    if (error) {
+      console.error(error);
+      alert('Gagal ambil data');
+      return;
+    }
+
+    const currentPoint = data?.points || 0;
+    const total = currentPoint + added;
+
+    // Update poin
+    const { error: updateError } = await supabase
+      .from('rankings')
+      .update({ points: total })
+      .eq('player_name', selectedAthlete);
+
+    if (updateError) {
+      console.error(updateError);
+      alert('Gagal update ranking');
+      return;
+    }
+
+    alert('Ranking berhasil diupdate');
+
+    await fetchAthletes();
+  } catch (err) {
+    console.error(err);
+    alert('Terjadi error sistem');
+  } finally {
+    setIsRankingLoading(false);
+  }
+};
+  // Konstanta Poin berdasarkan Tabel Standar
+  // MASUKKAN DI ATAS (SEBELUM RETURN)
+  const pointTable: any = {
+  'Harian': { Win: 20, Draw: 10, Loss: 5 },
+  'Sparing': { Win: 100, Draw: 50, Loss: 25 },
+  'Internal': { Win: 300, Draw: 0, Loss: 50 },
+  'Eksternal': { Win: 500, Draw: 0, Loss: 100 }
+};
+
+  const fetchAthletes = async () => {
+    const { data, error } = await supabase
+      .from('rankings')
+      .select('*')
+      .order('points', { ascending: false });
+    if (!error && data) setAthletes(data);
+  };
+
+  const handleCalculateAndSubmit = async () => {
+    if (!selectedAthleteId) return alert("Silakan pilih atlet terlebih dahulu!");
+    
+    setIsRankingLoading(true); // Gunakan state baru
+    try {
+      const athlete = athletes.find(a => a.id.toString() === selectedAthleteId);
+      if (!athlete) throw new Error("Atlet tidak ditemukan");
+
+      const addedPoints = pointTable[activityType][matchResult];
+      const newTotalPoints = (athlete.points || 0) + addedPoints;
+
+      const { error } = await supabase
+        .from('rankings')
+        .update({ points: newTotalPoints, updated_at: new Date() })
+        .eq('id', selectedAthleteId);
+
+      if (error) throw error;
+
+      alert(`Berhasil! ${athlete.player_name} bertambah ${addedPoints} poin.`);
+      fetchAthletes();
+      setSelectedAthleteId('');
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsRankingLoading(false); // Gunakan state baru
+    }
+  };
+  
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+     case 'pendaftaran':
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-20">
-      {/* HEADER SECTION */}
-      <div className="flex justify-between items-center px-2">
-        <div>
-          <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">
-            Manajemen Profil Atlet
-          </h3>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">
-              Sinkronisasi Data Kartu Profil & Rangking
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setAthleteForm({ name: '', global_rank: '', bio: '', category: 'Senior', seed: 'Non-Seed', points: 0, image_url: '' })}
-            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
-          >
-            Reset Form
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* PANEL INPUT DATA */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-blue-600 tracking-widest ml-1">Nama Lengkap Atlet</label>
-                <input 
-                  type="text" placeholder="Contoh: AGUSTILAAR" 
-                  value={athleteForm.name}
-                  onChange={handleNameChange}
-                  className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 font-bold uppercase transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Global Rank (Nomor #)</label>
-                <input 
-                  type="text" placeholder="Contoh: 1" 
-                  value={athleteForm.global_rank}
-                  onChange={(e) => setAthleteForm({...athleteForm, global_rank: e.target.value})}
-                  className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 font-bold transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Profil Singkat (Bio)</label>
-              <textarea 
-                placeholder="Tuliskan bio singkat atlet..." 
-                rows={3}
-                value={athleteForm.bio}
-                onChange={(e) => setAthleteForm({...athleteForm, bio: e.target.value})}
-                className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl outline-none focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 text-sm italic transition-all"
-              ></textarea>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori</label>
-                <select 
-                  value={athleteForm.category}
-                  onChange={(e) => setAthleteForm({...athleteForm, category: e.target.value})}
-                  className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold cursor-pointer"
-                >
-                  <option value="Senior">Senior</option>
-                  <option value="Muda">Muda (U-19)</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Seed</label>
-                <select 
-                  value={athleteForm.seed}
-                  onChange={(e) => setAthleteForm({...athleteForm, seed: e.target.value})}
-                  className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold cursor-pointer"
-                >
-                  <option value="Seed A">Seed A</option>
-                  <option value="Seed B">Seed B</option>
-                  <option value="Non-Seed">Non-Seed</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Poin Saat Ini</label>
-                <input 
-                  type="number" value={athleteForm.points}
-                  onChange={(e) => setAthleteForm({...athleteForm, points: parseInt(e.target.value) || 0})}
-                  className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-black text-blue-600 transition-all"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* PANEL MEDIA & ACTION */}
-        <div className="space-y-6">
-          <div className="p-8 bg-slate-900 rounded-[2.5rem] border border-white/5 shadow-2xl space-y-6 relative overflow-hidden">
-            <div className="space-y-2 relative">
-              <label className="text-[10px] font-black uppercase text-blue-400 tracking-widest ml-1">Link Foto Atlet (PNG)</label>
-              <input 
-                type="text" placeholder="https://..." 
-                value={athleteForm.image_url}
-                onChange={(e) => setAthleteForm({...athleteForm, image_url: e.target.value})}
-                className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-white text-[10px]"
-              />
-            </div>
-            
-            <button 
-              onClick={handleSaveAthlete}
-              disabled={isAthleteLoading || !athleteForm.name}
-              className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-xl active:scale-95 disabled:opacity-50"
-            >
-              {isAthleteLoading ? 'Processing...' : 'Simpan Profil Atlet'}
-            </button>
-          </div>
-
-          {/* PREVIEW CARD */}
-          <div className="space-y-3">
-             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-4">Live Preview</label>
-             <div className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden flex items-center">
-                <div className="flex gap-5 items-center w-full">
-                  <div className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100 flex items-center justify-center">
-                    {athleteForm.image_url ? (
-                      <img src={athleteForm.image_url} className="w-full h-full object-contain" alt="Preview" />
+    <div className="space-y-6">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm mx-6">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Foto</th>
+              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Nama & Kategori</th>
+              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</th>
+              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Domisili</th>
+              <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {registrants.length > 0 ? registrants.map((item) => (
+              <tr key={item.id} className="hover:bg-slate-50/50 transition-all duration-300 group">
+                <td className="p-5 text-center">
+                  <div className="w-14 h-14 rounded-full bg-slate-100 overflow-hidden mx-auto border-4 border-white shadow-md group-hover:scale-110 transition-transform duration-500">
+                    {item.foto_url ? (
+                      <img src={item.foto_url} alt="atlet" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-2xl grayscale opacity-20">👤</span>
+                      <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-slate-300">PB</div>
                     )}
                   </div>
-                  <div className="space-y-1 flex-1">
-                    <h4 className="font-black text-slate-800 uppercase text-sm leading-tight">
-                      {athleteForm.name || 'NAMA ATLET'}
-                    </h4>
-                    <div className="flex gap-2">
-                       <span className={`text-[8px] px-2 py-0.5 rounded-md font-bold uppercase ${athleteForm.category === 'Senior' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
-                         {athleteForm.category}
-                       </span>
-                    </div>
+                </td>
+                <td className="p-5">
+                  <p className="font-black text-slate-800 uppercase text-sm group-hover:text-indigo-600 transition-colors">{item.nama}</p>
+                  <p className="text-[10px] text-indigo-500 font-black uppercase italic bg-indigo-50 px-2 py-0.5 rounded-md mt-1 w-fit">{item.kategori}</p>
+                </td>
+                <td className="p-5">
+                  <p className="text-sm font-bold text-slate-600 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                    {item.whatsapp}
+                  </p>
+                </td>
+                <td className="p-5">
+                  <p className="text-[11px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1">
+                    <span className="text-rose-500">📍</span> {item.domisili || '-'}
+                  </p>
+                </td>
+                <td className="p-5">
+                  <div className="flex items-center justify-center gap-3">
+                    {/* TOMBOL EDIT */}
+                    <button 
+                      onClick={() => { setEditingRegistrant(item); setIsEditModalOpen(true); }}
+                      className="group/btn relative p-3 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all duration-300 hover:shadow-[0_10px_20px_rgba(79,70,229,0.3)] active:scale-90"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-3 py-1.5 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-all font-black shadow-2xl whitespace-nowrap">EDIT DATA</span>
+                    </button>
+
+                    {/* TOMBOL HAPUS - DIBUAT MENARIK SEPERTI EDIT */}
+                    <button 
+                      onClick={() => handleDeleteRegistrant(item.id, item.nama)}
+                      className="group/btn relative p-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white transition-all duration-300 hover:shadow-[0_10px_20px_rgba(225,29,72,0.3)] active:scale-90"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-3 py-1.5 rounded-xl opacity-0 group-hover/btn:opacity-100 transition-all font-black shadow-2xl whitespace-nowrap">HAPUS DATA</span>
+                    </button>
                   </div>
-                </div>
-             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* --- DATABASE TABLE SECTION --- */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-2 mt-10">
-           <h3 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">Database Atlet Terdaftar</h3>
-           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-             Total: {rankingAthletes.length} Atlet
-           </span>
-        </div>
-        
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/50 border-b border-slate-100">
-              <tr>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-blue-600">Atlet</th>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Kategori</th>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Seed / Rank</th>
-                <th className="p-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Aksi</th>
+                </td>
               </tr>
-            </thead>
-            {/* Ganti athletes.map menjadi rankingAthletes.map atau currentAthletes.map */}
-<tbody className="divide-y divide-slate-50">
-  {rankingAthletes && rankingAthletes.length > 0 ? (
-    rankingAthletes.map((atlet) => (
-      <tr key={atlet.id} className="hover:bg-slate-50/50 transition-all group">
-        <td className="p-5">
-          <div className="flex items-center gap-3">
-            {/* Circle Inisial */}
-            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-white font-black shrink-0">
-              {atlet.player_name ? atlet.player_name.substring(0, 3) : '???'}
-            </div>
-            <div>
-              <p className="font-bold text-slate-800 text-sm uppercase">{atlet.player_name}</p>
-              <p className="text-[9px] text-blue-600 font-black uppercase tracking-widest">
-                {atlet.points} POINTS
-              </p>
-            </div>
-          </div>
-        </td>
-        <td className="p-5 text-center">
-          <span className={`text-[9px] px-2 py-1 rounded-lg font-black uppercase ${
-            atlet.category === 'Senior' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'
-          }`}>
-            {atlet.category}
-          </span>
-        </td>
-        <td className="p-5 text-center">
-          <div className="flex flex-col">
-            <span className="text-xs font-black text-slate-700 uppercase">{atlet.seed}</span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Rank #{atlet.global_rank || '-'}</span>
-          </div>
-        </td>
-        <td className="p-5">
-          <div className="flex items-center justify-center gap-2">
-            <button 
-              onClick={() => setAthleteForm({
-                ...atlet,
-                name: atlet.player_name // Mapping kembali ke field form
-              })}
-              className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-            <button 
-              onClick={() => handleDeleteAthlete(atlet.id)}
-              className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
-        </td>
-      </tr>
-    ))
-  ) : (
-    <tr>
-      <td colSpan={4} className="p-20 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest italic">
-        Data atlet tidak ditemukan. Pastikan koneksi database aktif.
-      </td>
-    </tr>
-  )}
-</tbody>
-          </table>
+            )) : (
+              <tr><td colSpan={5} className="p-20 text-center text-slate-400 text-xs font-black uppercase tracking-widest">Data tidak ditemukan.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          {/* FOOTER NAVIGATION (PAGINATION SHEET) */}
-          <div className="flex items-center justify-between px-8 py-4 bg-slate-50 border-t border-slate-100">
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Sheet:</span>
-              <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
-                  <button
-                    key={num}
-                    onClick={() => setCurrentPage(num)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${
-                      currentPage === num ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-blue-50'
-                    }`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
+      {/* MODAL EDIT PREMIUM */}
+      {isEditModalOpen && editingRegistrant && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-lg rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="bg-slate-50 p-10 border-b border-slate-100 relative">
+              <h3 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">Edit Profil</h3>
+              <p className="text-[10px] text-indigo-500 font-black uppercase tracking-[0.2em] mt-2">Manajemen Data Pendaftaran</p>
+              <button onClick={() => setIsEditModalOpen(false)} className="absolute top-8 right-8 text-slate-300 hover:text-rose-500 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase italic">
-              Menampilkan {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, rankingAthletes.length)} dari {rankingAthletes.length} Atlet
-            </p>
+
+            <form onSubmit={handleUpdateRegistrant} className="p-10 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Nama Lengkap Atlet</label>
+                <input 
+                  type="text" 
+                  value={editingRegistrant.nama}
+                  onChange={(e) => setEditingRegistrant({...editingRegistrant, nama: e.target.value})}
+                  className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl outline-none transition-all font-bold text-slate-800 uppercase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">WhatsApp</label>
+                  <input 
+                    type="text" 
+                    value={editingRegistrant.whatsapp}
+                    onChange={(e) => setEditingRegistrant({...editingRegistrant, whatsapp: e.target.value})}
+                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl outline-none transition-all font-bold text-slate-800"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Domisili</label>
+                  <input 
+                    type="text" 
+                    value={editingRegistrant.domisili}
+                    onChange={(e) => setEditingRegistrant({...editingRegistrant, domisili: e.target.value})}
+                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl outline-none transition-all font-bold text-slate-800 uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Kategori Lomba</label>
+                <select 
+                  value={editingRegistrant.kategori}
+                  onChange={(e) => setEditingRegistrant({...editingRegistrant, kategori: e.target.value})}
+                  className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl outline-none transition-all font-black text-slate-800 text-sm"
+                >
+                  <option value="Pra Dini (U-9)">Pra Dini (U-9)</option>
+                  <option value="Dini (U-11)">Dini (U-11)</option>
+                  <option value="Taruna (U-19)">Taruna (U-19)</option>
+                  <option value="Dewasa / Umum">Dewasa / Umum</option>
+                </select>
+              </div>
+
+              <div className="flex gap-4 pt-6">
+                <button 
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-3xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-[2] py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase tracking-[0.2em] hover:bg-slate-900 transition-all shadow-xl shadow-indigo-200 active:scale-95"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
+      case 'atlet':
+        return (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 uppercase italic tracking-tighter">Manajemen Profil Atlet</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Sesuaikan Data dengan Kartu Profil Website</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* PANEL INPUT DATA */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nama Lengkap Atlet</label>
+                    <input 
+                      type="text" placeholder="Contoh: AGUSTILAAR" 
+                      value={athleteForm.name}
+                      onChange={(e) => setAthleteForm({...athleteForm, name: e.target.value})}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold uppercase"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Global Rank (Nomor #)</label>
+                    <input 
+                      type="text" placeholder="Contoh: 1" 
+                      value={athleteForm.global_rank}
+                      onChange={(e) => setAthleteForm({...athleteForm, global_rank: e.target.value})}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Profil Singkat (Bio)</label>
+                  <textarea 
+                    placeholder="Contoh: Pemain kunci dengan pertahanan solid dan visi bermain yang tajam." 
+                    rows={3}
+                    value={athleteForm.bio}
+                    onChange={(e) => setAthleteForm({...athleteForm, bio: e.target.value})}
+                    className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-sm italic"
+                  ></textarea>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                   <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori</label>
+                    <select 
+                      value={athleteForm.category}
+                      onChange={(e) => setAthleteForm({...athleteForm, category: e.target.value})}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold"
+                    >
+                      <option value="Senior">Senior</option>
+                      <option value="Muda">Muda (U-19)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Seed</label>
+                    <select 
+                      value={athleteForm.seed}
+                      onChange={(e) => setAthleteForm({...athleteForm, seed: e.target.value})}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold"
+                    >
+                      <option value="Seed A">Seed A</option>
+                      <option value="Seed B">Seed B</option>
+                      <option value="Non-Seed">Non-Seed</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Poin Awal</label>
+                    <input 
+                      type="number" value={athleteForm.points}
+                      onChange={(e) => setAthleteForm({...athleteForm, points: parseInt(e.target.value)})}
+                      className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-black text-blue-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* PANEL MEDIA & ACTION */}
+              <div className="space-y-6">
+                <div className="p-6 bg-slate-900 rounded-[2.5rem] border border-white/5 shadow-2xl space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-blue-400 tracking-widest ml-1">Link Foto Atlet (PNG Transparan)</label>
+                    <input 
+                      type="text" placeholder="https://..." 
+                      value={athleteForm.image_url}
+                      onChange={(e) => setAthleteForm({...athleteForm, image_url: e.target.value})}
+                      className="w-full p-4 bg-white/5 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 text-white text-[10px]"
+                    />
+                  </div>
+                  <button 
+                    onClick={handleSaveAthlete}
+                    disabled={isAthleteLoading}
+                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+                  >
+                    {isAthleteLoading ? 'Processing...' : 'Simpan Profil Atlet'}
+                  </button>
+                </div>
+
+                {/* MINI PREVIEW (MIMIC MODAL PROFIL) */}
+                <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden">
+                   <div className="flex gap-4">
+                      <div className="w-16 h-16 bg-blue-100 rounded-xl overflow-hidden shrink-0">
+                         {athleteForm.image_url && <img src={athleteForm.image_url} className="w-full h-full object-cover" />}
+                      </div>
+                      <div>
+                         <h4 className="font-black text-slate-800 uppercase text-sm">{athleteForm.name || 'NAMA ATLET'}</h4>
+                         <p className="text-[8px] bg-slate-100 px-2 py-0.5 rounded-full inline-block font-bold text-slate-500">{athleteForm.seed} • {athleteForm.category}</p>
+                         <p className="text-[9px] text-slate-400 mt-1 line-clamp-2">{athleteForm.bio || 'Bio singkat akan muncul di sini...'}</p>
+                      </div>
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
     case 'berita':
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
@@ -944,7 +1018,7 @@ const AdminDashboard = ({ session }: { session: any }) => {
         </div>
         <nav className="flex-1 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
           {[
-            { id: 'pendaftaran', label: 'Manajemen pendaftaran' },
+            { id: 'pendaftaran', label: 'Manajemen Pendaftaran' },
             { id: 'atlet', label: 'Manajemen Atlet' },
             { id: 'berita', label: 'Update Berita' },
             { id: 'peringkat', label: 'Update Ranking' },
@@ -994,6 +1068,7 @@ const AdminDashboard = ({ session }: { session: any }) => {
           </header>
           <div className="bg-white p-10 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 min-h-[600px]">
               {renderTabContent()}
+            
           </div>
         </div>
       </main>
@@ -1064,21 +1139,41 @@ function App() {
     );
   }
 
- return (
-    <div className="flex h-screen bg-slate-50">
-      {/* Sidebar Anda */}
-      <main className="flex-1 overflow-y-auto">
-        {renderTabContent()}
-      </main>
-      
-      {/* Pastikan Modal Konfirmasi tetap ada di sini agar bisa muncul */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-[9999]">
-           {/* Isi modal konfirmasi yang saya berikan sebelumnya */}
-        </div>
-      )}
-    </div>
-  );
-}; // Penutup AdminDashboard
+  return (
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-600 selection:text-white antialiased">
+      <Navbar onNavigate={handleNavigation} />
+      <main className="relative">
+        <section id="home">
+          <Hero onNavigate={handleNavigation} />
+        </section>
+        <section id="news" className="scroll-mt-20">
+          <News />
+        </section>
+        <section id="atlet" className="scroll-mt-20">
+          <Athletes activeTab={playerActiveTab} />
+        </section>
+        <section id="rankings" className="scroll-mt-20">
+          <Ranking />
+        </section>
+        <section id="gallery" className="scroll-mt-20">
+          <Gallery />
+        </section>
+        <section id="register" className="scroll-mt-20">
+          <RegistrationForm />
+        </section>
+        <section id="about" className="scroll-mt-20">
+          <About 
+            activeTab={aboutActiveTab} 
+            onTabChange={(id) => setAboutActiveTab(id)} 
+          />
+        </section>
+        <section id="contact" className="scroll-mt-20">
+          <Contact />
+        </section>
+      </main>
+      <Footer onNavigate={handleNavigation} />
+    </div>
+  );
+}
 
 export default App;

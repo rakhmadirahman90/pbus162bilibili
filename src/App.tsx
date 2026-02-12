@@ -19,6 +19,8 @@ import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
 import ManajemenAtlet from './ManajemenAtlet';
+// PEMBARUAN: Import komponen skor yang baru dibuat
+import AdminMatch from './components/AdminMatch'; 
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -95,18 +97,21 @@ function AdminLayout({ session }: { session: any }) {
       <Sidebar email={session.user.email} />
       
       {/* Area Konten Dinamis Dashboard */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto bg-[#050505]">
         <Routes>
           {/* Menu default admin adalah Manajemen Pendaftaran */}
           <Route path="dashboard" element={<ManajemenPendaftaran />} />
           
-          {/* PEMBARUAN: Sekarang mengarah ke komponen ManajemenAtlet yang benar */}
+          {/* PEMBARUAN: Mengarah ke manajemen atlet */}
           <Route path="atlet" element={<ManajemenAtlet />} />
+
+          {/* PEMBARUAN: Route baru untuk Update Skor Pertandingan */}
+          <Route path="skor" element={<AdminMatch />} />
           
           {/* Placeholder untuk menu lain agar tidak error saat diklik */}
-          <Route path="berita" element={<div className="p-10 font-black italic uppercase text-3xl text-slate-900">Halaman Update Berita (Segera)</div>} />
-          <Route path="ranking" element={<div className="p-10 font-black italic uppercase text-3xl text-slate-900">Halaman Update Ranking (Segera)</div>} />
-          <Route path="galeri" element={<div className="p-10 font-black italic uppercase text-3xl text-slate-900">Halaman Galeri Media (Segera)</div>} />
+          <Route path="berita" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Berita (Segera)</div>} />
+          <Route path="ranking" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Ranking (Segera)</div>} />
+          <Route path="galeri" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Galeri Media (Segera)</div>} />
           
           {/* Fallback jika sub-route tidak ditemukan */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />

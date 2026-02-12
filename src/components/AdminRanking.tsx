@@ -104,69 +104,51 @@ export default function AdminRanking() {
     }
   };
 
-  // --- LOGIKA SINKRONISASI LENGKAP (SEED + POIN + FOTO) ---
+  // --- LOGIKA SINKRONISASI DIPERBAIKI (MENGGUNAKAN RELASI ID) ---
   const syncFromStats = async () => {
     const confirm = window.confirm("Sistem akan sinkronisasi POIN, FOTO dari Pendaftaran, dan STATUS SEED dari Statistik. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data stats (termasuk kolom seed)
+      // 1. Ambil data statistik (fokus ke pendaftaran_id, points, dan seed)
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
-        .select('*');
+        .select('pendaftaran_id, points, seed');
 
       if (statsError) throw statsError;
 
-      // 2. Ambil data pendaftaran untuk foto & kategori
+      // 2. Ambil data pendaftaran (untuk Nama, Foto, dan Kategori)
       const { data: pendaftaranData, error: pendaftaranError } = await supabase
         .from('pendaftaran')
         .select('id, nama, foto_url, kategori');
 
       if (pendaftaranError) throw pendaftaranError;
 
-      const clean = (name: string) => name ? name.replace(/\s+/g, ' ').trim().toUpperCase() : '';
-
-      // Mapping foto dari tabel pendaftaran
-      const profileMap = new Map();
-      pendaftaranData?.forEach(p => {
-        if (p.nama) {
-          profileMap.set(clean(p.nama), {
-            url: p.foto_url,
-            kat: p.kategori
-          });
-        }
-      });
-
       const athleteMap = new Map();
 
-      statsData?.forEach((item: any) => {
-        // Cek nama dari player_name atau nama
-        let rawName = item.player_name || item.nama;
+      // 3. Gabungkan data
+      statsData?.forEach((stat: any) => {
+        // Cari profil berdasarkan pendaftaran_id
+        const profile = pendaftaranData?.find(p => p.id === stat.pendaftaran_id);
         
-        // Jika nama di stats kosong, coba cari di pendaftaran berdasarkan ID jika ada relasi
-        if (!rawName && item.pendaftaran_id) {
-            const pEntry = pendaftaranData.find(p => p.id === item.pendaftaran_id);
-            if (pEntry) rawName = pEntry.nama;
-        }
-        
-        if (rawName) {
-          const cleanName = clean(rawName);
-          const currentPoints = Number(item.points) || 0;
-          const profile = profileMap.get(cleanName);
+        if (profile && profile.nama) {
+          const cleanName = profile.nama.replace(/\s+/g, ' ').trim().toUpperCase();
+          const currentPoints = Number(stat.points) || 0;
 
           if (athleteMap.has(cleanName)) {
             const existing = athleteMap.get(cleanName);
             existing.total_points += currentPoints;
+            // Jika ada banyak record, kita ambil seed yang paling terbaru/ada isinya
+            if (stat.seed) existing.seed = stat.seed;
           } else {
             athleteMap.set(cleanName, {
               player_name: cleanName,
-              category: profile?.kat || item.category || 'Senior',
-              // MENGAMBIL STATUS SEED DARI ATLET_STATS
-              seed: item.seed || 'Non-Seed',
+              category: profile.kategori || 'Senior',
+              seed: stat.seed || 'Non-Seed', // SEED DIAMBIL DARI STATS
               total_points: currentPoints,
               bonus: 0,
-              photo_url: profile?.url || item.photo_url || null 
+              photo_url: profile.foto_url || null 
             });
           }
         }
@@ -176,13 +158,9 @@ export default function AdminRanking() {
 
       if (finalDataArray.length === 0) throw new Error("Tidak ada data atlet yang valid untuk disinkron.");
 
-      // Bersihkan rankings lama (kecuali sistem)
+      // 4. Hapus data lama dan masukkan data hasil sinkronisasi
       await supabase.from('rankings').delete().neq('player_name', '_SYSTEM_');
-
-      // Masukkan data baru hasil penggabungan
-      const { error: insertError } = await supabase
-        .from('rankings')
-        .insert(finalDataArray);
+      const { error: insertError } = await supabase.from('rankings').insert(finalDataArray);
 
       if (insertError) throw insertError;
       
@@ -348,11 +326,12 @@ export default function AdminRanking() {
                   </td>
                   <td className="p-5 text-center">
                     <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${
-                      item.seed.includes('A') ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 
-                      item.seed.includes('B') ? 'bg-purple-600/10 text-purple-400 border border-purple-600/20' : 
+                      item.seed?.includes('A') ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 
+                      item.seed?.includes('B') ? 'bg-purple-600/10 text-purple-400 border border-purple-600/20' : 
+                      item.seed?.includes('C') ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' :
                       'bg-zinc-800 text-zinc-500 border border-white/5'
                     }`}>
-                      {item.seed}
+                      {item.seed || 'NON-SEED'}
                     </span>
                   </td>
                   <td className="p-5 text-center font-black text-white text-lg">{item.total_points?.toLocaleString()}</td>
@@ -376,7 +355,6 @@ export default function AdminRanking() {
               <button onClick={() => setIsModalOpen(false)} className="p-3 bg-zinc-900 rounded-2xl"><X size={24}/></button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              {/* Image Upload di dalam Modal */}
               <div className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-3xl">
                 <div className="w-20 h-20 bg-zinc-900 rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center">
                   {formData.photo_url ? <img src={formData.photo_url} className="w-full h-full object-cover" alt="" /> : <Camera size={24} className="text-zinc-700" />}

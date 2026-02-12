@@ -33,7 +33,7 @@ export default function RegistrationForm() {
     try {
       let publicUrl = "";
 
-      // 1. Proses Upload Foto ke Supabase Storage
+      // 1. Upload Foto
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
@@ -52,7 +52,7 @@ export default function RegistrationForm() {
         publicUrl = urlData.publicUrl;
       }
 
-      // 2. Simpan Data ke Tabel 'pendaftaran'
+      // 2. Simpan ke Tabel 'pendaftaran'
       const { error: dbError } = await supabase
         .from('pendaftaran')
         .insert([{ 
@@ -65,20 +65,19 @@ export default function RegistrationForm() {
         }]);
 
       if (dbError) {
-        // Deteksi error khusus tabel 'rankings' dari database trigger
+        // Penanganan khusus jika Trigger di Supabase masih aktif
         if (dbError.message.includes('rankings')) {
           throw new Error("Sistem Database Error: Ada Trigger otomatis yang gagal mengakses tabel 'rankings'. Silakan matikan Trigger di Dashboard Supabase.");
         }
-        throw new Error(dbError.message);
+        throw dbError;
       }
 
-      // 3. Notifikasi WhatsApp Admin
+      // 3. WhatsApp Redirect
       const adminPhoneNumber = "6281219027234";
       const waMessage = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
                         `*Nama:* ${formData.nama}%0A` +
-                        `*Domisili:* ${formData.domisili}%0A` +
                         `*Kategori:* ${formData.kategori}%0A` +
-                        `*WhatsApp:* ${formData.whatsapp}%0A` +
+                        `*WA:* ${formData.whatsapp}%0A` +
                         `*Link Foto:* ${publicUrl}`;
       
       window.open(`https://wa.me/${adminPhoneNumber}?text=${waMessage}`, '_blank');
@@ -88,31 +87,24 @@ export default function RegistrationForm() {
       setFile(null);
 
     } catch (err: any) {
-      console.error("Detail Error:", err);
       alert("Terjadi Kesalahan: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // UI Sukses Pendaftaran
   if (submitted) {
     return (
-      <div className="max-w-md mx-auto my-12 p-10 bg-green-50 rounded-[3rem] border-2 border-green-100 text-center animate-in fade-in zoom-in duration-500">
+      <div className="max-w-md mx-auto my-12 p-10 bg-green-50 rounded-[3rem] border-2 border-green-100 text-center">
         <CheckCircle2 size={80} className="text-green-500 mx-auto mb-6" />
         <h2 className="text-3xl font-black text-slate-900 mb-4">BERHASIL!</h2>
-        <p className="text-slate-600 mb-8 font-medium">Data pendaftaran telah tersimpan.</p>
-        <button 
-          onClick={() => setSubmitted(false)} 
-          className="bg-slate-900 text-white px-8 py-3 rounded-full font-bold uppercase tracking-wider hover:bg-slate-800 transition-all active:scale-95"
-        >
-          Daftar Kembali
-        </button>
+        <p className="text-slate-600 mb-8 font-medium">Data Anda sudah tersimpan.</p>
+        <button onClick={() => setSubmitted(false)} className="bg-slate-900 text-white px-8 py-3 rounded-full font-bold">DAFTAR KEMBALI</button>
       </div>
     );
   }
 
-  const inputClass = "w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all";
+  const inputClass = "w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white border border-slate-300 text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
 
   return (
     <section className="py-12 px-4">
@@ -122,100 +114,48 @@ export default function RegistrationForm() {
         <div className="space-y-4">
           <div className="relative">
             <User className="absolute left-4 top-4 text-slate-400" size={18} />
-            <input 
-              required 
-              value={formData.nama}
-              className={inputClass}
-              placeholder="Nama Lengkap" 
-              onChange={e => setFormData({...formData, nama: e.target.value})} 
-            />
+            <input required value={formData.nama} className={inputClass} placeholder="Nama Lengkap" onChange={e => setFormData({...formData, nama: e.target.value})} />
           </div>
 
           <div className="relative">
             <Phone className="absolute left-4 top-4 text-slate-400" size={18} />
-            <input 
-              required 
-              type="tel"
-              value={formData.whatsapp}
-              className={inputClass}
-              placeholder="Nomor WA (Contoh: 62812...)" 
-              onChange={e => setFormData({...formData, whatsapp: e.target.value})} 
-            />
+            <input required type="tel" value={formData.whatsapp} className={inputClass} placeholder="Nomor WA (628...)" onChange={e => setFormData({...formData, whatsapp: e.target.value})} />
           </div>
 
           <div className="relative">
             <MapPin className="absolute left-4 top-4 text-slate-400" size={18} />
-            <input 
-              required 
-              value={formData.domisili}
-              className={inputClass}
-              placeholder="Kota Domisili" 
-              onChange={e => setFormData({...formData, domisili: e.target.value})} 
-            />
+            <input required value={formData.domisili} className={inputClass} placeholder="Kota Domisili" onChange={e => setFormData({...formData, domisili: e.target.value})} />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-widest">Kategori Umur</label>
-            <div className="relative group">
+            <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Kategori Umur</label>
+            <div className="relative">
               <Award className="absolute left-4 top-4 text-slate-400" size={18} />
-              <select 
-                value={formData.kategori}
-                className="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all appearance-none cursor-pointer"
-                onChange={e => setFormData({...formData, kategori: e.target.value})}
-              >
-                {kategoriUmur.map((kat) => (
-                  <option key={kat} value={kat}>{kat}</option>
-                ))}
+              <select value={formData.kategori} className="w-full pl-12 pr-10 py-3.5 rounded-2xl bg-white border border-slate-300 appearance-none cursor-pointer" onChange={e => setFormData({...formData, kategori: e.target.value})}>
+                {kategoriUmur.map((kat) => <option key={kat} value={kat}>{kat}</option>)}
               </select>
-              <ChevronDown className="absolute right-4 top-4 pointer-events-none text-slate-400 group-hover:text-blue-500" size={18} />
+              <ChevronDown className="absolute right-4 top-4 pointer-events-none text-slate-400" size={18} />
             </div>
           </div>
 
           <div className="relative">
             <Award className="absolute left-4 top-4 text-slate-400" size={18} />
-            <textarea 
-              value={formData.pengalaman}
-              className={`${inputClass} min-h-[80px] resize-none`}
-              placeholder="Pengalaman Bertanding (Jika ada)" 
-              onChange={e => setFormData({...formData, pengalaman: e.target.value})} 
-            />
+            <textarea value={formData.pengalaman} className={`${inputClass} min-h-[80px]`} placeholder="Pengalaman (Jika ada)" onChange={e => setFormData({...formData, pengalaman: e.target.value})} />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-widest">Foto Identitas (Akte/KK/KTP)</label>
-            <div className="relative group">
-              <input 
-                required 
-                type="file" 
-                accept="image/*" 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                onChange={e => setFile(e.target.files?.[0] || null)} 
-              />
-              <div className={`w-full px-4 py-3.5 rounded-2xl border-2 border-dashed transition-all flex items-center justify-between ${file ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200 group-hover:border-blue-500'}`}>
-                <span className="text-slate-700 text-sm truncate max-w-[200px]">
-                  {file ? file.name : "Pilih file gambar..."}
-                </span>
+            <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Foto Identitas (Akte/KK/KTP)</label>
+            <div className="relative">
+              <input required type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={e => setFile(e.target.files?.[0] || null)} />
+              <div className={`w-full px-4 py-3.5 rounded-2xl border-2 border-dashed flex items-center justify-between ${file ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+                <span className="text-slate-700 text-sm truncate">{file ? file.name : "Pilih gambar..."}</span>
                 <ImageIcon size={18} className={file ? "text-green-500" : "text-blue-500"} />
               </div>
             </div>
           </div>
 
-          <button 
-            type="submit"
-            disabled={loading} 
-            className="w-full bg-blue-600 hover:bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-200 transition-all flex items-center justify-center gap-3 disabled:bg-slate-300 disabled:cursor-not-allowed mt-2 active:scale-95"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" size={24} />
-                <span>MEMPROSES...</span>
-              </>
-            ) : (
-              <>
-                <Send size={18} />
-                <span>DAFTAR SEKARANG</span>
-              </>
-            )}
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-3 disabled:bg-slate-300">
+            {loading ? <><Loader2 className="animate-spin" size={24} /> MEMPROSES...</> : <><Send size={18} /> DAFTAR SEKARANG</>}
           </button>
         </div>
       </form>

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from "../supabase";
 import { 
   Plus, Trash2, Edit3, Save, X, 
   Search, Loader2, User, RefreshCw,
-  AlertCircle, CheckCircle2
+  AlertCircle, CheckCircle2, Camera, Upload
 } from 'lucide-react';
 
 interface Ranking {
@@ -22,10 +22,12 @@ export default function AdminRanking() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeed, setSelectedSeed] = useState('Semua');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState<Partial<Ranking>>({
     player_name: '',
@@ -60,7 +62,6 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // Efek untuk menghilangkan pesan sukses otomatis
   useEffect(() => {
     if (successMsg) {
       const timer = setTimeout(() => setSuccessMsg(null), 3000);
@@ -68,31 +69,65 @@ export default function AdminRanking() {
     }
   }, [successMsg]);
 
-  // --- LOGIKA SINKRONISASI FOTO & POIN (OPTIMIZED) ---
+  // --- LOGIKA UPLOAD FOTO KE STORAGE ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validasi file
+    if (!file.type.startsWith('image/')) {
+      alert("Hanya file gambar yang diizinkan!");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `ranking-photos/${fileName}`;
+
+      // 1. Upload ke Bucket 'atlet-photos' (Pastikan bucket ini sudah dibuat di Supabase)
+      const { error: uploadError } = await supabase.storage
+        .from('atlet-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Ambil Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('atlet-photos')
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, photo_url: publicUrl });
+      setSuccessMsg("Foto berhasil diunggah!");
+    } catch (err: any) {
+      alert("Gagal upload: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // --- LOGIKA SINKRONISASI FOTO & POIN ---
   const syncFromStats = async () => {
     const confirm = window.confirm("Sistem akan menghitung ulang poin dan MENARIK FOTO dari tabel pendaftaran. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data statistik poin
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select('points, seed, player_name');
 
       if (statsError) throw statsError;
 
-      // 2. Ambil data pendaftaran untuk referensi FOTO dan KATEGORI
       const { data: pendaftaranData, error: pendaftaranError } = await supabase
         .from('pendaftaran')
         .select('nama, foto_url, kategori');
 
       if (pendaftaranError) throw pendaftaranError;
 
-      // Helper pembersih nama yang sangat ketat
       const clean = (name: string) => name ? name.replace(/\s+/g, ' ').trim().toUpperCase() : '';
 
-      // 3. Buat Map Foto & Kategori dari pendaftaran
       const profileMap = new Map();
       pendaftaranData?.forEach(p => {
         if (p.nama) {
@@ -103,7 +138,6 @@ export default function AdminRanking() {
         }
       });
 
-      // 4. Aggregation Data Atlet
       const athleteMap = new Map();
 
       statsData?.forEach((item: any) => {
@@ -115,7 +149,6 @@ export default function AdminRanking() {
           if (athleteMap.has(cleanName)) {
             const existing = athleteMap.get(cleanName);
             existing.total_points += currentPoints;
-            // Pastikan foto terupdate jika sebelumnya null
             if (!existing.photo_url && profile?.url) {
               existing.photo_url = profile.url;
             }
@@ -138,11 +171,10 @@ export default function AdminRanking() {
         throw new Error("Tidak ada data atlet yang valid ditemukan.");
       }
 
-      // 5. Update Database: Gunakan sistem Delete & Insert
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'SYSTEM_RESERVED'); // Hindari menghapus row sistem jika ada
+        .neq('player_name', 'SYSTEM_RESERVED');
 
       if (deleteError) throw deleteError;
 
@@ -231,7 +263,7 @@ export default function AdminRanking() {
         
         {/* Pesan Sukses Floating */}
         {successMsg && (
-          <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[100] bg-green-500 text-white px-6 py-3 rounded-full font-bold text-xs uppercase tracking-widest flex items-center gap-3 shadow-2xl animate-bounce">
+          <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[150] bg-green-500 text-white px-6 py-3 rounded-full font-bold text-xs uppercase tracking-widest flex items-center gap-3 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
             <CheckCircle2 size={16} /> {successMsg}
           </div>
         )}
@@ -427,12 +459,54 @@ export default function AdminRanking() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               {formError && (
                 <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 text-red-500 text-[10px] font-bold uppercase tracking-widest">
                   <AlertCircle size={18}/> {formError}
                 </div>
               )}
+
+              {/* UPLOAD FOTO SECTION */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Foto Atlet</label>
+                <div className="flex items-center gap-6 p-4 bg-white/[0.02] border border-white/5 rounded-3xl">
+                  <div className="relative w-24 h-24 bg-zinc-900 rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center group/photo">
+                    {formData.photo_url ? (
+                      <img src={formData.photo_url} className="w-full h-full object-cover" alt="Preview" />
+                    ) : (
+                      <Camera size={24} className="text-zinc-700" />
+                    )}
+                    {isUploading && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Loader2 className="animate-spin text-blue-500" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-grow space-y-2">
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileUpload} 
+                      className="hidden" 
+                      accept="image/*"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all"
+                    >
+                      <Upload size={14} /> Pilih Gambar
+                    </button>
+                    <p className="text-[8px] text-zinc-500 leading-tight">Maksimal 2MB. Format: JPG, PNG, WEBP.</p>
+                  </div>
+                </div>
+                <input 
+                  className="w-full bg-zinc-900/30 border border-white/5 rounded-xl px-4 py-2 outline-none focus:border-blue-600 text-[10px] transition-all placeholder:text-zinc-700" 
+                  placeholder="Atau tempel URL foto di sini..."
+                  value={formData.photo_url || ''} 
+                  onChange={e => setFormData({...formData, photo_url: e.target.value})} 
+                />
+              </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nama Lengkap</label>
@@ -472,16 +546,6 @@ export default function AdminRanking() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Direct URL Foto</label>
-                <input 
-                  className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 text-xs transition-all placeholder:text-zinc-700" 
-                  placeholder="https://example.com/foto.jpg"
-                  value={formData.photo_url || ''} 
-                  onChange={e => setFormData({...formData, photo_url: e.target.value})} 
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-4 bg-blue-600/5 p-6 rounded-[2rem] border border-blue-600/10">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Poin Dasar</label>
@@ -504,7 +568,7 @@ export default function AdminRanking() {
               </div>
 
               <button 
-                disabled={isSaving} 
+                disabled={isSaving || isUploading} 
                 className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 rounded-2xl font-black uppercase text-xs tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 active:scale-95"
               >
                 {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}

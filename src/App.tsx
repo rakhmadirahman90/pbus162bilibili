@@ -23,6 +23,7 @@ import AdminBerita from './components/AdminBerita';
 import AdminMatch from './components/AdminMatch'; 
 // --- TAMBAHKAN IMPORT BARU DISINI ---
 import AdminRanking from './components/AdminRanking'; 
+import AdminGallery from './components/AdminGallery'; // <--- TAMBAHAN BARU
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -96,7 +97,7 @@ export default function App() {
 
 /**
  * PERBAIKAN PADA ADMIN LAYOUT
- * Menghubungkan AdminRanking ke Route
+ * Menghubungkan AdminRanking dan AdminGallery ke Route
  */
 function AdminLayout({ session }: { session: any }) {
   return (
@@ -119,18 +120,11 @@ function AdminLayout({ session }: { session: any }) {
           {/* 4. Update Berita */}
           <Route path="berita" element={<AdminBerita />} />
           
-          {/* 5. Update Ranking (SEKARANG SUDAH AKTIF) */}
+          {/* 5. Update Ranking */}
           <Route path="ranking" element={<AdminRanking />} />
 
-          {/* 6. Placeholder untuk fitur yang akan datang */}
-          <Route path="galeri" element={
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-center">
-                <h1 className="text-5xl font-black italic text-white/10 uppercase tracking-tighter mb-4">Coming Soon</h1>
-                <p className="text-blue-500 font-bold tracking-widest uppercase text-xs">Halaman Galeri Media dalam pengembangan</p>
-              </div>
-            </div>
-          } />
+          {/* 6. Update Galeri Media (SEKARANG SUDAH AKTIF) */}
+          <Route path="galeri" element={<AdminGallery />} />
           
           {/* Fallback internal admin */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />

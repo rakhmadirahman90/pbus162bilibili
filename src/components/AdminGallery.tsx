@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Image as ImageIcon, Video, 
   Upload, X, Loader2, CheckCircle2,
   Film, Camera, ChevronLeft, ChevronRight,
-  Edit3 // BARU: Icon untuk edit
+  Edit3, AlignLeft, Tag // BARU: Icon untuk Deskripsi & Kategori
 } from 'lucide-react';
 
 interface GalleryItem {
@@ -12,6 +12,8 @@ interface GalleryItem {
   title: string;
   type: 'image' | 'video';
   url: string;
+  category: string;    // BARU
+  description: string; // BARU
   created_at: string;
 }
 
@@ -23,18 +25,22 @@ export default function AdminGallery() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // BARU: State untuk melacak mode edit
   const [editingId, setEditingId] = useState<string | null>(null);
-
   const [activeTab, setActiveTab] = useState<'image' | 'video'>('image');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // UPDATED: Menambahkan category dan description ke formData
   const [formData, setFormData] = useState({
     title: '',
     type: 'image' as 'image' | 'video',
-    url: ''
+    url: '',
+    category: 'Pertandingan', // Default category
+    description: ''
   });
+
+  // Opsi Kategori sesuai dengan Landing Page
+  const categories = ['Pertandingan', 'Latihan', 'Prestasi', 'Fasilitas', 'Latihan Rutin'];
 
   useEffect(() => {
     fetchGallery();
@@ -60,22 +66,28 @@ export default function AdminGallery() {
     }
   }
 
-  // BARU: Fungsi untuk membuka modal dalam mode edit
   const handleEdit = (item: GalleryItem) => {
     setEditingId(item.id);
     setFormData({
       title: item.title,
       type: item.type,
-      url: item.url
+      url: item.url,
+      category: item.category || 'Pertandingan', // Ambil dari DB
+      description: item.description || ''         // Ambil dari DB
     });
     setIsModalOpen(true);
   };
 
-  // BARU: Reset state saat menutup modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ title: '', type: 'image', url: '' });
+    setFormData({ 
+      title: '', 
+      type: 'image', 
+      url: '', 
+      category: 'Pertandingan', 
+      description: '' 
+    });
   };
 
   const filteredItems = useMemo(() => {
@@ -129,26 +141,26 @@ export default function AdminGallery() {
 
     try {
       if (editingId) {
-        // BARU: Logika UPDATE jika editingId tersedia
         const { error } = await supabase
           .from('gallery')
           .update({
             title: formData.title,
             type: formData.type,
-            url: formData.url
+            url: formData.url,
+            category: formData.category, // BARU
+            description: formData.description // BARU
           })
           .eq('id', editingId);
         
         if (error) throw error;
         showToast("Media berhasil diperbarui!");
       } else {
-        // Logika INSERT bawaan
         const { error } = await supabase.from('gallery').insert([formData]);
         if (error) throw error;
         showToast("Berhasil menambahkan ke galeri!");
       }
 
-      handleCloseModal(); // BARU: Reset modal
+      handleCloseModal();
       fetchGallery();
     } catch (err: any) {
       alert(err.message);
@@ -174,7 +186,6 @@ export default function AdminGallery() {
     <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 font-sans">
       <div className="max-w-6xl mx-auto">
         
-        {/* Toast Notification */}
         {successMsg && (
           <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[150] bg-blue-600 text-white px-6 py-3 rounded-full font-bold text-xs uppercase flex items-center gap-3 shadow-2xl animate-in fade-in slide-in-from-top-4">
             <CheckCircle2 size={16} /> {successMsg}
@@ -200,7 +211,6 @@ export default function AdminGallery() {
           </button>
         </div>
 
-        {/* Tab Switcher */}
         <div className="flex gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl w-fit border border-white/5">
           <button 
             onClick={() => setActiveTab('image')}
@@ -216,7 +226,6 @@ export default function AdminGallery() {
           </button>
         </div>
 
-        {/* Grid Media */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[400px]">
           {loading ? (
             <div className="col-span-full flex flex-col items-center justify-center py-20 text-zinc-500">
@@ -247,10 +256,11 @@ export default function AdminGallery() {
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-6 flex flex-col justify-end">
                 <div className="flex justify-between items-center translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                   <div className="max-w-[70%]">
+                    {/* BARU: Tampilkan Kategori di Grid */}
+                    <span className="text-blue-500 text-[7px] font-black uppercase tracking-widest block mb-1">{item.category}</span>
                     <h3 className="font-bold text-sm uppercase italic leading-none truncate mb-1">{item.title}</h3>
-                    <p className="text-[8px] text-zinc-400 font-medium uppercase tracking-wider">Diunggah {new Date(item.created_at).toLocaleDateString('id-ID')}</p>
+                    <p className="text-[8px] text-zinc-400 font-medium uppercase tracking-wider line-clamp-1">{item.description}</p>
                   </div>
-                  {/* BARU: Container Button untuk Edit & Delete */}
                   <div className="flex gap-2">
                     <button onClick={() => handleEdit(item)} className="p-3 bg-blue-600/20 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl transition-all active:scale-90">
                       <Edit3 size={18} />
@@ -265,7 +275,6 @@ export default function AdminGallery() {
           ))}
         </div>
 
-        {/* Pagination Controls */}
         {totalPages > 1 && (
           <div className="mt-12 flex justify-center items-center gap-4">
             <button 
@@ -302,9 +311,8 @@ export default function AdminGallery() {
       {/* Modal Upload & Edit */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
-          <div className="bg-zinc-950 w-full max-w-lg rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl scale-in-center">
-            <div className="p-8 border-b border-white/5 flex justify-between items-center">
-              {/* BARU: Judul dinamis berdasarkan mode */}
+          <div className="bg-zinc-950 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[2.5rem] border border-white/10 shadow-2xl scale-in-center custom-scrollbar">
+            <div className="sticky top-0 bg-zinc-950/80 backdrop-blur-md p-8 border-b border-white/5 flex justify-between items-center z-10">
               <h3 className="font-black uppercase italic text-2xl">
                 {editingId ? 'EDIT' : 'TAMBAH'} <span className="text-blue-600">{formData.type === 'image' ? 'FOTO' : 'VIDEO'}</span>
               </h3>
@@ -312,19 +320,22 @@ export default function AdminGallery() {
             </div>
             
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              {/* Row 1: Tipe Media */}
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-zinc-500 uppercase">Pilih Tipe Media</label>
+                <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-2">
+                   <ImageIcon size={12}/> Pilih Tipe Media
+                </label>
                 <div className="grid grid-cols-2 gap-4">
                   <button 
                     type="button"
-                    onClick={() => setFormData({...formData, type: 'image', url: editingId ? formData.url : ''})}
+                    onClick={() => setFormData({...formData, type: 'image'})}
                     className={`py-4 rounded-2xl border flex items-center justify-center gap-3 font-bold text-xs transition-all ${formData.type === 'image' ? 'bg-blue-600 border-blue-600' : 'bg-zinc-900 border-white/5 text-zinc-500'}`}
                   >
                     <Camera size={18} /> FOTO
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setFormData({...formData, type: 'video', url: editingId ? formData.url : ''})}
+                    onClick={() => setFormData({...formData, type: 'video'})}
                     className={`py-4 rounded-2xl border flex items-center justify-center gap-3 font-bold text-xs transition-all ${formData.type === 'video' ? 'bg-blue-600 border-blue-600' : 'bg-zinc-900 border-white/5 text-zinc-500'}`}
                   >
                     <Film size={18} /> VIDEO
@@ -332,8 +343,11 @@ export default function AdminGallery() {
                 </div>
               </div>
 
+              {/* Row 2: Judul */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Judul Media</label>
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                   <Edit3 size={12}/> Judul Media
+                </label>
                 <input 
                   required
                   className="w-full bg-zinc-900 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 font-bold uppercase transition-all"
@@ -343,10 +357,41 @@ export default function AdminGallery() {
                 />
               </div>
 
+              {/* Row 3: Kategori (BARU) */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                   <Tag size={12}/> Kategori
+                </label>
+                <select 
+                  className="w-full bg-zinc-900 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 font-bold uppercase transition-all appearance-none cursor-pointer"
+                  value={formData.category}
+                  onChange={e => setFormData({...formData, category: e.target.value})}
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Row 4: Deskripsi (BARU) */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                   <AlignLeft size={12}/> Deskripsi Lengkap
+                </label>
+                <textarea 
+                  required
+                  rows={3}
+                  className="w-full bg-zinc-900 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 font-medium transition-all"
+                  placeholder="Ceritakan momen dibalik media ini..."
+                  value={formData.description}
+                  onChange={e => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
+
               {/* Area Upload/Preview */}
               <div 
                 onClick={() => !isUploading && fileInputRef.current?.click()}
-                className="group relative h-48 bg-zinc-900/50 border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-600/50 transition-all overflow-hidden"
+                className="group relative h-40 bg-zinc-900/50 border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-600/50 transition-all overflow-hidden"
               >
                 {formData.url ? (
                   formData.type === 'image' ? (

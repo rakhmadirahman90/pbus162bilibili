@@ -43,7 +43,6 @@ export default function ManajemenPendaftaran() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  // 1. FUNGSI AMBIL DATA (MANUAL/AWAL)
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -61,44 +60,35 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  // 2. REALTIME SUBSCRIPTION & INITIAL FETCH
   useEffect(() => {
     fetchData();
 
-    // Setup Realtime listener
     const channel = supabase
-      .channel('pendaftaran_changes') // Nama channel bebas
+      .channel('pendaftaran_changes')
       .on(
         'postgres_changes', 
         { event: '*', table: 'pendaftaran', schema: 'public' }, 
         (payload) => {
-          console.log('Perubahan terdeteksi:', payload);
-          
           if (payload.eventType === 'INSERT') {
-            // Tambahkan data baru ke paling atas tanpa loading total
             setRegistrants((prev) => [payload.new as Registrant, ...prev]);
           } 
           else if (payload.eventType === 'UPDATE') {
-            // Update data yang spesifik di state
             setRegistrants((prev) => 
               prev.map((item) => item.id === payload.new.id ? (payload.new as Registrant) : item)
             );
           } 
           else if (payload.eventType === 'DELETE') {
-            // Hapus data dari state
             setRegistrants((prev) => prev.filter((item) => item.id !== payload.old.id));
           }
         }
       )
       .subscribe();
 
-    // Cleanup saat komponen ditutup
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
 
-  // FUNGSI CLEANUP STORAGE
   const deleteOldFile = async (url: string) => {
     if (!url || !url.includes('atlet-photos/')) return;
     try {
@@ -111,7 +101,6 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  // UPLOAD FOTO
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !editingItem) return;
     
@@ -143,7 +132,6 @@ export default function ManajemenPendaftaran() {
         if (foto_url) await deleteOldFile(foto_url);
         const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
         if (error) throw error;
-        // Tidak perlu panggil fetchData() karena Realtime akan menghapusnya dari state
       } catch (error: any) {
         alert('Gagal menghapus: ' + error.message);
       }
@@ -168,7 +156,6 @@ export default function ManajemenPendaftaran() {
 
       if (error) throw error;
       setIsEditModalOpen(false);
-      // Tidak perlu fetchData() karena Realtime akan update state otomatis
     } catch (error: any) {
       alert('Gagal memperbarui: ' + error.message);
     } finally {
@@ -176,7 +163,6 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  // FILTER & PAGINATION
   const filteredData = registrants.filter(item => 
     item.nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.domisili?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -221,7 +207,7 @@ export default function ManajemenPendaftaran() {
           />
         </div>
 
-        {/* Table */}
+        {/* Table - MODIFIED COLS */}
         <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-2xl overflow-hidden mb-6">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -230,13 +216,14 @@ export default function ManajemenPendaftaran() {
                   <th className="px-6 py-6 font-black uppercase text-[10px] text-center w-16 text-slate-400">No</th>
                   <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Nama & Foto</th>
                   <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Kategori</th>
-                  <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Kontak & Domisili</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Kontak (WA)</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Domisili</th>
                   <th className="px-6 py-6 font-black uppercase text-[10px] text-right text-slate-400">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loading && registrants.length === 0 ? (
-                  <tr><td colSpan={5} className="py-24 text-center font-black text-slate-400 uppercase tracking-widest">Sinkronisasi...</td></tr>
+                  <tr><td colSpan={6} className="py-24 text-center font-black text-slate-400 uppercase tracking-widest">Sinkronisasi...</td></tr>
                 ) : currentItems.map((item, index) => (
                   <tr key={item.id} className="hover:bg-blue-50/40 transition-colors group">
                     <td className="px-6 py-7 text-center font-black text-slate-300">{indexOfFirstItem + index + 1}</td>
@@ -259,9 +246,24 @@ export default function ManajemenPendaftaran() {
                     <td className="px-6 py-7">
                       <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-[10px] font-black uppercase italic border border-blue-100">{item.kategori}</span>
                     </td>
-                    <td className="px-6 py-7 text-xs font-black">
-                      <div className="flex items-center gap-1.5 mb-1"><Phone size={12} className="text-green-500" /> {item.whatsapp}</div>
-                      <div className="flex items-center gap-1.5 text-slate-400 italic uppercase"><MapPin size={12} className="text-red-400" /> {item.domisili}</div>
+                    {/* SEPARATED CONTACT */}
+                    <td className="px-6 py-7">
+                      <a 
+                        href={`https://wa.me/${item.whatsapp.replace(/\D/g, '')}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="flex items-center gap-2 text-xs font-black text-slate-700 hover:text-green-600 transition-colors"
+                      >
+                        <Phone size={14} className="text-green-500" />
+                        {item.whatsapp}
+                      </a>
+                    </td>
+                    {/* SEPARATED DOMISILI */}
+                    <td className="px-6 py-7">
+                      <div className="flex items-center gap-2 text-xs font-black text-slate-400 italic uppercase">
+                        <MapPin size={14} className="text-red-400" />
+                        {item.domisili}
+                      </div>
                     </td>
                     <td className="px-6 py-7">
                       <div className="flex justify-end gap-2">

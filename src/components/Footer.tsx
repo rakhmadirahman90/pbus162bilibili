@@ -115,13 +115,6 @@ export default function Footer() {
           </p>
         </div>
       </div>
-      <Link 
-  to="/login" 
-  className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all"
->
-  Admin Portal
-</Link>
-
     </footer>
     
   );

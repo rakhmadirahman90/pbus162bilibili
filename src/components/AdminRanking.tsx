@@ -38,7 +38,6 @@ export default function AdminRanking() {
   useEffect(() => {
     fetchRankings();
     
-    // Realtime subscription agar data di landing page & admin selalu sama
     const subscription = supabase
       .channel('public:rankings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
@@ -51,24 +50,16 @@ export default function AdminRanking() {
     };
   }, []);
 
-  /**
-   * FUNGSI TERBARU: SINKRONISASI DATA
-   * Mengambil data dari 'rankings' dan memastikan integritas dengan 'atlet_stats'
-   */
   const fetchRankings = async () => {
     setLoading(true);
     try {
-      // Kita ambil data dari tabel rankings
       const { data, error } = await supabase
         .from('rankings')
         .select('*')
         .order('total_points', { ascending: false });
       
       if (error) throw error;
-      
-      if (data) {
-        setRankings(data);
-      }
+      if (data) setRankings(data);
     } catch (err: any) {
       console.error("Fetch Error:", err.message);
     } finally {
@@ -77,13 +68,12 @@ export default function AdminRanking() {
   };
 
   /**
-   * FUNGSI TERBARU: GENERATE DATA DARI PENDAFTARAN
-   * Berguna jika tabel rankings kosong tapi tabel pendaftaran ada isinya
+   * PENYEMPURNAAN FUNGSI SINKRONISASI
+   * Ditambahkan logika Deduplikasi menggunakan Map untuk mencegah error "second time"
    */
   const syncFromStats = async () => {
     setLoading(true);
     try {
-      // Ambil data dari atlet_stats (yang sudah punya poin) join pendaftaran
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
@@ -95,22 +85,40 @@ export default function AdminRanking() {
       if (statsError) throw statsError;
 
       if (statsData) {
-        const upsertData = statsData.map(item => ({
-          player_name: item.pendaftaran?.nama,
-          category: item.pendaftaran?.kategori || 'Senior',
-          seed: item.seed || 'Non-Seed',
-          total_points: item.points || 0
-        }));
+        // --- LOGIKA DEDUPLIKASI START ---
+        // Menggunakan Map untuk memastikan satu player_name hanya diproses satu kali
+        const uniquePlayersMap = new Map();
+
+        statsData.forEach(item => {
+          const name = item.pendaftaran?.nama;
+          if (name) {
+            uniquePlayersMap.set(name, {
+              player_name: name,
+              category: item.pendaftaran?.kategori || 'Senior',
+              seed: item.seed || 'Non-Seed',
+              total_points: item.points || 0
+            });
+          }
+        });
+
+        // Ubah Map kembali menjadi Array untuk dikirim ke Supabase
+        const upsertData = Array.from(uniquePlayersMap.values());
+        // --- LOGIKA DEDUPLIKASI END ---
 
         const { error: upsertError } = await supabase
           .from('rankings')
-          .upsert(upsertData, { onConflict: 'player_name' });
+          .upsert(upsertData, { 
+            onConflict: 'player_name',
+            ignoreDuplicates: false 
+          });
 
         if (upsertError) throw upsertError;
-        alert("Sinkronisasi Berhasil!");
+        
+        alert("Sinkronisasi Berhasil! Data duplikat telah dibersihkan.");
         fetchRankings();
       }
     } catch (err: any) {
+      console.error("Sync Error Detail:", err);
       alert("Gagal Sinkron: " + err.message);
     } finally {
       setLoading(false);
@@ -130,7 +138,8 @@ export default function AdminRanking() {
         const { error } = await supabase.from('rankings').update(formData).eq('id', editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('rankings').insert([formData]);
+        // Gunakan upsert bahkan untuk insert manual untuk mencegah error duplikasi nama
+        const { error } = await supabase.from('rankings').upsert([formData], { onConflict: 'player_name' });
         if (error) throw error;
       }
       setIsModalOpen(false);
@@ -194,7 +203,8 @@ export default function AdminRanking() {
           <div className="flex gap-3">
             <button 
               onClick={syncFromStats}
-              className="flex items-center gap-3 bg-zinc-900 border border-white/10 hover:bg-zinc-800 px-6 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all"
+              disabled={loading}
+              className="flex items-center gap-3 bg-zinc-900 border border-white/10 hover:bg-zinc-800 px-6 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all disabled:opacity-50"
             >
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> Sinkron Poin
             </button>
@@ -317,13 +327,13 @@ export default function AdminRanking() {
               
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nama Lengkap Atlet</label>
-                <input required type="text" placeholder="Masukkan nama..." className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm" value={formData.player_name} onChange={e => setFormData({...formData, player_name: e.target.value})} />
+                <input required type="text" placeholder="Masukkan nama..." className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.player_name} onChange={e => setFormData({...formData, player_name: e.target.value})} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Kategori</label>
-                  <select className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                  <select className="w-full px-5 py-4 bg-[#1a1a1a] rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                     <option value="Senior">Senior</option>
                     <option value="Muda">Muda</option>
                     <option value="Veteran">Veteran</option>
@@ -331,7 +341,7 @@ export default function AdminRanking() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Klasifikasi Seed</label>
-                  <select className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm" value={formData.seed} onChange={e => setFormData({...formData, seed: e.target.value})}>
+                  <select className="w-full px-5 py-4 bg-[#1a1a1a] rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.seed} onChange={e => setFormData({...formData, seed: e.target.value})}>
                     <option value="Seed A">Seed A</option>
                     <option value="Seed B">Seed B</option>
                     <option value="Non-Seed">Non-Seed</option>
@@ -342,11 +352,11 @@ export default function AdminRanking() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Total Poin</label>
-                  <input required type="number" className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm" value={formData.total_points} onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} />
+                  <input required type="number" className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.total_points} onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Bonus Poin</label>
-                  <input type="number" className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm" value={formData.bonus} onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} />
+                  <input type="number" className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.bonus} onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} />
                 </div>
               </div>
 
@@ -364,6 +374,7 @@ export default function AdminRanking() {
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+        select option { background: #0c0c0c; color: white; }
       `}</style>
     </div>
   );

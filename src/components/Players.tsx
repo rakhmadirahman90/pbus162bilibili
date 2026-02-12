@@ -29,7 +29,6 @@ const Players: React.FC = () => {
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
   
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
-  // TAMBAHKAN STATE BARU UNTUK PEMENANG DINAMIS
   const [dbWinners, setDbWinners] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,16 +36,13 @@ const Players: React.FC = () => {
   const nextRef = useRef<HTMLButtonElement>(null);
   const [_, setInit] = useState(false);
 
-  // 1. FUNGSI FETCH DATA (DIPERBAIKI UNTUK MENGAMBIL DATA PEMENANG)
+  // 1. FUNGSI FETCH DATA (DINAMIS)
   const fetchPlayersFromDB = async () => {
     try {
-      // Fetch profil atlet
       const { data: players, error: pError } = await supabase
         .from('pendaftaran')
         .select('*');
 
-      // Fetch data manajemen turnamen (asumsi tabel 'hasil_turnamen' menyimpan pemenang)
-      // Jika tabel belum ada, akan menggunakan EVENT_LOG sebagai fallback
       const { data: winnersData } = await supabase
         .from('hasil_turnamen')
         .select('nama_atlet');
@@ -65,7 +61,7 @@ const Players: React.FC = () => {
     }
   };
 
-  // 2. REALTIME LISTENER (SINKRONISASI OTOMATIS)
+  // 2. REALTIME LISTENER
   useEffect(() => {
     fetchPlayersFromDB();
 
@@ -99,7 +95,7 @@ const Players: React.FC = () => {
     setInit(true);
   }, []);
 
-  // 3. PROSES DATA: MENGGABUNGKAN DATA HARDCODE & DATABASE
+  // 3. PROSES DATA: PRIORITAS POIN DARI DATABASE
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
       'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
@@ -112,19 +108,19 @@ const Players: React.FC = () => {
     };
 
     const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
-
-    // Menggabungkan daftar pemenang dari Hardcode dan Database
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
       const playerCat = p.kategori ? p.kategori.toUpperCase() : '';
       const conf = config[playerCat] || defaultConfig;
-      
-      // LOGIKA POIN: Cek keberadaan nama di daftar pemenang gabungan
       const isWinner = allWinners.includes(p.nama);
-      const winBonus = isWinner ? 300 : 0;
       
-      const totalPoints = conf.base + winBonus;
+      // LOGIKA POIN YANG DISEMPURNAKAN:
+      // Ambil nilai dari kolom 'poin' (atau 'points') di database.
+      // Jika nilainya ada (> 0), gunakan nilai tersebut.
+      // Jika tidak ada/null, baru gunakan rumus (base + bonus).
+      const dbPoints = Number(p.poin) || Number(p.points) || 0;
+      const totalPoints = dbPoints > 0 ? dbPoints : (conf.base + (isWinner ? 300 : 0));
       
       return {
         ...p,
@@ -140,7 +136,7 @@ const Players: React.FC = () => {
       };
     })
     .sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [dbPlayers, dbWinners]); // Trigger ulang jika data pemenang di DB berubah
+  }, [dbPlayers, dbWinners]);
 
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {

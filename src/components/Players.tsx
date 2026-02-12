@@ -11,132 +11,84 @@ import {
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
 } from 'lucide-react';
 
-// --- DATA SOURCE TETAP ADA SEBAGAI FALLBACK ---
-const EVENT_LOG = [
-  { 
-    id: 1, 
-    winners: [
-      "Agustilaar", "Herman", "H. Wawan", "Bustan", "Dr. Khaliq", 
-      "Momota", "Prof. Fikri", "Marzuki", "Arsan", "H. Hasym", 
-      "H. Anwar", "Yakob"
-    ] 
-  },
-];
+// Fallback untuk pemenang jika data turnamen kosong
+const EVENT_LOG = [{ id: 1, winners: ["Agustilaar", "Herman", "H. Wawan", "Bustan"] }];
 
 const Players: React.FC = () => {
   const [currentAgeGroup, setCurrentAgeGroup] = useState('Semua'); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
-  
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
-  const [dbWinners, setDbWinners] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
-  const [_, setInit] = useState(false);
 
-  // 1. FUNGSI FETCH DATA (DINAMIS)
+  // 1. FETCH DATA DENGAN JOIN TABEL ATLET_STATS
   const fetchPlayersFromDB = async () => {
     try {
-      const { data: players, error: pError } = await supabase
+      // Mengambil data dari 'pendaftaran' dan join 'atlet_stats' berdasarkan pendaftaran_id
+      const { data, error } = await supabase
         .from('pendaftaran')
-        .select('*');
+        .select(`
+          *,
+          atlet_stats!atlet_stats_pendaftaran_id_fkey (
+            points,
+            rank,
+            seed,
+            bio
+          )
+        `);
 
-      const { data: winnersData } = await supabase
-        .from('hasil_turnamen')
-        .select('nama_atlet');
-
-      if (pError) throw pError;
-
-      setDbPlayers(players || []);
-      
-      if (winnersData) {
-        setDbWinners(winnersData.map(w => w.nama_atlet));
-      }
+      if (error) throw error;
+      setDbPlayers(data || []);
     } catch (err) {
-      console.error("Gagal mengambil data atlet:", err);
+      console.error("Gagal mengambil data lengkap atlet:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 2. REALTIME LISTENER
+  // 2. REALTIME LISTENER PADA KEDUA TABEL
   useEffect(() => {
     fetchPlayersFromDB();
-
-    const channel = supabase
-      .channel('pendaftaran_realtime')
-      .on('postgres_changes', 
-        { event: '*', table: 'pendaftaran', schema: 'public' }, 
-        () => fetchPlayersFromDB()
-      )
-      .on('postgres_changes', 
-        { event: '*', table: 'hasil_turnamen', schema: 'public' }, 
-        () => fetchPlayersFromDB()
-      )
+    const channel = supabase.channel('atlet_updates')
+      .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, () => fetchPlayersFromDB())
+      .on('postgres_changes', { event: '*', table: 'atlet_stats', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  useEffect(() => {
-    const handleFilterAtlet = (event: any) => {
-      const category = event.detail;
-      if (category) setCurrentAgeGroup(category);
-    };
-    window.addEventListener('filterAtlet', handleFilterAtlet);
-    return () => window.removeEventListener('filterAtlet', handleFilterAtlet);
-  }, []);
-
-  useEffect(() => {
-    setInit(true);
-  }, []);
-
-  // 3. PROSES DATA: PRIORITAS POIN DARI DATABASE
+  // 3. PROSES DATA DENGAN PRIORITAS NILAI DARI TABEL ATLET_STATS
   const processedPlayers = useMemo(() => {
-    const config: Record<string, any> = {
-      'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
-      'VETERAN (35+ / 40+)': { base: 10000, label: 'Seed A', age: 'Senior' },
-      'DEWASA': { base: 8500, label: 'Seed B+', age: 'Senior' },
-      'DEWASA / UMUM': { base: 8500, label: 'Seed B+', age: 'Senior' },
-      'TARUNA (U-19)': { base: 6500, label: 'Seed C', age: 'Muda' },
-      'REMAJA (U-17)': { base: 6000, label: 'Seed C', age: 'Muda' },
-      'PEMULA (U-15)': { base: 5500, label: 'Seed C', age: 'Muda' },
-    };
-
-    const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
-    const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
-
     return dbPlayers.map((p) => {
-      const playerCat = p.kategori ? p.kategori.toUpperCase() : '';
-      const conf = config[playerCat] || defaultConfig;
-      const isWinner = allWinners.includes(p.nama);
+      // Mengambil data dari hasil join (atlet_stats biasanya berupa array karena 1-to-many di schema)
+      const stats = Array.isArray(p.atlet_stats) ? p.atlet_stats[0] : p.atlet_stats;
       
-      // LOGIKA POIN YANG DISEMPURNAKAN:
-      // Ambil nilai dari kolom 'poin' (atau 'points') di database.
-      // Jika nilainya ada (> 0), gunakan nilai tersebut.
-      // Jika tidak ada/null, baru gunakan rumus (base + bonus).
-      const dbPoints = Number(p.poin) || Number(p.points) || 0;
-      const totalPoints = dbPoints > 0 ? dbPoints : (conf.base + (isWinner ? 300 : 0));
-      
+      const category = (p.kategori || 'Senior').toUpperCase();
+      const isWinner = EVENT_LOG[0].winners.includes(p.nama);
+
+      // PRIORITAS UTAMA: Nilai 'points' dari tabel 'atlet_stats'
+      const totalPoints = stats?.points !== undefined ? Number(stats.points) : 10000;
+      const globalRank = stats?.rank || 0;
+      const seedLabel = stats?.seed || (category.includes('SENIOR') ? 'Seed A' : 'Seed C');
+
       return {
         ...p,
         name: p.nama,
         img: p.foto_url,
-        bio: p.pengalaman && p.pengalaman.toLowerCase() !== "ok" 
-             ? p.pengalaman 
-             : `Atlet profesional PB US 162 kategori ${p.kategori}.`,
+        // Gunakan bio dari stats jika ada, jika tidak gunakan default
+        bio: stats?.bio || `Atlet profesional PB US 162 kategori ${p.kategori}.`,
         totalPoints,
+        globalRank,
         isWinner,
-        ageGroup: conf.age,
-        categoryLabel: conf.label,
+        ageGroup: category.includes('MUDA') || category.includes('U-') ? 'Muda' : 'Senior',
+        categoryLabel: seedLabel,
       };
     })
     .sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [dbPlayers, dbWinners]);
+  }, [dbPlayers]);
 
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
@@ -148,7 +100,6 @@ const Players: React.FC = () => {
 
   return (
     <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
-      
       {/* MODAL DETAIL */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -169,7 +120,6 @@ const Players: React.FC = () => {
                 <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.categoryLabel}</span>
               </div>
               <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9]">{selectedPlayer.name}</h2>
-              
               <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
                 <div className="flex items-center gap-3 mb-4 text-blue-500">
                     <Info size={20} />
@@ -177,12 +127,11 @@ const Players: React.FC = () => {
                 </div>
                 <p className="text-zinc-400 text-lg leading-relaxed italic">"{selectedPlayer.bio}"</p>
               </div>
-
               <div className="grid grid-cols-2 gap-5">
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
                     <Zap className="text-blue-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Global Rank</p>
-                    <p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
+                    <p className="text-2xl font-black">#{selectedPlayer.globalRank || processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
                 </div>
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
                     <Trophy className="text-yellow-500 mb-2" size={20} />
@@ -196,43 +145,19 @@ const Players: React.FC = () => {
       )}
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
+        {/* HEADER & SEARCH */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
           <div>
-            <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">
-              PROFIL <span className="text-blue-600">PEMAIN</span>
-            </h2>
-            <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">Kenal Lebih Dekat Dengan Atlet Kami</p>
+            <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">PROFIL <span className="text-blue-600">PEMAIN</span></h2>
+            <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">Sinkronisasi Data Realtime PB US 162</p>
           </div>
           <div className="relative w-full md:w-[320px]">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari atlet..." 
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold transition-all placeholder:text-zinc-700 shadow-xl"
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <input type="text" placeholder="Cari atlet..." className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold transition-all placeholder:text-zinc-700 shadow-xl" onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
-            <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
-              {[
-                { label: 'Semua', count: dbPlayers.length },
-                { label: 'Senior', count: processedPlayers.filter(p => p.ageGroup === 'Senior').length },
-                { label: 'Muda', count: processedPlayers.filter(p => p.ageGroup === 'Muda').length }
-              ].map((tab) => (
-                <button 
-                  key={tab.label}
-                  onClick={() => setCurrentAgeGroup(tab.label)} 
-                  className={`px-10 py-4 rounded-[2rem] text-[12px] font-black transition-all flex items-center gap-3 whitespace-nowrap ${currentAgeGroup === tab.label ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' : 'text-zinc-500 hover:text-white'}`}
-                >
-                  {tab.label.toUpperCase()} 
-                  <span className="opacity-40 text-[10px]">{tab.count}</span>
-                </button>
-              ))}
-            </div>
-        </div>
-
+        {/* LOADING STATE */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-zinc-500">
             <Loader2 className="animate-spin" size={40} />
@@ -243,8 +168,6 @@ const Players: React.FC = () => {
             <Swiper
               modules={[Navigation, Pagination, Autoplay]}
               key={`${currentAgeGroup}-${filteredPlayers.length}`}
-              observer={true} 
-              observeParents={true} 
               spaceBetween={25}
               slidesPerView={1.2}
               navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
@@ -259,23 +182,12 @@ const Players: React.FC = () => {
             >
               {filteredPlayers.map((player) => (
                 <SwiperSlide key={player.id}>
-                  <div 
-                    onClick={() => setSelectedPlayer(player)} 
-                    className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
-                  >
+                  <div onClick={() => setSelectedPlayer(player)} className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl">
                     <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
-                    
                     <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
-                      {processedPlayers.findIndex(p => p.id === player.id) + 1}
+                      {player.globalRank || processedPlayers.findIndex(p => p.id === player.id) + 1}
                     </div>
-
-                    {player.isWinner && (
-                      <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg">
-                        <Trophy size={18} />
-                      </div>
-                    )}
-
                     <div className="absolute bottom-10 left-10 right-10">
                       <div className="flex items-center gap-2 mb-2">
                            <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
@@ -291,7 +203,6 @@ const Players: React.FC = () => {
                 </SwiperSlide>
               ))}
             </Swiper>
-            
             <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>
             <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>
           </div>

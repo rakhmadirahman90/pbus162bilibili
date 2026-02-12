@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Image as ImageIcon, Video, 
   Upload, X, Loader2, CheckCircle2,
   Film, Camera, ChevronLeft, ChevronRight,
-  Edit3, AlignLeft, Tag // BARU: Icon untuk Deskripsi & Kategori
+  Edit3, AlignLeft, Tag, Link as LinkIcon // BARU: Icon Link
 } from 'lucide-react';
 
 interface GalleryItem {
@@ -12,9 +12,10 @@ interface GalleryItem {
   title: string;
   type: 'image' | 'video';
   url: string;
-  category: string;    // BARU
-  description: string; // BARU
+  category: string;
+  description: string;
   created_at: string;
+  is_local?: boolean; // BARU: Penanda video lokal vs link
 }
 
 export default function AdminGallery() {
@@ -30,16 +31,18 @@ export default function AdminGallery() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  // UPDATED: Menambahkan category dan description ke formData
+  // BARU: State untuk menentukan input video via Link atau File
+  const [videoInputMethod, setVideoInputMethod] = useState<'link' | 'file'>('file');
+
   const [formData, setFormData] = useState({
     title: '',
     type: 'image' as 'image' | 'video',
     url: '',
-    category: 'Pertandingan', // Default category
-    description: ''
+    category: 'Pertandingan',
+    description: '',
+    is_local: true // Default true untuk image/file upload
   });
 
-  // Opsi Kategori sesuai dengan Landing Page
   const categories = ['Pertandingan', 'Latihan', 'Prestasi', 'Fasilitas', 'Latihan Rutin'];
 
   useEffect(() => {
@@ -66,27 +69,47 @@ export default function AdminGallery() {
     }
   }
 
+  // BARU: Fungsi untuk memproses URL YouTube menjadi embed
+  const processVideoUrl = (url: string) => {
+    if (url.includes('youtube.com/watch?v=')) {
+      const videoId = url.split('v=')[1]?.split('&')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('/').pop();
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    return url;
+  };
+
   const handleEdit = (item: GalleryItem) => {
     setEditingId(item.id);
     setFormData({
       title: item.title,
       type: item.type,
       url: item.url,
-      category: item.category || 'Pertandingan', // Ambil dari DB
-      description: item.description || ''         // Ambil dari DB
+      category: item.category || 'Pertandingan',
+      description: item.description || '',
+      is_local: item.is_local ?? (!item.url.includes('youtube.com') && !item.url.includes('youtu.be'))
     });
+    // Set metode input berdasarkan URL yang ada
+    if (item.type === 'video') {
+        setVideoInputMethod(item.url.includes('http') && !item.url.includes('supabase') ? 'link' : 'file');
+    }
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
+    setVideoInputMethod('file');
     setFormData({ 
       title: '', 
       type: 'image', 
       url: '', 
       category: 'Pertandingan', 
-      description: '' 
+      description: '',
+      is_local: true
     });
   };
 
@@ -121,7 +144,7 @@ export default function AdminGallery() {
         .from('gallery')
         .getPublicUrl(filePath);
 
-      setFormData({ ...formData, url: publicUrl });
+      setFormData({ ...formData, url: publicUrl, is_local: true });
       showToast("Media berhasil diunggah!");
     } catch (err: any) {
       alert("Gagal upload: " + err.message);
@@ -137,25 +160,34 @@ export default function AdminGallery() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.url) return alert("Pilih file terlebih dahulu!");
+    if (!formData.url) return alert("Pilih file atau masukkan link terlebih dahulu!");
+
+    // Proses URL jika tipenya video dan metode link
+    let finalUrl = formData.url;
+    if (formData.type === 'video' && videoInputMethod === 'link') {
+        finalUrl = processVideoUrl(formData.url);
+    }
+
+    const payload = {
+        title: formData.title,
+        type: formData.type,
+        url: finalUrl,
+        category: formData.category,
+        description: formData.description,
+        is_local: formData.type === 'image' ? true : (videoInputMethod === 'file')
+    };
 
     try {
       if (editingId) {
         const { error } = await supabase
           .from('gallery')
-          .update({
-            title: formData.title,
-            type: formData.type,
-            url: formData.url,
-            category: formData.category, // BARU
-            description: formData.description // BARU
-          })
+          .update(payload)
           .eq('id', editingId);
         
         if (error) throw error;
         showToast("Media berhasil diperbarui!");
       } else {
-        const { error } = await supabase.from('gallery').insert([formData]);
+        const { error } = await supabase.from('gallery').insert([payload]);
         if (error) throw error;
         showToast("Berhasil menambahkan ke galeri!");
       }
@@ -172,7 +204,8 @@ export default function AdminGallery() {
     try {
       await supabase.from('gallery').delete().eq('id', id);
       const filePath = url.split('/').pop();
-      if (filePath && !url.includes('youtube.com')) {
+      // Hanya hapus dari storage jika itu file lokal (bukan link YouTube)
+      if (filePath && url.includes('supabase.co')) {
         await supabase.storage.from('gallery').remove([`uploads/${filePath}`]);
       }
       showToast("Media berhasil dihapus");
@@ -192,6 +225,7 @@ export default function AdminGallery() {
           </div>
         )}
 
+        {/* HEADER SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
           <div>
             <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
@@ -211,6 +245,7 @@ export default function AdminGallery() {
           </button>
         </div>
 
+        {/* TAB SWITCHER */}
         <div className="flex gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl w-fit border border-white/5">
           <button 
             onClick={() => setActiveTab('image')}
@@ -226,6 +261,7 @@ export default function AdminGallery() {
           </button>
         </div>
 
+        {/* GRID CONTENT */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[400px]">
           {loading ? (
             <div className="col-span-full flex flex-col items-center justify-center py-20 text-zinc-500">
@@ -242,10 +278,18 @@ export default function AdminGallery() {
                 <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title} />
               ) : (
                 <div className="relative w-full h-full">
+                    {/* BARU: Tampilkan Thumbnail YouTube jika link YT */}
                     {item.url.includes('youtube.com') || item.url.includes('youtu.be') ? (
-                        <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                            <Film size={40} className="text-zinc-600" />
-                            <span className="absolute bottom-4 left-4 bg-red-600 text-[8px] font-black px-2 py-1 rounded uppercase">YouTube</span>
+                        <div className="w-full h-full relative">
+                            <img 
+                                src={`https://img.youtube.com/vi/${item.url.split('embed/')[1] || item.url.split('/').pop()}/mqdefault.jpg`} 
+                                className="w-full h-full object-cover opacity-50"
+                                alt="YT Thumbnail"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Film size={40} className="text-white/20" />
+                            </div>
+                            <span className="absolute bottom-4 left-4 bg-red-600 text-[8px] font-black px-2 py-1 rounded uppercase">YouTube Link</span>
                         </div>
                     ) : (
                         <video src={item.url} className="w-full h-full object-cover" />
@@ -256,7 +300,6 @@ export default function AdminGallery() {
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-6 flex flex-col justify-end">
                 <div className="flex justify-between items-center translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                   <div className="max-w-[70%]">
-                    {/* BARU: Tampilkan Kategori di Grid */}
                     <span className="text-blue-500 text-[7px] font-black uppercase tracking-widest block mb-1">{item.category}</span>
                     <h3 className="font-bold text-sm uppercase italic leading-none truncate mb-1">{item.title}</h3>
                     <p className="text-[8px] text-zinc-400 font-medium uppercase tracking-wider line-clamp-1">{item.description}</p>
@@ -275,6 +318,7 @@ export default function AdminGallery() {
           ))}
         </div>
 
+        {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="mt-12 flex justify-center items-center gap-4">
             <button 
@@ -284,7 +328,6 @@ export default function AdminGallery() {
             >
               <ChevronLeft size={20} />
             </button>
-            
             <div className="flex gap-2">
               {[...Array(totalPages)].map((_, i) => (
                 <button
@@ -296,7 +339,6 @@ export default function AdminGallery() {
                 </button>
               ))}
             </div>
-
             <button 
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(prev => prev + 1)}
@@ -308,7 +350,7 @@ export default function AdminGallery() {
         )}
       </div>
 
-      {/* Modal Upload & Edit */}
+      {/* MODAL UPLOAD & EDIT */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
           <div className="bg-zinc-950 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[2.5rem] border border-white/10 shadow-2xl scale-in-center custom-scrollbar">
@@ -320,10 +362,10 @@ export default function AdminGallery() {
             </div>
             
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              {/* Row 1: Tipe Media */}
+              {/* Media Type Selection */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-2">
-                   <ImageIcon size={12}/> Pilih Tipe Media
+                   <ImageIcon size={12}/> Tipe Media Utama
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <button 
@@ -343,7 +385,32 @@ export default function AdminGallery() {
                 </div>
               </div>
 
-              {/* Row 2: Judul */}
+              {/* VIDEO SPECIFIC: Method Selection (File vs Link) */}
+              {formData.type === 'video' && (
+                <div className="space-y-4 animate-in slide-in-from-top-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-2">
+                    <Video size={12}/> Metode Input Video
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-2xl border border-white/5">
+                    <button 
+                        type="button"
+                        onClick={() => setVideoInputMethod('file')}
+                        className={`py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] transition-all ${videoInputMethod === 'file' ? 'bg-zinc-800 text-blue-500 shadow-lg' : 'text-zinc-500'}`}
+                    >
+                        <Upload size={14} /> UPLOAD FILE
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={() => setVideoInputMethod('link')}
+                        className={`py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] transition-all ${videoInputMethod === 'link' ? 'bg-zinc-800 text-blue-500 shadow-lg' : 'text-zinc-500'}`}
+                    >
+                        <LinkIcon size={14} /> LINK EXTERNAL
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Inputs Common */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                    <Edit3 size={12}/> Judul Media
@@ -357,30 +424,30 @@ export default function AdminGallery() {
                 />
               </div>
 
-              {/* Row 3: Kategori (BARU) */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                   <Tag size={12}/> Kategori
-                </label>
-                <select 
-                  className="w-full bg-zinc-900 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 font-bold uppercase transition-all appearance-none cursor-pointer"
-                  value={formData.category}
-                  onChange={e => setFormData({...formData, category: e.target.value})}
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                    <Tag size={12}/> Kategori
+                    </label>
+                    <select 
+                    className="w-full bg-zinc-900 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 font-bold uppercase transition-all appearance-none cursor-pointer"
+                    value={formData.category}
+                    onChange={e => setFormData({...formData, category: e.target.value})}
+                    >
+                    {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    </select>
+                  </div>
               </div>
 
-              {/* Row 4: Deskripsi (BARU) */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                    <AlignLeft size={12}/> Deskripsi Lengkap
                 </label>
                 <textarea 
                   required
-                  rows={3}
+                  rows={2}
                   className="w-full bg-zinc-900 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 font-medium transition-all"
                   placeholder="Ceritakan momen dibalik media ini..."
                   value={formData.description}
@@ -388,38 +455,60 @@ export default function AdminGallery() {
                 />
               </div>
 
-              {/* Area Upload/Preview */}
-              <div 
-                onClick={() => !isUploading && fileInputRef.current?.click()}
-                className="group relative h-40 bg-zinc-900/50 border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-600/50 transition-all overflow-hidden"
-              >
-                {formData.url ? (
-                  formData.type === 'image' ? (
-                    <img src={formData.url} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="flex flex-col items-center text-blue-500">
-                        <CheckCircle2 size={40} className="mb-2" />
-                        <span className="text-[10px] font-black uppercase">Media Siap {editingId ? 'Diperbarui' : 'Dipublikasikan'}</span>
+              {/* CONDITIONAL MEDIA INPUT (UPLOAD OR LINK) */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-2">
+                   {formData.type === 'image' || videoInputMethod === 'file' ? <Upload size={12}/> : <LinkIcon size={12}/>} 
+                   Sumber {formData.type === 'image' ? 'Foto' : 'Video'}
+                </label>
+
+                {(formData.type === 'image' || videoInputMethod === 'file') ? (
+                    /* UPLOAD BOX */
+                    <div 
+                        onClick={() => !isUploading && fileInputRef.current?.click()}
+                        className="group relative h-40 bg-zinc-900/50 border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-600/50 transition-all overflow-hidden"
+                    >
+                        {formData.url && formData.is_local ? (
+                            formData.type === 'image' ? (
+                                <img src={formData.url} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="flex flex-col items-center text-blue-500">
+                                    <CheckCircle2 size={40} className="mb-2" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Video Lokal Terpilih</span>
+                                </div>
+                            )
+                        ) : (
+                            <>
+                                <div className="p-4 bg-zinc-800 rounded-2xl mb-3 text-zinc-500 group-hover:text-blue-500 transition-colors">
+                                <Upload size={24} />
+                                </div>
+                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter text-center">
+                                    Klik untuk {editingId ? 'ganti' : 'pilih'} file {formData.type === 'image' ? 'Foto' : 'Video'}<br/>
+                                    <span className="opacity-50 font-medium">Max size: 10MB</span>
+                                </p>
+                            </>
+                        )}
+                        
+                        {isUploading && (
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+                            <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
+                            <p className="text-[10px] font-black uppercase tracking-widest">Mengunggah ke Storage...</p>
+                        </div>
+                        )}
                     </div>
-                  )
                 ) : (
-                  <>
-                    <div className="p-4 bg-zinc-800 rounded-2xl mb-3 text-zinc-500 group-hover:text-blue-500 transition-colors">
-                      <Upload size={24} />
+                    /* LINK INPUT BOX */
+                    <div className="space-y-4 animate-in fade-in zoom-in duration-300">
+                        <input 
+                            className="w-full bg-zinc-900 border border-white/10 rounded-2xl p-5 outline-none focus:border-red-600 font-medium text-sm transition-all"
+                            placeholder="Paste link YouTube di sini (Contoh: https://www.youtube.com/watch?v=...)"
+                            value={formData.is_local ? '' : formData.url}
+                            onChange={e => setFormData({...formData, url: e.target.value, is_local: false})}
+                        />
+                        <p className="text-[9px] text-zinc-500 italic px-2">Format yang didukung: YouTube Link & YouTube Shorts</p>
                     </div>
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter text-center">
-                        Klik untuk {editingId ? 'ganti' : 'pilih'} file {formData.type === 'image' ? 'Foto' : 'Video'}<br/>
-                        <span className="opacity-50 font-medium">Max size: 10MB</span>
-                    </p>
-                  </>
                 )}
-                
-                {isUploading && (
-                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
-                    <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Mengunggah ke Storage...</p>
-                  </div>
-                )}
+
                 <input 
                     type="file" 
                     ref={fileInputRef} 

@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 import { 
   Plus, Trash2, Edit3, Save, X, 
   Search, Loader2, User, RefreshCw,
-  TrendingUp, AlertCircle
+  AlertCircle
 } from 'lucide-react';
 
 // Interface
@@ -56,14 +56,14 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // --- LOGIKA SINKRONISASI SEMPURNA (ANTI-ERROR) ---
+  // --- LOGIKA SINKRONISASI TOTAL (ANTI-CONFLICT & ANTI-DUPLIKAT) ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Sistem akan menghapus data ranking lama dan menghitung ulang total poin dari statistik atlet. Lanjutkan?");
+    const confirm = window.confirm("Sistem akan menghitung ulang semua poin dari statistik atlet. Data ranking lama akan diperbarui secara total. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data stats mentah
+      // 1. Ambil data mentah dari statistik atlet
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
@@ -78,49 +78,53 @@ export default function AdminRanking() {
         return;
       }
 
-      // 2. Proses Agregasi di Memori (Mencegah Duplicate Key/Conflict Error)
-      const consolidated = statsData.reduce((acc: any[], item: any) => {
+      // 2. AGREGASI KETAT menggunakan Map (Menghindari duplikasi nama sebelum kirim ke DB)
+      const athleteMap = new Map();
+
+      statsData.forEach((item: any) => {
         const detail = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
         
         if (detail?.nama) {
           const cleanName = detail.nama.trim().toUpperCase();
-          const existing = acc.find(a => a.player_name === cleanName);
+          const currentPoints = Number(item.points) || 0;
 
-          if (existing) {
-            existing.total_points += (Number(item.points) || 0);
+          if (athleteMap.has(cleanName)) {
+            const existing = athleteMap.get(cleanName);
+            existing.total_points += currentPoints;
           } else {
-            acc.push({
+            athleteMap.set(cleanName, {
               player_name: cleanName,
               category: detail.kategori || 'Senior',
               seed: item.seed || 'Non-Seed',
-              total_points: Number(item.points) || 0,
+              total_points: currentPoints,
               bonus: 0
             });
           }
         }
-        return acc;
-      }, []);
+      });
 
-      // 3. Update Database (Delete then Insert) - Strategi paling stabil
-      // Menghapus data lama untuk memastikan tidak ada ID yang bentrok
+      const finalDataArray = Array.from(athleteMap.values());
+
+      // 3. EKSEKUSI DATABASE: CLEAN & REBUILD (Solusi Error ON CONFLICT)
+      // Langkah A: Hapus semua data lama di rankings
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'SISTEM_RESERVED_IGNORE'); // Menghapus semua baris
+        .neq('player_name', 'RESERVED_SYSTEM_IGNORE'); // Logika untuk hapus semua baris
 
       if (deleteError) throw deleteError;
 
-      // Masukkan data baru yang sudah bersih
+      // Langkah B: Masukkan data hasil perhitungan terbaru yang sudah bersih
       const { error: insertError } = await supabase
         .from('rankings')
-        .insert(consolidated);
+        .insert(finalDataArray);
 
       if (insertError) throw insertError;
       
-      alert(`Berhasil sinkronisasi ${consolidated.length} atlet.`);
+      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet.`);
       fetchRankings();
     } catch (err: any) {
-      console.error(err);
+      console.error("Sync Error:", err);
       alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan database"));
     } finally {
       setLoading(false);
@@ -145,11 +149,9 @@ export default function AdminRanking() {
 
       let error;
       if (editingId) {
-        // Mode Edit
         const res = await supabase.from('rankings').update(payload).eq('id', editingId);
         error = res.error;
       } else {
-        // Mode Tambah Baru
         const res = await supabase.from('rankings').upsert([payload], { onConflict: 'player_name' });
         error = res.error;
       }
@@ -166,10 +168,16 @@ export default function AdminRanking() {
     }
   };
 
+  // --- DELETE ATLET ---
   const handleDelete = async (id: string) => {
     if (!window.confirm("Hapus atlet ini dari ranking?")) return;
-    await supabase.from('rankings').delete().eq('id', id);
-    fetchRankings();
+    try {
+      const { error } = await supabase.from('rankings').delete().eq('id', id);
+      if (error) throw error;
+      fetchRankings();
+    } catch (err: any) {
+      alert("Gagal menghapus: " + err.message);
+    }
   };
 
   const filteredRankings = rankings.filter(r => 

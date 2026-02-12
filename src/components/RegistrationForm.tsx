@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase'; 
-import { Loader2, Send, CheckCircle2, User, Phone, MapPin, Award, Image as ImageIcon, ChevronDown, Users } from 'lucide-react';
+import { Loader2, Send, CheckCircle2, User, Phone, MapPin, Award, Image as ImageIcon, ChevronDown, Users, Trophy } from 'lucide-center';
 
 export default function RegistrationForm() {
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,7 @@ export default function RegistrationForm() {
     try {
       let publicUrl = "";
       
-      // LOGIKA UPLOAD DOKUMEN
+      // 1. LOGIKA UPLOAD DOKUMEN
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
@@ -48,7 +48,7 @@ export default function RegistrationForm() {
         publicUrl = urlData.publicUrl;
       }
 
-      // INSERT KE DATABASE
+      // 2. INSERT KE DATABASE (Termasuk kolom pengalaman)
       const { error: dbError } = await supabase
         .from('pendaftaran')
         .insert([{ 
@@ -63,13 +63,14 @@ export default function RegistrationForm() {
 
       if (dbError) throw dbError;
 
-      // NOTIFIKASI WHATSAPP
+      // 3. NOTIFIKASI WHATSAPP
       const adminPhoneNumber = "6281219027234";
       const waMessage = window.encodeURIComponent(
         `*PENDAFTARAN ATLET BARU*\n\n` +
         `*Nama:* ${formData.nama.toUpperCase()}\n` +
         `*Gender:* ${formData.jenis_kelamin}\n` +
         `*Kategori:* ${formData.kategori}\n` +
+        `*Pengalaman:* ${formData.pengalaman || '-'}\n` +
         `*Link Foto:* ${publicUrl}`
       );
       
@@ -145,7 +146,18 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* FITUR UPLOAD DOKUMEN (DIKEMBALIKAN) */}
+          {/* Input Pengalaman (DIKEMBALIKAN) */}
+          <div className="relative group">
+            <Trophy className="absolute left-4 top-5 text-slate-400 group-focus-within:text-blue-600" size={20} />
+            <textarea 
+              value={formData.pengalaman} 
+              className={`${inputClass} min-h-[100px] pt-4 resize-none`} 
+              placeholder="PENGALAMAN BERTANDING (JIKA ADA)" 
+              onChange={e => setFormData({...formData, pengalaman: e.target.value})}
+            />
+          </div>
+
+          {/* Upload Foto */}
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-700 uppercase ml-2 tracking-widest italic text-[10px]">Upload Foto Identitas (KK/AKTE)</label>
             <div className="relative group">

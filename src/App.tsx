@@ -95,13 +95,18 @@ function AdminLayout({ session }: { session: any }) {
       <Sidebar email={session.user.email} />
       
       {/* Area Konten Dinamis Dashboard */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-10">
+      <main className="flex-1 overflow-y-auto">
         <Routes>
           {/* Menu default admin adalah Manajemen Pendaftaran */}
           <Route path="dashboard" element={<ManajemenPendaftaran />} />
           
-          {/* Tempat untuk menu admin lainnya nanti (Atlet, Berita, dll) */}
-          <Route path="atlet" element={<div className="font-black italic uppercase text-3xl text-slate-900">Halaman Manajemen Atlet</div>} />
+          {/* PEMBARUAN: Sekarang mengarah ke komponen ManajemenAtlet yang benar */}
+          <Route path="atlet" element={<ManajemenAtlet />} />
+          
+          {/* Placeholder untuk menu lain agar tidak error saat diklik */}
+          <Route path="berita" element={<div className="p-10 font-black italic uppercase text-3xl text-slate-900">Halaman Update Berita (Segera)</div>} />
+          <Route path="ranking" element={<div className="p-10 font-black italic uppercase text-3xl text-slate-900">Halaman Update Ranking (Segera)</div>} />
+          <Route path="galeri" element={<div className="p-10 font-black italic uppercase text-3xl text-slate-900">Halaman Galeri Media (Segera)</div>} />
           
           {/* Fallback jika sub-route tidak ditemukan */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />

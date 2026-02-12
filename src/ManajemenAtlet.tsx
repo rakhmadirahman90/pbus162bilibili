@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import { 
   Search, User, X, Award, TrendingUp, Users, 
   MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Zap, Sparkles
 } from 'lucide-react';
 
 interface Registrant {
@@ -19,6 +19,7 @@ interface Registrant {
   seed: string;
   bio: string;
   prestasi: string;
+  status?: string; // Menambahkan status
 }
 
 export default function ManajemenAtlet() {
@@ -29,18 +30,21 @@ export default function ManajemenAtlet() {
   
   // State untuk Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8; // Anda bisa mengubah jumlah atlet per halaman di sini
+  const itemsPerPage = 8;
 
   // State untuk Modal Edit Stats
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // STATE BARU: Notifikasi Sukses
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [notifMessage, setNotifMessage] = useState('');
+
   useEffect(() => {
     fetchAtlets();
   }, []);
 
-  // Reset ke halaman 1 setiap kali user mencari nama
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
@@ -109,7 +113,18 @@ export default function ManajemenAtlet() {
         await supabase.from('atlet_stats').insert([payload]);
       }
 
+      // Opsional: Update status di tabel pendaftaran jika ada perubahan
+      if (editingStats.status) {
+        await supabase.from('pendaftaran').update({ status: editingStats.status }).eq('id', editingStats.id);
+      }
+
       await fetchAtlets();
+      
+      // TRIGGER NOTIFIKASI
+      setNotifMessage("Statistik Atlet Berhasil Diperbarui!");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+
       setIsEditModalOpen(false);
       setSelectedAtlet(null);
     } catch (err) {
@@ -132,101 +147,115 @@ export default function ManajemenAtlet() {
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8">
+    <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans relative overflow-hidden">
+      
       {/* HEADER STATS */}
-      <div className="max-w-7xl mx-auto mb-8">
+      <div className="max-w-7xl mx-auto mb-8 relative z-10">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles size={18} className="text-blue-600 animate-pulse" />
+              <p className="text-slate-400 text-[10px] font-black tracking-[0.3em] uppercase">Pro Database System</p>
+            </div>
+            <h1 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter">
               Manajemen <span className="text-blue-600">Atlet</span>
             </h1>
-            <p className="text-slate-500 font-medium">Kelola data prestasi dan profil profesional atlet.</p>
+            <p className="text-slate-500 font-medium text-sm">Kelola data prestasi dan profil profesional atlet secara realtime.</p>
           </div>
-          <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+          <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
              <div className="text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Total Atlet</p>
-                <p className="text-xl font-black text-blue-600">{atlets.length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Atlet</p>
+                <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
              </div>
-             <div className="w-[1px] h-8 bg-slate-100"></div>
+             <div className="w-[1px] h-10 bg-slate-100"></div>
              <div className="text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Aktif</p>
-                <p className="text-xl font-black text-emerald-500">{atlets.length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
+                <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
              </div>
           </div>
         </div>
 
         {/* SEARCH BAR */}
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+        <div className="relative mb-10 group">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={22} />
           <input 
             type="text"
-            placeholder="Cari nama atlet..."
-            className="w-full pl-12 pr-6 py-4 bg-white rounded-2xl border-none shadow-sm focus:ring-2 focus:ring-blue-500 transition-all font-bold"
+            placeholder="CARI NAMA ATLET..."
+            className="w-full pl-14 pr-8 py-5 bg-white rounded-[2rem] border-none shadow-sm focus:ring-4 focus:ring-blue-100 transition-all font-black uppercase text-sm tracking-widest placeholder:text-slate-300"
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         {/* ATLET GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading ? (
-            <div className="col-span-full py-20 text-center font-bold text-slate-400 uppercase italic tracking-widest">Memuat Data Atlet...</div>
+            <div className="col-span-full py-32 text-center">
+               <Loader2 className="animate-spin m-auto text-blue-600 mb-4" size={40} />
+               <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Mengakses Server...</p>
+            </div>
           ) : currentItems.map((atlet) => (
             <div 
               key={atlet.id}
               onClick={() => setSelectedAtlet(atlet)}
-              className="bg-white p-4 rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group border border-slate-50"
+              className="bg-white p-5 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group border border-slate-100 relative overflow-hidden"
             >
-              <div className="relative aspect-[4/5] rounded-[1.5rem] overflow-hidden mb-4 bg-slate-100">
+              <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden mb-5 bg-slate-100 shadow-inner">
                 {atlet.foto_url ? (
-                  <img src={atlet.foto_url} className="w-full h-full object-cover" alt={atlet.nama} />
+                  <img src={atlet.foto_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={atlet.nama} />
                 ) : (
-                  <User className="m-auto mt-10 text-slate-300" size={60} />
+                  <div className="w-full h-full flex items-center justify-center"><User className="text-slate-300" size={60} /></div>
                 )}
-                <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full">
-                  #{atlet.rank} GLOBAL
+                <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase tracking-tighter">
+                  #{atlet.rank || '??'} GLOBAL
                 </div>
               </div>
-              <h3 className="font-black text-slate-900 uppercase italic truncate">{atlet.nama}</h3>
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">{atlet.kategori}</p>
-              <div className="flex justify-between items-center bg-slate-50 p-2 rounded-xl">
-                <div className="text-[9px] font-bold text-slate-400">POINTS: <span className="text-slate-900">{atlet.points.toLocaleString()}</span></div>
-                <div className="text-[9px] font-black text-emerald-500 italic">{atlet.seed}</div>
+              <div className="px-2">
+                <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">{atlet.kategori}</p>
+                <h3 className="text-lg font-black text-slate-900 uppercase italic truncate mb-4 leading-tight">{atlet.nama}</h3>
+                <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Points</p>
+                    <p className="text-sm font-black text-slate-900 tracking-tighter">{atlet.points.toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Seed</p>
+                    <p className="text-[10px] font-black text-emerald-600 italic tracking-tighter uppercase">{atlet.seed}</p>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* PAGINATION CONTROLS */}
+        {/* PAGINATION */}
         {!loading && totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 mt-12">
+          <div className="flex justify-center items-center gap-3 mt-16">
             <button 
               onClick={() => paginate(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-blue-50 transition-colors"
+              className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all group"
             >
               <ChevronLeft size={20} />
             </button>
-            
-            <div className="flex gap-2">
+            <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
               {[...Array(totalPages)].map((_, i) => (
                 <button
                   key={i + 1}
                   onClick={() => paginate(i + 1)}
-                  className={`w-10 h-10 rounded-xl font-bold text-xs transition-all ${
+                  className={`w-12 h-12 rounded-xl font-black text-sm transition-all ${
                     currentPage === i + 1 
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
-                    : "bg-white text-slate-400 hover:bg-slate-50 border border-slate-100"
+                    : "text-slate-400 hover:bg-slate-50"
                   }`}
                 >
                   {i + 1}
                 </button>
               ))}
             </div>
-
             <button 
               onClick={() => paginate(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-blue-50 transition-colors"
+              className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"
             >
               <ChevronRight size={20} />
             </button>
@@ -234,121 +263,143 @@ export default function ManajemenAtlet() {
         )}
       </div>
 
-      {/* MODAL DETAIL */}
+      {/* MODAL DETAIL - Updated to Modern Dark Style */}
       {selectedAtlet && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-4xl bg-[#121212] rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/10">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
+          <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/5">
             <button 
               onClick={() => setSelectedAtlet(null)}
-              className="absolute top-6 right-6 z-50 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+              className="absolute top-8 right-8 z-50 p-3 bg-white/5 hover:bg-red-500 text-white rounded-full transition-all border border-white/10"
             >
               <X size={24} />
             </button>
 
-            <div className="w-full md:w-1/2 relative bg-[#1a1a1a] flex items-end">
-              <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent z-10"></div>
+            <div className="w-full md:w-[45%] relative bg-zinc-900 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent z-10"></div>
               {selectedAtlet.foto_url ? (
-                <img src={selectedAtlet.foto_url} className="w-full h-full object-cover grayscale-[20%] hover:grayscale-0 transition-all duration-700" alt={selectedAtlet.nama} />
+                <img src={selectedAtlet.foto_url} className="w-full h-full object-cover scale-105" alt={selectedAtlet.nama} />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-slate-800"><User size={120} className="text-slate-700" /></div>
+                <div className="w-full h-full flex items-center justify-center"><User size={150} className="text-white/5" /></div>
               )}
-              
-              <div className="absolute bottom-8 left-8 z-20 bg-yellow-400 text-black font-black text-[10px] px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg italic uppercase">
-                <Trophy size={14} /> {selectedAtlet.prestasi}
+              <div className="absolute bottom-10 left-10 z-20">
+                 <div className="bg-blue-600 text-white text-[10px] font-black px-5 py-2 rounded-full mb-3 inline-block border border-blue-400/30 uppercase tracking-[0.2em] italic shadow-xl">
+                    PRO ATHLETE STATUS
+                 </div>
+                 <div className="bg-amber-400 text-black font-black text-[11px] px-5 py-2 rounded-xl flex items-center gap-3 shadow-2xl italic uppercase tracking-tighter">
+                   <Trophy size={16} /> {selectedAtlet.prestasi}
+                 </div>
               </div>
             </div>
 
-            <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
-              <div className="flex justify-between items-start mb-4">
+            <div className="w-full md:w-[55%] p-10 md:p-16 flex flex-col justify-center">
+              <div className="flex justify-between items-center mb-8">
                 <div className="flex gap-2">
-                  <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded-md border border-blue-600/30 uppercase tracking-tighter">
+                  <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-4 py-1.5 rounded-lg border border-blue-600/30 uppercase tracking-widest italic">
                     {selectedAtlet.kategori}
                   </span>
-                  <span className="bg-white/5 text-white/50 text-[10px] font-black px-3 py-1 rounded-md border border-white/10 uppercase tracking-tighter">
+                  <span className="bg-white/5 text-white/40 text-[10px] font-black px-4 py-1.5 rounded-lg border border-white/10 uppercase tracking-widest italic">
                     {selectedAtlet.seed}
                   </span>
                 </div>
                 <button 
                   onClick={() => { setEditingStats(selectedAtlet); setIsEditModalOpen(true); }}
-                  className="flex items-center gap-2 text-white/40 hover:text-blue-400 text-[10px] font-bold transition-colors"
+                  className="group flex items-center gap-2 text-white/30 hover:text-blue-400 text-[10px] font-black transition-all uppercase tracking-widest border border-white/5 px-4 py-2 rounded-full hover:bg-white/5"
                 >
-                  <Edit3 size={14} /> EDIT STATS
+                  <Edit3 size={14} className="group-hover:rotate-12 transition-transform" /> UPDATE STATISTICS
                 </button>
               </div>
 
-              <h2 className="text-5xl md:text-6xl font-black text-white italic uppercase tracking-tighter mb-8 leading-none">
+              <h2 className="text-5xl md:text-7xl font-black text-white italic uppercase tracking-tighter mb-10 leading-[0.85]">
                 {selectedAtlet.nama.split(' ')[0]}<br/>
-                <span className="text-white/20">{selectedAtlet.nama.split(' ').slice(1).join(' ')}</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white/20 to-transparent">{selectedAtlet.nama.split(' ').slice(1).join(' ')}</span>
               </h2>
 
-              <div className="space-y-6">
-                <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-                  <div className="flex items-center gap-2 mb-2 text-blue-400">
-                    <ShieldCheck size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Profil Singkat</span>
+              <div className="grid grid-cols-2 gap-4 mb-10">
+                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5 hover:border-blue-500/20 transition-colors">
+                    <TrendingUp className="text-blue-500 mb-3" size={24} />
+                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Global Standing</p>
+                    <p className="text-3xl font-black text-white italic leading-none">#{selectedAtlet.rank}</p>
                   </div>
-                  <p className="text-slate-400 text-sm leading-relaxed italic">
+                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5 hover:border-amber-500/20 transition-colors">
+                    <Zap className="text-amber-500 mb-3" size={24} />
+                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Total Points</p>
+                    <p className="text-3xl font-black text-white italic leading-none">{selectedAtlet.points.toLocaleString()}</p>
+                  </div>
+              </div>
+
+              <div className="bg-blue-600/5 p-8 rounded-3xl border border-blue-600/10 relative">
+                  <div className="absolute -top-3 left-6 px-3 bg-blue-600 text-[9px] font-black uppercase tracking-widest italic rounded text-white py-1">Athlete Bio</div>
+                  <p className="text-slate-400 text-sm leading-relaxed italic font-medium">
                     "{selectedAtlet.bio}"
                   </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-                    <TrendingUp className="text-blue-500 mb-2" size={20} />
-                    <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Global Rank</p>
-                    <p className="text-2xl font-black text-white">#{selectedAtlet.rank}</p>
-                  </div>
-                  <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-                    <Trophy className="text-yellow-500 mb-2" size={20} />
-                    <p className="text-[10px] font-black text-white/30 uppercase tracking-widest">Poin Klasemen</p>
-                    <p className="text-2xl font-black text-white">{selectedAtlet.points.toLocaleString()}</p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL EDIT STATS */}
+      {/* MODAL EDIT STATS - Glassmorphism UI */}
       {isEditModalOpen && editingStats && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-200">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-black text-xl uppercase italic tracking-tighter">Update <span className="text-blue-600">Stats</span></h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20">
+            <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-black text-2xl uppercase italic tracking-tighter">Edit <span className="text-blue-600">Performance</span></h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full transition-all"><X size={24}/></button>
             </div>
-            <form onSubmit={handleUpdateStats} className="p-8 space-y-4">
+            <form onSubmit={handleUpdateStats} className="p-10 space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Rank</label>
-                  <input type="number" className="w-full px-4 py-3 bg-slate-50 rounded-xl border-none font-bold" value={editingStats.rank} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank Position</label>
+                  <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all shadow-inner" value={editingStats.rank} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Poin Klasemen</label>
-                  <input type="number" className="w-full px-4 py-3 bg-slate-50 rounded-xl border-none font-bold" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Poin</label>
+                  <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all shadow-inner" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
                 </div>
               </div>
-              <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Seed (A/B/Unseeded)</label>
-                  <input type="text" className="w-full px-4 py-3 bg-slate-50 rounded-xl border-none font-bold uppercase" value={editingStats.seed} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
+              <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Category (A/B/UNSEEDED)</label>
+                  <input type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 uppercase tracking-widest shadow-inner" value={editingStats.seed} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
               </div>
-              <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prestasi Terakhir</label>
-                  <input type="text" className="w-full px-4 py-3 bg-slate-50 rounded-xl border-none font-bold uppercase" placeholder="Contoh: Winner Internal Cup IV" value={editingStats.prestasi} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
+              <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prestasi Terakhir</label>
+                  <input type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 uppercase italic shadow-inner" placeholder="Contoh: WINNER INTERNAL CUP IV" value={editingStats.prestasi} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
               </div>
-              <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bio Singkat</label>
-                  <textarea rows={3} className="w-full px-4 py-3 bg-slate-50 rounded-xl border-none font-bold text-sm" value={editingStats.bio} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
+              <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Biografi & Karakter</label>
+                  <textarea rows={4} className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-bold text-slate-700 text-sm shadow-inner" value={editingStats.bio} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
               </div>
-              <button disabled={isSaving} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-blue-200 flex items-center justify-center gap-2 hover:bg-slate-900 transition-all">
-                {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                Simpan Statistik
+              <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] shadow-xl shadow-blue-200 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:bg-slate-200">
+                {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
+                Publish Statistics
               </button>
             </form>
           </div>
         </div>
       )}
+
+      {/* SUCCESS NOTIFICATION - Glassmorphism UI */}
+      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${
+        showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
+      }`}>
+        <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(37,99,235,0.2)] flex items-center gap-6 min-w-[380px] overflow-hidden relative">
+          <div className="absolute bottom-0 left-0 h-1 bg-blue-600 animate-[progress_3s_linear]" style={{ width: showSuccess ? '100%' : '0%' }} />
+          <div className="bg-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-600/40 animate-bounce">
+            <Zap size={24} className="text-white fill-white" />
+          </div>
+          <div>
+            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1 text-nowrap">{notifMessage}</h4>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Synchronized with Database</p>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes progress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -108,6 +108,8 @@ function AdminLayout({ session }: { session: any }) {
 
           {/* PEMBARUAN: Route baru untuk Update Skor Pertandingan */}
           <Route path="skor" element={<AdminMatch />} />
+
+          <Route path="/admin/berita" element={<AdminBerita />} />
           
           {/* Placeholder untuk menu lain agar tidak error saat diklik */}
           <Route path="berita" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Berita (Segera)</div>} />

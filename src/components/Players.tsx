@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 // --- DATA SOURCE & PEMENANG (BONUS +300 SESUAI TABEL POIN) ---
+// Daftar nama ini akan otomatis mendapatkan bonus +300 poin sesuai tabel "Turnamen Internal"
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -51,7 +52,7 @@ const Players: React.FC = () => {
     }
   };
 
-  // 2. REALTIME LISTENER
+  // 2. REALTIME LISTENER (SINKRONISASI OTOMATIS SAAT DB BERUBAH)
   useEffect(() => {
     fetchPlayersFromDB();
 
@@ -84,7 +85,6 @@ const Players: React.FC = () => {
   // 3. PROSES DATA: SINKRONISASI POIN (10.300 PTS) & DESKRIPSI DATABASE
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
-      // Menyesuaikan kunci dengan database (SENIOR, DEWASA, dll)
       'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
       'VETERAN (35+ / 40+)': { base: 10000, label: 'Seed A', age: 'Senior' },
       'DEWASA': { base: 8500, label: 'Seed B+', age: 'Senior' },
@@ -104,14 +104,14 @@ const Players: React.FC = () => {
       const isWinner = EVENT_LOG[0].winners.includes(p.nama);
       const winBonus = isWinner ? 300 : 0;
       
-      // Total Poin murni dari tabel standar (Tanpa pengurangan index agar sinkron 10.300)
+      // Total Poin disinkronkan agar tampil 10.300 untuk pemenang kategori Senior
       const totalPoints = conf.base + winBonus;
       
       return {
         ...p,
         name: p.nama,
         img: p.foto_url,
-        // DESKRIPSI: Mengambil kolom 'pengalaman', jika isi hanya "ok" tampilkan default
+        // DESKRIPSI: Mengambil kolom 'pengalaman', jika "ok" tampil default
         bio: p.pengalaman && p.pengalaman.toLowerCase() !== "ok" 
              ? p.pengalaman 
              : `Atlet profesional PB US 162 kategori ${p.kategori}.`,
@@ -121,7 +121,6 @@ const Players: React.FC = () => {
         categoryLabel: conf.label,
       };
     })
-    // URUTAN: Poin tertinggi selalu nomor #1
     .sort((a, b) => b.totalPoints - a.totalPoints);
   }, [dbPlayers]);
 

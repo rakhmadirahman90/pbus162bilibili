@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Image as ImageIcon, Video, 
   Upload, X, Loader2, CheckCircle2,
   Film, Camera, ChevronLeft, ChevronRight,
-  Edit3, AlignLeft, Tag, Link as LinkIcon // BARU: Icon Link
+  Edit3, AlignLeft, Tag, Link as LinkIcon 
 } from 'lucide-react';
 
 interface GalleryItem {
@@ -15,7 +15,7 @@ interface GalleryItem {
   category: string;
   description: string;
   created_at: string;
-  is_local?: boolean; // BARU: Penanda video lokal vs link
+  is_local?: boolean;
 }
 
 export default function AdminGallery() {
@@ -31,7 +31,6 @@ export default function AdminGallery() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  // BARU: State untuk menentukan input video via Link atau File
   const [videoInputMethod, setVideoInputMethod] = useState<'link' | 'file'>('file');
 
   const [formData, setFormData] = useState({
@@ -40,7 +39,7 @@ export default function AdminGallery() {
     url: '',
     category: 'Pertandingan',
     description: '',
-    is_local: true // Default true untuk image/file upload
+    is_local: true 
   });
 
   const categories = ['Pertandingan', 'Latihan', 'Prestasi', 'Fasilitas', 'Latihan Rutin'];
@@ -69,7 +68,13 @@ export default function AdminGallery() {
     }
   }
 
-  // BARU: Fungsi untuk memproses URL YouTube menjadi embed
+  // BARU: Fungsi untuk mengekstrak ID YouTube dari berbagai format link
+  const getYouTubeID = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
   const processVideoUrl = (url: string) => {
     if (url.includes('youtube.com/watch?v=')) {
       const videoId = url.split('v=')[1]?.split('&')[0];
@@ -92,7 +97,6 @@ export default function AdminGallery() {
       description: item.description || '',
       is_local: item.is_local ?? (!item.url.includes('youtube.com') && !item.url.includes('youtu.be'))
     });
-    // Set metode input berdasarkan URL yang ada
     if (item.type === 'video') {
         setVideoInputMethod(item.url.includes('http') && !item.url.includes('supabase') ? 'link' : 'file');
     }
@@ -162,7 +166,6 @@ export default function AdminGallery() {
     e.preventDefault();
     if (!formData.url) return alert("Pilih file atau masukkan link terlebih dahulu!");
 
-    // Proses URL jika tipenya video dan metode link
     let finalUrl = formData.url;
     if (formData.type === 'video' && videoInputMethod === 'link') {
         finalUrl = processVideoUrl(formData.url);
@@ -204,7 +207,6 @@ export default function AdminGallery() {
     try {
       await supabase.from('gallery').delete().eq('id', id);
       const filePath = url.split('/').pop();
-      // Hanya hapus dari storage jika itu file lokal (bukan link YouTube)
       if (filePath && url.includes('supabase.co')) {
         await supabase.storage.from('gallery').remove([`uploads/${filePath}`]);
       }
@@ -225,7 +227,6 @@ export default function AdminGallery() {
           </div>
         )}
 
-        {/* HEADER SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
           <div>
             <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
@@ -245,7 +246,6 @@ export default function AdminGallery() {
           </button>
         </div>
 
-        {/* TAB SWITCHER */}
         <div className="flex gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl w-fit border border-white/5">
           <button 
             onClick={() => setActiveTab('image')}
@@ -261,7 +261,6 @@ export default function AdminGallery() {
           </button>
         </div>
 
-        {/* GRID CONTENT */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 min-h-[400px]">
           {loading ? (
             <div className="col-span-full flex flex-col items-center justify-center py-20 text-zinc-500">
@@ -278,16 +277,19 @@ export default function AdminGallery() {
                 <img src={item.url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={item.title} />
               ) : (
                 <div className="relative w-full h-full">
-                    {/* BARU: Tampilkan Thumbnail YouTube jika link YT */}
+                    {/* PERBAIKAN: Logika Thumbnail YouTube yang lebih akurat */}
                     {item.url.includes('youtube.com') || item.url.includes('youtu.be') ? (
                         <div className="w-full h-full relative">
                             <img 
-                                src={`https://img.youtube.com/vi/${item.url.split('embed/')[1] || item.url.split('/').pop()}/mqdefault.jpg`} 
-                                className="w-full h-full object-cover opacity-50"
+                                src={`https://img.youtube.com/vi/${getYouTubeID(item.url)}/mqdefault.jpg`} 
+                                className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
                                 alt="YT Thumbnail"
+                                onError={(e: any) => { e.target.src = 'https://placehold.co/600x400?text=YouTube+Video'; }}
                             />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Film size={40} className="text-white/20" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-all">
+                                <div className="p-3 bg-red-600 rounded-full shadow-xl shadow-red-600/40">
+                                  <Film size={20} className="text-white" />
+                                </div>
                             </div>
                             <span className="absolute bottom-4 left-4 bg-red-600 text-[8px] font-black px-2 py-1 rounded uppercase">YouTube Link</span>
                         </div>
@@ -318,7 +320,6 @@ export default function AdminGallery() {
           ))}
         </div>
 
-        {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="mt-12 flex justify-center items-center gap-4">
             <button 
@@ -350,7 +351,6 @@ export default function AdminGallery() {
         )}
       </div>
 
-      {/* MODAL UPLOAD & EDIT */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in fade-in duration-200">
           <div className="bg-zinc-950 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[2.5rem] border border-white/10 shadow-2xl scale-in-center custom-scrollbar">
@@ -362,7 +362,6 @@ export default function AdminGallery() {
             </div>
             
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              {/* Media Type Selection */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-2">
                    <ImageIcon size={12}/> Tipe Media Utama
@@ -385,7 +384,6 @@ export default function AdminGallery() {
                 </div>
               </div>
 
-              {/* VIDEO SPECIFIC: Method Selection (File vs Link) */}
               {formData.type === 'video' && (
                 <div className="space-y-4 animate-in slide-in-from-top-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-2">
@@ -410,7 +408,6 @@ export default function AdminGallery() {
                 </div>
               )}
 
-              {/* Inputs Common */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                    <Edit3 size={12}/> Judul Media
@@ -455,7 +452,6 @@ export default function AdminGallery() {
                 />
               </div>
 
-              {/* CONDITIONAL MEDIA INPUT (UPLOAD OR LINK) */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-zinc-500 uppercase flex items-center gap-2">
                    {formData.type === 'image' || videoInputMethod === 'file' ? <Upload size={12}/> : <LinkIcon size={12}/>} 
@@ -463,7 +459,6 @@ export default function AdminGallery() {
                 </label>
 
                 {(formData.type === 'image' || videoInputMethod === 'file') ? (
-                    /* UPLOAD BOX */
                     <div 
                         onClick={() => !isUploading && fileInputRef.current?.click()}
                         className="group relative h-40 bg-zinc-900/50 border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-600/50 transition-all overflow-hidden"
@@ -497,7 +492,6 @@ export default function AdminGallery() {
                         )}
                     </div>
                 ) : (
-                    /* LINK INPUT BOX */
                     <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                         <input 
                             className="w-full bg-zinc-900 border border-white/10 rounded-2xl p-5 outline-none focus:border-red-600 font-medium text-sm transition-all"

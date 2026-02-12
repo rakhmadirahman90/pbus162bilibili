@@ -13,7 +13,6 @@ interface Ranking {
   seed: string;
   total_points: number;
   bonus?: number;
-  global_rank?: number;
 }
 
 export default function AdminRanking() {
@@ -36,6 +35,7 @@ export default function AdminRanking() {
   useEffect(() => {
     fetchRankings();
     
+    // Realtime subscription agar UI selalu update jika ada perubahan di DB
     const subscription = supabase
       .channel('rankings_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
@@ -57,7 +57,7 @@ export default function AdminRanking() {
         .order('total_points', { ascending: false });
       
       if (error) throw error;
-      if (data) setRankings(data);
+      setRankings(data || []);
     } catch (err: any) {
       console.error("Fetch Error:", err.message);
     } finally {
@@ -66,15 +66,15 @@ export default function AdminRanking() {
   };
 
   /**
-   * FUNGSI SINKRONISASI ULTRA-SAFE
-   * Menjumlahkan semua poin dari statistik dan bonus pemain secara otomatis
+   * PERBAIKAN: FUNGSI SINKRONISASI ANTI-HILANG
+   * Menggunakan logika akumulasi yang lebih ketat sebelum dikirim ke database
    */
   const syncFromStats = async () => {
-    if (!window.confirm("Sinkronisasi akan menjumlahkan total poin atlet dari data statistik terbaru. Lanjutkan?")) return;
+    if (!window.confirm("Sinkronisasi akan menjumlahkan total poin atlet dari data statistik. Data yang sudah ada di Leaderboard akan diperbarui. Lanjutkan?")) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data stats beserta relasi pendaftarannya
+      // 1. Ambil data statistik dan relasi pendaftaran
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
@@ -84,36 +84,35 @@ export default function AdminRanking() {
         `);
 
       if (statsError) throw statsError;
-
       if (!statsData || statsData.length === 0) {
         alert("Tidak ada data di Statistik Atlet.");
         return;
       }
 
-      // 2. Gunakan Map untuk Agregasi (Penjumlahan Poin)
+      // 2. Agregasi di memori (Menghindari duplikasi baris saat upsert)
       const aggregatedMap = new Map();
 
       statsData.forEach(item => {
         const pendaftar = item.pendaftaran as any;
-        if (pendaftar && pendaftar.nama) {
+        // Hanya proses jika nama tersedia
+        if (pendaftar?.nama) {
           const cleanName = pendaftar.nama.trim().toUpperCase();
+          const pointsToAdd = Number(item.points) || 0;
           const existing = aggregatedMap.get(cleanName);
-          
-          const currentPoints = Number(item.points) || 0;
 
           if (existing) {
             aggregatedMap.set(cleanName, {
               ...existing,
-              total_points: existing.total_points + currentPoints,
-              // Tetapkan seed jika sebelumnya kosong
-              seed: item.seed || existing.seed
+              total_points: existing.total_points + pointsToAdd,
+              // Update seed jika yang terbaru tidak kosong
+              seed: item.seed || existing.seed 
             });
           } else {
             aggregatedMap.set(cleanName, {
               player_name: cleanName,
               category: pendaftar.kategori || 'Senior',
               seed: item.seed || 'Non-Seed',
-              total_points: currentPoints,
+              total_points: pointsToAdd,
               bonus: 0
             });
           }
@@ -122,7 +121,9 @@ export default function AdminRanking() {
 
       const upsertData = Array.from(aggregatedMap.values());
 
-      // 3. Eksekusi Upsert
+      if (upsertData.length === 0) throw new Error("Tidak ada data valid untuk disinkronkan.");
+
+      // 3. Eksekusi Upsert dengan penanganan konflik nama
       const { error: upsertError } = await supabase
         .from('rankings')
         .upsert(upsertData, { 
@@ -132,11 +133,11 @@ export default function AdminRanking() {
 
       if (upsertError) throw upsertError;
       
-      alert(`Berhasil! ${upsertData.length} data atlet telah diakumulasikan ke tabel ranking.`);
+      alert(`Berhasil! ${upsertData.length} data atlet telah disinkronkan.`);
       fetchRankings();
     } catch (err: any) {
       console.error("Sync Critical Error:", err);
-      alert("Gagal Sinkron: " + (err.hint || err.message));
+      alert("Gagal Sinkron: " + (err.message || "Kesalahan database"));
     } finally {
       setLoading(false);
     }
@@ -145,6 +146,7 @@ export default function AdminRanking() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    
     if (!formData.player_name?.trim()) {
       setFormError("Nama atlet wajib diisi");
       return;
@@ -152,7 +154,7 @@ export default function AdminRanking() {
 
     setIsSaving(true);
     try {
-      // Kalkulasi total final jika ada bonus manual
+      // PERBAIKAN: Total Poin adalah hasil penjumlahan input poin + bonus
       const totalFinal = (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0);
       
       const payload = {
@@ -160,7 +162,7 @@ export default function AdminRanking() {
         category: formData.category,
         seed: formData.seed,
         total_points: totalFinal,
-        bonus: formData.bonus || 0
+        bonus: Number(formData.bonus) || 0
       };
 
       if (editingId) {
@@ -180,21 +182,20 @@ export default function AdminRanking() {
       setEditingId(null);
       fetchRankings();
     } catch (err: any) {
-      setFormError("Gagal menyimpan: Nama atlet mungkin duplikat atau database sibuk.");
+      setFormError("Gagal menyimpan: Terjadi kesalahan pada database.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Hapus atlet dari ranking?")) {
-      try {
-        const { error } = await supabase.from('rankings').delete().eq('id', id);
-        if (error) throw error;
-        fetchRankings();
-      } catch (err: any) {
-        alert(err.message);
-      }
+    if (!window.confirm("Hapus atlet dari ranking?")) return;
+    try {
+      const { error } = await supabase.from('rankings').delete().eq('id', id);
+      if (error) throw error;
+      fetchRankings();
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -202,7 +203,8 @@ export default function AdminRanking() {
     setFormError(null);
     if (item) {
       setEditingId(item.id);
-      // Pisahkan poin murni untuk input form
+      // PERBAIKAN: Saat edit, kembalikan 'total_points' ke poin dasar (dikurangi bonus) 
+      // agar tidak terjadi penumpukan bonus berulang saat disimpan kembali
       setFormData({
         ...item,
         total_points: (item.total_points || 0) - (item.bonus || 0)
@@ -222,13 +224,12 @@ export default function AdminRanking() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 relative font-sans selection:bg-blue-500/30">
-      {/* Dynamic Background Glow */}
+      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10 animate-pulse" />
-      <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-purple-600/5 blur-[100px] rounded-full -z-10" />
-
+      
       <div className="max-w-6xl mx-auto relative z-10">
         
-        {/* Header Section */}
+        {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -256,7 +257,7 @@ export default function AdminRanking() {
           </div>
         </div>
 
-        {/* Control Panel */}
+        {/* Filter Panel */}
         <div className="bg-zinc-900/40 border border-white/5 p-4 rounded-[2rem] mb-8 flex flex-col md:flex-row gap-4 backdrop-blur-xl shadow-2xl">
           <div className="relative flex-grow">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
@@ -272,7 +273,7 @@ export default function AdminRanking() {
              <div className="flex items-center gap-3 bg-black/50 border border-white/5 rounded-2xl px-6 py-2">
                 <Filter size={16} className="text-blue-500" />
                 <select 
-                  className="bg-transparent font-black text-[10px] uppercase tracking-tighter outline-none cursor-pointer appearance-none pr-4"
+                  className="bg-transparent font-black text-[10px] uppercase tracking-tighter outline-none cursor-pointer appearance-none pr-4 text-white"
                   value={selectedSeed}
                   onChange={(e) => setSelectedSeed(e.target.value)}
                 >
@@ -286,8 +287,7 @@ export default function AdminRanking() {
         </div>
 
         {/* Table View */}
-        <div className="bg-zinc-900/20 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl">
-          <div className="overflow-x-auto">
+        <div className="bg-zinc-900/20 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="border-b border-white/5 bg-white/[0.02]">
@@ -303,7 +303,7 @@ export default function AdminRanking() {
                 {loading ? (
                   <tr><td colSpan={6} className="p-32 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" size={40} /></td></tr>
                 ) : filteredRankings.length === 0 ? (
-                  <tr><td colSpan={6} className="p-32 text-center text-zinc-600 font-black uppercase italic tracking-widest opacity-50">No Data Synchronized</td></tr>
+                  <tr><td colSpan={6} className="p-32 text-center text-zinc-600 font-black uppercase italic tracking-widest opacity-50">No Data Available</td></tr>
                 ) : (
                   filteredRankings.map((item, index) => (
                     <tr key={item.id} className="hover:bg-white/[0.03] transition-all group">
@@ -329,7 +329,7 @@ export default function AdminRanking() {
                       </td>
                       <td className="p-7 text-center">
                         <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          item.seed === 'Seed A' ? 'bg-blue-600/10 text-blue-400 border-blue-600/30 shadow-[0_0_15px_rgba(37,99,235,0.1)]' : 
+                          item.seed === 'Seed A' ? 'bg-blue-600/10 text-blue-400 border-blue-600/30' : 
                           item.seed === 'Seed B' ? 'bg-purple-600/10 text-purple-400 border-purple-600/30' : 
                           'bg-zinc-900/50 text-zinc-500 border-white/5'
                         }`}>
@@ -341,15 +341,15 @@ export default function AdminRanking() {
                           <div className="flex items-center gap-2 font-black italic text-xl text-white">
                             {item.total_points?.toLocaleString()} <span className="text-[10px] text-blue-600 not-italic uppercase tracking-[0.3em]">Pts</span>
                           </div>
-                          {item.bonus! > 0 && (
+                          {(item.bonus || 0) > 0 && (
                             <span className="text-[9px] text-green-500 font-bold uppercase tracking-tighter">Incl. Bonus: +{item.bonus}</span>
                           )}
                         </div>
                       </td>
-                      <td className="p-7">
-                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
-                          <button onClick={() => openModal(item)} className="p-3 bg-zinc-800 hover:bg-blue-600 rounded-xl transition-all border border-white/5 shadow-xl"><Edit3 size={18} /></button>
-                          <button onClick={() => handleDelete(item.id)} className="p-3 bg-zinc-800 hover:bg-red-600 rounded-xl transition-all border border-white/5 shadow-xl"><Trash2 size={18} /></button>
+                      <td className="p-7 text-right">
+                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                          <button onClick={() => openModal(item)} className="p-3 bg-zinc-800 hover:bg-blue-600 rounded-xl transition-all border border-white/5"><Edit3 size={18} /></button>
+                          <button onClick={() => handleDelete(item.id)} className="p-3 bg-zinc-800 hover:bg-red-600 rounded-xl transition-all border border-white/5"><Trash2 size={18} /></button>
                         </div>
                       </td>
                     </tr>
@@ -357,25 +357,21 @@ export default function AdminRanking() {
                 )}
               </tbody>
             </table>
-          </div>
         </div>
       </div>
 
       {/* Modal Editor */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-          <div className="bg-[#0c0c0c] w-full max-w-xl rounded-[3rem] border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in duration-300">
+          <div className="bg-[#0c0c0c] w-full max-w-xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-10 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-              <div className="flex items-center gap-5">
-                <div className="w-2 h-8 bg-blue-600 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)]" />
-                <h3 className="text-2xl font-black italic uppercase tracking-tighter">
-                  {editingId ? 'Modify' : 'Register'} <span className="text-blue-600">Player</span>
-                </h3>
-              </div>
+              <h3 className="text-2xl font-black italic uppercase tracking-tighter">
+                {editingId ? 'Modify' : 'Register'} <span className="text-blue-600">Player</span>
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white/10 rounded-2xl transition-all"><X size={24}/></button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto custom-scrollbar">
+            <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto">
               {formError && (
                 <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[11px] font-black uppercase tracking-widest flex items-center gap-3">
                   <AlertCircle size={18}/> {formError}
@@ -387,8 +383,7 @@ export default function AdminRanking() {
                 <input 
                   required 
                   type="text" 
-                  placeholder="Ex: JHON DOE" 
-                  className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 focus:border-blue-600/50 outline-none font-bold text-base text-white transition-all shadow-inner" 
+                  className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-white uppercase" 
                   value={formData.player_name} 
                   onChange={e => setFormData({...formData, player_name: e.target.value})} 
                 />
@@ -398,7 +393,7 @@ export default function AdminRanking() {
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Division</label>
                   <select 
-                    className="w-full px-7 py-5 bg-[#141414] rounded-2xl border border-white/5 focus:border-blue-600/50 outline-none font-bold text-sm text-white appearance-none cursor-pointer shadow-inner" 
+                    className="w-full px-7 py-5 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white" 
                     value={formData.category} 
                     onChange={e => setFormData({...formData, category: e.target.value})}
                   >
@@ -410,7 +405,7 @@ export default function AdminRanking() {
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Seed Rank</label>
                   <select 
-                    className="w-full px-7 py-5 bg-[#141414] rounded-2xl border border-white/5 focus:border-blue-600/50 outline-none font-bold text-sm text-white appearance-none cursor-pointer shadow-inner" 
+                    className="w-full px-7 py-5 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white" 
                     value={formData.seed} 
                     onChange={e => setFormData({...formData, seed: e.target.value})}
                   >
@@ -424,33 +419,22 @@ export default function AdminRanking() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Base Points</label>
-                  <input required type="number" className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 focus:border-blue-600/50 outline-none font-bold text-base text-white shadow-inner" value={formData.total_points} onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} />
+                  <input type="number" className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 outline-none font-bold text-white" value={formData.total_points} onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Bonus (+)</label>
-                  <input type="number" className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 focus:border-blue-600/50 outline-none font-bold text-base text-white shadow-inner" value={formData.bonus} onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} />
+                  <input type="number" className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 outline-none font-bold text-white" value={formData.bonus} onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} />
                 </div>
               </div>
 
-              <div className="pt-6">
-                <button type="submit" disabled={isSaving} className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-4 transition-all active:scale-95 disabled:opacity-50">
-                  {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>} 
-                  {editingId ? 'Update Leaderboard' : 'Confirm Registration'}
-                </button>
-              </div>
+              <button type="submit" disabled={isSaving} className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 transition-all">
+                {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>} 
+                {editingId ? 'Update Leaderboard' : 'Confirm Registration'}
+              </button>
             </form>
           </div>
         </div>
       )}
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #2563eb; }
-        select option { background: #0c0c0c; color: white; padding: 20px; }
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-      `}</style>
     </div>
   );
 }

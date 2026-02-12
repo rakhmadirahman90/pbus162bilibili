@@ -26,6 +26,7 @@ interface Registrant {
   domisili: string;
   pengalaman: string;
   foto_url: string;
+  jenis_kelamin: string; // Tambahan field
 }
 
 export default function ManajemenPendaftaran() {
@@ -39,8 +40,13 @@ export default function ManajemenPendaftaran() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Menambah jumlah item per halaman agar pas dengan layar (6-8 biasanya ideal)
   const itemsPerPage = 8; 
+
+  const kategoriUmur = [
+    "Pra Dini (U-9)", "Usia Dini (U-11)", "Anak-anak (U-13)", 
+    "Pemula (U-15)", "Remaja (U-17)", "Taruna (U-19)", 
+    "Dewasa / Umum", "Veteran (35+ / 40+)"
+  ];
 
   const fetchData = async () => {
     setLoading(true);
@@ -81,21 +87,21 @@ export default function ManajemenPendaftaran() {
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const deleteOldFile = async (url: string) => {
-    if (!url || !url.includes('atlet-photos/')) return;
-    const fileName = url.split('atlet-photos/').pop();
-    if (fileName) await supabase.storage.from('pendaftaran').remove([`atlet-photos/${fileName}`]);
+    if (!url) return;
+    const fileName = url.split('/').pop();
+    if (fileName) await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !editingItem) return;
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
-    const filePath = `atlet-photos/${editingItem.id}-${Date.now()}.${fileExt}`;
+    const filePath = `identitas/${editingItem.id}-${Date.now()}.${fileExt}`;
     setUploading(true);
     try {
       if (editingItem.foto_url) await deleteOldFile(editingItem.foto_url);
-      await supabase.storage.from('pendaftaran').upload(filePath, file);
-      const { data: { publicUrl } } = supabase.storage.from('pendaftaran').getPublicUrl(filePath);
+      await supabase.storage.from('identitas-atlet').upload(filePath, file);
+      const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
       setEditingItem({ ...editingItem, foto_url: publicUrl });
     } catch (error: any) { alert(error.message); } 
     finally { setUploading(false); }
@@ -117,10 +123,11 @@ export default function ManajemenPendaftaran() {
     setIsSaving(true);
     try {
       const { error } = await supabase.from('pendaftaran').update({
-        nama: editingItem.nama,
+        nama: editingItem.nama.toUpperCase(),
         whatsapp: editingItem.whatsapp,
         domisili: editingItem.domisili,
         kategori: editingItem.kategori,
+        jenis_kelamin: editingItem.jenis_kelamin, // Update gender
         foto_url: editingItem.foto_url
       }).eq('id', editingItem.id);
       if (error) throw error;
@@ -131,10 +138,9 @@ export default function ManajemenPendaftaran() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      {/* Container dikurangi padding vertikalnya (py-10 -> py-4) */}
       <div className="max-w-[1400px] mx-auto px-4 py-4 md:px-8">
         
-        {/* HEADER - Dibuat lebih ringkas */}
+        {/* HEADER */}
         <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-600 rounded-lg shadow-md shadow-blue-100">
@@ -163,7 +169,7 @@ export default function ManajemenPendaftaran() {
           </div>
         </header>
 
-        {/* SEARCH BAR - Dibuat lebih tipis (py-6 -> py-3) */}
+        {/* SEARCH BAR */}
         <section className="mb-4">
           <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm transition-all focus-within:border-blue-500">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -176,7 +182,7 @@ export default function ManajemenPendaftaran() {
           </div>
         </section>
 
-        {/* TABLE SECTION - Compact Padding (py-6 -> py-2) */}
+        {/* TABLE SECTION */}
         <section className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden mb-4">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -184,6 +190,7 @@ export default function ManajemenPendaftaran() {
                 <tr className="bg-slate-900 text-white">
                   <th className="pl-6 pr-2 py-3 font-bold uppercase text-[10px] tracking-widest w-12 text-center">No</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Profil Atlet</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Gender</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Kategori</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest text-center">WhatsApp</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Domisili</th>
@@ -192,7 +199,7 @@ export default function ManajemenPendaftaran() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loading && registrants.length === 0 ? (
-                  <tr><td colSpan={6} className="py-20 text-center text-slate-400 font-bold uppercase text-xs">Memuat Data...</td></tr>
+                  <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold uppercase text-xs">Memuat Data...</td></tr>
                 ) : currentItems.map((item, index) => (
                   <tr key={item.id} className="hover:bg-blue-50/50 even:bg-slate-50/20 transition-all duration-150 group">
                     <td className="pl-6 pr-2 py-2 text-center">
@@ -218,6 +225,12 @@ export default function ManajemenPendaftaran() {
                           <span className="text-[9px] font-bold text-slate-400 uppercase">ID: {item.id.slice(0,6)}</span>
                         </div>
                       </div>
+                    </td>
+
+                    <td className="px-4 py-2">
+                      <span className={`text-[10px] font-bold uppercase ${item.jenis_kelamin === 'Putra' ? 'text-blue-600' : 'text-rose-500'}`}>
+                        {item.jenis_kelamin}
+                      </span>
                     </td>
 
                     <td className="px-4 py-2">
@@ -268,7 +281,7 @@ export default function ManajemenPendaftaran() {
           </div>
         </section>
 
-        {/* PAGINATION - Diperkecil (py-6 -> py-3) */}
+        {/* PAGINATION */}
         <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl text-white shadow-lg">
           <p className="text-[9px] font-bold uppercase tracking-widest opacity-60">Halaman {currentPage} Dari {totalPages || 1}</p>
           <div className="flex items-center gap-3">
@@ -280,7 +293,7 @@ export default function ManajemenPendaftaran() {
               <ChevronLeft size={16} />
             </button>
             <div className="flex gap-1.5">
-               {[...Array(totalPages)].map((_, i) => (
+                {[...Array(totalPages)].map((_, i) => (
                  <button 
                   key={i} 
                   onClick={() => setCurrentPage(i + 1)}
@@ -288,7 +301,7 @@ export default function ManajemenPendaftaran() {
                  >
                    {i + 1}
                  </button>
-               ))}
+                ))}
             </div>
             <button 
               onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
@@ -301,7 +314,7 @@ export default function ManajemenPendaftaran() {
         </footer>
       </div>
 
-      {/* MODAL EDIT - Layout Dioptimalkan */}
+      {/* MODAL EDIT */}
       {isEditModalOpen && editingItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
@@ -327,15 +340,33 @@ export default function ManajemenPendaftaran() {
                   <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" value={editingItem.nama} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
                 </div>
               </div>
+
+              {/* Pilihan Jenis Kelamin */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Putra', 'Putri'].map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})}
+                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${editingItem.jenis_kelamin === g ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+                    >
+                      {g.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
                   <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.whatsapp} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori</label>
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
                   <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.kategori} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
-                    {["Pra Dini (U-9)", "Dini (U-11)", "Anak (U-13)", "Pemula (U-15)", "Remaja (U-17)", "Taruna (U-19)", "Dewasa / Umum"].map(c => <option key={c}>{c}</option>)}
+                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2 space-y-1">

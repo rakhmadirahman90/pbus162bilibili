@@ -6,7 +6,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// Interface
+// Interface sesuai kolom database
 interface Ranking {
   id: string;
   player_name: string;
@@ -26,6 +26,7 @@ export default function AdminRanking() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeed, setSelectedSeed] = useState('Semua');
   const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [formData, setFormData] = useState<Partial<Ranking>>({
     player_name: '',
     category: 'Senior',
@@ -34,9 +35,10 @@ export default function AdminRanking() {
     bonus: 0,
     photo_url: ''
   });
+  
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Fetch Data
+  // --- FETCH DATA ---
   const fetchRankings = useCallback(async () => {
     setLoading(true);
     try {
@@ -58,7 +60,7 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // --- LOGIKA SINKRONISASI TOTAL (DISEMPURNAKAN UNTUK KOLOM foto_url) ---
+  // --- LOGIKA SINKRONISASI TOTAL ---
   const syncFromStats = async () => {
     const confirm = window.confirm("Sistem akan menghitung ulang poin dan memperbarui FOTO dari database pendaftaran. Lanjutkan?");
     if (!confirm) return;
@@ -83,6 +85,7 @@ export default function AdminRanking() {
       const athleteMap = new Map();
 
       statsData.forEach((item: any) => {
+        // Handle array atau single object dari join pendaftaran
         const detail = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
         
         if (detail?.nama) {
@@ -99,7 +102,6 @@ export default function AdminRanking() {
               seed: item.seed || 'Non-Seed',
               total_points: currentPoints,
               bonus: 0,
-              // PERBAIKAN: Menggunakan foto_url sesuai struktur tabel pendaftaran kamu
               photo_url: detail.foto_url || null 
             });
           }
@@ -108,7 +110,7 @@ export default function AdminRanking() {
 
       const finalDataArray = Array.from(athleteMap.values());
 
-      // 2. Eksekusi Database: Clean & Rebuild
+      // 2. Eksekusi Database: Hapus data lama (kecuali sistem) lalu masukkan yang baru
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
@@ -122,7 +124,7 @@ export default function AdminRanking() {
 
       if (insertError) throw insertError;
       
-      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet dengan foto terbaru.`);
+      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet.`);
       fetchRankings();
     } catch (err: any) {
       console.error("Sync Error:", err);
@@ -139,15 +141,16 @@ export default function AdminRanking() {
     setIsSaving(true);
 
     try {
-      // Poin total = poin dari stats + bonus manual
-      const finalPoints = (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0);
+      // Validasi sederhana
+      if (!formData.player_name) throw new Error("Nama atlet wajib diisi");
+
       const payload = {
-        player_name: formData.player_name?.trim().toUpperCase(),
+        player_name: formData.player_name.trim().toUpperCase(),
         category: formData.category,
         seed: formData.seed,
-        total_points: finalPoints,
+        total_points: (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0),
         bonus: Number(formData.bonus) || 0,
-        photo_url: formData.photo_url
+        photo_url: formData.photo_url || null
       };
 
       let error;
@@ -165,7 +168,7 @@ export default function AdminRanking() {
       setEditingId(null);
       fetchRankings();
     } catch (err: any) {
-      setFormError(err.message.includes('unique') ? "Nama atlet sudah ada!" : err.message);
+      setFormError(err.message.includes('unique') ? "Nama atlet sudah terdaftar!" : err.message);
     } finally {
       setIsSaving(false);
     }
@@ -182,34 +185,44 @@ export default function AdminRanking() {
     }
   };
 
-  const filteredRankings = rankings.filter(r => 
-    r.player_name?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (selectedSeed === 'Semua' || r.seed === selectedSeed)
-  );
+  // --- FILTER LOGIC ---
+  const filteredRankings = rankings.filter(r => {
+    const matchesSearch = r.player_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSeed = selectedSeed === 'Semua' || r.seed === selectedSeed;
+    return matchesSearch && matchesSeed;
+  });
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 font-sans">
       <div className="max-w-6xl mx-auto">
+        
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
           <div>
             <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
               MANAJEMEN<span className="text-blue-600"> RANKING</span>
             </h1>
-            <p className="text-zinc-500 text-[10px] font-bold uppercase mt-2 tracking-[0.2em]">Database Synchronization System</p>
+            <div className="flex items-center gap-2 mt-2">
+               <span className="w-2 h-2 bg-blue-600 animate-pulse rounded-full"></span>
+               <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em]">Database Synchronization System</p>
+            </div>
           </div>
           
           <div className="flex gap-3 w-full md:w-auto">
             <button 
               onClick={syncFromStats}
               disabled={loading}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-zinc-900 border border-white/10 px-6 py-4 rounded-xl font-bold uppercase text-[10px] hover:bg-zinc-800 transition-all text-zinc-300"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-zinc-900 border border-white/10 px-6 py-4 rounded-xl font-bold uppercase text-[10px] hover:bg-zinc-800 transition-all text-zinc-300 disabled:opacity-50"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> 
               Sinkron Ulang Poin
             </button>
             <button 
-              onClick={() => { setEditingId(null); setFormData({player_name:'', category:'Senior', seed:'Seed A', total_points:0, bonus:0, photo_url:''}); setIsModalOpen(true); }}
+              onClick={() => { 
+                setEditingId(null); 
+                setFormData({player_name:'', category:'Senior', seed:'Seed A', total_points:0, bonus:0, photo_url:''}); 
+                setIsModalOpen(true); 
+              }}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 px-6 py-4 rounded-xl font-bold uppercase text-[10px] transition-all shadow-lg shadow-blue-600/20"
             >
               <Plus size={14} /> Tambah Atlet
@@ -224,13 +237,13 @@ export default function AdminRanking() {
             <input 
               type="text" 
               placeholder="CARI NAMA ATLET..." 
-              className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-12 pr-4 outline-none text-xs font-bold uppercase"
+              className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-12 pr-4 outline-none text-xs font-bold uppercase focus:border-blue-600/50 transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select 
-            className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-bold text-xs outline-none cursor-pointer"
+            className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-bold text-xs outline-none cursor-pointer hover:bg-zinc-800 transition-all"
             value={selectedSeed}
             onChange={(e) => setSelectedSeed(e.target.value)}
           >
@@ -246,11 +259,11 @@ export default function AdminRanking() {
           <table className="w-full text-left min-w-[700px]">
             <thead className="bg-white/[0.02] border-b border-white/5 text-zinc-500">
               <tr>
-                <th className="p-5 text-[10px] font-black uppercase tracking-widest">Pos</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest text-center w-16">Pos</th>
                 <th className="p-5 text-[10px] font-black uppercase tracking-widest">Atlet</th>
                 <th className="p-5 text-[10px] font-black uppercase tracking-widest">Kategori</th>
                 <th className="p-5 text-[10px] font-black uppercase tracking-widest text-center">Status</th>
-                <th className="p-5 text-[10px] font-black uppercase tracking-widest text-center">Poin</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest text-center">Total Poin</th>
                 <th className="p-5 text-[10px] font-black uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
@@ -269,10 +282,9 @@ export default function AdminRanking() {
               ) : (
                 filteredRankings.map((item, index) => (
                   <tr key={item.id} className="hover:bg-white/[0.01] transition-all group">
-                    <td className="p-5 font-black italic text-blue-600">#{String(index + 1).padStart(2, '0')}</td>
+                    <td className="p-5 text-center font-black italic text-blue-600">#{String(index + 1).padStart(2, '0')}</td>
                     <td className="p-5">
                       <div className="flex items-center gap-3">
-                        {/* FOTO ATLET DENGAN FALLBACK */}
                         <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-white/10 group-hover:border-blue-500/50 transition-all overflow-hidden shadow-inner">
                           {item.photo_url ? (
                             <img 
@@ -293,20 +305,22 @@ export default function AdminRanking() {
                       </div>
                     </td>
                     <td className="p-5">
-                       <span className="bg-zinc-900 border border-white/5 px-3 py-1 rounded text-[9px] font-bold text-zinc-400 uppercase">{item.category}</span>
+                       <span className="bg-zinc-900 border border-white/5 px-3 py-1 rounded text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">
+                         {item.category}
+                       </span>
                     </td>
                     <td className="p-5 text-center">
                       <span className={`px-3 py-1 rounded text-[9px] font-black uppercase ${
-                        item.seed.includes('A') ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 
-                        item.seed.includes('B') ? 'bg-purple-600/10 text-purple-400 border border-purple-600/20' : 
-                        'bg-zinc-800 text-zinc-500'
+                        item.seed === 'Seed A' ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 
+                        item.seed === 'Seed B' ? 'bg-purple-600/10 text-purple-400 border border-purple-600/20' : 
+                        'bg-zinc-800 text-zinc-500 border border-white/5'
                       }`}>
                         {item.seed}
                       </span>
                     </td>
                     <td className="p-5 text-center">
                       <div className="flex flex-col items-center">
-                        <span className="font-black text-white text-base leading-none">{item.total_points?.toLocaleString()}</span>
+                        <span className="font-black text-white text-base leading-none tracking-tighter">{item.total_points?.toLocaleString()}</span>
                         {item.bonus > 0 && <span className="text-[8px] text-blue-500 font-bold mt-1">+{item.bonus} BONUS</span>}
                       </div>
                     </td>
@@ -371,24 +385,23 @@ export default function AdminRanking() {
                 </div>
               </div>
 
-              {/* INPUT OPTIONAL UNTUK FOTO URL */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">URL Foto (Optional)</label>
                 <input 
                   className="w-full bg-zinc-900 border border-white/5 rounded-xl p-4 outline-none focus:border-blue-600 text-xs transition-all" 
                   placeholder="https://..."
-                  value={formData.photo_url} 
+                  value={formData.photo_url || ''} 
                   onChange={e => setFormData({...formData, photo_url: e.target.value})} 
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4 bg-white/[0.03] p-6 rounded-2xl border border-white/5">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Poin Dasar (Dari Stats)</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Poin Dasar</label>
                   <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-3 outline-none font-black text-white" value={formData.total_points} onChange={e => setFormData({...formData, total_points: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Poin Bonus Manual</label>
+                  <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Bonus Manual</label>
                   <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-3 outline-none font-black text-blue-400" value={formData.bonus} onChange={e => setFormData({...formData, bonus: Number(e.target.value)})} />
                 </div>
               </div>

@@ -15,11 +15,10 @@ import {
   Camera,
   Loader2,
   Users,
-  FileSpreadsheet, // Icon baru untuk Excel
-  FileText         // Icon baru untuk PDF
+  FileSpreadsheet,
+  FileText 
 } from 'lucide-react';
 
-// Import library eksport
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -55,7 +54,32 @@ export default function ManajemenPendaftaran() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
-  // --- FUNGSI EKSPORT EXCEL ---
+  // --- FUNGSI KOMPRESI GAMBAR (BARU) ---
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Standar optimal agar tidak pecah
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          canvas.toBlob((blob) => {
+            resolve(blob as Blob);
+          }, 'image/jpeg', 0.8); // Kualitas 80% (Seimbang tajam & ringan)
+        };
+      };
+    });
+  };
+
   const exportToExcel = () => {
     const dataToExport = filteredData.map((item, index) => ({
       No: index + 1,
@@ -73,7 +97,6 @@ export default function ManajemenPendaftaran() {
     XLSX.writeFile(workbook, `Data_Atlet_${Date.now()}.xlsx`);
   };
 
-  // --- FUNGSI EKSPORT PDF ---
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -96,7 +119,7 @@ export default function ManajemenPendaftaran() {
       body: tableRows,
       startY: 28,
       theme: 'grid',
-      headStyles: { fillStyle: [37, 99, 235], fontStyle: 'bold' }, // Blue-600
+      headStyles: { fillColor: [37, 99, 235], fontStyle: 'bold' },
       styles: { fontSize: 8 },
     });
 
@@ -150,16 +173,28 @@ export default function ManajemenPendaftaran() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !editingItem) return;
     const file = e.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const filePath = `identitas/${editingItem.id}-${Date.now()}.${fileExt}`;
     setUploading(true);
+    
     try {
+      // PROSES KOMPRESI SEBELUM UPLOAD (BARU)
+      const compressedBlob = await compressImage(file);
+      const filePath = `identitas/${editingItem.id}-${Date.now()}.jpg`;
+
       if (editingItem.foto_url) await deleteOldFile(editingItem.foto_url);
-      await supabase.storage.from('identitas-atlet').upload(filePath, file);
+      
+      const { error: uploadError } = await supabase.storage
+        .from('identitas-atlet')
+        .upload(filePath, compressedBlob, { contentType: 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
       const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
       setEditingItem({ ...editingItem, foto_url: publicUrl });
-    } catch (error: any) { alert(error.message); } 
-    finally { setUploading(false); }
+    } catch (error: any) { 
+      alert("Gagal upload: " + error.message); 
+    } finally { 
+      setUploading(false); 
+    }
   };
 
   const handleDelete = async (id: string, nama: string, foto_url: string) => {
@@ -210,35 +245,19 @@ export default function ManajemenPendaftaran() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
-            {/* Tombol Eksport Excel */}
-            <button 
-              onClick={exportToExcel}
-              className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100/50"
-            >
+            <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100/50">
               <FileSpreadsheet size={14} /> EXCEL
             </button>
-
-            {/* Tombol Eksport PDF */}
-            <button 
-              onClick={exportToPDF}
-              className="flex items-center gap-2 bg-rose-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100/50"
-            >
+            <button onClick={exportToPDF} className="flex items-center gap-2 bg-rose-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100/50">
               <FileText size={14} /> PDF
             </button>
-
             <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-
             <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col items-center">
               <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Total</span>
               <span className="text-lg font-black text-blue-600 leading-none">{filteredData.length}</span>
             </div>
-            
-            <button 
-              onClick={fetchData} 
-              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-slate-200"
-            >
-              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
-              REFRESH
+            <button onClick={fetchData} className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-slate-200">
+              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} /> REFRESH
             </button>
           </div>
         </header>
@@ -289,7 +308,12 @@ export default function ManajemenPendaftaran() {
                           className="w-10 h-10 rounded-lg bg-slate-200 border border-white shadow-sm overflow-hidden flex-shrink-0 cursor-zoom-in"
                         >
                           {item.foto_url ? (
-                            <img src={item.foto_url} className="w-full h-full object-cover" alt={item.nama} />
+                            <img 
+                              src={item.foto_url} 
+                              className="w-full h-full object-cover object-top" 
+                              style={{ imageRendering: '-webkit-optimize-contrast' }} // Agar tajam di tabel
+                              alt={item.nama} 
+                            />
                           ) : (
                             <User className="m-auto mt-1.5 text-slate-400" size={18} />
                           )}
@@ -314,36 +338,23 @@ export default function ManajemenPendaftaran() {
                     </td>
 
                     <td className="px-4 py-2 text-center">
-                      <a 
-                        href={`https://wa.me/${item.whatsapp.replace(/\D/g, '')}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 font-bold text-slate-700 hover:text-green-600 bg-white border border-slate-100 px-3 py-1 rounded-lg transition-all text-[11px]"
-                      >
-                        <Phone size={12} className="text-green-500" />
-                        {item.whatsapp}
+                      <a href={`https://wa.me/${item.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-bold text-slate-700 hover:text-green-600 bg-white border border-slate-100 px-3 py-1 rounded-lg transition-all text-[11px]">
+                        <Phone size={12} className="text-green-500" /> {item.whatsapp}
                       </a>
                     </td>
 
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-1.5 font-bold text-slate-600 uppercase text-[10px]">
-                        <MapPin size={12} className="text-rose-500" />
-                        {item.domisili}
+                        <MapPin size={12} className="text-rose-500" /> {item.domisili}
                       </div>
                     </td>
 
                     <td className="px-4 py-2">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }}
-                          className="p-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-all"
-                        >
+                        <button onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }} className="p-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-all">
                           <Edit3 size={14} />
                         </button>
-                        <button 
-                          onClick={() => handleDelete(item.id, item.nama, item.foto_url)}
-                          className="p-1.5 bg-rose-50 text-rose-600 rounded-md hover:bg-rose-600 hover:text-white transition-all"
-                        >
+                        <button onClick={() => handleDelete(item.id, item.nama, item.foto_url)} className="p-1.5 bg-rose-50 text-rose-600 rounded-md hover:bg-rose-600 hover:text-white transition-all">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -359,29 +370,17 @@ export default function ManajemenPendaftaran() {
         <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl text-white shadow-lg">
           <p className="text-[9px] font-bold uppercase tracking-widest opacity-60">Halaman {currentPage} Dari {totalPages || 1}</p>
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors"
-            >
+            <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors">
               <ChevronLeft size={16} />
             </button>
             <div className="flex gap-1.5">
                 {[...Array(totalPages)].map((_, i) => (
-                 <button 
-                  key={i} 
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60'}`}
-                 >
+                 <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60'}`}>
                    {i + 1}
                  </button>
                 ))}
             </div>
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors"
-            >
+            <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
@@ -401,12 +400,16 @@ export default function ManajemenPendaftaran() {
               <div className="flex items-center gap-6 mb-2">
                 <div className="relative">
                   <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
-                    {editingItem.foto_url ? <img src={editingItem.foto_url} className="w-full h-full object-cover" /> : <User size={30} className="m-auto mt-4 text-slate-200" />}
+                    {editingItem.foto_url ? (
+                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" style={{ imageRendering: 'auto' }} /> 
+                    ) : (
+                      <User size={30} className="m-auto mt-4 text-slate-200" />
+                    )}
                     {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={20} /></div>}
                   </div>
                   <label className="absolute -bottom-1 -right-1 p-2 bg-blue-600 text-white rounded-lg shadow-lg cursor-pointer hover:bg-slate-900 transition-all">
                     <Camera size={14} />
-                    <input type="file" className="hidden" onChange={handleFileUpload} />
+                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
                   </label>
                 </div>
                 <div className="flex-1 space-y-1">
@@ -415,7 +418,6 @@ export default function ManajemenPendaftaran() {
                 </div>
               </div>
 
-              {/* Pilihan Jenis Kelamin */}
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -463,7 +465,7 @@ export default function ManajemenPendaftaran() {
       {previewImage && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-lg w-full">
-            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" />
+            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" style={{ imageRendering: 'auto' }} />
           </div>
         </div>
       )}

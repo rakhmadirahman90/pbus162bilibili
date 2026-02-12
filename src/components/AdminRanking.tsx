@@ -7,7 +7,7 @@ import {
   TrendingUp, Info
 } from 'lucide-react';
 
-// Interface diperketat
+// Interface
 interface Ranking {
   id: string;
   player_name: string;
@@ -35,7 +35,7 @@ export default function AdminRanking() {
   });
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Menggunakan useCallback agar fungsi stabil
+  // Fetch Data
   const fetchRankings = useCallback(async () => {
     setLoading(true);
     try {
@@ -68,14 +68,14 @@ export default function AdminRanking() {
     };
   }, [fetchRankings]);
 
-  // --- PERBAIKAN SINKRONISASI ---
+  // --- LOGIKA SINKRONISASI OTOMATIS ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Gabungkan semua poin dari statistik ke Leaderboard?");
+    const confirm = window.confirm("Gabungkan semua poin dari manajemen atlet ke Leaderboard?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // Pastikan nama relasi 'pendaftaran' sesuai dengan Foreign Key di DB
+      // 1. Ambil data stats dengan join pendaftaran
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
@@ -86,35 +86,35 @@ export default function AdminRanking() {
 
       if (statsError) throw statsError;
       if (!statsData || statsData.length === 0) {
-        alert("Data statistik kosong. Pastikan tabel atlet_stats sudah terisi.");
+        alert("Data statistik kosong.");
         return;
       }
 
+      // 2. Agregasi Data (Menjumlahkan poin jika nama sama)
       const aggregatedMap = new Map<string, any>();
 
       statsData.forEach((item: any) => {
-        // Supabase join bisa mengembalikan object atau array tergantung config
         const pendaftar = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
         
         if (pendaftar?.nama) {
-          const cleanName = pendaftar.nama.trim().toUpperCase();
-          const pointsToAdd = Number(item.points) || 0;
-          const existing = aggregatedMap.get(cleanName);
+          const rawName = pendaftar.nama.trim();
+          const key = rawName.toUpperCase(); // Kunci unik berdasarkan nama kapital
+          const points = Number(item.points) || 0;
+          const existing = aggregatedMap.get(key);
 
           if (existing) {
-            aggregatedMap.set(cleanName, {
+            aggregatedMap.set(key, {
               ...existing,
-              total_points: existing.total_points + pointsToAdd,
-              // Prioritas Seed: Seed A > Seed B > Non-Seed
-              seed: (item.seed === 'Seed A' || existing.seed === 'Seed A') ? 'Seed A' : 
-                    (item.seed === 'Seed B' || existing.seed === 'Seed B') ? 'Seed B' : 'Non-Seed'
+              total_points: existing.total_points + points,
+              // Update seed jika yang baru lebih tinggi (A > B > Non)
+              seed: item.seed === 'Seed A' ? 'Seed A' : (existing.seed === 'Seed A' ? 'Seed A' : item.seed)
             });
           } else {
-            aggregatedMap.set(cleanName, {
-              player_name: cleanName,
+            aggregatedMap.set(key, {
+              player_name: rawName.toUpperCase(),
               category: pendaftar.kategori || 'Senior',
               seed: item.seed || 'Non-Seed',
-              total_points: pointsToAdd,
+              total_points: points,
               bonus: 0
             });
           }
@@ -122,8 +122,8 @@ export default function AdminRanking() {
       });
 
       const upsertData = Array.from(aggregatedMap.values());
-      if (upsertData.length === 0) throw new Error("Tidak ada nama atlet yang valid untuk disinkronkan.");
 
+      // 3. Simpan ke rankings
       const { error: upsertError } = await supabase
         .from('rankings')
         .upsert(upsertData, { 
@@ -133,15 +133,16 @@ export default function AdminRanking() {
 
       if (upsertError) throw upsertError;
       
-      alert(`Sinkronisasi Berhasil! ${upsertData.length} atlet diperbarui.`);
-      await fetchRankings();
+      alert(`Berhasil mensinkronkan ${upsertData.length} data atlet.`);
+      fetchRankings();
     } catch (err: any) {
-      alert("Error: " + (err.hint || err.message));
+      alert("Gagal Sinkron: " + (err.hint || err.message));
     } finally {
       setLoading(false);
     }
   };
 
+  // --- SUBMIT MANUAL ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -155,7 +156,7 @@ export default function AdminRanking() {
         player_name: formData.player_name?.trim().toUpperCase(),
         category: formData.category,
         seed: formData.seed,
-        total_points: basePoints + bonusPoints, // Kalkulasi otomatis
+        total_points: basePoints + bonusPoints,
         bonus: bonusPoints
       };
 
@@ -172,14 +173,14 @@ export default function AdminRanking() {
       setEditingId(null);
       fetchRankings();
     } catch (err: any) {
-      setFormError(err.message?.includes('unique') ? "Nama atlet ini sudah ada di daftar!" : err.message);
+      setFormError(err.message?.includes('unique') ? "Nama atlet ini sudah ada!" : err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Data akan dihapus permanen. Lanjutkan?")) return;
+    if (!window.confirm("Hapus data ini?")) return;
     try {
       const { error } = await supabase.from('rankings').delete().eq('id', id);
       if (error) throw error;
@@ -195,7 +196,6 @@ export default function AdminRanking() {
       setEditingId(item.id);
       setFormData({
         ...item,
-        // Tampilkan poin murni (tanpa bonus) di input agar user tidak bingung
         total_points: (item.total_points || 0) - (item.bonus || 0)
       });
     } else {
@@ -216,7 +216,6 @@ export default function AdminRanking() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full -z-10" />
       
       <div className="max-w-6xl mx-auto">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-4">
@@ -247,7 +246,6 @@ export default function AdminRanking() {
           </div>
         </div>
 
-        {/* Info Card */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-3xl">
             <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Total Athletes</p>
@@ -260,18 +258,17 @@ export default function AdminRanking() {
             </p>
           </div>
           <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-3xl">
-            <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Last Sync</p>
-            <p className="text-3xl font-black italic text-zinc-400">LIVE</p>
+            <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">System Status</p>
+            <p className="text-3xl font-black italic text-zinc-400">ONLINE</p>
           </div>
         </div>
 
-        {/* Filter Panel */}
         <div className="bg-zinc-900/40 border border-white/5 p-3 rounded-[2rem] mb-8 flex flex-col md:flex-row gap-3 backdrop-blur-xl">
           <div className="relative flex-grow">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
             <input 
               type="text" 
-              placeholder="Cari nama atau id..." 
+              placeholder="Cari nama..." 
               className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-14 pr-6 outline-none focus:border-blue-600/50 font-bold text-[11px] uppercase"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -289,7 +286,6 @@ export default function AdminRanking() {
           </select>
         </div>
 
-        {/* Table View */}
         <div className="bg-zinc-900/20 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
@@ -313,42 +309,27 @@ export default function AdminRanking() {
               ) : filteredRankings.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-24 text-center">
-                    <div className="bg-white/5 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Info className="text-zinc-600" />
-                    </div>
-                    <p className="text-zinc-500 font-bold uppercase italic tracking-widest">No matching results found</p>
+                    <Info className="text-zinc-600 mx-auto mb-4" />
+                    <p className="text-zinc-500 font-bold uppercase tracking-widest">No matching results found</p>
                   </td>
                 </tr>
               ) : (
                 filteredRankings.map((item, index) => (
                   <tr key={item.id} className="hover:bg-white/[0.02] transition-all group">
-                    <td className="p-6">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black italic text-sm ${
-                        index === 0 ? 'bg-yellow-500/20 text-yellow-500' : 
-                        index === 1 ? 'bg-zinc-400/20 text-zinc-400' :
-                        index === 2 ? 'bg-orange-500/20 text-orange-500' : 'text-zinc-700'
-                      }`}>
-                        {index + 1}
-                      </div>
-                    </td>
+                    <td className="p-6 font-black italic text-zinc-500">{index + 1}</td>
                     <td className="p-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-full flex items-center justify-center border border-white/5 group-hover:border-blue-500/50 transition-all">
-                          <User size={16} className="text-zinc-500 group-hover:text-blue-400" />
+                        <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-white/5">
+                          <User size={16} className="text-zinc-500" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-black italic uppercase tracking-tighter text-white group-hover:text-blue-400 transition-colors">
+                          <span className="font-black italic uppercase text-white group-hover:text-blue-400 transition-colors">
                             {item.player_name}
                           </span>
-                          <span className="text-[9px] text-zinc-600 font-bold uppercase">UID: {item.id.slice(0,8)}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="p-6">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        {item.category}
-                      </span>
-                    </td>
+                    <td className="p-6 text-[10px] font-black uppercase text-zinc-400">{item.category}</td>
                     <td className="p-6 text-center">
                       <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                         item.seed === 'Seed A' ? 'bg-blue-600/10 text-blue-400 border-blue-600/30' : 
@@ -359,20 +340,13 @@ export default function AdminRanking() {
                       </span>
                     </td>
                     <td className="p-6">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2 font-black italic text-lg">
-                          {item.total_points?.toLocaleString()}
-                          <TrendingUp size={14} className="text-blue-600" />
-                        </div>
-                        {(item.bonus || 0) > 0 && (
-                          <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest">
-                            +{item.bonus} Bonus
-                          </span>
-                        )}
+                      <div className="flex items-center gap-2 font-black italic text-lg">
+                        {item.total_points?.toLocaleString()}
+                        <TrendingUp size={14} className="text-blue-600" />
                       </div>
                     </td>
                     <td className="p-6 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                         <button onClick={() => openModal(item)} className="p-3 bg-zinc-800 hover:bg-blue-600 rounded-xl transition-all"><Edit3 size={16}/></button>
                         <button onClick={() => handleDelete(item.id)} className="p-3 bg-zinc-800 hover:bg-red-600 rounded-xl transition-all"><Trash2 size={16}/></button>
                       </div>
@@ -385,17 +359,13 @@ export default function AdminRanking() {
         </div>
       </div>
 
-      {/* Modern Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-          <div className="bg-[#0c0c0c] w-full max-w-xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-[#0c0c0c] w-full max-w-xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
             <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
-              <div>
-                <h3 className="text-xl font-black italic uppercase tracking-tighter">
-                  {editingId ? 'Edit' : 'New'} <span className="text-blue-600">Entry</span>
-                </h3>
-                <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-[0.2em]">Manual Ranking Override</p>
-              </div>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter">
+                {editingId ? 'Edit' : 'New'} <span className="text-blue-600">Entry</span>
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-all"><X size={20}/></button>
             </div>
 
@@ -407,11 +377,10 @@ export default function AdminRanking() {
               )}
               
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Athlete Name</label>
+                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Athlete Name</label>
                 <input 
                   required 
                   type="text" 
-                  autoFocus
                   className="w-full px-6 py-4 bg-white/[0.03] rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-white uppercase transition-all" 
                   value={formData.player_name} 
                   onChange={e => setFormData({...formData, player_name: e.target.value})} 
@@ -420,7 +389,7 @@ export default function AdminRanking() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Category</label>
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Category</label>
                   <select 
                     className="w-full px-6 py-4 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white text-xs uppercase" 
                     value={formData.category} 
@@ -432,7 +401,7 @@ export default function AdminRanking() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Seed Status</label>
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Seed Status</label>
                   <select 
                     className="w-full px-6 py-4 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white text-xs uppercase" 
                     value={formData.seed} 
@@ -447,7 +416,7 @@ export default function AdminRanking() {
 
               <div className="grid grid-cols-2 gap-4 p-6 bg-white/[0.02] rounded-3xl border border-white/5">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest ml-1">Base Points</label>
+                  <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Base Points</label>
                   <input 
                     type="number" 
                     className="w-full px-6 py-4 bg-black/40 rounded-2xl border border-white/5 outline-none font-black text-white" 
@@ -456,7 +425,7 @@ export default function AdminRanking() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-green-500 uppercase tracking-widest ml-1">Bonus Point</label>
+                  <label className="text-[9px] font-black text-green-500 uppercase tracking-widest">Bonus Point</label>
                   <input 
                     type="number" 
                     className="w-full px-6 py-4 bg-black/40 rounded-2xl border border-white/5 outline-none font-black text-white" 
@@ -469,7 +438,7 @@ export default function AdminRanking() {
               <button 
                 type="submit" 
                 disabled={isSaving} 
-                className="w-full py-5 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3 transition-all active:scale-95"
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
               >
                 {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} 
                 {editingId ? 'Save Changes' : 'Create Entry'}

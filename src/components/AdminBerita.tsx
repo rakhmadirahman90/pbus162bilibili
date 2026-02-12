@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 import { 
   Newspaper, Plus, Trash2, Edit3, Save, X, 
   Image as ImageIcon, Calendar, Tag, Loader2, Zap, Search, AlertCircle, ExternalLink,
-  Filter, ArrowUpDown, Clock
+  Filter, ArrowUpDown, Clock, Upload // Tambah icon Upload
 } from 'lucide-react';
 
 interface Berita {
@@ -24,11 +24,12 @@ export default function AdminBerita() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // --- FITUR BARU: State Filter & Sort ---
+  // State khusus upload
+  const [isUploading, setIsUploading] = useState(false);
+
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [sortBy, setSortBy] = useState<'baru' | 'lama'>('baru');
 
-  // State Form
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Berita>>({
     judul: '',
@@ -39,15 +40,12 @@ export default function AdminBerita() {
     tanggal: new Date().toISOString().split('T')[0]
   });
 
-  // State Notifikasi & Error
   const [showSuccess, setShowSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchNews();
     
-    // --- FITUR BARU: Real-time Subscription ---
-    // Dashboard akan otomatis update jika ada perubahan di tabel berita
     const subscription = supabase
       .channel('public:berita')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'berita' }, () => {
@@ -71,10 +69,48 @@ export default function AdminBerita() {
     setLoading(false);
   };
 
+  // --- FUNGSI BARU: HANDLE UPLOAD FOTO ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validasi file (maks 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setFormError("Ukuran gambar terlalu besar (Maks 2MB)");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `berita/${fileName}`;
+
+      // Upload ke bucket bernama 'images' (pastikan bucket ini sudah dibuat di Supabase)
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Ambil Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      setFormData({ ...formData, gambar_url: publicUrl });
+      setFormError(null);
+    } catch (err: any) {
+      setFormError("Gagal mengunggah gambar: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const validateForm = () => {
     if (!formData.judul || formData.judul.length < 5) return "Judul terlalu pendek.";
     if (!formData.ringkasan || formData.ringkasan.length < 10) return "Ringkasan harus diisi lebih detail.";
-    if (!formData.gambar_url?.startsWith('http')) return "URL Gambar tidak valid (Gunakan Link http/https).";
+    if (!formData.gambar_url) return "Wajib mengunggah gambar berita.";
     if (!formData.konten || formData.konten.length < 20) return "Isi berita terlalu singkat.";
     return null;
   };
@@ -147,7 +183,6 @@ export default function AdminBerita() {
     setEditingId(null);
   };
 
-  // --- FITUR BARU: Logic Filter & Sort Gabungan ---
   const filteredAndSortedNews = news
     .filter(n => {
       const matchesSearch = n.judul.toLowerCase().includes(searchTerm.toLowerCase());
@@ -162,12 +197,10 @@ export default function AdminBerita() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 relative overflow-hidden">
-      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10" />
       <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-900/10 blur-[100px] rounded-full -z-10" />
 
       <div className="max-w-7xl mx-auto relative z-10">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -189,7 +222,6 @@ export default function AdminBerita() {
           </button>
         </div>
 
-        {/* --- FITUR BARU: Control Panel (Search, Filter, Sort) --- */}
         <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[2.5rem] mb-10 space-y-6">
           <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
             <div className="relative group w-full lg:max-w-md">
@@ -229,7 +261,6 @@ export default function AdminBerita() {
           </div>
         </div>
 
-        {/* News Table/Grid */}
         <div className="grid grid-cols-1 gap-4">
           {loading ? (
             <div className="py-32 text-center flex flex-col items-center gap-4">
@@ -277,7 +308,6 @@ export default function AdminBerita() {
         </div>
       </div>
 
-      {/* MODAL EDITOR */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-[#0c0c0c] w-full max-w-3xl rounded-[3rem] overflow-hidden border border-white/10 shadow-[0_0_100px_rgba(37,99,235,0.1)] flex flex-col max-h-[90vh]">
@@ -319,12 +349,24 @@ export default function AdminBerita() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* PERUBAHAN DISINI: INPUT FILE GANTI INPUT TEXT */}
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Media Gambar (URL)</label>
-                    <div className="relative">
-                      <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-                      <input required type="text" placeholder="https://..." className="w-full pl-14 pr-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white shadow-inner shadow-black/50" value={formData.gambar_url} onChange={e => setFormData({...formData, gambar_url: e.target.value})} />
-                    </div>
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Upload Foto Berita</label>
+                    <label className="relative flex items-center justify-center w-full px-6 py-4 bg-white/5 rounded-2xl border border-dashed border-white/20 hover:border-blue-600 transition-all cursor-pointer group">
+                      <div className="flex items-center gap-3 text-zinc-500 group-hover:text-blue-500 transition-colors">
+                        {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                        <span className="font-bold text-xs uppercase tracking-widest">
+                          {isUploading ? "Mengunggah..." : formData.gambar_url ? "Ganti Foto" : "Pilih File Gambar"}
+                        </span>
+                      </div>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleFileUpload}
+                        disabled={isUploading}
+                      />
+                    </label>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Tanggal Publikasi</label>
@@ -332,8 +374,8 @@ export default function AdminBerita() {
                   </div>
               </div>
 
-              {/* IMAGE PREVIEW */}
-              {formData.gambar_url && formData.gambar_url.startsWith('http') && (
+              {/* IMAGE PREVIEW TETAP ADA */}
+              {formData.gambar_url && (
                 <div className="w-full h-48 rounded-3xl overflow-hidden border border-white/10 relative shadow-2xl">
                    <img src={formData.gambar_url} className="w-full h-full object-cover" alt="Preview" />
                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
@@ -355,7 +397,7 @@ export default function AdminBerita() {
               </div>
 
               <div className="flex gap-4 pt-4 sticky bottom-0 bg-[#0c0c0c] py-4">
-                <button type="submit" disabled={isSaving} className="flex-grow py-5 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-600/20 flex items-center justify-center gap-3 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
+                <button type="submit" disabled={isSaving || isUploading} className="flex-grow py-5 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-600/20 flex items-center justify-center gap-3 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
                   {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
                   {editingId ? 'Sinkronisasi Perubahan' : 'Publikasikan Konten'}
                 </button>

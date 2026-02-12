@@ -14,21 +14,23 @@ import RegistrationForm from './components/RegistrationForm';
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
 
-// Import Komponen Admin
+// Import Komponen Admin (Pastikan file-file ini sudah Anda buat)
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Cek sesi login aktif
+    // Ambil sesi login saat ini
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setLoading(false);
     });
 
-    // Pantau perubahan login/logout
+    // Pantau perubahan status auth secara real-time
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -36,10 +38,18 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white font-black italic uppercase tracking-widest">
+        Loading System...
+      </div>
+    );
+  }
+
   return (
     <Router>
       <Routes>
-        {/* ROUTE 1: LANDING PAGE LENGKAP */}
+        {/* ROUTE UTAMA: LANDING PAGE LENGKAP */}
         <Route path="/" element={
           <div className="min-h-screen bg-white">
             <Navbar />
@@ -57,35 +67,38 @@ export default function App() {
           </div>
         } />
 
-        {/* ROUTE 2: LOGIN ADMIN */}
+        {/* ROUTE LOGIN: REDIRECT KE DASHBOARD JIKA SUDAH LOGIN */}
         <Route 
           path="/login" 
-          element={!session ? <Login /> : <Navigate to="/admin/dashboard" />} 
+          element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} 
         />
 
-        {/* ROUTE 3: AREA ADMIN (PROTECTED) */}
+        {/* ROUTE ADMIN: PROTECTED BY SESSION */}
         <Route 
           path="/admin/*" 
-          element={session ? <AdminLayout session={session} /> : <Navigate to="/login" />} 
+          element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} 
         />
 
-        {/* Redirect jika salah ketik URL */}
-        <Route path="*" element={<Navigate to="/" />} />
+        {/* CATCH-ALL: REDIRECT KE HOME JIKA URL TIDAK ADA */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
 }
 
-// Komponen Layout untuk Admin Dashboard
+// Layout Khusus Admin Dashboard
 function AdminLayout({ session }: { session: any }) {
   return (
     <div className="flex min-h-screen bg-slate-50">
+      {/* Sidebar untuk navigasi internal admin */}
       <Sidebar email={session.user.email} />
-      <main className="flex-1 overflow-y-auto p-4 md:p-8">
+      
+      {/* Area Konten Dinamis */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-10">
         <Routes>
           <Route path="dashboard" element={<ManajemenPendaftaran />} />
-          {/* Anda bisa menambah route seperti /admin/atlet di sini nanti */}
-          <Route path="*" element={<Navigate to="dashboard" />} />
+          {/* Route tambahan bisa diletakkan di bawah ini */}
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </main>
     </div>

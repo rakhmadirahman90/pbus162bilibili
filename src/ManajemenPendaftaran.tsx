@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Edit3,
   X,
-  Save
+  Save,
+  User
 } from 'lucide-react';
 
 interface Registrant {
@@ -31,12 +32,10 @@ export default function ManajemenPendaftaran() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // State untuk Edit
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // State untuk Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -73,13 +72,11 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  // Fungsi untuk membuka modal edit
   const openEditModal = (item: Registrant) => {
     setEditingItem(item);
     setIsEditModalOpen(true);
   };
 
-  // Fungsi untuk menyimpan perubahan
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
@@ -100,7 +97,7 @@ export default function ManajemenPendaftaran() {
       if (error) throw error;
       
       setIsEditModalOpen(false);
-      fetchData(); // Refresh data setelah update
+      fetchData();
     } catch (error: any) {
       alert('Gagal memperbarui data: ' + error.message);
     } finally {
@@ -128,10 +125,10 @@ export default function ManajemenPendaftaran() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight italic uppercase">Data Calon Atlet</h1>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight italic uppercase">Panel Manajemen Atlet</h1>
             <div className="flex items-center gap-2 mt-2">
               <span className="bg-blue-600 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                Total {filteredData.length} Pendaftar
+                Total {filteredData.length} Data
               </span>
             </div>
           </div>
@@ -165,48 +162,73 @@ export default function ManajemenPendaftaran() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 border-b-2 border-slate-100">
-                  <th className="px-8 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">Identitas Atlet</th>
-                  <th className="px-8 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">Kategori Umur</th>
-                  <th className="px-8 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">Lokasi & WA</th>
-                  <th className="px-8 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400 text-right">Aksi</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">Nama Atlet</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">Kategori</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">Domisili</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">WhatsApp</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400">Tgl Daftar</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] tracking-[0.2em] text-slate-400 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="px-8 py-24 text-center text-slate-400 font-black uppercase tracking-widest">
+                    <td colSpan={6} className="px-8 py-24 text-center text-slate-400 font-black uppercase tracking-widest">
                       Menyinkronkan data...
                     </td>
                   </tr>
                 ) : currentItems.map((item) => (
                   <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
-                    <td className="px-8 py-7">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden text-xl font-black text-slate-300">
-                          {item.foto_url ? <img src={item.foto_url} alt="" className="w-full h-full object-cover" /> : item.nama[0]}
+                    {/* Kolom Nama */}
+                    <td className="px-6 py-7">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden flex-shrink-0">
+                          {item.foto_url ? (
+                            <img src={item.foto_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <User size={20} className="text-slate-300" />
+                          )}
                         </div>
-                        <div>
-                          <div className="font-black text-slate-900 text-xl uppercase leading-none mb-1">{item.nama}</div>
-                          <div className="flex items-center gap-1.5 text-slate-400 font-bold text-[10px] uppercase">
-                            <Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('id-ID')}
-                          </div>
-                        </div>
+                        <span className="font-black text-slate-900 text-base uppercase leading-tight">{item.nama}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-7 font-black text-blue-600 uppercase italic text-xs tracking-wider">
-                      {item.kategori}
+
+                    {/* Kolom Kategori */}
+                    <td className="px-6 py-7">
+                      <span className="inline-block bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1 rounded-lg text-[10px] font-black uppercase italic">
+                        {item.kategori}
+                      </span>
                     </td>
-                    <td className="px-8 py-7">
-                      <div className="font-black text-slate-900 text-sm">{item.whatsapp}</div>
-                      <div className="text-slate-400 font-bold text-xs italic uppercase">{item.domisili}</div>
+
+                    {/* Kolom Domisili */}
+                    <td className="px-6 py-7">
+                      <div className="flex items-center gap-2 text-slate-600 font-bold text-xs uppercase italic">
+                        <MapPin size={14} className="text-red-400" /> {item.domisili}
+                      </div>
                     </td>
-                    <td className="px-8 py-7">
+
+                    {/* Kolom WhatsApp */}
+                    <td className="px-6 py-7">
+                      <div className="flex items-center gap-2 text-slate-900 font-black text-xs">
+                        <Phone size={14} className="text-green-500" /> {item.whatsapp}
+                      </div>
+                    </td>
+
+                    {/* Kolom Tanggal Pendaftaran */}
+                    <td className="px-6 py-7">
+                      <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase">
+                        <Calendar size={14} /> {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </div>
+                    </td>
+
+                    {/* Kolom Aksi */}
+                    <td className="px-6 py-7">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => openEditModal(item)} className="p-3 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl hover:border-blue-600 hover:text-blue-600 transition-all shadow-sm">
-                          <Edit3 size={18} />
+                        <button onClick={() => openEditModal(item)} className="p-2.5 bg-white border-2 border-slate-100 text-slate-400 rounded-xl hover:border-blue-600 hover:text-blue-600 transition-all shadow-sm">
+                          <Edit3 size={16} />
                         </button>
-                        <button onClick={() => handleDelete(item.id, item.nama)} className="p-3 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl hover:border-red-600 hover:text-red-600 transition-all shadow-sm">
-                          <Trash2 size={18} />
+                        <button onClick={() => handleDelete(item.id, item.nama)} className="p-2.5 bg-white border-2 border-slate-100 text-slate-400 rounded-xl hover:border-red-600 hover:text-red-600 transition-all shadow-sm">
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
@@ -218,13 +240,13 @@ export default function ManajemenPendaftaran() {
         </div>
 
         {/* Pagination Section */}
-        <div className="flex justify-between items-center px-8 py-4">
-           <button onClick={goToPrevPage} disabled={currentPage === 1} className="p-3 border-2 rounded-2xl disabled:opacity-30">
-             <ChevronLeft />
+        <div className="flex justify-between items-center px-8 py-4 bg-white rounded-3xl border-2 border-slate-100">
+           <button onClick={goToPrevPage} disabled={currentPage === 1} className="p-3 border-2 border-slate-100 rounded-2xl disabled:opacity-30 hover:bg-slate-50 transition-all">
+             <ChevronLeft size={20} className="text-slate-400" />
            </button>
-           <span className="font-black text-slate-400 uppercase text-xs">Hal {currentPage} / {totalPages}</span>
-           <button onClick={goToNextPage} disabled={currentPage === totalPages} className="p-3 border-2 rounded-2xl disabled:opacity-30">
-             <ChevronRight />
+           <span className="font-black text-slate-400 uppercase text-xs tracking-widest">Halaman {currentPage} / {totalPages}</span>
+           <button onClick={goToNextPage} disabled={currentPage === totalPages} className="p-3 border-2 border-slate-100 rounded-2xl disabled:opacity-30 hover:bg-slate-50 transition-all">
+             <ChevronRight size={20} className="text-slate-400" />
            </button>
         </div>
 
@@ -234,9 +256,9 @@ export default function ManajemenPendaftaran() {
       {isEditModalOpen && editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-8 border-b-2 border-slate-100 flex justify-between items-center">
+            <div className="p-8 border-b-2 border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">Edit Data Atlet</h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X /></button>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 transition-colors"><X /></button>
             </div>
             
             <form onSubmit={handleUpdate} className="p-8 space-y-5">
@@ -301,7 +323,7 @@ export default function ManajemenPendaftaran() {
                   disabled={isSaving}
                   className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-blue-200 hover:bg-slate-900 transition-all flex items-center justify-center gap-2"
                 >
-                  {isSaving ? 'Menyimpan...' : <><Save size={16}/> Simpan Perubahan</>}
+                  {isSaving ? 'Menyimpan...' : <><Save size={16}/> Simpan</>}
                 </button>
               </div>
             </form>

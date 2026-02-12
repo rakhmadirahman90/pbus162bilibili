@@ -43,6 +43,7 @@ export default function ManajemenPendaftaran() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  // 1. FUNGSI AMBIL DATA (MANUAL/AWAL)
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -53,34 +54,64 @@ export default function ManajemenPendaftaran() {
 
       if (error) throw error;
       setRegistrants(data || []);
-      setCurrentPage(1);
     } catch (error: any) {
-      alert('Gagal mengambil data: ' + error.message);
+      console.error('Gagal mengambil data:', error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // 2. REALTIME SUBSCRIPTION & INITIAL FETCH
   useEffect(() => {
     fetchData();
+
+    // Setup Realtime listener
+    const channel = supabase
+      .channel('pendaftaran_changes') // Nama channel bebas
+      .on(
+        'postgres_changes', 
+        { event: '*', table: 'pendaftaran', schema: 'public' }, 
+        (payload) => {
+          console.log('Perubahan terdeteksi:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            // Tambahkan data baru ke paling atas tanpa loading total
+            setRegistrants((prev) => [payload.new as Registrant, ...prev]);
+          } 
+          else if (payload.eventType === 'UPDATE') {
+            // Update data yang spesifik di state
+            setRegistrants((prev) => 
+              prev.map((item) => item.id === payload.new.id ? (payload.new as Registrant) : item)
+            );
+          } 
+          else if (payload.eventType === 'DELETE') {
+            // Hapus data dari state
+            setRegistrants((prev) => prev.filter((item) => item.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup saat komponen ditutup
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // FUNGSI CLEANUP: MENGHAPUS FILE LAMA DARI STORAGE
+  // FUNGSI CLEANUP STORAGE
   const deleteOldFile = async (url: string) => {
     if (!url || !url.includes('atlet-photos/')) return;
     try {
       const fileName = url.split('atlet-photos/').pop();
       if (fileName) {
-        await supabase.storage
-          .from('pendaftaran')
-          .remove([`atlet-photos/${fileName}`]);
+        await supabase.storage.from('pendaftaran').remove([`atlet-photos/${fileName}`]);
       }
     } catch (err) {
       console.error("Gagal menghapus file lama:", err);
     }
   };
 
-  // FUNGSI UPLOAD FOTO OTOMATIS
+  // UPLOAD FOTO
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !editingItem) return;
     
@@ -93,28 +124,12 @@ export default function ManajemenPendaftaran() {
     const filePath = `atlet-photos/${fileName}`;
 
     setUploading(true);
-
     try {
-      // 1. Hapus foto lama jika ada
-      if (editingItem.foto_url) {
-        await deleteOldFile(editingItem.foto_url);
-      }
-
-      // 2. Upload foto baru
-      const { error: uploadError } = await supabase.storage
-        .from('pendaftaran')
-        .upload(filePath, file);
-
+      if (editingItem.foto_url) await deleteOldFile(editingItem.foto_url);
+      const { error: uploadError } = await supabase.storage.from('pendaftaran').upload(filePath, file);
       if (uploadError) throw uploadError;
-
-      // 3. Ambil URL Publik
-      const { data: { publicUrl } } = supabase.storage
-        .from('pendaftaran')
-        .getPublicUrl(filePath);
-
-      // 4. Update state editingItem agar preview berubah
+      const { data: { publicUrl } } = supabase.storage.from('pendaftaran').getPublicUrl(filePath);
       setEditingItem({ ...editingItem, foto_url: publicUrl });
-
     } catch (error: any) {
       alert('Gagal upload: ' + error.message);
     } finally {
@@ -123,12 +138,12 @@ export default function ManajemenPendaftaran() {
   };
 
   const handleDelete = async (id: string, nama: string, foto_url: string) => {
-    if (window.confirm(`Hapus data ${nama}? Foto juga akan dihapus dari storage.`)) {
+    if (window.confirm(`Hapus data ${nama}?`)) {
       try {
         if (foto_url) await deleteOldFile(foto_url);
         const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
         if (error) throw error;
-        fetchData();
+        // Tidak perlu panggil fetchData() karena Realtime akan menghapusnya dari state
       } catch (error: any) {
         alert('Gagal menghapus: ' + error.message);
       }
@@ -138,7 +153,6 @@ export default function ManajemenPendaftaran() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
-
     setIsSaving(true);
     try {
       const { error } = await supabase
@@ -154,17 +168,18 @@ export default function ManajemenPendaftaran() {
 
       if (error) throw error;
       setIsEditModalOpen(false);
-      fetchData();
+      // Tidak perlu fetchData() karena Realtime akan update state otomatis
     } catch (error: any) {
-      alert('Gagal memperbarui data: ' + error.message);
+      alert('Gagal memperbarui: ' + error.message);
     } finally {
       setIsSaving(false);
     }
   };
 
+  // FILTER & PAGINATION
   const filteredData = registrants.filter(item => 
-    item.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.domisili.toLowerCase().includes(searchTerm.toLowerCase())
+    item.nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.domisili?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -179,10 +194,15 @@ export default function ManajemenPendaftaran() {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight italic uppercase">Panel Manajemen Atlet</h1>
-            <span className="bg-blue-600 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest mt-2 inline-block shadow-lg shadow-blue-200">
-              Total {filteredData.length} Data
-            </span>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight italic uppercase leading-none">Panel Manajemen Atlet</h1>
+            <div className="flex items-center gap-2 mt-2">
+               <span className="bg-blue-600 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-200">
+                Total {filteredData.length} Data
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-500 uppercase animate-pulse">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> Realtime Active
+              </span>
+            </div>
           </div>
           <button onClick={fetchData} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs tracking-widest hover:bg-blue-600 transition-all shadow-lg active:scale-95">
             <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
@@ -215,8 +235,8 @@ export default function ManajemenPendaftaran() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {loading ? (
-                  <tr><td colSpan={5} className="py-24 text-center font-black text-slate-400 uppercase tracking-widest">Menyinkronkan...</td></tr>
+                {loading && registrants.length === 0 ? (
+                  <tr><td colSpan={5} className="py-24 text-center font-black text-slate-400 uppercase tracking-widest">Sinkronisasi...</td></tr>
                 ) : currentItems.map((item, index) => (
                   <tr key={item.id} className="hover:bg-blue-50/40 transition-colors group">
                     <td className="px-6 py-7 text-center font-black text-slate-300">{indexOfFirstItem + index + 1}</td>
@@ -273,7 +293,7 @@ export default function ManajemenPendaftaran() {
         </div>
       )}
 
-      {/* MODAL EDIT DENGAN UPLOAD OTOMATIS */}
+      {/* MODAL EDIT */}
       {isEditModalOpen && editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in zoom-in duration-200">
@@ -283,8 +303,7 @@ export default function ManajemenPendaftaran() {
             </div>
             
             <form onSubmit={handleUpdate} className="p-8 space-y-5 overflow-y-auto">
-              
-              {/* BAGIAN VISUAL UPLOAD FOTO */}
+              {/* UPLOAD FOTO SECTION */}
               <div className="flex flex-col items-center gap-4 mb-2">
                 <div className="relative w-36 h-36 group">
                   <div className="w-full h-full rounded-[2.5rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden relative">
@@ -299,18 +318,17 @@ export default function ManajemenPendaftaran() {
                       </div>
                     )}
                   </div>
-                  {/* Tombol Kamera sebagai Input File */}
-                  <label className="absolute -bottom-2 -right-2 p-4 bg-blue-600 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 transition-all active:scale-90 hover:rotate-12">
+                  <label className="absolute -bottom-2 -right-2 p-4 bg-blue-600 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 transition-all active:scale-90 shadow-blue-200">
                     <Camera size={24} />
                     <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
                   </label>
                 </div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {uploading ? 'SEDANG MENGUNGGAH...' : 'Klik kamera untuk ganti foto'}
+                  {uploading ? 'SEDANG MENGUNGGAH...' : 'Ganti Foto Profil'}
                 </p>
               </div>
 
-              {/* INPUT NAMA */}
+              {/* INPUT FIELDS */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Nama Lengkap</label>
                 <input 
@@ -321,7 +339,6 @@ export default function ManajemenPendaftaran() {
                 />
               </div>
 
-              {/* WHATSAPP & KATEGORI */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">WhatsApp</label>
@@ -346,7 +363,6 @@ export default function ManajemenPendaftaran() {
                 </div>
               </div>
 
-              {/* DOMISILI */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Domisili</label>
                 <input 
@@ -357,23 +373,12 @@ export default function ManajemenPendaftaran() {
                 />
               </div>
 
-              {/* INFO URL (READ-ONLY) */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">URL FOTO (Otomatis)</label>
-                <input 
-                  className="w-full px-4 py-2 bg-slate-100 border-none rounded-lg text-[9px] font-mono text-slate-400"
-                  value={editingItem.foto_url}
-                  readOnly
-                />
-              </div>
-
-              {/* ACTIONS */}
               <div className="pt-4 flex gap-3 pb-4">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 border-2 border-slate-100 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-50 transition-all">
                   Batal
                 </button>
                 <button type="submit" disabled={isSaving || uploading} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-200 hover:bg-slate-900 transition-all flex items-center justify-center gap-2">
-                  {isSaving ? 'Menyimpan...' : <><Save size={16}/> Simpan Data</>}
+                  {isSaving ? 'Menyimpan...' : <><Save size={16}/> Simpan Perubahan</>}
                 </button>
               </div>
             </form>

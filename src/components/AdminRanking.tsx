@@ -1,18 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from "../supabase";
 import { 
   Trophy, Plus, Trash2, Edit3, Save, X, 
   Search, Loader2, Award, User, Hash, 
-  ChevronUp, ChevronDown, Filter, AlertCircle, RefreshCw
+  ChevronUp, ChevronDown, Filter, AlertCircle, RefreshCw,
+  TrendingUp, Info
 } from 'lucide-react';
 
+// Interface diperketat
 interface Ranking {
   id: string;
   player_name: string;
   category: string;
   seed: string;
   total_points: number;
-  bonus?: number;
+  bonus: number;
+  updated_at?: string;
 }
 
 export default function AdminRanking() {
@@ -32,23 +35,8 @@ export default function AdminRanking() {
   });
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchRankings();
-    
-    // Realtime subscription agar UI selalu update jika ada perubahan di DB
-    const subscription = supabase
-      .channel('rankings_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
-        fetchRankings();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, []);
-
-  const fetchRankings = async () => {
+  // Menggunakan useCallback agar fungsi stabil
+  const fetchRankings = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -63,18 +51,31 @@ export default function AdminRanking() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  /**
-   * PERBAIKAN: FUNGSI SINKRONISASI ANTI-HILANG
-   * Menggunakan logika akumulasi yang lebih ketat sebelum dikirim ke database
-   */
+  useEffect(() => {
+    fetchRankings();
+    
+    const subscription = supabase
+      .channel('rankings_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
+        fetchRankings();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [fetchRankings]);
+
+  // --- PERBAIKAN SINKRONISASI ---
   const syncFromStats = async () => {
-    if (!window.confirm("Sinkronisasi akan menjumlahkan total poin atlet dari data statistik. Data yang sudah ada di Leaderboard akan diperbarui. Lanjutkan?")) return;
+    const confirm = window.confirm("Gabungkan semua poin dari statistik ke Leaderboard?");
+    if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data statistik dan relasi pendaftaran
+      // Pastikan nama relasi 'pendaftaran' sesuai dengan Foreign Key di DB
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
@@ -85,16 +86,16 @@ export default function AdminRanking() {
 
       if (statsError) throw statsError;
       if (!statsData || statsData.length === 0) {
-        alert("Tidak ada data di Statistik Atlet.");
+        alert("Data statistik kosong. Pastikan tabel atlet_stats sudah terisi.");
         return;
       }
 
-      // 2. Agregasi di memori (Menghindari duplikasi baris saat upsert)
-      const aggregatedMap = new Map();
+      const aggregatedMap = new Map<string, any>();
 
-      statsData.forEach(item => {
-        const pendaftar = item.pendaftaran as any;
-        // Hanya proses jika nama tersedia
+      statsData.forEach((item: any) => {
+        // Supabase join bisa mengembalikan object atau array tergantung config
+        const pendaftar = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
+        
         if (pendaftar?.nama) {
           const cleanName = pendaftar.nama.trim().toUpperCase();
           const pointsToAdd = Number(item.points) || 0;
@@ -104,8 +105,9 @@ export default function AdminRanking() {
             aggregatedMap.set(cleanName, {
               ...existing,
               total_points: existing.total_points + pointsToAdd,
-              // Update seed jika yang terbaru tidak kosong
-              seed: item.seed || existing.seed 
+              // Prioritas Seed: Seed A > Seed B > Non-Seed
+              seed: (item.seed === 'Seed A' || existing.seed === 'Seed A') ? 'Seed A' : 
+                    (item.seed === 'Seed B' || existing.seed === 'Seed B') ? 'Seed B' : 'Non-Seed'
             });
           } else {
             aggregatedMap.set(cleanName, {
@@ -120,10 +122,8 @@ export default function AdminRanking() {
       });
 
       const upsertData = Array.from(aggregatedMap.values());
+      if (upsertData.length === 0) throw new Error("Tidak ada nama atlet yang valid untuk disinkronkan.");
 
-      if (upsertData.length === 0) throw new Error("Tidak ada data valid untuk disinkronkan.");
-
-      // 3. Eksekusi Upsert dengan penanganan konflik nama
       const { error: upsertError } = await supabase
         .from('rankings')
         .upsert(upsertData, { 
@@ -133,11 +133,10 @@ export default function AdminRanking() {
 
       if (upsertError) throw upsertError;
       
-      alert(`Berhasil! ${upsertData.length} data atlet telah disinkronkan.`);
-      fetchRankings();
+      alert(`Sinkronisasi Berhasil! ${upsertData.length} atlet diperbarui.`);
+      await fetchRankings();
     } catch (err: any) {
-      console.error("Sync Critical Error:", err);
-      alert("Gagal Sinkron: " + (err.message || "Kesalahan database"));
+      alert("Error: " + (err.hint || err.message));
     } finally {
       setLoading(false);
     }
@@ -146,50 +145,41 @@ export default function AdminRanking() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    
-    if (!formData.player_name?.trim()) {
-      setFormError("Nama atlet wajib diisi");
-      return;
-    }
-
     setIsSaving(true);
+
     try {
-      // PERBAIKAN: Total Poin adalah hasil penjumlahan input poin + bonus
-      const totalFinal = (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0);
+      const basePoints = Number(formData.total_points) || 0;
+      const bonusPoints = Number(formData.bonus) || 0;
       
       const payload = {
-        player_name: formData.player_name.trim().toUpperCase(),
+        player_name: formData.player_name?.trim().toUpperCase(),
         category: formData.category,
         seed: formData.seed,
-        total_points: totalFinal,
-        bonus: Number(formData.bonus) || 0
+        total_points: basePoints + bonusPoints, // Kalkulasi otomatis
+        bonus: bonusPoints
       };
 
+      let result;
       if (editingId) {
-        const { error } = await supabase
-          .from('rankings')
-          .update(payload)
-          .eq('id', editingId);
-        if (error) throw error;
+        result = await supabase.from('rankings').update(payload).eq('id', editingId);
       } else {
-        const { error } = await supabase
-          .from('rankings')
-          .upsert([payload], { onConflict: 'player_name' });
-        if (error) throw error;
+        result = await supabase.from('rankings').upsert([payload], { onConflict: 'player_name' });
       }
+
+      if (result.error) throw result.error;
       
       setIsModalOpen(false);
       setEditingId(null);
       fetchRankings();
     } catch (err: any) {
-      setFormError("Gagal menyimpan: Terjadi kesalahan pada database.");
+      setFormError(err.message?.includes('unique') ? "Nama atlet ini sudah ada di daftar!" : err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Hapus atlet dari ranking?")) return;
+    if (!window.confirm("Data akan dihapus permanen. Lanjutkan?")) return;
     try {
       const { error } = await supabase.from('rankings').delete().eq('id', id);
       if (error) throw error;
@@ -203,10 +193,9 @@ export default function AdminRanking() {
     setFormError(null);
     if (item) {
       setEditingId(item.id);
-      // PERBAIKAN: Saat edit, kembalikan 'total_points' ke poin dasar (dikurangi bonus) 
-      // agar tidak terjadi penumpukan bonus berulang saat disimpan kembali
       setFormData({
         ...item,
+        // Tampilkan poin murni (tanpa bonus) di input agar user tidak bingung
         total_points: (item.total_points || 0) - (item.bonus || 0)
       });
     } else {
@@ -223,177 +212,217 @@ export default function AdminRanking() {
   });
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 relative font-sans selection:bg-blue-500/30">
-      {/* Background Glow */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10 animate-pulse" />
+    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 relative font-sans">
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full -z-10" />
       
-      <div className="max-w-6xl mx-auto relative z-10">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+      <div className="max-w-6xl mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-yellow-500/20 rounded-lg text-yellow-500 shadow-inner"><Trophy size={20} /></div>
-                <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Official Ranking</p>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="px-3 py-1 bg-blue-600/20 text-blue-400 text-[10px] font-bold rounded-full border border-blue-600/30 uppercase tracking-widest">
+                Database System v2.0
+              </span>
             </div>
-            <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
-              LEADER<span className="text-blue-600">BOARD</span>
+            <h1 className="text-6xl font-black italic tracking-tighter uppercase leading-none">
+              RANKING<span className="text-blue-600">.</span>MNG
             </h1>
           </div>
-          <div className="flex gap-3 w-full md:w-auto">
+          
+          <div className="flex flex-wrap gap-3 w-full md:w-auto">
             <button 
               onClick={syncFromStats}
               disabled={loading}
-              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-zinc-900 border border-white/10 hover:bg-zinc-800 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 disabled:opacity-50"
+              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-4 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all"
             >
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> Sinkron Otomatis
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
+              {loading ? 'Processing...' : 'Sync Poin'}
             </button>
             <button 
               onClick={() => openModal()} 
-              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 shadow-lg shadow-blue-600/20"
+              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 px-8 py-4 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-blue-600/20"
             >
-              <Plus size={18} /> Tambah Baru
+              <Plus size={16} /> Add Athlete
             </button>
+          </div>
+        </div>
+
+        {/* Info Card */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-3xl">
+            <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Total Athletes</p>
+            <p className="text-3xl font-black italic">{rankings.length}</p>
+          </div>
+          <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-3xl">
+            <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Highest Score</p>
+            <p className="text-3xl font-black italic text-blue-500">
+              {rankings[0]?.total_points?.toLocaleString() || 0}
+            </p>
+          </div>
+          <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-3xl">
+            <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Last Sync</p>
+            <p className="text-3xl font-black italic text-zinc-400">LIVE</p>
           </div>
         </div>
 
         {/* Filter Panel */}
-        <div className="bg-zinc-900/40 border border-white/5 p-4 rounded-[2rem] mb-8 flex flex-col md:flex-row gap-4 backdrop-blur-xl shadow-2xl">
+        <div className="bg-zinc-900/40 border border-white/5 p-3 rounded-[2rem] mb-8 flex flex-col md:flex-row gap-3 backdrop-blur-xl">
           <div className="relative flex-grow">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
             <input 
               type="text" 
-              placeholder="CARI NAMA ATLET..." 
-              className="w-full bg-black/50 border border-white/5 rounded-2xl py-5 pl-14 pr-6 outline-none focus:border-blue-600/50 font-bold text-[11px] tracking-widest uppercase transition-all placeholder:text-zinc-700"
+              placeholder="Cari nama atau id..." 
+              className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-14 pr-6 outline-none focus:border-blue-600/50 font-bold text-[11px] uppercase"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-             <div className="flex items-center gap-3 bg-black/50 border border-white/5 rounded-2xl px-6 py-2">
-                <Filter size={16} className="text-blue-500" />
-                <select 
-                  className="bg-transparent font-black text-[10px] uppercase tracking-tighter outline-none cursor-pointer appearance-none pr-4 text-white"
-                  value={selectedSeed}
-                  onChange={(e) => setSelectedSeed(e.target.value)}
-                >
-                  <option value="Semua">Filter: Semua Seed</option>
-                  <option value="Seed A">Seed A Only</option>
-                  <option value="Seed B">Seed B Only</option>
-                  <option value="Non-Seed">Non-Seed</option>
-                </select>
-             </div>
-          </div>
+          <select 
+            className="bg-black/40 border border-white/5 rounded-2xl px-6 py-4 font-bold text-[10px] uppercase outline-none cursor-pointer"
+            value={selectedSeed}
+            onChange={(e) => setSelectedSeed(e.target.value)}
+          >
+            <option value="Semua">All Seed</option>
+            <option value="Seed A">Seed A</option>
+            <option value="Seed B">Seed B</option>
+            <option value="Non-Seed">Non-Seed</option>
+          </select>
         </div>
 
         {/* Table View */}
         <div className="bg-zinc-900/20 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-md shadow-2xl overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
-              <thead>
-                <tr className="border-b border-white/5 bg-white/[0.02]">
-                  <th className="p-7 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Rank</th>
-                  <th className="p-7 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Athlete Identity</th>
-                  <th className="p-7 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Category</th>
-                  <th className="p-7 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 text-center">Classification</th>
-                  <th className="p-7 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Total Score</th>
-                  <th className="p-7 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 text-right">Action</th>
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="border-b border-white/5 bg-white/[0.02]">
+                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-zinc-500">Pos</th>
+                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-zinc-500">Athlete</th>
+                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-zinc-500">Division</th>
+                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-center">Status</th>
+                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-zinc-500">Final Score</th>
+                <th className="p-6 text-[10px] font-black uppercase tracking-widest text-zinc-500 text-right">Settings</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="p-24 text-center">
+                    <Loader2 className="animate-spin mx-auto text-blue-600 mb-4" size={32} />
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Synchronizing Database...</p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {loading ? (
-                  <tr><td colSpan={6} className="p-32 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" size={40} /></td></tr>
-                ) : filteredRankings.length === 0 ? (
-                  <tr><td colSpan={6} className="p-32 text-center text-zinc-600 font-black uppercase italic tracking-widest opacity-50">No Data Available</td></tr>
-                ) : (
-                  filteredRankings.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-white/[0.03] transition-all group">
-                      <td className="p-7">
-                        <span className={`font-black italic text-2xl ${index < 3 ? 'text-blue-500 drop-shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'text-zinc-700'}`}>
-                          {String(index + 1).padStart(2, '0')}
-                        </span>
-                      </td>
-                      <td className="p-7">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-white/5 group-hover:border-blue-500/50 transition-all">
-                            <User size={18} className="text-zinc-500 group-hover:text-blue-400" />
-                          </div>
-                          <span className="font-black italic uppercase tracking-tighter text-base group-hover:text-blue-400 transition-colors">
+              ) : filteredRankings.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-24 text-center">
+                    <div className="bg-white/5 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Info className="text-zinc-600" />
+                    </div>
+                    <p className="text-zinc-500 font-bold uppercase italic tracking-widest">No matching results found</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredRankings.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-white/[0.02] transition-all group">
+                    <td className="p-6">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black italic text-sm ${
+                        index === 0 ? 'bg-yellow-500/20 text-yellow-500' : 
+                        index === 1 ? 'bg-zinc-400/20 text-zinc-400' :
+                        index === 2 ? 'bg-orange-500/20 text-orange-500' : 'text-zinc-700'
+                      }`}>
+                        {index + 1}
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-full flex items-center justify-center border border-white/5 group-hover:border-blue-500/50 transition-all">
+                          <User size={16} className="text-zinc-500 group-hover:text-blue-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-black italic uppercase tracking-tighter text-white group-hover:text-blue-400 transition-colors">
                             {item.player_name}
                           </span>
+                          <span className="text-[9px] text-zinc-600 font-bold uppercase">UID: {item.id.slice(0,8)}</span>
                         </div>
-                      </td>
-                      <td className="p-7">
-                        <span className="px-4 py-1.5 bg-zinc-900 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-zinc-400 italic">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="p-7 text-center">
-                        <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                          item.seed === 'Seed A' ? 'bg-blue-600/10 text-blue-400 border-blue-600/30' : 
-                          item.seed === 'Seed B' ? 'bg-purple-600/10 text-purple-400 border-purple-600/30' : 
-                          'bg-zinc-900/50 text-zinc-500 border-white/5'
-                        }`}>
-                          {item.seed}
-                        </span>
-                      </td>
-                      <td className="p-7">
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2 font-black italic text-xl text-white">
-                            {item.total_points?.toLocaleString()} <span className="text-[10px] text-blue-600 not-italic uppercase tracking-[0.3em]">Pts</span>
-                          </div>
-                          {(item.bonus || 0) > 0 && (
-                            <span className="text-[9px] text-green-500 font-bold uppercase tracking-tighter">Incl. Bonus: +{item.bonus}</span>
-                          )}
+                      </div>
+                    </td>
+                    <td className="p-6">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        {item.category}
+                      </span>
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                        item.seed === 'Seed A' ? 'bg-blue-600/10 text-blue-400 border-blue-600/30' : 
+                        item.seed === 'Seed B' ? 'bg-purple-600/10 text-purple-400 border-purple-600/30' : 
+                        'bg-zinc-900/50 text-zinc-500 border-white/5'
+                      }`}>
+                        {item.seed}
+                      </span>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2 font-black italic text-lg">
+                          {item.total_points?.toLocaleString()}
+                          <TrendingUp size={14} className="text-blue-600" />
                         </div>
-                      </td>
-                      <td className="p-7 text-right">
-                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                          <button onClick={() => openModal(item)} className="p-3 bg-zinc-800 hover:bg-blue-600 rounded-xl transition-all border border-white/5"><Edit3 size={18} /></button>
-                          <button onClick={() => handleDelete(item.id)} className="p-3 bg-zinc-800 hover:bg-red-600 rounded-xl transition-all border border-white/5"><Trash2 size={18} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                        {(item.bonus || 0) > 0 && (
+                          <span className="text-[9px] text-green-500 font-bold uppercase tracking-widest">
+                            +{item.bonus} Bonus
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-6 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                        <button onClick={() => openModal(item)} className="p-3 bg-zinc-800 hover:bg-blue-600 rounded-xl transition-all"><Edit3 size={16}/></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-3 bg-zinc-800 hover:bg-red-600 rounded-xl transition-all"><Trash2 size={16}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Modal Editor */}
+      {/* Modern Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-          <div className="bg-[#0c0c0c] w-full max-w-xl rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-10 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-              <h3 className="text-2xl font-black italic uppercase tracking-tighter">
-                {editingId ? 'Modify' : 'Register'} <span className="text-blue-600">Player</span>
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white/10 rounded-2xl transition-all"><X size={24}/></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="bg-[#0c0c0c] w-full max-w-xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+              <div>
+                <h3 className="text-xl font-black italic uppercase tracking-tighter">
+                  {editingId ? 'Edit' : 'New'} <span className="text-blue-600">Entry</span>
+                </h3>
+                <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-[0.2em]">Manual Ranking Override</p>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-all"><X size={20}/></button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
               {formError && (
-                <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[11px] font-black uppercase tracking-widest flex items-center gap-3">
-                  <AlertCircle size={18}/> {formError}
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3">
+                  <AlertCircle size={16}/> {formError}
                 </div>
               )}
               
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Full Athlete Name</label>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Athlete Name</label>
                 <input 
                   required 
                   type="text" 
-                  className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-white uppercase" 
+                  autoFocus
+                  className="w-full px-6 py-4 bg-white/[0.03] rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-white uppercase transition-all" 
                   value={formData.player_name} 
                   onChange={e => setFormData({...formData, player_name: e.target.value})} 
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Division</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Category</label>
                   <select 
-                    className="w-full px-7 py-5 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white" 
+                    className="w-full px-6 py-4 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white text-xs uppercase" 
                     value={formData.category} 
                     onChange={e => setFormData({...formData, category: e.target.value})}
                   >
@@ -402,10 +431,10 @@ export default function AdminRanking() {
                     <option value="Veteran">Veteran</option>
                   </select>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Seed Rank</label>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Seed Status</label>
                   <select 
-                    className="w-full px-7 py-5 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white" 
+                    className="w-full px-6 py-4 bg-[#141414] rounded-2xl border border-white/5 outline-none font-bold text-white text-xs uppercase" 
                     value={formData.seed} 
                     onChange={e => setFormData({...formData, seed: e.target.value})}
                   >
@@ -416,20 +445,34 @@ export default function AdminRanking() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Base Points</label>
-                  <input type="number" className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 outline-none font-bold text-white" value={formData.total_points} onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} />
+              <div className="grid grid-cols-2 gap-4 p-6 bg-white/[0.02] rounded-3xl border border-white/5">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest ml-1">Base Points</label>
+                  <input 
+                    type="number" 
+                    className="w-full px-6 py-4 bg-black/40 rounded-2xl border border-white/5 outline-none font-black text-white" 
+                    value={formData.total_points} 
+                    onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} 
+                  />
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] ml-2">Bonus (+)</label>
-                  <input type="number" className="w-full px-7 py-5 bg-white/[0.03] rounded-2xl border border-white/5 outline-none font-bold text-white" value={formData.bonus} onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} />
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-green-500 uppercase tracking-widest ml-1">Bonus Point</label>
+                  <input 
+                    type="number" 
+                    className="w-full px-6 py-4 bg-black/40 rounded-2xl border border-white/5 outline-none font-black text-white" 
+                    value={formData.bonus} 
+                    onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} 
+                  />
                 </div>
               </div>
 
-              <button type="submit" disabled={isSaving} className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-[0.3em] flex items-center justify-center gap-4 transition-all">
-                {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>} 
-                {editingId ? 'Update Leaderboard' : 'Confirm Registration'}
+              <button 
+                type="submit" 
+                disabled={isSaving} 
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3 transition-all active:scale-95"
+              >
+                {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} 
+                {editingId ? 'Save Changes' : 'Create Entry'}
               </button>
             </form>
           </div>

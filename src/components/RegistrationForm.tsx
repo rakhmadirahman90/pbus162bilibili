@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase'; 
-import { Loader2, Send, CheckCircle2, User, Phone, MapPin, Award, Image as ImageIcon, ChevronDown } from 'lucide-react';
+import { 
+  Loader2, Send, CheckCircle2, User, Phone, 
+  MapPin, Award, Image as ImageIcon, ChevronDown,
+  VenusMars // Menambahkan icon gender
+} from 'lucide-react';
 
 export default function RegistrationForm() {
   const [loading, setLoading] = useState(false);
@@ -13,9 +17,11 @@ export default function RegistrationForm() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
+  // Tambahkan 'jenis_kelamin' ke dalam state awal
   const [formData, setFormData] = useState({
     nama: '',
     whatsapp: '',
+    jenis_kelamin: 'Putra', // Default value
     kategori: kategoriUmur[0],
     domisili: '',
     pengalaman: ''
@@ -46,26 +52,23 @@ export default function RegistrationForm() {
         publicUrl = urlData.publicUrl;
       }
 
+      // Pastikan kolom 'jenis_kelamin' sudah ada di tabel 'pendaftaran' Supabase Anda
       const { error: dbError } = await supabase
         .from('pendaftaran')
         .insert([{ 
           nama: formData.nama, 
           whatsapp: formData.whatsapp, 
+          jenis_kelamin: formData.jenis_kelamin, // Kirim ke Database
           kategori: formData.kategori,
           domisili: formData.domisili,
           pengalaman: formData.pengalaman,
           foto_url: publicUrl 
         }]);
 
-      if (dbError) {
-        if (dbError.message.includes('rankings')) {
-          throw new Error("Sistem Database Error: Segera matikan 'Trigger' di Dashboard Supabase.");
-        }
-        throw dbError;
-      }
+      if (dbError) throw dbError;
 
       const adminPhoneNumber = "6281219027234";
-      const waMessage = `*PENDAFTARAN ATLET BARU*%0A%0A*Nama:* ${formData.nama}%0A*Kategori:* ${formData.kategori}%0A*Link Foto:* ${publicUrl}`;
+      const waMessage = `*PENDAFTARAN ATLET BARU*%0A%0A*Nama:* ${formData.nama}%0A*Gender:* ${formData.jenis_kelamin}%0A*Kategori:* ${formData.kategori}%0A*Link Foto:* ${publicUrl}`;
       window.open(`https://wa.me/${adminPhoneNumber}?text=${waMessage}`, '_blank');
       
       setSubmitted(true);
@@ -87,7 +90,6 @@ export default function RegistrationForm() {
     );
   }
 
-  // Desain Input Baru: Teks lebih hitam, placeholder lebih tegas, border lebih kontras
   const inputClass = "w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border-2 border-slate-200 text-slate-900 font-bold placeholder-slate-500 focus:bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all";
 
   return (
@@ -99,19 +101,40 @@ export default function RegistrationForm() {
         <div className="space-y-5">
           {/* Input Nama */}
           <div className="relative group">
-            <User className="absolute left-4 top-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input required value={formData.nama} className={inputClass} placeholder="NAMA LENGKAP" onChange={e => setFormData({...formData, nama: e.target.value})} />
           </div>
 
           {/* Input WA */}
           <div className="relative group">
-            <Phone className="absolute left-4 top-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input required type="tel" value={formData.whatsapp} className={inputClass} placeholder="NOMOR WHATSAPP (CONTOH: 628...)" onChange={e => setFormData({...formData, whatsapp: e.target.value})} />
+          </div>
+
+          {/* Pilihan Jenis Kelamin */}
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 uppercase ml-2 tracking-widest">Jenis Kelamin</label>
+            <div className="grid grid-cols-2 gap-3">
+              {['Putra', 'Putri'].map((gender) => (
+                <label key={gender} className={`flex items-center justify-center gap-2 p-4 rounded-2xl border-2 cursor-pointer transition-all font-bold ${formData.jenis_kelamin === gender ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300'}`}>
+                  <input 
+                    type="radio" 
+                    name="jenis_kelamin" 
+                    value={gender} 
+                    checked={formData.jenis_kelamin === gender}
+                    className="hidden"
+                    onChange={(e) => setFormData({...formData, jenis_kelamin: e.target.value})}
+                  />
+                  <VenusMars size={18} />
+                  {gender.toUpperCase()}
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Input Domisili */}
           <div className="relative group">
-            <MapPin className="absolute left-4 top-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input required value={formData.domisili} className={inputClass} placeholder="KOTA DOMISILI" onChange={e => setFormData({...formData, domisili: e.target.value})} />
           </div>
 
@@ -119,17 +142,17 @@ export default function RegistrationForm() {
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-700 uppercase ml-2 tracking-widest">Pilih Kategori Umur</label>
             <div className="relative group">
-              <Award className="absolute left-4 top-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+              <Award className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
               <select value={formData.kategori} className={`${inputClass} appearance-none cursor-pointer`} onChange={e => setFormData({...formData, kategori: e.target.value})}>
                 {kategoriUmur.map((kat) => <option key={kat} value={kat} className="text-slate-900 font-bold">{kat}</option>)}
               </select>
-              <ChevronDown className="absolute right-4 top-4.5 pointer-events-none text-slate-400 group-focus-within:text-blue-600" size={20} />
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-focus-within:text-blue-600" size={20} />
             </div>
           </div>
 
           {/* Textarea Pengalaman */}
           <div className="relative group">
-            <Award className="absolute left-4 top-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+            <Award className="absolute left-4 top-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <textarea value={formData.pengalaman} className={`${inputClass} min-h-[100px] pt-4`} placeholder="PENGALAMAN BERTANDING (JIKA ADA)" onChange={e => setFormData({...formData, pengalaman: e.target.value})} />
           </div>
 

@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import { 
   Search, User, X, Award, TrendingUp, Users, 
   MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
-  ChevronLeft, ChevronRight, Zap, Sparkles
+  ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw
 } from 'lucide-react';
 
 interface Registrant {
@@ -19,7 +19,7 @@ interface Registrant {
   seed: string;
   bio: string;
   prestasi: string;
-  status?: string; // Menambahkan status
+  status?: string;
 }
 
 export default function ManajemenAtlet() {
@@ -28,16 +28,13 @@ export default function ManajemenAtlet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAtlet, setSelectedAtlet] = useState<Registrant | null>(null);
   
-  // State untuk Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // State untuk Modal Edit Stats
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // STATE BARU: Notifikasi Sukses
   const [showSuccess, setShowSuccess] = useState(false);
   const [notifMessage, setNotifMessage] = useState('');
 
@@ -86,19 +83,27 @@ export default function ManajemenAtlet() {
     }
   };
 
+  /**
+   * KODE TERBARU: INTEGRASI MULTI-TABEL
+   * Fungsi ini mengupdate 3 tempat sekaligus:
+   * 1. Tabel atlet_stats (Detail profil)
+   * 2. Tabel pendaftaran (Status)
+   * 3. Tabel rankings (Data pusat untuk Skor & Landing Page)
+   */
   const handleUpdateStats = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStats || !editingStats.id) return;
     
     setIsSaving(true);
     try {
-      const { data: existing } = await supabase
+      // 1. Update/Insert ke atlet_stats
+      const { data: existingStats } = await supabase
         .from('atlet_stats')
         .select('id')
         .eq('pendaftaran_id', editingStats.id)
         .single();
 
-      const payload = {
+      const statsPayload = {
         pendaftaran_id: editingStats.id,
         rank: editingStats.rank,
         points: editingStats.points,
@@ -107,34 +112,44 @@ export default function ManajemenAtlet() {
         prestasi_terakhir: editingStats.prestasi
       };
 
-      if (existing) {
-        await supabase.from('atlet_stats').update(payload).eq('pendaftaran_id', editingStats.id);
+      if (existingStats) {
+        await supabase.from('atlet_stats').update(statsPayload).eq('pendaftaran_id', editingStats.id);
       } else {
-        await supabase.from('atlet_stats').insert([payload]);
+        await supabase.from('atlet_stats').insert([statsPayload]);
       }
 
-      // Opsional: Update status di tabel pendaftaran jika ada perubahan
+      // 2. INTEGRASI KE TABEL RANKINGS (Sangat Penting untuk Update Skor)
+      // Menggunakan upsert agar jika nama belum ada di tabel ranking, akan dibuatkan otomatis
+      await supabase
+        .from('rankings')
+        .upsert({
+          player_name: editingStats.nama,
+          category: editingStats.kategori,
+          seed: editingStats.seed,
+          total_points: editingStats.points
+        }, { onConflict: 'player_name' });
+
+      // 3. Update status di pendaftaran jika perlu
       if (editingStats.status) {
         await supabase.from('pendaftaran').update({ status: editingStats.status }).eq('id', editingStats.id);
       }
 
       await fetchAtlets();
       
-      // TRIGGER NOTIFIKASI
-      setNotifMessage("Statistik Atlet Berhasil Diperbarui!");
+      setNotifMessage("Data Atlet & Ranking Tersinkronasi!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
 
       setIsEditModalOpen(false);
       setSelectedAtlet(null);
     } catch (err) {
-      alert("Gagal memperbarui statistik");
+      console.error(err);
+      alert("Gagal sinkronisasi data");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // LOGIKA PAGINATION
   const filteredAtlets = atlets.filter(a => 
     a.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -263,7 +278,7 @@ export default function ManajemenAtlet() {
         )}
       </div>
 
-      {/* MODAL DETAIL - Updated to Modern Dark Style */}
+      {/* MODAL DETAIL */}
       {selectedAtlet && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/5">
@@ -338,7 +353,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* MODAL EDIT STATS - Glassmorphism UI */}
+      {/* MODAL EDIT STATS */}
       {isEditModalOpen && editingStats && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20">
@@ -371,14 +386,14 @@ export default function ManajemenAtlet() {
               </div>
               <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] shadow-xl shadow-blue-200 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:bg-slate-200">
                 {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
-                Publish Statistics
+                Publish & Synchronize
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* SUCCESS NOTIFICATION - Glassmorphism UI */}
+      {/* SUCCESS NOTIFICATION */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
       }`}>
@@ -389,7 +404,7 @@ export default function ManajemenAtlet() {
           </div>
           <div>
             <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1 text-nowrap">{notifMessage}</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Synchronized with Database</p>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Connected to Rankings System</p>
           </div>
         </div>
       </div>

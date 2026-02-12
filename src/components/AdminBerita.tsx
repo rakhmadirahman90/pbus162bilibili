@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from "../supabase";
 import { 
   Newspaper, Plus, Trash2, Edit3, Save, X, 
-  Image as ImageIcon, Calendar, Tag, Loader2, Zap, Search, AlertCircle, ExternalLink
+  Image as ImageIcon, Calendar, Tag, Loader2, Zap, Search, AlertCircle, ExternalLink,
+  Filter, ArrowUpDown, Clock
 } from 'lucide-react';
 
 interface Berita {
@@ -22,6 +23,10 @@ export default function AdminBerita() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // --- FITUR BARU: State Filter & Sort ---
+  const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
+  const [sortBy, setSortBy] = useState<'baru' | 'lama'>('baru');
 
   // State Form
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,6 +45,19 @@ export default function AdminBerita() {
 
   useEffect(() => {
     fetchNews();
+    
+    // --- FITUR BARU: Real-time Subscription ---
+    // Dashboard akan otomatis update jika ada perubahan di tabel berita
+    const subscription = supabase
+      .channel('public:berita')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'berita' }, () => {
+        fetchNews();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
   const fetchNews = async () => {
@@ -56,7 +74,8 @@ export default function AdminBerita() {
   const validateForm = () => {
     if (!formData.judul || formData.judul.length < 5) return "Judul terlalu pendek.";
     if (!formData.ringkasan || formData.ringkasan.length < 10) return "Ringkasan harus diisi lebih detail.";
-    if (!formData.gambar_url?.startsWith('http')) return "URL Gambar tidak valid.";
+    if (!formData.gambar_url?.startsWith('http')) return "URL Gambar tidak valid (Gunakan Link http/https).";
+    if (!formData.konten || formData.konten.length < 20) return "Isi berita terlalu singkat.";
     return null;
   };
 
@@ -93,7 +112,7 @@ export default function AdminBerita() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Hapus berita ini secara permanen? Tindakan ini tidak dapat dibatalkan.")) {
+    if (window.confirm("🔴 PERINGATAN: Berita ini akan dihapus permanen dari Landing Page. Lanjutkan?")) {
       const { error } = await supabase.from('berita').delete().eq('id', id);
       if (!error) {
         fetchNews();
@@ -128,10 +147,18 @@ export default function AdminBerita() {
     setEditingId(null);
   };
 
-  const filteredNews = news.filter(n => 
-    n.judul.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    n.kategori.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // --- FITUR BARU: Logic Filter & Sort Gabungan ---
+  const filteredAndSortedNews = news
+    .filter(n => {
+      const matchesSearch = n.judul.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'Semua' || n.kategori === selectedCategory;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.tanggal).getTime();
+      const dateB = new Date(b.tanggal).getTime();
+      return sortBy === 'baru' ? dateB - dateA : dateA - dateB;
+    });
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 relative overflow-hidden">
@@ -147,10 +174,10 @@ export default function AdminBerita() {
                 <div className="p-2 bg-blue-600/20 rounded-lg text-blue-500">
                    <Newspaper size={20} />
                 </div>
-                <p className="text-zinc-500 text-[10px] font-black tracking-[0.3em] uppercase">Content Management</p>
+                <p className="text-zinc-500 text-[10px] font-black tracking-[0.3em] uppercase">Content Management System</p>
             </div>
-            <h1 className="text-4xl font-black italic tracking-tighter uppercase">
-              UPDATE <span className="text-blue-600">BERITA TERKINI</span>
+            <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
+              MANAJEMEN <span className="text-blue-600">BERITA</span>
             </h1>
           </div>
 
@@ -158,24 +185,47 @@ export default function AdminBerita() {
             onClick={() => openModal()}
             className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95 group"
           >
-            <Plus size={18} className="group-hover:rotate-90 transition-transform" /> Tulis Berita Baru
+            <Plus size={18} className="group-hover:rotate-90 transition-transform" /> Buat Artikel Baru
           </button>
         </div>
 
-        {/* Search Bar & Stats */}
-        <div className="flex flex-col md:flex-row gap-4 mb-10 items-center justify-between">
-          <div className="relative group w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-            <input 
-              type="text"
-              placeholder="CARI JUDUL ATAU KATEGORI..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl py-4 pl-12 pr-6 outline-none focus:border-blue-600 transition-all font-bold text-xs tracking-widest text-white placeholder:text-zinc-700"
-            />
-          </div>
-          <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest bg-zinc-900/50 px-6 py-4 rounded-2xl border border-white/5">
-            Total Publikasi: <span className="text-blue-500">{news.length}</span> Berita
+        {/* --- FITUR BARU: Control Panel (Search, Filter, Sort) --- */}
+        <div className="bg-zinc-900/30 border border-white/5 p-6 rounded-[2.5rem] mb-10 space-y-6">
+          <div className="flex flex-col lg:flex-row gap-6 justify-between items-center">
+            <div className="relative group w-full lg:max-w-md">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-blue-500 transition-colors" size={18} />
+              <input 
+                type="text"
+                placeholder="CARI JUDUL BERITA..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-black border border-white/5 rounded-2xl py-4 pl-12 pr-6 outline-none focus:border-blue-600 transition-all font-bold text-[10px] tracking-widest text-white placeholder:text-zinc-700"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+              <div className="flex items-center gap-2 bg-black p-1 rounded-xl border border-white/5">
+                {['Semua', 'Prestasi', 'Fasilitas', 'Program', 'Turnamen'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${
+                      selectedCategory === cat ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setSortBy(sortBy === 'baru' ? 'lama' : 'baru')}
+                className="flex items-center gap-2 bg-zinc-800/50 px-4 py-3 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all"
+              >
+                <ArrowUpDown size={14} className="text-blue-500" />
+                {sortBy === 'baru' ? 'Terbaru' : 'Terlama'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -186,25 +236,27 @@ export default function AdminBerita() {
                <Loader2 className="animate-spin text-blue-600" size={40} />
                <div className="text-zinc-600 font-black uppercase tracking-[0.3em] italic text-sm">Mensinkronisasi Database...</div>
             </div>
-          ) : filteredNews.length === 0 ? (
-            <div className="py-20 text-center bg-zinc-900/20 border border-dashed border-white/10 rounded-[2.5rem]">
-               <Newspaper className="mx-auto text-zinc-800 mb-4" size={48} />
-               <p className="text-zinc-600 font-bold uppercase tracking-widest">Tidak ada berita ditemukan</p>
+          ) : filteredAndSortedNews.length === 0 ? (
+            <div className="py-24 text-center bg-zinc-900/10 border border-dashed border-white/10 rounded-[3rem] flex flex-col items-center justify-center">
+               <div className="p-6 bg-zinc-800/30 rounded-full mb-6 text-zinc-700">
+                  <Search size={48} />
+               </div>
+               <h3 className="text-zinc-500 font-black uppercase tracking-widest">Tidak ada berita ditemukan</h3>
+               <p className="text-zinc-700 text-xs mt-2">Coba sesuaikan kata kunci atau filter kategori Anda</p>
             </div>
           ) : (
-            filteredNews.map((item) => (
+            filteredAndSortedNews.map((item) => (
               <div key={item.id} className="bg-zinc-900/40 backdrop-blur-md border border-white/5 p-6 rounded-[2rem] flex flex-col md:flex-row items-center gap-6 group hover:border-blue-600/30 transition-all hover:bg-zinc-900/60 shadow-xl shadow-black/20">
                 <div className="w-full md:w-48 h-32 rounded-2xl overflow-hidden bg-zinc-800 shrink-0 relative">
                   <img src={item.gambar_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                    <ExternalLink size={14} className="text-white" />
+                  <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[8px] font-black uppercase tracking-widest border border-white/10 text-blue-400">
+                    {item.kategori}
                   </div>
                 </div>
                 <div className="flex-grow space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="bg-blue-600/10 text-blue-500 text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-blue-500/20">{item.kategori}</span>
+                  <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-bold">
-                      <Calendar size={12} />
+                      <Clock size={12} className="text-blue-600" />
                       {item.tanggal}
                     </div>
                   </div>
@@ -212,10 +264,10 @@ export default function AdminBerita() {
                   <p className="text-zinc-400 text-sm line-clamp-1 italic font-medium opacity-70">{item.ringkasan}</p>
                 </div>
                 <div className="flex gap-2 shrink-0 w-full md:w-auto">
-                  <button onClick={() => openModal(item)} className="flex-1 md:flex-none p-4 bg-zinc-800/50 hover:bg-blue-600 text-zinc-400 hover:text-white rounded-xl transition-all border border-white/5 group/btn">
+                  <button onClick={() => openModal(item)} className="flex-1 md:flex-none p-4 bg-zinc-800/50 hover:bg-blue-600 text-zinc-400 hover:text-white rounded-xl transition-all border border-white/5 group/btn shadow-lg shadow-black/20">
                     <Edit3 size={18} className="group-hover/btn:scale-110 transition-transform" />
                   </button>
-                  <button onClick={() => handleDelete(item.id)} className="flex-1 md:flex-none p-4 bg-zinc-800/50 hover:bg-red-600 text-zinc-400 hover:text-white rounded-xl transition-all border border-white/5 group/btn">
+                  <button onClick={() => handleDelete(item.id)} className="flex-1 md:flex-none p-4 bg-zinc-800/50 hover:bg-red-600 text-zinc-400 hover:text-white rounded-xl transition-all border border-white/5 group/btn shadow-lg shadow-black/20">
                     <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
                   </button>
                 </div>
@@ -250,13 +302,13 @@ export default function AdminBerita() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Judul Berita</label>
-                  <input required type="text" placeholder="Contoh: Tim Putri Juara..." className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white placeholder:text-zinc-700" value={formData.judul} onChange={e => setFormData({...formData, judul: e.target.value})} />
+                  <input required type="text" placeholder="Contoh: Tim Putri Juara..." className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white placeholder:text-zinc-700 shadow-inner shadow-black/50" value={formData.judul} onChange={e => setFormData({...formData, judul: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Kategori</label>
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Kategori Konten</label>
                   <div className="relative">
                     <Tag className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
-                    <select className="w-full pl-14 pr-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all cursor-pointer appearance-none text-white" value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})}>
+                    <select className="w-full pl-14 pr-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all cursor-pointer appearance-none text-white shadow-inner shadow-black/50" value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})}>
                       <option value="Prestasi">🏆 Prestasi</option>
                       <option value="Fasilitas">🏢 Fasilitas</option>
                       <option value="Program">📅 Program</option>
@@ -268,40 +320,44 @@ export default function AdminBerita() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">URL Gambar</label>
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Media Gambar (URL)</label>
                     <div className="relative">
                       <ImageIcon className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-                      <input required type="text" placeholder="https://images.pexels..." className="w-full pl-14 pr-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white" value={formData.gambar_url} onChange={e => setFormData({...formData, gambar_url: e.target.value})} />
+                      <input required type="text" placeholder="https://..." className="w-full pl-14 pr-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white shadow-inner shadow-black/50" value={formData.gambar_url} onChange={e => setFormData({...formData, gambar_url: e.target.value})} />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Tanggal Terbit</label>
-                    <input type="date" className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white" value={formData.tanggal} onChange={e => setFormData({...formData, tanggal: e.target.value})} />
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Tanggal Publikasi</label>
+                    <input type="date" className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white shadow-inner shadow-black/50" value={formData.tanggal} onChange={e => setFormData({...formData, tanggal: e.target.value})} />
                   </div>
               </div>
 
               {/* IMAGE PREVIEW */}
               {formData.gambar_url && formData.gambar_url.startsWith('http') && (
-                <div className="w-full h-40 rounded-3xl overflow-hidden border border-white/10 relative group">
+                <div className="w-full h-48 rounded-3xl overflow-hidden border border-white/10 relative shadow-2xl">
                    <img src={formData.gambar_url} className="w-full h-full object-cover" alt="Preview" />
-                   <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border border-white/10">Preview Gambar</div>
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                   <div className="absolute bottom-4 left-6 flex items-center gap-2">
+                      <ImageIcon size={14} className="text-blue-500" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Live Preview Gambar Utama</span>
+                   </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Ringkasan Singkat (Maks 150 Karakter)</label>
-                <input required maxLength={150} type="text" placeholder="Ringkasan yang muncul di card depan..." className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white" value={formData.ringkasan} onChange={e => setFormData({...formData, ringkasan: e.target.value})} />
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Lead/Ringkasan Singkat</label>
+                <input required maxLength={150} type="text" placeholder="Teks yang akan muncul di daftar berita depan..." className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm transition-all text-white shadow-inner shadow-black/50" value={formData.ringkasan} onChange={e => setFormData({...formData, ringkasan: e.target.value})} />
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Konten Berita Lengkap</label>
-                <textarea rows={8} placeholder="Tulis cerita lengkap di sini..." className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-medium text-sm transition-all text-white custom-scrollbar leading-relaxed" value={formData.konten} onChange={e => setFormData({...formData, konten: e.target.value})} />
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Isi Artikel Lengkap</label>
+                <textarea rows={10} placeholder="Tuliskan detail berita di sini..." className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-blue-600 outline-none font-medium text-sm transition-all text-white custom-scrollbar leading-relaxed shadow-inner shadow-black/50" value={formData.konten} onChange={e => setFormData({...formData, konten: e.target.value})} />
               </div>
 
               <div className="flex gap-4 pt-4 sticky bottom-0 bg-[#0c0c0c] py-4">
                 <button type="submit" disabled={isSaving} className="flex-grow py-5 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-600/20 flex items-center justify-center gap-3 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
                   {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
-                  {editingId ? 'Perbarui Berita' : 'Terbitkan Sekarang'}
+                  {editingId ? 'Sinkronisasi Perubahan' : 'Publikasikan Konten'}
                 </button>
               </div>
             </form>
@@ -318,8 +374,8 @@ export default function AdminBerita() {
             <Zap size={24} className="text-white fill-white" />
           </div>
           <div>
-            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">DATA DISINKRONISASI!</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest opacity-80 italic">Konten sudah live di Landing Page</p>
+            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">DATABASE UPDATED!</h4>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest opacity-80 italic">Konten berhasil disinkronkan ke Landing Page</p>
           </div>
         </div>
       </div>

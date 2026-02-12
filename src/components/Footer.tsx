@@ -107,6 +107,13 @@ export default function Footer() {
           </div>
 
         </div>
+        // Di dalam Navbar Landing Page Anda:
+<Link 
+  to="/login" 
+  className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all"
+>
+  Admin Portal
+</Link>
 
         {/* Bottom Footer */}
         <div className="border-t border-slate-800 pt-8 text-center">
@@ -116,12 +123,6 @@ export default function Footer() {
         </div>
       </div>
     </footer>
-    // Di dalam Navbar Landing Page Anda:
-<Link 
-  to="/login" 
-  className="text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all"
->
-  Admin Portal
-</Link>
+    
   );
 }

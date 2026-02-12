@@ -81,11 +81,14 @@ export default function AdminRanking() {
 
       if (pendaftaranError) throw pendaftaranError;
 
+      // Helper untuk membersihkan nama agar pencocokan akurat
+      const clean = (name: string) => name.replace(/\s+/g, ' ').trim().toUpperCase();
+
       // 3. Buat Map untuk mempercepat pencarian foto berdasarkan nama
       const photoMap = new Map();
       pendaftaranData?.forEach(p => {
         if (p.nama) {
-          photoMap.set(p.nama.trim().toUpperCase(), {
+          photoMap.set(clean(p.nama), {
             url: p.foto_url,
             kat: p.kategori
           });
@@ -97,7 +100,7 @@ export default function AdminRanking() {
 
       statsData?.forEach((item: any) => {
         if (item.player_name) {
-          const cleanName = item.player_name.trim().toUpperCase();
+          const cleanName = clean(item.player_name);
           const currentPoints = Number(item.points) || 0;
           
           // Cari data pendukung (foto & kategori) dari pendaftaran
@@ -106,6 +109,10 @@ export default function AdminRanking() {
           if (athleteMap.has(cleanName)) {
             const existing = athleteMap.get(cleanName);
             existing.total_points += currentPoints;
+            // Jika sebelumnya foto kosong, coba isi dari data pendaftaran
+            if (!existing.photo_url && profile?.url) {
+              existing.photo_url = profile.url;
+            }
           } else {
             athleteMap.set(cleanName, {
               player_name: cleanName,
@@ -127,7 +134,6 @@ export default function AdminRanking() {
       }
 
       // 5. Eksekusi Database: Bersihkan lalu Masukkan data baru
-      // Menghapus semua data kecuali sistem (untuk menghindari conflict)
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
@@ -172,11 +178,16 @@ export default function AdminRanking() {
 
       let error;
       if (editingId) {
-        const res = await supabase.from('rankings').update(payload).eq('id', editingId);
-        error = res.error;
+        const { error: updateError } = await supabase
+          .from('rankings')
+          .update(payload)
+          .eq('id', editingId);
+        error = updateError;
       } else {
-        const res = await supabase.from('rankings').upsert([payload], { onConflict: 'player_name' });
-        error = res.error;
+        const { error: upsertError } = await supabase
+          .from('rankings')
+          .upsert([payload], { onConflict: 'player_name' });
+        error = upsertError;
       }
 
       if (error) throw error;

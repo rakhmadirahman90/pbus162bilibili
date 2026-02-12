@@ -36,7 +36,7 @@ export default function AdminContact() {
     }
   }
 
-  // --- FUNGSI BARU: PEMBERSIH URL IFRAME ---
+  // --- FUNGSI PEMBERSIH URL IFRAME (DI PERBARUI) ---
   const extractSrcFromIframe = (input: string) => {
     if (input.includes('<iframe')) {
       const regex = /src="([^"]+)"/;
@@ -46,27 +46,27 @@ export default function AdminContact() {
     return input;
   };
 
+  // Handler khusus untuk input iframe agar Preview langsung update
+  const handleIframeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const cleanUrl = extractSrcFromIframe(rawValue);
+    setContactData({ ...contactData, maps_iframe: cleanUrl });
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      // Membersihkan data sebelum dikirim ke database
-      const cleanedData = {
-        ...contactData,
-        maps_iframe: extractSrcFromIframe(contactData.maps_iframe)
-      };
-
+      // Data sudah bersih karena diproses di handleIframeInput
       const { error } = await supabase
         .from('contacts')
-        .upsert({ id: 1, ...cleanedData });
+        .upsert({ id: 1, ...contactData });
 
       if (error) throw error;
       
       setSuccessMsg("Informasi Berhasil Disinkronkan!");
-      setContactData(cleanedData); // Update state lokal dengan URL yang sudah bersih
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err: any) {
-      // Pesan error lebih informatif jika kolom tidak ditemukan
       if (err.message.includes("column")) {
         alert("ERROR DATABASE: Kolom baru belum ditambahkan di Supabase. Silakan jalankan perintah SQL ALTER TABLE.");
       } else {
@@ -209,10 +209,10 @@ export default function AdminContact() {
               <input 
                 className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl p-4 text-[11px] outline-none focus:border-blue-600 transition-all font-mono text-zinc-400"
                 value={contactData.maps_iframe}
-                onChange={e => setContactData({...contactData, maps_iframe: e.target.value})}
-                placeholder="Paste kode iframe atau link src di sini..."
+                onChange={handleIframeInput}
+                placeholder='Tempel seluruh <iframe src="..." > di sini'
               />
-              <p className="text-[8px] text-zinc-600 font-bold uppercase tracking-tighter px-1">Tip: Tempel kode HTML dari Google Maps, URL akan terdeteksi otomatis.</p>
+              <p className="text-[8px] text-zinc-600 font-bold uppercase tracking-tighter px-1">Tip: Sistem akan otomatis mengambil link "src" dari kode iframe.</p>
             </div>
           </div>
 
@@ -224,12 +224,13 @@ export default function AdminContact() {
             
             {contactData.maps_iframe ? (
               <iframe 
-                src={extractSrcFromIframe(contactData.maps_iframe)} 
+                src={contactData.maps_iframe} 
                 width="100%" 
                 height="100%" 
                 style={{ border: 0, filter: 'grayscale(1) invert(0.9) contrast(1.2)' }} 
                 className="opacity-80 group-hover:opacity-100 transition-opacity duration-500"
                 loading="lazy" 
+                title="Preview"
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-800 gap-4">

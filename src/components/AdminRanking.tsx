@@ -3,7 +3,8 @@ import { supabase } from "../supabase";
 import { 
   Plus, Trash2, Edit3, Save, X, 
   Search, Loader2, User, RefreshCw,
-  AlertCircle, CheckCircle2, Camera, Upload
+  AlertCircle, CheckCircle2, Camera, Upload,
+  ChevronLeft, ChevronRight // Tambahkan icon untuk pagination
 } from 'lucide-react';
 
 interface Ranking {
@@ -29,6 +30,10 @@ export default function AdminRanking() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // --- STATE BARU UNTUK PAGINATION ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Jumlah data per halaman
+
   const [formData, setFormData] = useState<Partial<Ranking>>({
     player_name: '',
     category: 'Senior',
@@ -69,6 +74,11 @@ export default function AdminRanking() {
     }
   }, [successMsg]);
 
+  // Reset ke halaman 1 jika filter atau search berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedSeed]);
+
   // --- LOGIKA UPLOAD FOTO ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -104,21 +114,19 @@ export default function AdminRanking() {
     }
   };
 
-  // --- LOGIKA SINKRONISASI DIPERBAIKI (MENGGUNAKAN RELASI ID) ---
+  // --- LOGIKA SINKRONISASI ---
   const syncFromStats = async () => {
     const confirm = window.confirm("Sistem akan sinkronisasi POIN, FOTO dari Pendaftaran, dan STATUS SEED dari Statistik. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data statistik (fokus ke pendaftaran_id, points, dan seed)
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select('pendaftaran_id, points, seed');
 
       if (statsError) throw statsError;
 
-      // 2. Ambil data pendaftaran (untuk Nama, Foto, dan Kategori)
       const { data: pendaftaranData, error: pendaftaranError } = await supabase
         .from('pendaftaran')
         .select('id, nama, foto_url, kategori');
@@ -127,9 +135,7 @@ export default function AdminRanking() {
 
       const athleteMap = new Map();
 
-      // 3. Gabungkan data
       statsData?.forEach((stat: any) => {
-        // Cari profil berdasarkan pendaftaran_id
         const profile = pendaftaranData?.find(p => p.id === stat.pendaftaran_id);
         
         if (profile && profile.nama) {
@@ -139,13 +145,12 @@ export default function AdminRanking() {
           if (athleteMap.has(cleanName)) {
             const existing = athleteMap.get(cleanName);
             existing.total_points += currentPoints;
-            // Jika ada banyak record, kita ambil seed yang paling terbaru/ada isinya
             if (stat.seed) existing.seed = stat.seed;
           } else {
             athleteMap.set(cleanName, {
               player_name: cleanName,
               category: profile.kategori || 'Senior',
-              seed: stat.seed || 'Non-Seed', // SEED DIAMBIL DARI STATS
+              seed: stat.seed || 'Non-Seed',
               total_points: currentPoints,
               bonus: 0,
               photo_url: profile.foto_url || null 
@@ -155,10 +160,8 @@ export default function AdminRanking() {
       });
 
       const finalDataArray = Array.from(athleteMap.values());
-
       if (finalDataArray.length === 0) throw new Error("Tidak ada data atlet yang valid untuk disinkron.");
 
-      // 4. Hapus data lama dan masukkan data hasil sinkronisasi
       await supabase.from('rankings').delete().neq('player_name', '_SYSTEM_');
       const { error: insertError } = await supabase.from('rankings').insert(finalDataArray);
 
@@ -174,7 +177,6 @@ export default function AdminRanking() {
     }
   };
 
-  // --- SUBMIT MANUAL ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -220,10 +222,15 @@ export default function AdminRanking() {
     }
   };
 
+  // --- LOGIKA FILTER & PAGINATION BARU ---
   const filteredRankings = rankings.filter(r => 
     r.player_name?.toLowerCase().includes(searchTerm.toLowerCase()) &&
     (selectedSeed === 'Semua' || r.seed === selectedSeed)
   );
+
+  const totalPages = Math.ceil(filteredRankings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRankings = filteredRankings.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 font-sans selection:bg-blue-500/30">
@@ -306,9 +313,12 @@ export default function AdminRanking() {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr><td colSpan={6} className="p-32 text-center text-xs font-bold uppercase text-zinc-500 animate-pulse">Memproses Data...</td></tr>
-              ) : filteredRankings.map((item, index) => (
+              ) : paginatedRankings.length > 0 ? (
+                paginatedRankings.map((item, index) => (
                 <tr key={item.id} className="hover:bg-white/[0.02] transition-all group">
-                  <td className="p-5 text-center font-black italic text-xl text-zinc-700 group-hover:text-blue-500">{String(index+1).padStart(2,'0')}</td>
+                  <td className="p-5 text-center font-black italic text-xl text-zinc-700 group-hover:text-blue-500">
+                    {String(startIndex + index + 1).padStart(2,'0')}
+                  </td>
                   <td className="p-5">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-zinc-800 rounded-full border border-white/10 overflow-hidden ring-4 ring-black">
@@ -340,13 +350,57 @@ export default function AdminRanking() {
                     <button onClick={() => handleDelete(item.id)} className="p-2.5 bg-zinc-900 hover:bg-red-600 rounded-xl border border-white/5"><Trash2 size={16}/></button>
                   </td>
                 </tr>
-              ))}
+              ))) : (
+                <tr><td colSpan={6} className="p-20 text-center text-zinc-500 uppercase font-bold text-xs">Tidak ada data ditemukan</td></tr>
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* --- KOMPONEN PAGINATION BARU --- */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-8 px-2">
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+              Menampilkan {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredRankings.length)} dari {filteredRankings.length} Atlet
+            </p>
+            <div className="flex gap-2">
+              <button 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+                className="p-3 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 disabled:opacity-30 transition-all"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-10 h-10 rounded-xl text-xs font-black transition-all border ${
+                      currentPage === i + 1 
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' 
+                      : 'bg-zinc-900 border-white/5 text-zinc-500 hover:border-white/20'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                className="p-3 bg-zinc-900 border border-white/5 rounded-xl hover:bg-zinc-800 disabled:opacity-30 transition-all"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Modal */}
+      {/* Modal Tetap Sama */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
           <div className="bg-zinc-950 w-full max-w-lg rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl">

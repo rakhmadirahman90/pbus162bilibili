@@ -19,6 +19,14 @@ const AdminMatch: React.FC = () => {
   const [kategori, setKategori] = useState('Harian');
   const [hasil, setHasil] = useState('Menang');
 
+  // KONFIGURASI POIN (Matriks Poin)
+  const POINT_MAP: Record<string, Record<string, number>> = {
+    'Harian': { 'Menang': 20, 'Seri': 10, 'Kalah': 5 },
+    'Sparing': { 'Menang': 100, 'Seri': 50, 'Kalah': 25 },
+    'Internal': { 'Menang': 300, 'Seri': 0, 'Kalah': 50 },
+    'Eksternal': { 'Menang': 500, 'Seri': 0, 'Kalah': 100 },
+  };
+
   const CATEGORIES = [
     { id: 'Harian', label: 'Latihan Harian', points: '20/10/5' },
     { id: 'Sparing', label: 'Sparing Partner', points: '100/50/25' },
@@ -41,7 +49,8 @@ const AdminMatch: React.FC = () => {
   }, []);
 
   const fetchPlayers = async () => {
-    const { data } = await supabase.from('pendaftaran').select('id, nama').order('nama');
+    // Mengambil data pendaftaran lengkap dengan nama untuk dropdown
+    const { data } = await supabase.from('pendaftaran').select('id, nama, kategori').order('nama');
     if (data) setPlayers(data);
   };
 
@@ -60,13 +69,17 @@ const AdminMatch: React.FC = () => {
     if (data) setRecentMatches(data);
   };
 
+  /**
+   * KODE TERBARU: INTEGRASI UPDATE SKOR KE MANAJEMEN ATLET & RANKING
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlayer) return;
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      // 1. Simpan history pertandingan
+      const { data: matchData, error: matchError } = await supabase
         .from('pertandingan')
         .insert([
           { 
@@ -74,9 +87,42 @@ const AdminMatch: React.FC = () => {
             kategori_kegiatan: kategori, 
             hasil: hasil 
           }
-        ]);
+        ])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (matchError) throw matchError;
+
+      // 2. Kalkulasi Poin Baru
+      const addPoints = POINT_MAP[kategori][hasil] || 0;
+
+      // 3. Ambil data stats atlet saat ini
+      const { data: currentStats } = await supabase
+        .from('atlet_stats')
+        .select('points, seed')
+        .eq('pendaftaran_id', selectedPlayer)
+        .single();
+
+      const newTotalPoints = (currentStats?.points || 0) + addPoints;
+      const playerInfo = players.find(p => p.id === selectedPlayer);
+
+      // 4. Update tabel atlet_stats (Detail Manajemen Atlet)
+      await supabase
+        .from('atlet_stats')
+        .upsert({
+          pendaftaran_id: selectedPlayer,
+          points: newTotalPoints
+        });
+
+      // 5. Sinkronisasi ke tabel rankings (Update Ranking Utama)
+      await supabase
+        .from('rankings')
+        .upsert({
+          player_name: playerInfo?.nama,
+          category: playerInfo?.kategori,
+          total_points: newTotalPoints,
+          seed: currentStats?.seed || 'UNSEEDED'
+        }, { onConflict: 'player_name' });
       
       // Reset Form & Refresh Data
       setSelectedPlayer('');
@@ -89,14 +135,15 @@ const AdminMatch: React.FC = () => {
       setTimeout(() => setShowSuccess(false), 4000);
 
     } catch (err: any) {
-      alert("Gagal: " + err.message);
+      console.error(err);
+      alert("Gagal memperbarui skor: " + err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const deleteMatch = async (id: string) => {
-    if (!confirm("Hapus pertandingan ini? Poin atlet akan otomatis berkurang kembali.")) return;
+    if (!confirm("Hapus pertandingan ini? Catatan: Poin di ranking harus dikurangi manual atau melalui re-kalkulasi sistem.")) return;
     try {
       const { error } = await supabase.from('pertandingan').delete().eq('id', id);
       if (error) throw error;
@@ -251,12 +298,11 @@ const AdminMatch: React.FC = () => {
         </div>
       </div>
 
-      {/* CUSTOM SUCCESS NOTIFICATION (Glassmorphism UI) */}
+      {/* CUSTOM SUCCESS NOTIFICATION */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 transform ${
         showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'
       }`}>
         <div className="bg-zinc-900/80 backdrop-blur-2xl border border-blue-500/50 px-8 py-5 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(37,99,235,0.2)] flex items-center gap-5 min-w-[320px] overflow-hidden">
-          {/* Progress Bar Decorator */}
           <div className="absolute bottom-0 left-0 h-1 bg-blue-600 animate-[progress_4s_linear]" style={{ width: showSuccess ? '100%' : '0%' }} />
           
           <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-600/40 animate-bounce">
@@ -264,12 +310,11 @@ const AdminMatch: React.FC = () => {
           </div>
           <div>
             <h4 className="text-white font-black uppercase tracking-tighter text-base italic leading-none mb-1">Berhasil Dicatat!</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest opacity-80">Poin Atlet Telah Diperbarui</p>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest opacity-80">Poin & Ranking Telah Disinkronkan</p>
           </div>
         </div>
       </div>
 
-      {/* Tailwind Keyframe for Progress Bar */}
       <style>{`
         @keyframes progress {
           from { width: 100%; }

@@ -14,7 +14,7 @@ import RegistrationForm from './components/RegistrationForm';
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
 
-// Import Komponen Admin (Pastikan file-file ini sudah Anda buat)
+// Import Komponen Admin
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
@@ -67,7 +67,7 @@ export default function App() {
           </div>
         } />
 
-        {/* ROUTE LOGIN: REDIRECT KE DASHBOARD JIKA SUDAH LOGIN */}
+        {/* ROUTE LOGIN: HANYA DIAKSES VIA URL MANUAL /login */}
         <Route 
           path="/login" 
           element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} 
@@ -93,11 +93,16 @@ function AdminLayout({ session }: { session: any }) {
       {/* Sidebar untuk navigasi internal admin */}
       <Sidebar email={session.user.email} />
       
-      {/* Area Konten Dinamis */}
+      {/* Area Konten Dinamis Dashboard */}
       <main className="flex-1 overflow-y-auto p-4 md:p-10">
         <Routes>
+          {/* Menu default admin adalah Manajemen Pendaftaran */}
           <Route path="dashboard" element={<ManajemenPendaftaran />} />
-          {/* Route tambahan bisa diletakkan di bawah ini */}
+          
+          {/* Tempat untuk menu admin lainnya nanti (Atlet, Berita, dll) */}
+          <Route path="atlet" element={<div className="font-black italic uppercase text-3xl text-slate-900">Halaman Manajemen Atlet</div>} />
+          
+          {/* Fallback jika sub-route tidak ditemukan */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </main>

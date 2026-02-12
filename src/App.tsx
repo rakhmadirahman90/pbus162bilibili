@@ -21,6 +21,8 @@ import ManajemenPendaftaran from './ManajemenPendaftaran';
 import ManajemenAtlet from './ManajemenAtlet';
 import AdminBerita from './components/AdminBerita';
 import AdminMatch from './components/AdminMatch'; 
+// --- TAMBAHKAN IMPORT BARU DISINI ---
+import AdminRanking from './components/AdminRanking'; 
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -94,7 +96,7 @@ export default function App() {
 
 /**
  * PERBAIKAN PADA ADMIN LAYOUT
- * Menghapus redudansi route dan memastikan path sinkron dengan Sidebar.tsx
+ * Menghubungkan AdminRanking ke Route
  */
 function AdminLayout({ session }: { session: any }) {
   return (
@@ -114,19 +116,13 @@ function AdminLayout({ session }: { session: any }) {
           {/* 3. Update Skor (AdminMatch) */}
           <Route path="skor" element={<AdminMatch />} />
 
-          {/* 4. Update Berita (FIXED: Menghapus path ganda) */}
+          {/* 4. Update Berita */}
           <Route path="berita" element={<AdminBerita />} />
           
-          {/* 5. Placeholder untuk fitur yang akan datang */}
-          <Route path="ranking" element={
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-center">
-                <h1 className="text-5xl font-black italic text-white/10 uppercase tracking-tighter mb-4">Coming Soon</h1>
-                <p className="text-blue-500 font-bold tracking-widest uppercase text-xs">Halaman Update Ranking dalam pengembangan</p>
-              </div>
-            </div>
-          } />
+          {/* 5. Update Ranking (SEKARANG SUDAH AKTIF) */}
+          <Route path="ranking" element={<AdminRanking />} />
 
+          {/* 6. Placeholder untuk fitur yang akan datang */}
           <Route path="galeri" element={
             <div className="min-h-screen flex items-center justify-center">
               <div className="text-center">

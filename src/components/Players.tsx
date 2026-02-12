@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
-import { supabase } from "../supabase"; // Pastikan path config benar
+import { supabase } from "../supabase";
 
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -11,7 +11,7 @@ import {
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
 } from 'lucide-react';
 
-// --- DATA SOURCE & PEMENANG (Tetap dipertahankan untuk kalkulasi poin) ---
+// --- DATA SOURCE & PEMENANG ---
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -28,7 +28,6 @@ const Players: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
   
-  // --- STATE BARU UNTUK DATABASE ---
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -36,13 +35,13 @@ const Players: React.FC = () => {
   const nextRef = useRef<HTMLButtonElement>(null);
   const [_, setInit] = useState(false);
 
-  // 1. FUNGSI FETCH DATA DARI SUPABASE
+  // 1. FUNGSI FETCH DATA
   const fetchPlayersFromDB = async () => {
     try {
       const { data, error } = await supabase
         .from('pendaftaran')
         .select('*')
-        .order('created_at', { ascending: true }); // Menggunakan urutan daftar untuk rank awal
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       setDbPlayers(data || []);
@@ -53,7 +52,7 @@ const Players: React.FC = () => {
     }
   };
 
-  // 2. REALTIME LISTENER & INITIAL FETCH
+  // 2. REALTIME LISTENER
   useEffect(() => {
     fetchPlayersFromDB();
 
@@ -70,7 +69,6 @@ const Players: React.FC = () => {
     };
   }, []);
 
-  // Listener untuk Navbar (Kode Anda sebelumnya)
   useEffect(() => {
     const handleFilterAtlet = (event: any) => {
       const category = event.detail;
@@ -84,30 +82,33 @@ const Players: React.FC = () => {
     setInit(true);
   }, []);
 
-  // 3. PROSES DATA: Menggabungkan Data DB dengan Logika Poin/Seed
+  // 3. PROSES DATA DENGAN LOGIKA TABEL POIN BARU
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
-      'Pemula (U-15)': { base: 5500, bonus: 500, label: 'Seed C', age: 'Muda' },
-      'Remaja (U-17)': { base: 6000, bonus: 500, label: 'Seed C', age: 'Muda' },
-      'Taruna (U-19)': { base: 6500, bonus: 500, label: 'Seed C', age: 'Muda' },
-      'Dewasa / Umum': { base: 8500, bonus: 500, label: 'Seed B+', age: 'Senior' },
-      'Veteran (35+ / 40+)': { base: 10000, bonus: 300, label: 'Seed A', age: 'Senior' },
+      'Veteran (35+ / 40+)': { base: 10000, label: 'Seed A', age: 'Senior' },
+      'Dewasa / Umum': { base: 8500, label: 'Seed B+', age: 'Senior' },
+      'Taruna (U-19)': { base: 6500, label: 'Seed C', age: 'Muda' },
+      'Remaja (U-17)': { base: 6000, label: 'Seed C', age: 'Muda' },
+      'Pemula (U-15)': { base: 5500, label: 'Seed C', age: 'Muda' },
     };
 
-    // Default jika kategori tidak terdaftar
-    const defaultConfig = { base: 5000, bonus: 200, label: 'UNSEEDED', age: 'Senior' };
+    const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
 
     return dbPlayers.map((p, index) => {
       const conf = config[p.kategori] || defaultConfig;
-      const isWinner = EVENT_LOG[0].winners.includes(p.nama);
       
-      // Kalkulasi Poin (Menggunakan urutan index di DB)
-      const totalPoints = (conf.base - (index * 50)) + (isWinner ? conf.bonus : 0);
+      // Cek kemenangan sesuai tabel (+300 untuk Turnamen Internal/Cup)
+      const isWinner = EVENT_LOG[0].winners.includes(p.nama);
+      const winBonus = isWinner ? 300 : 0;
+      
+      // Pengurangan index diperhalus menjadi 10 agar tidak merusak base point
+      // Agustilaar (Veteran 10.000 + Win 300) = 10.300
+      const totalPoints = (conf.base + winBonus) - (index * 10);
       
       return {
         ...p,
-        name: p.nama, // Mapping dari kolom 'nama'
-        img: p.foto_url, // Mapping dari kolom 'foto_url'
+        name: p.nama,
+        img: p.foto_url,
         bio: p.pengalaman || "Atlet profesional PB US 162 dengan dedikasi tinggi.",
         totalPoints,
         isWinner,
@@ -223,7 +224,7 @@ const Players: React.FC = () => {
           <div className="relative group/slider">
             <Swiper
               modules={[Navigation, Pagination, Autoplay]}
-              key={`${currentAgeGroup}-${filteredPlayers.length}`} // Key unik agar swiper refresh saat data berubah
+              key={`${currentAgeGroup}-${filteredPlayers.length}`}
               observer={true} 
               observeParents={true} 
               spaceBetween={25}

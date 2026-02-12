@@ -125,6 +125,8 @@ function AdminLayout({ session }: { session: any }) {
 
           {/* 6. Update Galeri Media (SEKARANG SUDAH AKTIF) */}
           <Route path="galeri" element={<AdminGallery />} />
+
+          <Route path="/admin/kontak" element={<AdminContact />} />
           
           {/* Fallback internal admin */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />

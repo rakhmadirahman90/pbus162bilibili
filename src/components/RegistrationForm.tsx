@@ -33,7 +33,7 @@ export default function RegistrationForm() {
     try {
       let publicUrl = "";
 
-      // 1. Proses Upload File ke Storage
+      // 1. Proses Upload Foto ke Supabase Storage
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
@@ -65,43 +65,43 @@ export default function RegistrationForm() {
         }]);
 
       if (dbError) {
-        // Jika error menyebut 'rankings', itu tanda ada Trigger/Function di Supabase Anda yang salah
+        // Deteksi error khusus tabel 'rankings' dari database trigger
         if (dbError.message.includes('rankings')) {
-          throw new Error("Database Error: Sistem mencoba mengirim data ke tabel 'rankings' yang tidak sesuai. Periksa Database Triggers di Supabase.");
+          throw new Error("Sistem Database Error: Ada Trigger otomatis yang gagal mengakses tabel 'rankings'. Silakan matikan Trigger di Dashboard Supabase.");
         }
-        throw new Error("Gagal simpan ke database: " + dbError.message);
+        throw new Error(dbError.message);
       }
 
-      // 3. Integrasi Notifikasi WhatsApp Admin
+      // 3. Notifikasi WhatsApp Admin
       const adminPhoneNumber = "6281219027234";
-      const message = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
-                      `*Nama:* ${formData.nama}%0A` +
-                      `*Domisili:* ${formData.domisili}%0A` +
-                      `*Kategori:* ${formData.kategori}%0A` +
-                      `*Pengalaman:* ${formData.pengalaman || '-'}%0A` +
-                      `*Link Foto:* ${publicUrl}`;
+      const waMessage = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
+                        `*Nama:* ${formData.nama}%0A` +
+                        `*Domisili:* ${formData.domisili}%0A` +
+                        `*Kategori:* ${formData.kategori}%0A` +
+                        `*WhatsApp:* ${formData.whatsapp}%0A` +
+                        `*Link Foto:* ${publicUrl}`;
       
-      window.open(`https://wa.me/${adminPhoneNumber}?text=${message}`, '_blank');
+      window.open(`https://wa.me/${adminPhoneNumber}?text=${waMessage}`, '_blank');
       
-      // Reset Form
       setSubmitted(true);
       setFormData({ nama: '', whatsapp: '', kategori: kategoriUmur[0], domisili: '', pengalaman: '' });
       setFile(null);
 
     } catch (err: any) {
-      console.error(err);
+      console.error("Detail Error:", err);
       alert("Terjadi Kesalahan: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // UI Sukses Pendaftaran
   if (submitted) {
     return (
       <div className="max-w-md mx-auto my-12 p-10 bg-green-50 rounded-[3rem] border-2 border-green-100 text-center animate-in fade-in zoom-in duration-500">
         <CheckCircle2 size={80} className="text-green-500 mx-auto mb-6" />
         <h2 className="text-3xl font-black text-slate-900 mb-4">BERHASIL!</h2>
-        <p className="text-slate-600 mb-8 font-medium">Data pendaftaran telah tersimpan ke sistem kami.</p>
+        <p className="text-slate-600 mb-8 font-medium">Data pendaftaran telah tersimpan.</p>
         <button 
           onClick={() => setSubmitted(false)} 
           className="bg-slate-900 text-white px-8 py-3 rounded-full font-bold uppercase tracking-wider hover:bg-slate-800 transition-all active:scale-95"
@@ -164,12 +164,10 @@ export default function RegistrationForm() {
                 onChange={e => setFormData({...formData, kategori: e.target.value})}
               >
                 {kategoriUmur.map((kat) => (
-                  <option key={kat} value={kat}>
-                    {kat}
-                  </option>
+                  <option key={kat} value={kat}>{kat}</option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-4 top-4 pointer-events-none text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
+              <ChevronDown className="absolute right-4 top-4 pointer-events-none text-slate-400 group-hover:text-blue-500" size={18} />
             </div>
           </div>
 

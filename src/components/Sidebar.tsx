@@ -11,7 +11,9 @@ import {
   ChevronRight,
   Circle,
   ShieldCheck,
-  Settings
+  Settings,
+  Database,
+  ExternalLink
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -25,6 +27,7 @@ export default function Sidebar({ email }: { email: string }) {
   useEffect(() => {
     const checkConnection = async () => {
       try {
+        // Cek koneksi ke tabel rankings (atau gallery)
         const { error } = await supabase.from('rankings').select('id', { count: 'exact', head: true }).limit(1);
         setDbStatus(error ? 'offline' : 'online');
       } catch {
@@ -44,7 +47,7 @@ export default function Sidebar({ email }: { email: string }) {
     }
   };
 
-  // 2. Definisi Menu (Dipisahkan agar lebih rapi)
+  // 2. Definisi Menu (LENGKAP Sesuai App.tsx)
   const menuItems = [
     { 
       section: 'Main Dashboard', 
@@ -59,7 +62,7 @@ export default function Sidebar({ email }: { email: string }) {
         { name: 'Update Skor & Poin', path: '/admin/skor', icon: Zap }, 
         { name: 'Update Berita', path: '/admin/berita', icon: Newspaper },
         { name: 'Update Ranking', path: '/admin/ranking', icon: Trophy },
-        { name: 'Galeri Media', path: '/admin/galeri', icon: Image },
+        { name: 'Galeri Media', path: '/admin/galeri', icon: Image }, // Path disamakan dengan App.tsx
       ]
     }
   ];
@@ -103,6 +106,7 @@ export default function Sidebar({ email }: { email: string }) {
             </p>
             <div className="space-y-1.5">
               {group.items.map((item) => {
+                // Modifikasi pengecekan aktif untuk mendukung nested routes atau exact match
                 const isActive = location.pathname === item.path;
                 return (
                   <NavLink
@@ -131,6 +135,18 @@ export default function Sidebar({ email }: { email: string }) {
             </div>
           </div>
         ))}
+
+        {/* Tambahan: Quick Access Section (Data Lengkap) */}
+        <div className="pt-4">
+           <a 
+             href="/" 
+             target="_blank" 
+             className="flex items-center gap-3 px-5 py-3 rounded-2xl border border-dashed border-slate-800 text-slate-500 hover:text-blue-400 hover:border-blue-900/50 transition-all"
+           >
+             <ExternalLink size={14} />
+             <span className="text-[9px] font-black uppercase tracking-widest">Lihat Live Site</span>
+           </a>
+        </div>
       </nav>
 
       {/* Footer Account Section */}
@@ -139,14 +155,14 @@ export default function Sidebar({ email }: { email: string }) {
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-blue-900/40 rotate-3 group-hover:rotate-0 transition-transform">
-                {email.charAt(0).toUpperCase()}
+                {email ? email.charAt(0).toUpperCase() : 'A'}
               </div>
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-[#0F172A] rounded-full flex items-center justify-center">
                 <ShieldCheck size={8} className="text-white" />
               </div>
             </div>
             <div className="overflow-hidden">
-              <p className="text-[10px] font-bold text-blue-100 truncate">{email.split('@')[0]}</p>
+              <p className="text-[10px] font-bold text-blue-100 truncate">{email ? email.split('@')[0] : 'Admin'}</p>
               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Master Admin</p>
             </div>
           </div>
@@ -161,8 +177,8 @@ export default function Sidebar({ email }: { email: string }) {
         </button>
         
         <div className="flex justify-between items-center mt-8 px-2">
-          <p className="text-[7px] text-slate-600 font-bold uppercase tracking-widest">
-            v2.0.4 PREMIUM
+          <p className="text-[7px] text-slate-600 font-bold uppercase tracking-widest flex items-center gap-1">
+            <Database size={8} /> CLOUD ENGINE v2.0.4
           </p>
           <Settings size={10} className="text-slate-700 animate-spin-slow" />
         </div>

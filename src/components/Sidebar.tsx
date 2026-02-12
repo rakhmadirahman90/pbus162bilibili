@@ -1,6 +1,14 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Users, UserCircle, Newspaper, Trophy, Image, LogOut, LayoutDashboard } from 'lucide-react';
+import { 
+  Users, 
+  Newspaper, 
+  Trophy, 
+  Image, 
+  LogOut, 
+  LayoutDashboard,
+  Zap // Icon tambahan untuk kesan "Update Cepat"
+} from 'lucide-react';
 import { supabase } from '../supabase';
 
 export default function Sidebar({ email }: { email: string }) {
@@ -14,6 +22,8 @@ export default function Sidebar({ email }: { email: string }) {
   const menuItems = [
     { name: 'Pendaftaran', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Manajemen Atlet', path: '/admin/atlet', icon: Users },
+    // MENU BARU: Menghubungkan ke AdminMatch.tsx
+    { name: 'Update Skor & Poin', path: '/admin/skor', icon: Zap }, 
     { name: 'Update Berita', path: '/admin/berita', icon: Newspaper },
     { name: 'Update Ranking', path: '/admin/ranking', icon: Trophy },
     { name: 'Galeri Media', path: '/admin/galeri', icon: Image },

@@ -1,6 +1,6 @@
 import { Calendar, ArrowRight, X, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { supabase } from "./supabase"; // Pastikan path file supabase.js anda benar
+import { supabase } from "../supabase";
 
 // Definisi tipe data sesuai kolom database
 interface Berita {

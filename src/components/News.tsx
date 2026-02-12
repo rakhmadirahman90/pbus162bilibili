@@ -1,146 +1,169 @@
-import { Calendar, ArrowRight, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { Calendar, ArrowRight, X, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from "./supabase"; // Pastikan path file supabase.js anda benar
 
-const newsData = [
-  {
-    id: 1,
-    title: 'Tim Putri Raih Medali Emas di Kejuaraan Asia',
-    excerpt: 'Prestasi gemilang diraih tim putri dengan memenangkan final yang berlangsung sengit...',
-    content: 'Tim putri PB US 162 berhasil menorehkan sejarah baru di kancah internasional. Dalam pertandingan final yang berlangsung di Tokyo, tim berhasil menumbangkan unggulan pertama dengan skor tipis. Kemenangan ini didedikasikan untuk seluruh pendukung di Parepare dan Indonesia.',
-    date: '1 Februari 2026',
-    category: 'Prestasi',
-    image: 'https://images.pexels.com/photos/6253573/pexels-photo-6253573.jpeg?auto=compress&cs=tinysrgb&w=600',
-  },
-  {
-    id: 2,
-    title: 'Pembukaan Fasilitas Training Baru',
-    excerpt: 'Klub membuka fasilitas training berstandar internasional untuk meningkatkan kualitas atlet...',
-    content: 'Fasilitas baru ini mencakup 8 lapangan badminton dengan standar BWF, gimnasium modern, dan ruang fisioterapi khusus. Terletak di pusat kota Parepare.',
-    date: '1 Februari 2026',
-    category: 'Fasilitas',
-    image: 'https://images.pexels.com/photos/2202685/pexels-photo-2202685.jpeg?auto=compress&cs=tinysrgb&w=600',
-  },
-  {
-    id: 3,
-    title: 'Program Beasiswa untuk Atlet Muda',
-    excerpt: 'Dibuka pendaftaran program beasiswa untuk atlet muda berbakat di seluruh Indonesia...',
-    content: 'PB US 162 berkomitmen memberikan dukungan penuh bagi atlet muda yang kurang mampu namun memiliki prestasi akademik dan olahraga yang baik.',
-    date: '2 Februari 2026',
-    category: 'Program',
-    image: 'https://images.pexels.com/photos/1263426/pexels-photo-1263426.jpeg?auto=compress&cs=tinysrgb&w=600',
-  },
-  {
-    id: 4,
-    title: 'Turnamen Internal PB Bosowa US 162 Cup IV Tahun 2026',
-    excerpt: 'Puncak perayaan olahraga internal yang mempertemukan atlet dari berbagai kategori...',
-    content: 'Turnamen Internal Cup IV 2026 tahun ini diikuti oleh lebih dari 50 atlet internal yang terbagi dalam kategori Seed A hingga Seed C.',
-    date: '1 Februari 2026',
-    category: 'Turnamen',
-    image: '/whatsapp_image_2026-02-02_at_09.53.05_(1).jpeg',
-  },
-  // Contoh data tambahan untuk mengetes fitur "Lihat Semua"
-  {
-    id: 5,
-    title: 'Workshop Teknik Smash bagi Pemula',
-    excerpt: 'Pelatihan khusus bagi anggota baru untuk memperbaiki teknik dasar smash...',
-    content: 'Dalam workshop ini, pelatih kepala mendemonstrasikan koordinasi mata dan tangan yang tepat untuk menghasilkan smash yang tajam dan akurat.',
-    date: '3 Februari 2026',
-    category: 'Latihan',
-    image: 'https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg?auto=compress&cs=tinysrgb&w=600',
-  },
-];
+// Definisi tipe data sesuai kolom database
+interface Berita {
+  id: string | number;
+  judul: string;
+  ringkasan: string;
+  konten: string;
+  kategori: string;
+  gambar_url: string;
+  tanggal: string;
+}
 
 export default function News() {
-  const [selectedNews, setSelectedNews] = useState<typeof newsData[0] | null>(null);
+  const [beritaList, setBeritaList] = useState<Berita[]>([]);
+  const [selectedNews, setSelectedNews] = useState<Berita | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Menentukan berita mana yang ditampilkan
-  const visibleNews = showAll ? newsData : newsData.slice(0, 4);
+  // Mengambil data dari Supabase saat halaman dimuat
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('berita')
+          .select('*')
+          .order('tanggal', { ascending: false }); // Berita terbaru di atas
+
+        if (error) throw error;
+        if (data) setBeritaList(data);
+      } catch (err) {
+        console.error("Gagal memuat berita:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNews();
+  }, []);
+
+  // Logika tampilan: Tampilkan 4 berita pertama, atau semua jika tombol diklik
+  const visibleNews = showAll ? beritaList : beritaList.slice(0, 4);
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center bg-gray-50">
+        <Loader2 className="animate-spin m-auto text-blue-600 mb-4" size={40} />
+        <p className="text-gray-500 font-bold uppercase tracking-widest">Memuat Berita Terkini...</p>
+      </div>
+    );
+  }
 
   return (
     <section id="news" className="py-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">Berita Terkini</h2>
-          <p className="text-xl text-gray-600">Update terbaru tentang prestasi dan kegiatan klub</p>
+          <h2 className="text-4xl font-extrabold text-gray-900 mb-4 italic uppercase tracking-tighter">
+            Berita <span className="text-blue-600">Terkini</span>
+          </h2>
+          <p className="text-xl text-gray-600">Update terbaru tentang prestasi dan kegiatan klub PB US 162</p>
         </div>
 
-        {/* Grid Berita */}
+        {/* Grid Berita Dinamis */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 transition-all duration-500">
           {visibleNews.map((news) => (
             <div
               key={news.id}
-              className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all group flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500"
+              className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all group flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500"
             >
               <div className="relative h-48 overflow-hidden">
                 <img
-                  src={news.image}
-                  alt={news.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  src={news.gambar_url}
+                  alt={news.judul}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
-                <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                  {news.category}
+                <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                  {news.kategori}
                 </div>
               </div>
               <div className="p-6 flex flex-col flex-grow">
-                <div className="flex items-center text-gray-500 text-sm mb-3">
-                  <Calendar size={16} className="mr-2" />
-                  {news.date}
+                <div className="flex items-center text-gray-400 text-xs mb-3 font-bold uppercase">
+                  <Calendar size={14} className="mr-2 text-blue-600" />
+                  {news.tanggal}
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
-                  {news.title}
+                <h3 className="text-lg font-black text-gray-900 mb-2 line-clamp-2 italic uppercase leading-tight group-hover:text-blue-600 transition-colors">
+                  {news.judul}
                 </h3>
-                <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-grow">{news.excerpt}</p>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-grow leading-relaxed">
+                  {news.ringkasan}
+                </p>
                 <button 
                   onClick={() => setSelectedNews(news)}
-                  className="text-blue-600 hover:text-blue-700 font-semibold flex items-center group mt-auto"
+                  className="text-blue-600 hover:text-blue-800 font-black text-xs uppercase tracking-widest flex items-center group/btn mt-auto"
                 >
                   Baca Selengkapnya
-                  <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight size={14} className="ml-2 group-hover/btn:translate-x-2 transition-transform" />
                 </button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Tombol Lihat Semua / Sembunyikan */}
-        {newsData.length > 4 && (
+        {/* Tombol Load More Dinamis */}
+        {beritaList.length > 4 && (
           <div className="text-center mt-12">
             <button 
               onClick={() => setShowAll(!showAll)}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition-all shadow-lg active:scale-95"
+              className="inline-flex items-center gap-2 bg-gray-900 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95 uppercase text-xs tracking-widest"
             >
               {showAll ? (
-                <>Sembunyikan Berita <ChevronUp size={20} /></>
+                <>Sembunyikan <ChevronUp size={18} /></>
               ) : (
-                <>Lihat Semua Berita <ChevronDown size={20} /></>
+                <>Lihat Semua Berita <ChevronDown size={18} /></>
               )}
             </button>
           </div>
         )}
       </div>
 
-      {/* Modal Berita (Tetap Sama) */}
+      {/* Modal Detail Berita */}
       {selectedNews && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
-            <button onClick={() => setSelectedNews(null)} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <button 
+              onClick={() => setSelectedNews(null)} 
+              className="absolute top-5 right-5 p-2 bg-gray-100 hover:bg-red-500 hover:text-white rounded-full text-gray-600 transition-all z-10"
+            >
               <X size={20} />
             </button>
-            <div className="h-64 w-full">
-              <img src={selectedNews.image} alt={selectedNews.title} className="w-full h-full object-cover" />
+            
+            <div className="h-72 w-full overflow-hidden">
+              <img src={selectedNews.gambar_url} alt="" className="w-full h-full object-cover" />
             </div>
-            <div className="p-8">
-              <div className="flex items-center gap-4 mb-4">
-                <span className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold uppercase">{selectedNews.category}</span>
-                <div className="flex items-center text-gray-400 text-sm"><Calendar size={14} className="mr-1" />{selectedNews.date}</div>
+            
+            <div className="p-8 md:p-12">
+              <div className="flex items-center gap-4 mb-6">
+                <span className="bg-blue-600 text-white px-4 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                  {selectedNews.kategori}
+                </span>
+                <div className="flex items-center text-gray-400 text-xs font-bold uppercase italic">
+                  <Calendar size={14} className="mr-2" /> {selectedNews.tanggal}
+                </div>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">{selectedNews.title}</h2>
-              <div className="text-gray-600 leading-relaxed space-y-4">
-                <p className="text-lg italic text-gray-500 border-l-4 border-blue-500 pl-4">{selectedNews.excerpt}</p>
-                <p>{selectedNews.content}</p>
+              
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-6 italic uppercase tracking-tighter leading-none">
+                {selectedNews.judul}
+              </h2>
+              
+              <div className="space-y-6">
+                <p className="text-lg italic text-gray-500 border-l-4 border-blue-500 pl-6 py-2 bg-blue-50/50">
+                  {selectedNews.ringkasan}
+                </p>
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap font-medium">
+                  {selectedNews.konten}
+                </div>
               </div>
-              <button onClick={() => setSelectedNews(null)} className="mt-8 w-full bg-gray-900 text-white py-4 rounded-xl font-bold">Tutup Berita</button>
+              
+              <button 
+                onClick={() => setSelectedNews(null)} 
+                className="mt-10 w-full bg-gray-900 hover:bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all"
+              >
+                Tutup Jendela
+              </button>
             </div>
           </div>
         </div>

@@ -1,11 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from "./supabase";
 import { 
-  Trash2, RefreshCcw, Search, Phone, MapPin, ChevronLeft, ChevronRight,
-  Edit3, X, Save, User, Camera, Loader2, Users, Download, FileText, Table
+  Trash2, 
+  RefreshCcw, 
+  Search, 
+  Phone, 
+  MapPin, 
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  X,
+  Save,
+  User,
+  Camera,
+  Loader2,
+  Users,
+  FileSpreadsheet, // Icon baru untuk Excel
+  FileText         // Icon baru untuk PDF
 } from 'lucide-react';
 
-// Import untuk Eksport
+// Import library eksport
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -28,81 +42,161 @@ export default function ManajemenPendaftaran() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  
+  const itemsPerPage = 8; 
 
-  // --- LOGIKA EKSPORT EXCEL ---
+  const kategoriUmur = [
+    "Pra Dini (U-9)", "Usia Dini (U-11)", "Anak-anak (U-13)", 
+    "Pemula (U-15)", "Remaja (U-17)", "Taruna (U-19)", 
+    "Dewasa / Umum", "Veteran (35+ / 40+)"
+  ];
+
+  // --- FUNGSI EKSPORT EXCEL ---
   const exportToExcel = () => {
     const dataToExport = filteredData.map((item, index) => ({
       No: index + 1,
-      Nama: item.nama,
+      Nama: item.nama.toUpperCase(),
       Gender: item.jenis_kelamin,
-      WhatsApp: item.whatsapp,
       Kategori: item.kategori,
+      WhatsApp: item.whatsapp,
       Domisili: item.domisili,
-      Pengalaman: item.pengalaman,
       Tanggal_Daftar: new Date(item.created_at).toLocaleDateString('id-ID')
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Atlet");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pendaftar");
     XLSX.writeFile(workbook, `Data_Atlet_${Date.now()}.xlsx`);
   };
 
-  // --- LOGIKA EKSPORT PDF ---
+  // --- FUNGSI EKSPORT PDF ---
   const exportToPDF = () => {
     const doc = new jsPDF();
-    doc.text("DAFTAR PENDAFTARAN ATLET", 14, 15);
+    doc.setFontSize(16);
+    doc.text("LAPORAN DATA PENDAFTARAN ATLET", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 22);
     
-    const tableColumn = ["No", "Nama", "Gender", "WhatsApp", "Kategori", "Domisili"];
+    const tableColumn = ["No", "Nama Atlet", "Gender", "Kategori", "Domisili", "WhatsApp"];
     const tableRows = filteredData.map((item, index) => [
       index + 1,
       item.nama.toUpperCase(),
       item.jenis_kelamin,
-      item.whatsapp,
       item.kategori,
-      item.domisili
+      item.domisili,
+      item.whatsapp
     ]);
 
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 20,
+      startY: 28,
       theme: 'grid',
-      headStyles: { fillStyle: [37, 99, 235] } // Warna Biru
+      headStyles: { fillStyle: [37, 99, 235], fontStyle: 'bold' }, // Blue-600
+      styles: { fontSize: 8 },
     });
 
     doc.save(`Data_Atlet_${Date.now()}.pdf`);
   };
 
-  // (Fungsi fetchData, useEffect, handleDelete, handleUpdate tetap sama seperti sebelumnya...)
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('pendaftaran').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('pendaftaran')
+        .select('*')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setRegistrants(data || []);
-    } catch (error: any) { console.error(error.message); }
-    finally { setLoading(false); }
+    } catch (error: any) {
+      console.error('Error fetching data:', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const channel = supabase
+      .channel('pendaftaran_changes')
+      .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, 
+        (payload) => {
+          if (payload.eventType === 'INSERT') setRegistrants((prev) => [payload.new as Registrant, ...prev]);
+          else if (payload.eventType === 'UPDATE') setRegistrants((prev) => prev.map((item) => item.id === payload.new.id ? (payload.new as Registrant) : item));
+          else if (payload.eventType === 'DELETE') setRegistrants((prev) => prev.filter((item) => item.id !== payload.old.id));
+        }
+      ).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const filteredData = registrants.filter(item => 
     item.nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.domisili?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const deleteOldFile = async (url: string) => {
+    if (!url) return;
+    const fileName = url.split('/').pop();
+    if (fileName) await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !editingItem) return;
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const filePath = `identitas/${editingItem.id}-${Date.now()}.${fileExt}`;
+    setUploading(true);
+    try {
+      if (editingItem.foto_url) await deleteOldFile(editingItem.foto_url);
+      await supabase.storage.from('identitas-atlet').upload(filePath, file);
+      const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
+      setEditingItem({ ...editingItem, foto_url: publicUrl });
+    } catch (error: any) { alert(error.message); } 
+    finally { setUploading(false); }
+  };
+
+  const handleDelete = async (id: string, nama: string, foto_url: string) => {
+    if (window.confirm(`Hapus data ${nama}?`)) {
+      try {
+        if (foto_url) await deleteOldFile(foto_url);
+        const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
+        if (error) throw error;
+      } catch (error: any) { alert('Gagal menghapus: ' + error.message); }
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('pendaftaran').update({
+        nama: editingItem.nama.toUpperCase(),
+        whatsapp: editingItem.whatsapp,
+        domisili: editingItem.domisili,
+        kategori: editingItem.kategori,
+        jenis_kelamin: editingItem.jenis_kelamin, 
+        foto_url: editingItem.foto_url
+      }).eq('id', editingItem.id);
+      if (error) throw error;
+      setIsEditModalOpen(false);
+    } catch (error: any) { alert(error.message); } 
+    finally { setIsSaving(false); }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       <div className="max-w-[1400px] mx-auto px-4 py-4 md:px-8">
         
         {/* HEADER */}
-        <header className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6">
+        <header className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-600 rounded-lg shadow-md shadow-blue-100">
               <Users className="text-white" size={20} />
@@ -111,7 +205,7 @@ export default function ManajemenPendaftaran() {
               <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900 uppercase italic leading-none">
                 Database <span className="text-blue-600">Atlet</span>
               </h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Panel Administrasi</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Sistem Administrasi Real-time</p>
             </div>
           </div>
 
@@ -119,75 +213,260 @@ export default function ManajemenPendaftaran() {
             {/* Tombol Eksport Excel */}
             <button 
               onClick={exportToExcel}
-              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100"
+              className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100/50"
             >
-              <Table size={14} /> EXCEL
+              <FileSpreadsheet size={14} /> EXCEL
             </button>
 
             {/* Tombol Eksport PDF */}
             <button 
               onClick={exportToPDF}
-              className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100"
+              className="flex items-center gap-2 bg-rose-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100/50"
             >
               <FileText size={14} /> PDF
             </button>
 
             <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
 
+            <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col items-center">
+              <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Total</span>
+              <span className="text-lg font-black text-blue-600 leading-none">{filteredData.length}</span>
+            </div>
+            
             <button 
               onClick={fetchData} 
-              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95"
+              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-slate-200"
             >
-              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} /> REFRESH
+              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
+              REFRESH
             </button>
           </div>
         </header>
 
-        {/* ... (Sisanya: Search Bar, Table, Pagination, Modal sama seperti kode sebelumnya) ... */}
-        
+        {/* SEARCH BAR */}
         <section className="mb-4">
           <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm transition-all focus-within:border-blue-500">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
               placeholder="Cari nama atau kota..."
-              className="w-full pl-12 pr-6 py-3 bg-transparent outline-none font-bold text-sm"
+              className="w-full pl-12 pr-6 py-3 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
         </section>
 
-        {/* TABLE (Sesuai kode sebelumnya) */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden mb-4">
-           {/* ... kode tabel Anda ... */}
-           <table className="w-full text-left border-collapse">
+        {/* TABLE SECTION */}
+        <section className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden mb-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-900 text-white">
-                  <th className="pl-6 py-3 font-bold uppercase text-[10px] tracking-widest w-12">No</th>
-                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Atlet</th>
+                  <th className="pl-6 pr-2 py-3 font-bold uppercase text-[10px] tracking-widest w-12 text-center">No</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Profil Atlet</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Gender</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Kategori</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest text-center">WhatsApp</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Domisili</th>
                   <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {currentItems.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-all group">
-                    <td className="pl-6 py-3 text-xs font-bold text-slate-400">{(currentPage-1)*itemsPerPage + index + 1}</td>
-                    <td className="px-4 py-3 font-bold text-xs uppercase">{item.nama}</td>
-                    <td className="px-4 py-3 text-[10px] font-bold">{item.jenis_kelamin}</td>
-                    <td className="px-4 py-3 text-[10px] font-bold text-blue-600">{item.kategori}</td>
-                    <td className="px-4 py-3 text-[10px] font-bold uppercase">{item.domisili}</td>
-                    <td className="px-4 py-3 text-right">
-                       <button onClick={() => handleDelete(item.id, item.nama, item.foto_url)} className="p-1 text-rose-500 hover:bg-rose-50 rounded"><Trash2 size={14}/></button>
+                {loading && registrants.length === 0 ? (
+                  <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold uppercase text-xs">Memuat Data...</td></tr>
+                ) : currentItems.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-blue-50/50 even:bg-slate-50/20 transition-all duration-150 group">
+                    <td className="pl-6 pr-2 py-2 text-center">
+                      <span className="text-xs font-black text-slate-400 group-hover:text-blue-600">
+                        {String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
+                      </span>
+                    </td>
+                    
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          onClick={() => item.foto_url && setPreviewImage(item.foto_url)}
+                          className="w-10 h-10 rounded-lg bg-slate-200 border border-white shadow-sm overflow-hidden flex-shrink-0 cursor-zoom-in"
+                        >
+                          {item.foto_url ? (
+                            <img src={item.foto_url} className="w-full h-full object-cover" alt={item.nama} />
+                          ) : (
+                            <User className="m-auto mt-1.5 text-slate-400" size={18} />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-xs uppercase leading-tight">{item.nama}</h4>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">ID: {item.id.slice(0,6)}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-2">
+                      <span className={`text-[10px] font-bold uppercase ${item.jenis_kelamin === 'Putra' ? 'text-blue-600' : 'text-rose-500'}`}>
+                        {item.jenis_kelamin}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-2">
+                      <span className="inline-flex items-center bg-blue-600 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase italic shadow-sm">
+                        {item.kategori}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-2 text-center">
+                      <a 
+                        href={`https://wa.me/${item.whatsapp.replace(/\D/g, '')}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 font-bold text-slate-700 hover:text-green-600 bg-white border border-slate-100 px-3 py-1 rounded-lg transition-all text-[11px]"
+                      >
+                        <Phone size={12} className="text-green-500" />
+                        {item.whatsapp}
+                      </a>
+                    </td>
+
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-600 uppercase text-[10px]">
+                        <MapPin size={12} className="text-rose-500" />
+                        {item.domisili}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-2">
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }}
+                          className="p-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-all"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(item.id, item.nama, item.foto_url)}
+                          className="p-1.5 bg-rose-50 text-rose-600 rounded-md hover:bg-rose-600 hover:text-white transition-all"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
-           </table>
-        </div>
+            </table>
+          </div>
+        </section>
+
+        {/* PAGINATION */}
+        <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl text-white shadow-lg">
+          <p className="text-[9px] font-bold uppercase tracking-widest opacity-60">Halaman {currentPage} Dari {totalPages || 1}</p>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex gap-1.5">
+                {[...Array(totalPages)].map((_, i) => (
+                 <button 
+                  key={i} 
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60'}`}
+                 >
+                   {i + 1}
+                 </button>
+                ))}
+            </div>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </footer>
       </div>
+
+      {/* MODAL EDIT */}
+      {isEditModalOpen && editingItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">Edit Atlet</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><X size={18}/></button>
+            </div>
+            <form onSubmit={handleUpdate} className="p-6 space-y-4">
+              <div className="flex items-center gap-6 mb-2">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
+                    {editingItem.foto_url ? <img src={editingItem.foto_url} className="w-full h-full object-cover" /> : <User size={30} className="m-auto mt-4 text-slate-200" />}
+                    {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={20} /></div>}
+                  </div>
+                  <label className="absolute -bottom-1 -right-1 p-2 bg-blue-600 text-white rounded-lg shadow-lg cursor-pointer hover:bg-slate-900 transition-all">
+                    <Camera size={14} />
+                    <input type="file" className="hidden" onChange={handleFileUpload} />
+                  </label>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" value={editingItem.nama} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
+                </div>
+              </div>
+
+              {/* Pilihan Jenis Kelamin */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Putra', 'Putri'].map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})}
+                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${editingItem.jenis_kelamin === g ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+                    >
+                      {g.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.whatsapp} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
+                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.kategori} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
+                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" value={editingItem.domisili} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
+                </div>
+              </div>
+              <div className="pt-2">
+                <button type="submit" disabled={isSaving || uploading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2">
+                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX PREVIEW */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-lg w-full">
+            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

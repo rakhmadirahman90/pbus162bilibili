@@ -11,7 +11,6 @@ import {
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
 } from 'lucide-react';
 
-// --- DATA SOURCE & PEMENANG ---
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -27,95 +26,77 @@ const Players: React.FC = () => {
   const [currentAgeGroup, setCurrentAgeGroup] = useState('Semua'); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
-  
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
-  const [_, setInit] = useState(false);
+  const [init, setInit] = useState(false);
 
-  // 1. FUNGSI FETCH DATA
   const fetchPlayersFromDB = async () => {
     try {
       const { data, error } = await supabase
         .from('pendaftaran')
-        .select('*')
-        .order('created_at', { ascending: true });
+        .select('*');
 
       if (error) throw error;
       setDbPlayers(data || []);
     } catch (err) {
-      console.error("Gagal mengambil data atlet:", err);
+      console.error("Error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 2. REALTIME LISTENER
   useEffect(() => {
     fetchPlayersFromDB();
-
     const channel = supabase
       .channel('pendaftaran_realtime')
-      .on('postgres_changes', 
-        { event: '*', table: 'pendaftaran', schema: 'public' }, 
-        () => fetchPlayersFromDB()
-      )
+      .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  useEffect(() => {
-    const handleFilterAtlet = (event: any) => {
-      const category = event.detail;
-      if (category) setCurrentAgeGroup(category);
-    };
-    window.addEventListener('filterAtlet', handleFilterAtlet);
-    return () => window.removeEventListener('filterAtlet', handleFilterAtlet);
-  }, []);
+  useEffect(() => { setInit(true); }, []);
 
-  useEffect(() => {
-    setInit(true);
-  }, []);
-
-  // 3. PROSES DATA DENGAN LOGIKA TABEL POIN BARU
+  // --- LOGIKA PERBAIKAN POIN & SINKRONISASI ---
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
-      'Veteran (35+ / 40+)': { base: 10000, label: 'Seed A', age: 'Senior' },
-      'Dewasa / Umum': { base: 8500, label: 'Seed B+', age: 'Senior' },
-      'Taruna (U-19)': { base: 6500, label: 'Seed C', age: 'Muda' },
-      'Remaja (U-17)': { base: 6000, label: 'Seed C', age: 'Muda' },
-      'Pemula (U-15)': { base: 5500, label: 'Seed C', age: 'Muda' },
+      // Kunci di bawah disesuaikan dengan isi Database (Capslock "SENIOR", dll)
+      'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
+      'DEWASA': { base: 8500, label: 'Seed B+', age: 'Senior' },
+      'TARUNA (U-19)': { base: 6500, label: 'Seed C', age: 'Muda' },
+      'REMAJA (U-17)': { base: 6000, label: 'Seed C', age: 'Muda' },
+      'PEMULA (U-15)': { base: 5500, label: 'Seed C', age: 'Muda' },
     };
 
-    const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
+    const defaultConfig = { base: 4500, label: 'UNSEEDED', age: 'Senior' };
 
-    return dbPlayers.map((p, index) => {
-      const conf = config[p.kategori] || defaultConfig;
+    return dbPlayers.map((p) => {
+      // Normalisasi kategori agar cocok dengan config (case insensitive)
+      const playerCat = p.kategori ? p.kategori.toUpperCase() : '';
+      const conf = config[playerCat] || defaultConfig;
       
-      // Cek kemenangan sesuai tabel (+300 untuk Turnamen Internal/Cup)
       const isWinner = EVENT_LOG[0].winners.includes(p.nama);
       const winBonus = isWinner ? 300 : 0;
       
-      // Pengurangan index diperhalus menjadi 10 agar tidak merusak base point
-      // Agustilaar (Veteran 10.000 + Win 300) = 10.300
-      const totalPoints = (conf.base + winBonus) - (index * 10);
+      // Skor murni sesuai manajemen atlet: Base + Bonus
+      // Agustilaar: 10.000 (Senior) + 300 (Winner) = 10.300
+      const totalPoints = conf.base + winBonus;
       
       return {
         ...p,
         name: p.nama,
         img: p.foto_url,
-        bio: p.pengalaman || "Atlet profesional PB US 162 dengan dedikasi tinggi.",
+        bio: p.pengalaman || "Atlet profesional PB US 162.",
         totalPoints,
         isWinner,
         ageGroup: conf.age,
         categoryLabel: conf.label,
       };
-    }).sort((a, b) => b.totalPoints - a.totalPoints);
+    })
+    // MENGURUTKAN BERDASARKAN POIN TERTINGGI (RANKING #1 DI DEPAN)
+    .sort((a, b) => b.totalPoints - a.totalPoints);
   }, [dbPlayers]);
 
   const filteredPlayers = useMemo(() => {
@@ -128,44 +109,25 @@ const Players: React.FC = () => {
 
   return (
     <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
-      
-      {/* MODAL DETAIL */}
+      {/* MODAL DETAIL (Tetap sama) */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
-          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl">
             <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center overflow-hidden h-[400px] md:h-auto">
               <img src={selectedPlayer.img} className="w-full h-full object-cover p-4" alt={selectedPlayer.name} />
-              {selectedPlayer.isWinner && (
-                <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl">
-                  <Award size={18} /> WINNER - INTERNAL CUP
-                </div>
-              )}
             </div>
             <div className="p-10 md:p-16 flex-1 bg-zinc-900 relative">
-              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-colors"><X size={28} /></button>
-              <div className="flex gap-3 mb-6">
-                <span className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-blue-500 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.ageGroup}</span>
-                <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.categoryLabel}</span>
-              </div>
-              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9]">{selectedPlayer.name}</h2>
-              <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
-                <div className="flex items-center gap-3 mb-4 text-blue-500">
-                    <Info size={20} />
-                    <span className="text-xs font-black uppercase tracking-widest">Profil Singkat</span>
-                </div>
-                <p className="text-zinc-400 text-lg leading-relaxed italic">"{selectedPlayer.bio}"</p>
-              </div>
+              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white"><X size={28} /></button>
+              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 leading-[0.9]">{selectedPlayer.name}</h2>
               <div className="grid grid-cols-2 gap-5">
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
-                    <Zap className="text-blue-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Global Rank</p>
                     <p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
                 </div>
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
-                    <Trophy className="text-yellow-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Poin Klasemen</p>
-                    <p className="text-2xl font-black">{selectedPlayer.totalPoints.toLocaleString()}</p>
+                    <p className="text-2xl font-black">{selectedPlayer.totalPoints.toLocaleString()} PTS</p>
                 </div>
               </div>
             </div>
@@ -179,60 +141,28 @@ const Players: React.FC = () => {
             <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">
               PROFIL <span className="text-blue-600">PEMAIN</span>
             </h2>
-            <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">
-              Kenal Lebih Dekat Dengan Atlet Kami
-            </p>
           </div>
           <div className="relative w-full md:w-[320px]">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
             <input 
               type="text" 
               placeholder="Cari atlet..." 
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold transition-all placeholder:text-zinc-700 shadow-xl"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
 
-        {/* FILTER TABS */}
-        <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
-            <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
-              {[
-                { label: 'Semua', count: dbPlayers.length },
-                { label: 'Senior', count: processedPlayers.filter(p => p.ageGroup === 'Senior').length },
-                { label: 'Muda', count: processedPlayers.filter(p => p.ageGroup === 'Muda').length }
-              ].map((tab) => (
-                <button 
-                  key={tab.label}
-                  onClick={() => setCurrentAgeGroup(tab.label)} 
-                  className={`px-10 py-4 rounded-[2rem] text-[12px] font-black transition-all flex items-center gap-3 whitespace-nowrap ${currentAgeGroup === tab.label ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' : 'text-zinc-500 hover:text-white'}`}
-                >
-                  {tab.label.toUpperCase()} 
-                  <span className="opacity-40 text-[10px]">{tab.count}</span>
-                </button>
-              ))}
-            </div>
-        </div>
-
-        {/* LOADING STATE */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 text-zinc-500">
-            <Loader2 className="animate-spin" size={40} />
-            <p className="font-black uppercase tracking-widest text-xs">Menghubungkan Database...</p>
-          </div>
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin" size={40} /></div>
         ) : (
           <div className="relative group/slider">
             <Swiper
               modules={[Navigation, Pagination, Autoplay]}
               key={`${currentAgeGroup}-${filteredPlayers.length}`}
-              observer={true} 
-              observeParents={true} 
               spaceBetween={25}
               slidesPerView={1.2}
-              navigation={{
-                prevEl: prevRef.current,
-                nextEl: nextRef.current,
-              }}
+              navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
               onBeforeInit={(swiper) => {
                  // @ts-ignore
                  swiper.params.navigation.prevEl = prevRef.current;
@@ -242,29 +172,23 @@ const Players: React.FC = () => {
               breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
               className="!pb-20"
             >
-              {filteredPlayers.map((player) => (
+              {filteredPlayers.map((player, index) => (
                 <SwiperSlide key={player.id}>
                   <div 
                     onClick={() => setSelectedPlayer(player)} 
-                    className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
+                    className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4"
                   >
-                    <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
+                    <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-1000" alt={player.name} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
-                    <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
+                    
+                    {/* Badge Nomor Urut Berdasarkan Poin */}
+                    <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900">
                       {processedPlayers.findIndex(p => p.id === player.id) + 1}
                     </div>
-                    {player.isWinner && (
-                      <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg">
-                        <Trophy size={18} />
-                      </div>
-                    )}
+
                     <div className="absolute bottom-10 left-10 right-10">
-                      <div className="flex items-center gap-2 mb-2">
-                           <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                           <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
-                      </div>
-                      <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1">{player.name}</h3>
-                      <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
+                      <h3 className="text-3xl font-black uppercase mb-4 line-clamp-1 group-hover:text-blue-500">{player.name}</h3>
+                      <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase border-t border-white/10 pt-5">
                         <span>{player.categoryLabel}</span>
                         <span className="text-white font-mono">{player.totalPoints.toLocaleString()} PTS</span>
                       </div>
@@ -273,9 +197,8 @@ const Players: React.FC = () => {
                 </SwiperSlide>
               ))}
             </Swiper>
-            
-            <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>
-            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>
+            <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all"><ChevronLeft size={32} /></button>
+            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 transition-all"><ChevronRight size={32} /></button>
           </div>
         )}
       </div>

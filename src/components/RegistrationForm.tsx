@@ -7,7 +7,6 @@ export default function RegistrationForm() {
   const [submitted, setSubmitted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   
-  // Daftar kategori umur lengkap termasuk VETERAN
   const kategoriUmur = [
     "Pra Dini (U-9)",
     "Usia Dini (U-11)",
@@ -34,6 +33,7 @@ export default function RegistrationForm() {
     try {
       let publicUrl = "";
 
+      // 1. Proses Upload File
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
@@ -52,6 +52,8 @@ export default function RegistrationForm() {
         publicUrl = urlData.publicUrl;
       }
 
+      // 2. Simpan ke Tabel 'pendaftaran'
+      // Pastikan nama kolom di sini (kiri) sama persis dengan di Supabase
       const { error: dbError } = await supabase
         .from('pendaftaran')
         .insert([{ 
@@ -63,29 +65,37 @@ export default function RegistrationForm() {
           foto_url: publicUrl 
         }]);
 
-      if (dbError) throw new Error("Gagal simpan ke database: " + dbError.message);
+      // Jika muncul error "column does not exist", periksa apakah kolom 'domisili' 
+      // atau 'pengalaman' sudah ada di tabel pendaftaran Supabase Anda.
+      if (dbError) throw dbError;
 
+      // 3. Notifikasi WhatsApp
       const adminPhoneNumber = "6281219027234";
-      const message = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
+      const waMessage = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
                       `*Nama:* ${formData.nama}%0A` +
                       `*Domisili:* ${formData.domisili}%0A` +
                       `*Kategori:* ${formData.kategori}%0A` +
+                      `*WhatsApp:* ${formData.whatsapp}%0A` +
                       `*Pengalaman:* ${formData.pengalaman || '-'}%0A` +
                       `*Link Foto:* ${publicUrl}`;
       
-      window.open(`https://wa.me/${adminPhoneNumber}?text=${message}`, '_blank');
+      window.open(`https://wa.me/${adminPhoneNumber}?text=${waMessage}`, '_blank');
       
       setSubmitted(true);
       setFormData({ nama: '', whatsapp: '', kategori: kategoriUmur[0], domisili: '', pengalaman: '' });
       setFile(null);
 
     } catch (err: any) {
-      console.error(err);
-      alert("Terjadi Kesalahan: " + err.message);
+      console.error("Detail Error:", err);
+      // Memberikan pesan yang lebih spesifik jika kolom domisili/pengalaman belum dibuat di DB
+      const errorMessage = err.message || "Pastikan tabel 'pendaftaran' memiliki kolom: nama, whatsapp, kategori, domisili, pengalaman, foto_url";
+      alert("Terjadi Kesalahan: " + errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
+  // --- Bagian UI tetap sama seperti kode sebelumnya ---
 
   if (submitted) {
     return (
@@ -145,7 +155,6 @@ export default function RegistrationForm() {
             />
           </div>
 
-          {/* Kategori Umur dengan Veteran */}
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-widest">Kategori Umur</label>
             <div className="relative group">

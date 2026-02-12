@@ -65,31 +65,56 @@ export default function ManajemenPendaftaran() {
     fetchData();
   }, []);
 
-  // FUNGSI UPLOAD FOTO KE SUPABASE STORAGE
+  // FUNGSI UNTUK MENGHAPUS FOTO LAMA DARI STORAGE
+  const deleteOldFile = async (url: string) => {
+    if (!url || !url.includes('atlet-photos/')) return;
+    try {
+      // Ekstrak nama file dari URL publik Supabase
+      const fileName = url.split('atlet-photos/').pop();
+      if (fileName) {
+        await supabase.storage
+          .from('pendaftaran')
+          .remove([`atlet-photos/${fileName}`]);
+      }
+    } catch (err) {
+      console.error("Gagal menghapus file lama:", err);
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !editingItem) return;
     
     const file = e.target.files[0];
+    
+    // Validasi Tipe & Ukuran (Opsional tapi disarankan)
+    if (!file.type.startsWith('image/')) return alert("File harus berupa gambar!");
+    if (file.size > 2 * 1024 * 1024) return alert("Ukuran maksimal 2MB!");
+
     const fileExt = file.name.split('.').pop();
-    const fileName = `${editingItem.id}-${Math.random()}.${fileExt}`;
+    const fileName = `${editingItem.id}-${Date.now()}.${fileExt}`; // Menggunakan Date.now agar lebih unik
     const filePath = `atlet-photos/${fileName}`;
 
     setUploading(true);
 
     try {
-      // 1. Upload ke Bucket 'pendaftaran' (Pastikan bucket ini sudah dibuat & publik)
+      // 1. Jika ada foto lama, hapus dari storage (Cleanup)
+      if (editingItem.foto_url) {
+        await deleteOldFile(editingItem.foto_url);
+      }
+
+      // 2. Upload foto baru
       const { error: uploadError } = await supabase.storage
         .from('pendaftaran')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 2. Ambil URL Publik
+      // 3. Ambil URL Publik baru
       const { data: { publicUrl } } = supabase.storage
         .from('pendaftaran')
         .getPublicUrl(filePath);
 
-      // 3. Update state local modal
+      // 4. Update state local
       setEditingItem({ ...editingItem, foto_url: publicUrl });
 
     } catch (error: any) {
@@ -99,13 +124,19 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  const handleDelete = async (id: string, nama: string) => {
-    if (window.confirm(`Hapus data pendaftaran atas nama ${nama}?`)) {
-      const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
-      if (error) {
-        alert('Gagal menghapus');
-      } else {
+  const handleDelete = async (id: string, nama: string, foto_url: string) => {
+    if (window.confirm(`Hapus data pendaftaran atas nama ${nama}? Semua data termasuk foto akan dihapus permanen.`)) {
+      try {
+        // Hapus file di storage dulu
+        if (foto_url) await deleteOldFile(foto_url);
+        
+        // Hapus data di database
+        const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
+        if (error) throw error;
+        
         fetchData();
+      } catch (error: any) {
+        alert('Gagal menghapus: ' + error.message);
       }
     }
   };
@@ -163,19 +194,19 @@ export default function ManajemenPendaftaran() {
             </span>
           </div>
           
-          <button onClick={fetchData} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs tracking-widest hover:bg-blue-600 transition-all shadow-lg">
+          <button onClick={fetchData} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs tracking-widest hover:bg-blue-600 transition-all shadow-lg active:scale-95">
             <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
             REFRESH DATABASE
           </button>
         </div>
 
         {/* Search */}
-        <div className="relative mb-8">
-          <Search className="absolute left-5 top-5 text-slate-400" size={24} />
+        <div className="relative mb-8 group">
+          <Search className="absolute left-5 top-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={24} />
           <input 
             type="text"
             placeholder="CARI NAMA ATLET ATAU KOTA..."
-            className="w-full pl-14 pr-6 py-5 rounded-[1.5rem] border-2 border-slate-200 font-black focus:border-blue-600 outline-none uppercase"
+            className="w-full pl-14 pr-6 py-5 rounded-[1.5rem] border-2 border-slate-200 font-black focus:border-blue-600 outline-none uppercase shadow-sm transition-all"
             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
           />
         </div>
@@ -186,16 +217,16 @@ export default function ManajemenPendaftaran() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 border-b-2 border-slate-100">
-                  <th className="px-6 py-6 font-black uppercase text-[10px] text-center w-16">No</th>
-                  <th className="px-6 py-6 font-black uppercase text-[10px]">Nama & Foto</th>
-                  <th className="px-6 py-6 font-black uppercase text-[10px]">Kategori</th>
-                  <th className="px-6 py-6 font-black uppercase text-[10px]">Kontak & Domisili</th>
-                  <th className="px-6 py-6 font-black uppercase text-[10px] text-right">Aksi</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] text-center w-16 text-slate-400">No</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Nama & Foto</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Kategori</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] text-slate-400">Kontak & Domisili</th>
+                  <th className="px-6 py-6 font-black uppercase text-[10px] text-right text-slate-400">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loading ? (
-                  <tr><td colSpan={5} className="py-24 text-center font-black text-slate-400 uppercase">Menyinkronkan...</td></tr>
+                  <tr><td colSpan={5} className="py-24 text-center font-black text-slate-400 uppercase tracking-widest">Menyinkronkan database...</td></tr>
                 ) : currentItems.map((item, index) => (
                   <tr key={item.id} className="hover:bg-blue-50/40 transition-colors group">
                     <td className="px-6 py-7 text-center font-black text-slate-300">
@@ -205,13 +236,15 @@ export default function ManajemenPendaftaran() {
                       <div className="flex items-center gap-4">
                         <div 
                           onClick={() => item.foto_url && setPreviewImage(item.foto_url)}
-                          className={`w-14 h-14 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0 cursor-zoom-in transition-transform hover:scale-105`}
+                          className={`w-14 h-14 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0 cursor-zoom-in transition-transform hover:scale-110`}
                         >
                           {item.foto_url ? <img src={item.foto_url} className="w-full h-full object-cover" /> : <User className="m-auto mt-3 text-slate-300" />}
                         </div>
                         <div>
-                          <div className="font-black text-slate-900 uppercase">{item.nama}</div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase">{new Date(item.created_at).toLocaleDateString('id-ID')}</div>
+                          <div className="font-black text-slate-900 uppercase leading-tight mb-1">{item.nama}</div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
+                            <Calendar size={12}/> {new Date(item.created_at).toLocaleDateString('id-ID')}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -229,7 +262,7 @@ export default function ManajemenPendaftaran() {
                         <button onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }} className="p-3 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl hover:text-blue-600 hover:border-blue-600 transition-all shadow-sm">
                           <Edit3 size={18} />
                         </button>
-                        <button onClick={() => handleDelete(item.id, item.nama)} className="p-3 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl hover:text-red-600 hover:border-red-600 transition-all shadow-sm">
+                        <button onClick={() => handleDelete(item.id, item.nama, item.foto_url)} className="p-3 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl hover:text-red-600 hover:border-red-600 transition-all shadow-sm">
                           <Trash2 size={18} />
                         </button>
                       </div>
@@ -253,12 +286,14 @@ export default function ManajemenPendaftaran() {
         </div>
       </div>
 
-      {/* PREVIEW FOTO OVERLAY */}
+      {/* LIGHTBOX PREVIEW */}
       {previewImage && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md cursor-zoom-out" onClick={() => setPreviewImage(null)}>
-          <div className="relative max-w-2xl w-full animate-in zoom-in duration-200">
+          <div className="relative max-w-2xl w-full animate-in zoom-in duration-300">
+             <button className="absolute -top-12 right-0 text-white flex items-center gap-2 font-black uppercase text-xs tracking-widest">
+              <X size={24} /> Tutup
+            </button>
             <img src={previewImage} className="w-full h-auto rounded-[2rem] border-4 border-white shadow-2xl" />
-            <p className="text-white text-center mt-4 font-black uppercase tracking-widest text-xs">Klik di mana saja untuk menutup</p>
           </div>
         </div>
       )}
@@ -266,36 +301,42 @@ export default function ManajemenPendaftaran() {
       {/* MODAL EDIT & UPLOAD */}
       {isEditModalOpen && editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-in fade-in zoom-in duration-200">
             <div className="p-8 border-b-2 border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h2 className="text-2xl font-black text-slate-900 uppercase italic">Edit Data Atlet</h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400"><X /></button>
+              <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">Edit Data Atlet</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 transition-colors"><X /></button>
             </div>
             
             <form onSubmit={handleUpdate} className="p-8 space-y-5 overflow-y-auto">
-              {/* UPLOAD SECTION */}
+              {/* UPLOAD SECTION DENGAN CLEANUP */}
               <div className="flex flex-col items-center gap-4 mb-4">
                 <div className="relative w-32 h-32 group">
-                  <div className="w-full h-full rounded-[2rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden">
+                  <div className="w-full h-full rounded-[2rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden relative">
                     {editingItem.foto_url ? (
                       <img src={editingItem.foto_url} className="w-full h-full object-cover" />
                     ) : (
                       <User size={48} className="text-slate-300 absolute inset-0 m-auto" />
                     )}
+                    {uploading && (
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                        <Loader2 className="animate-spin text-blue-600" size={32} />
+                      </div>
+                    )}
                   </div>
-                  {/* Label as Button for File Input */}
-                  <label className="absolute bottom-0 right-0 p-3 bg-blue-600 text-white rounded-2xl shadow-lg cursor-pointer hover:bg-slate-900 transition-all active:scale-90">
-                    {uploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+                  <label className="absolute bottom-0 right-0 p-3 bg-blue-600 text-white rounded-2xl shadow-lg cursor-pointer hover:bg-slate-900 transition-all active:scale-90 shadow-blue-200">
+                    <Camera size={20} />
                     <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
                   </label>
                 </div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ketuk ikon kamera untuk upload foto</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {uploading ? 'Sedang mengunggah...' : 'Klik kamera untuk ganti foto'}
+                </p>
               </div>
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Nama Lengkap</label>
                 <input 
-                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-900 focus:border-blue-600 outline-none uppercase"
+                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-900 focus:border-blue-600 outline-none uppercase transition-all"
                   value={editingItem.nama}
                   onChange={(e) => setEditingItem({...editingItem, nama: e.target.value})}
                   required
@@ -333,7 +374,7 @@ export default function ManajemenPendaftaran() {
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 ml-2 tracking-widest">Domisili</label>
                 <input 
-                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-900 focus:border-blue-600 outline-none uppercase"
+                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-black text-slate-900 focus:border-blue-600 outline-none uppercase transition-all"
                   value={editingItem.domisili}
                   onChange={(e) => setEditingItem({...editingItem, domisili: e.target.value})}
                   required
@@ -341,8 +382,10 @@ export default function ManajemenPendaftaran() {
               </div>
 
               <div className="pt-4 flex gap-3 pb-4">
-                <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 border-2 border-slate-100 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400">Batal</button>
-                <button type="submit" disabled={isSaving || uploading} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-slate-900 flex items-center justify-center gap-2">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4 border-2 border-slate-100 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:bg-slate-50">
+                  Batal
+                </button>
+                <button type="submit" disabled={isSaving || uploading} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-200 hover:bg-slate-900 transition-all flex items-center justify-center gap-2">
                   {isSaving ? 'Menyimpan...' : <><Save size={16}/> Simpan Perubahan</>}
                 </button>
               </div>

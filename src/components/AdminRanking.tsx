@@ -86,6 +86,7 @@ export default function AdminRanking() {
       const athleteMap = new Map();
 
       statsData.forEach((item: any) => {
+        // Ambil data pertama jika join mengembalikan array
         const detail = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
         
         if (detail?.nama) {
@@ -96,7 +97,7 @@ export default function AdminRanking() {
           if (athleteMap.has(cleanName)) {
             const existing = athleteMap.get(cleanName);
             existing.total_points += currentPoints;
-            // Update foto jika data sebelumnya kosong
+            // Gunakan foto jika data sebelumnya masih kosong
             if (!existing.photo_url && currentPhoto) {
               existing.photo_url = currentPhoto;
             }
@@ -107,7 +108,7 @@ export default function AdminRanking() {
               seed: item.seed || 'Non-Seed',
               total_points: currentPoints,
               bonus: 0,
-              photo_url: currentPhoto // MEMASTIKAN FOTO MASUK
+              photo_url: currentPhoto 
             });
           }
         }
@@ -115,11 +116,12 @@ export default function AdminRanking() {
 
       const finalDataArray = Array.from(athleteMap.values());
 
-      // 3. Eksekusi Database: Delete dulu baru Insert (Cara paling aman menghindari conflict)
+      // 3. Eksekusi Database: Delete dulu baru Insert (Cara paling aman menghindari conflict 21000)
+      // Menghapus baris yang ada kecuali baris yang mungkin dikunci sistem
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'SYSTEM_RESERVED');
+        .neq('player_name', 'SYSTEM_RESERVED_VAL'); 
 
       if (deleteError) throw deleteError;
 
@@ -130,7 +132,7 @@ export default function AdminRanking() {
       if (insertError) throw insertError;
       
       alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet beserta foto.`);
-      fetchRankings();
+      await fetchRankings(); // Refresh tampilan
     } catch (err: any) {
       console.error("Sync Error:", err);
       alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan database"));
@@ -148,10 +150,12 @@ export default function AdminRanking() {
     try {
       if (!formData.player_name) throw new Error("Nama atlet wajib diisi");
 
+      const cleanName = formData.player_name.trim().toUpperCase();
       const payload = {
-        player_name: formData.player_name.trim().toUpperCase(),
+        player_name: cleanName,
         category: formData.category,
         seed: formData.seed,
+        // Kalkulasi total_points dari Poin Dasar + Bonus
         total_points: (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0),
         bonus: Number(formData.bonus) || 0,
         photo_url: formData.photo_url || null
@@ -159,18 +163,23 @@ export default function AdminRanking() {
 
       let error;
       if (editingId) {
-        const res = await supabase.from('rankings').update(payload).eq('id', editingId);
-        error = res.error;
+        const { error: updateError } = await supabase
+          .from('rankings')
+          .update(payload)
+          .eq('id', editingId);
+        error = updateError;
       } else {
-        const res = await supabase.from('rankings').upsert([payload], { onConflict: 'player_name' });
-        error = res.error;
+        const { error: upsertError } = await supabase
+          .from('rankings')
+          .upsert([payload], { onConflict: 'player_name' });
+        error = upsertError;
       }
 
       if (error) throw error;
       
       setIsModalOpen(false);
       setEditingId(null);
-      fetchRankings();
+      await fetchRankings(); // Refresh list
     } catch (err: any) {
       setFormError(err.message.includes('unique') ? "Nama atlet sudah terdaftar!" : err.message);
     } finally {

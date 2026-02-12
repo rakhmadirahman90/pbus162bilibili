@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   Settings,
   Database,
-  ExternalLink
+  ExternalLink,
+  Phone // Menambahkan ikon Phone untuk menu kontak
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -62,7 +63,8 @@ export default function Sidebar({ email }: { email: string }) {
         { name: 'Update Skor & Poin', path: '/admin/skor', icon: Zap }, 
         { name: 'Update Berita', path: '/admin/berita', icon: Newspaper },
         { name: 'Update Ranking', path: '/admin/ranking', icon: Trophy },
-        { name: 'Galeri Media', path: '/admin/galeri', icon: Image }, // Path disamakan dengan App.tsx
+        { name: 'Galeri Media', path: '/admin/galeri', icon: Image },
+        { name: 'Kelola Kontak', path: '/admin/kontak', icon: Phone }, // Menu Baru ditambahkan di sini
       ]
     }
   ];
@@ -106,7 +108,6 @@ export default function Sidebar({ email }: { email: string }) {
             </p>
             <div className="space-y-1.5">
               {group.items.map((item) => {
-                // Modifikasi pengecekan aktif untuk mendukung nested routes atau exact match
                 const isActive = location.pathname === item.path;
                 return (
                   <NavLink

@@ -6,7 +6,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// Interface
+// Interface diperbarui dengan photo_url
 interface Ranking {
   id: string;
   player_name: string;
@@ -14,6 +14,7 @@ interface Ranking {
   seed: string;
   total_points: number;
   bonus: number;
+  photo_url?: string; // Tambahan untuk foto
   updated_at?: string;
 }
 
@@ -30,7 +31,8 @@ export default function AdminRanking() {
     category: 'Senior',
     seed: 'Seed A',
     total_points: 0,
-    bonus: 0
+    bonus: 0,
+    photo_url: ''
   });
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -56,20 +58,20 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // --- LOGIKA SINKRONISASI TOTAL (ANTI-CONFLICT & ANTI-DUPLIKAT) ---
+  // --- LOGIKA SINKRONISASI TOTAL (DENGAN FOTO ATLET) ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Sistem akan menghitung ulang semua poin dari statistik atlet. Data ranking lama akan diperbarui secara total. Lanjutkan?");
+    const confirm = window.confirm("Sistem akan menghapus data lama dan menghitung ulang poin serta memperbarui FOTO atlet. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data mentah dari statistik atlet
+      // 1. Ambil data stats + foto dari tabel pendaftaran
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
           points,
           seed,
-          pendaftaran ( nama, kategori )
+          pendaftaran ( nama, kategori, foto )
         `);
 
       if (statsError) throw statsError;
@@ -78,7 +80,7 @@ export default function AdminRanking() {
         return;
       }
 
-      // 2. AGREGASI KETAT menggunakan Map (Menghindari duplikasi nama sebelum kirim ke DB)
+      // 2. Agregasi dengan Map
       const athleteMap = new Map();
 
       statsData.forEach((item: any) => {
@@ -97,7 +99,8 @@ export default function AdminRanking() {
               category: detail.kategori || 'Senior',
               seed: item.seed || 'Non-Seed',
               total_points: currentPoints,
-              bonus: 0
+              bonus: 0,
+              photo_url: detail.foto || null // MENYIMPAN FOTO DARI DATA PENDAFTARAN
             });
           }
         }
@@ -105,27 +108,25 @@ export default function AdminRanking() {
 
       const finalDataArray = Array.from(athleteMap.values());
 
-      // 3. EKSEKUSI DATABASE: CLEAN & REBUILD (Solusi Error ON CONFLICT)
-      // Langkah A: Hapus semua data lama di rankings
+      // 3. Update Database (Reset and Insert)
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'RESERVED_SYSTEM_IGNORE'); // Logika untuk hapus semua baris
+        .neq('player_name', 'RESERVED_IGNORE');
 
       if (deleteError) throw deleteError;
 
-      // Langkah B: Masukkan data hasil perhitungan terbaru yang sudah bersih
       const { error: insertError } = await supabase
         .from('rankings')
         .insert(finalDataArray);
 
       if (insertError) throw insertError;
       
-      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet.`);
+      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet dengan foto.`);
       fetchRankings();
     } catch (err: any) {
       console.error("Sync Error:", err);
-      alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan database"));
+      alert("Gagal Sinkron: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -144,7 +145,8 @@ export default function AdminRanking() {
         category: formData.category,
         seed: formData.seed,
         total_points: finalPoints,
-        bonus: Number(formData.bonus) || 0
+        bonus: Number(formData.bonus) || 0,
+        photo_url: formData.photo_url
       };
 
       let error;
@@ -168,16 +170,10 @@ export default function AdminRanking() {
     }
   };
 
-  // --- DELETE ATLET ---
   const handleDelete = async (id: string) => {
     if (!window.confirm("Hapus atlet ini dari ranking?")) return;
-    try {
-      const { error } = await supabase.from('rankings').delete().eq('id', id);
-      if (error) throw error;
-      fetchRankings();
-    } catch (err: any) {
-      alert("Gagal menghapus: " + err.message);
-    }
+    await supabase.from('rankings').delete().eq('id', id);
+    fetchRankings();
   };
 
   const filteredRankings = rankings.filter(r => 
@@ -207,7 +203,7 @@ export default function AdminRanking() {
               Sinkron Ulang Poin
             </button>
             <button 
-              onClick={() => { setEditingId(null); setFormData({player_name:'', category:'Senior', seed:'Seed A', total_points:0, bonus:0}); setIsModalOpen(true); }}
+              onClick={() => { setEditingId(null); setFormData({player_name:'', category:'Senior', seed:'Seed A', total_points:0, bonus:0, photo_url:''}); setIsModalOpen(true); }}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 px-6 py-4 rounded-xl font-bold uppercase text-[10px] transition-all shadow-lg shadow-blue-600/20"
             >
               <Plus size={14} /> Tambah Atlet
@@ -270,8 +266,18 @@ export default function AdminRanking() {
                     <td className="p-5 font-black italic text-blue-600">#{String(index + 1).padStart(2, '0')}</td>
                     <td className="p-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-white/10 group-hover:border-blue-500/50 transition-all">
-                          <User size={14} className="text-zinc-500" />
+                        {/* UPDATE: FOTO ATLET DARI DATABASE */}
+                        <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-white/10 group-hover:border-blue-500/50 transition-all overflow-hidden">
+                          {item.photo_url ? (
+                            <img 
+                              src={item.photo_url} 
+                              alt={item.player_name} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${item.player_name}&background=random`; }}
+                            />
+                          ) : (
+                            <User size={16} className="text-zinc-500" />
+                          )}
                         </div>
                         <span className="font-black uppercase italic text-sm tracking-tight">{item.player_name}</span>
                       </div>
@@ -353,6 +359,17 @@ export default function AdminRanking() {
                     <option value="Non-Seed">Non-Seed</option>
                   </select>
                 </div>
+              </div>
+
+              {/* INPUT OPTIONAL UNTUK FOTO URL */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">URL Foto (Optional)</label>
+                <input 
+                  className="w-full bg-zinc-900 border border-white/5 rounded-xl p-4 outline-none focus:border-blue-600 text-xs transition-all" 
+                  placeholder="https://..."
+                  value={formData.photo_url} 
+                  onChange={e => setFormData({...formData, photo_url: e.target.value})} 
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4 bg-white/[0.03] p-6 rounded-2xl border border-white/5">

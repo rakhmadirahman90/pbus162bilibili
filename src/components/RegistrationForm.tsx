@@ -33,10 +33,10 @@ export default function RegistrationForm() {
     try {
       let publicUrl = "";
 
-      // 1. Proses Upload File
+      // 1. Proses Upload File ke Storage
       if (file) {
         const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
         const filePath = `identitas/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -52,8 +52,7 @@ export default function RegistrationForm() {
         publicUrl = urlData.publicUrl;
       }
 
-      // 2. Simpan ke Tabel 'pendaftaran'
-      // Pastikan nama kolom di sini (kiri) sama persis dengan di Supabase
+      // 2. Simpan Data ke Tabel 'pendaftaran'
       const { error: dbError } = await supabase
         .from('pendaftaran')
         .insert([{ 
@@ -65,37 +64,37 @@ export default function RegistrationForm() {
           foto_url: publicUrl 
         }]);
 
-      // Jika muncul error "column does not exist", periksa apakah kolom 'domisili' 
-      // atau 'pengalaman' sudah ada di tabel pendaftaran Supabase Anda.
-      if (dbError) throw dbError;
+      if (dbError) {
+        // Jika error menyebut 'rankings', itu tanda ada Trigger/Function di Supabase Anda yang salah
+        if (dbError.message.includes('rankings')) {
+          throw new Error("Database Error: Sistem mencoba mengirim data ke tabel 'rankings' yang tidak sesuai. Periksa Database Triggers di Supabase.");
+        }
+        throw new Error("Gagal simpan ke database: " + dbError.message);
+      }
 
-      // 3. Notifikasi WhatsApp
+      // 3. Integrasi Notifikasi WhatsApp Admin
       const adminPhoneNumber = "6281219027234";
-      const waMessage = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
+      const message = `*PENDAFTARAN ATLET BARU PB US 162*%0A%0A` +
                       `*Nama:* ${formData.nama}%0A` +
                       `*Domisili:* ${formData.domisili}%0A` +
                       `*Kategori:* ${formData.kategori}%0A` +
-                      `*WhatsApp:* ${formData.whatsapp}%0A` +
                       `*Pengalaman:* ${formData.pengalaman || '-'}%0A` +
                       `*Link Foto:* ${publicUrl}`;
       
-      window.open(`https://wa.me/${adminPhoneNumber}?text=${waMessage}`, '_blank');
+      window.open(`https://wa.me/${adminPhoneNumber}?text=${message}`, '_blank');
       
+      // Reset Form
       setSubmitted(true);
       setFormData({ nama: '', whatsapp: '', kategori: kategoriUmur[0], domisili: '', pengalaman: '' });
       setFile(null);
 
     } catch (err: any) {
-      console.error("Detail Error:", err);
-      // Memberikan pesan yang lebih spesifik jika kolom domisili/pengalaman belum dibuat di DB
-      const errorMessage = err.message || "Pastikan tabel 'pendaftaran' memiliki kolom: nama, whatsapp, kategori, domisili, pengalaman, foto_url";
-      alert("Terjadi Kesalahan: " + errorMessage);
+      console.error(err);
+      alert("Terjadi Kesalahan: " + err.message);
     } finally {
       setLoading(false);
     }
   };
-
-  // --- Bagian UI tetap sama seperti kode sebelumnya ---
 
   if (submitted) {
     return (

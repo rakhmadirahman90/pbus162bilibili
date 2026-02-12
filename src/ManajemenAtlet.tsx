@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from "./supabase";
 import { 
   Search, User, X, Award, TrendingUp, Users, 
-  MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3
+  MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 interface Registrant {
@@ -13,7 +14,6 @@ interface Registrant {
   domisili: string;
   foto_url: string;
   jenis_kelamin: string;
-  // Field dari join table atlet_stats
   rank: number;
   points: number;
   seed: string;
@@ -27,6 +27,10 @@ export default function ManajemenAtlet() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAtlet, setSelectedAtlet] = useState<Registrant | null>(null);
   
+  // State untuk Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8; // Anda bisa mengubah jumlah atlet per halaman di sini
+
   // State untuk Modal Edit Stats
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
@@ -35,6 +39,11 @@ export default function ManajemenAtlet() {
   useEffect(() => {
     fetchAtlets();
   }, []);
+
+  // Reset ke halaman 1 setiap kali user mencari nama
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const fetchAtlets = async () => {
     setLoading(true);
@@ -79,7 +88,6 @@ export default function ManajemenAtlet() {
     
     setIsSaving(true);
     try {
-      // Cek apakah data stats sudah ada
       const { data: existing } = await supabase
         .from('atlet_stats')
         .select('id')
@@ -103,7 +111,7 @@ export default function ManajemenAtlet() {
 
       await fetchAtlets();
       setIsEditModalOpen(false);
-      setSelectedAtlet(null); // Tutup detail jika sedang terbuka
+      setSelectedAtlet(null);
     } catch (err) {
       alert("Gagal memperbarui statistik");
     } finally {
@@ -111,9 +119,17 @@ export default function ManajemenAtlet() {
     }
   };
 
+  // LOGIKA PAGINATION
   const filteredAtlets = atlets.filter(a => 
     a.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredAtlets.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredAtlets.length / itemsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8">
@@ -154,7 +170,7 @@ export default function ManajemenAtlet() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {loading ? (
             <div className="col-span-full py-20 text-center font-bold text-slate-400 uppercase italic tracking-widest">Memuat Data Atlet...</div>
-          ) : filteredAtlets.map((atlet) => (
+          ) : currentItems.map((atlet) => (
             <div 
               key={atlet.id}
               onClick={() => setSelectedAtlet(atlet)}
@@ -179,9 +195,46 @@ export default function ManajemenAtlet() {
             </div>
           ))}
         </div>
+
+        {/* PAGINATION CONTROLS */}
+        {!loading && totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-12">
+            <button 
+              onClick={() => paginate(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-blue-50 transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            
+            <div className="flex gap-2">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => paginate(i + 1)}
+                  className={`w-10 h-10 rounded-xl font-bold text-xs transition-all ${
+                    currentPage === i + 1 
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
+                    : "bg-white text-slate-400 hover:bg-slate-50 border border-slate-100"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => paginate(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-blue-50 transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* MODAL DETAIL (KARTU SEPERTI GAMBAR) */}
+      {/* MODAL DETAIL */}
       {selectedAtlet && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="relative w-full max-w-4xl bg-[#121212] rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/10">
@@ -192,7 +245,6 @@ export default function ManajemenAtlet() {
               <X size={24} />
             </button>
 
-            {/* Bagian Kiri: Foto Besar */}
             <div className="w-full md:w-1/2 relative bg-[#1a1a1a] flex items-end">
               <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent z-10"></div>
               {selectedAtlet.foto_url ? (
@@ -206,7 +258,6 @@ export default function ManajemenAtlet() {
               </div>
             </div>
 
-            {/* Bagian Kanan: Info Profil */}
             <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex gap-2">
@@ -217,7 +268,6 @@ export default function ManajemenAtlet() {
                     {selectedAtlet.seed}
                   </span>
                 </div>
-                {/* Tombol ke Edit Stats */}
                 <button 
                   onClick={() => { setEditingStats(selectedAtlet); setIsEditModalOpen(true); }}
                   className="flex items-center gap-2 text-white/40 hover:text-blue-400 text-[10px] font-bold transition-colors"

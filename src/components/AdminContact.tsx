@@ -36,20 +36,42 @@ export default function AdminContact() {
     }
   }
 
+  // --- FUNGSI BARU: PEMBERSIH URL IFRAME ---
+  const extractSrcFromIframe = (input: string) => {
+    if (input.includes('<iframe')) {
+      const regex = /src="([^"]+)"/;
+      const match = input.match(regex);
+      return match ? match[1] : input;
+    }
+    return input;
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // Membersihkan data sebelum dikirim ke database
+      const cleanedData = {
+        ...contactData,
+        maps_iframe: extractSrcFromIframe(contactData.maps_iframe)
+      };
+
       const { error } = await supabase
         .from('contacts')
-        .upsert({ id: 1, ...contactData });
+        .upsert({ id: 1, ...cleanedData });
 
       if (error) throw error;
       
       setSuccessMsg("Informasi Berhasil Disinkronkan!");
+      setContactData(cleanedData); // Update state lokal dengan URL yang sudah bersih
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err: any) {
-      alert("Gagal menyimpan: " + err.message);
+      // Pesan error lebih informatif jika kolom tidak ditemukan
+      if (err.message.includes("column")) {
+        alert("ERROR DATABASE: Kolom baru belum ditambahkan di Supabase. Silakan jalankan perintah SQL ALTER TABLE.");
+      } else {
+        alert("Gagal menyimpan: " + err.message);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -66,7 +88,6 @@ export default function AdminContact() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Toast Notification */}
       {successMsg && (
         <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] bg-emerald-500 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase flex items-center gap-3 shadow-[0_20px_50px_rgba(16,185,129,0.3)] border border-white/20">
           <CheckCircle2 size={18} /> {successMsg}
@@ -104,7 +125,7 @@ export default function AdminContact() {
               <Mail size={120} />
             </div>
             
-            <h2 className="text-xl font-black uppercase italic italic text-white mb-8 flex items-center gap-3">
+            <h2 className="text-xl font-black uppercase italic text-white mb-8 flex items-center gap-3">
               <span className="h-1 w-8 bg-blue-600 rounded-full"></span>
               Core Information
             </h2>
@@ -186,11 +207,12 @@ export default function AdminContact() {
                 <Globe size={12} className="text-zinc-500"/> Embed Source (Iframe)
               </label>
               <input 
-                className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl p-4 text-[11px] outline-none focus:border-blue-600 transition-all font-mono text-zinc-500"
+                className="w-full bg-zinc-950/50 border border-white/5 rounded-2xl p-4 text-[11px] outline-none focus:border-blue-600 transition-all font-mono text-zinc-400"
                 value={contactData.maps_iframe}
                 onChange={e => setContactData({...contactData, maps_iframe: e.target.value})}
-                placeholder="https://www.google.com/maps/embed?..."
+                placeholder="Paste kode iframe atau link src di sini..."
               />
+              <p className="text-[8px] text-zinc-600 font-bold uppercase tracking-tighter px-1">Tip: Tempel kode HTML dari Google Maps, URL akan terdeteksi otomatis.</p>
             </div>
           </div>
 
@@ -202,7 +224,7 @@ export default function AdminContact() {
             
             {contactData.maps_iframe ? (
               <iframe 
-                src={contactData.maps_iframe} 
+                src={extractSrcFromIframe(contactData.maps_iframe)} 
                 width="100%" 
                 height="100%" 
                 style={{ border: 0, filter: 'grayscale(1) invert(0.9) contrast(1.2)' }} 
@@ -217,16 +239,13 @@ export default function AdminContact() {
             )}
           </div>
 
-          {/* Action Button */}
           <button 
             type="submit"
             disabled={issaving}
             className="group relative w-full py-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-4 transition-all shadow-[0_20px_40px_rgba(37,99,235,0.2)] hover:shadow-[0_20px_40px_rgba(37,99,235,0.4)] active:scale-[0.98] overflow-hidden"
           >
             <div className="absolute inset-0 w-1/2 h-full bg-white/10 -skew-x-[20deg] -translate-x-full group-hover:translate-x-[250%] transition-transform duration-1000"></div>
-            {issaving ? (
-              <Loader2 className="animate-spin" size={20}/>
-            ) : (
+            {issaving ? <Loader2 className="animate-spin" size={20}/> : (
               <>
                 <Save size={20} className="group-hover:rotate-12 transition-transform"/>
                 <span>Sync to Landing Page</span>

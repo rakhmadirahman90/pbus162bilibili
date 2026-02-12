@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from "../supabase";
 import { 
-  Trophy, Plus, Trash2, Edit3, Save, X, 
-  Search, Loader2, Award, User, Hash, 
-  ChevronUp, ChevronDown, Filter, AlertCircle, RefreshCw,
-  TrendingUp, Info
+  Plus, Trash2, Edit3, Save, X, 
+  Search, Loader2, User, RefreshCw,
+  TrendingUp, AlertCircle
 } from 'lucide-react';
 
 // Interface
@@ -57,14 +56,14 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // --- LOGIKA FIX SINKRONISASI ---
+  // --- LOGIKA SINKRONISASI SEMPURNA (ANTI-ERROR) ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Gabungkan poin dari semua statistik atlet ke Leaderboard?");
+    const confirm = window.confirm("Sistem akan menghapus data ranking lama dan menghitung ulang total poin dari statistik atlet. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data stats dan join nama dari pendaftaran
+      // 1. Ambil data stats mentah
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
@@ -75,84 +74,93 @@ export default function AdminRanking() {
 
       if (statsError) throw statsError;
       if (!statsData || statsData.length === 0) {
-        alert("Data statistik tidak ditemukan.");
+        alert("Tidak ada data di tabel statistik atlet.");
         return;
       }
 
-      // 2. PROSES AGREGASI (Mencegah Error 'Second Time Update')
-      // Kita kumpulkan semua poin untuk nama yang sama di memori dulu
-      const athleteMap: Record<string, any> = {};
-
-      statsData.forEach((item: any) => {
+      // 2. Proses Agregasi di Memori (Mencegah Duplicate Key/Conflict Error)
+      const consolidated = statsData.reduce((acc: any[], item: any) => {
         const detail = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
         
         if (detail?.nama) {
-          const nameKey = detail.nama.trim().toUpperCase();
-          const currentPoints = Number(item.points) || 0;
+          const cleanName = detail.nama.trim().toUpperCase();
+          const existing = acc.find(a => a.player_name === cleanName);
 
-          if (athleteMap[nameKey]) {
-            // Jika nama sudah ada, tambahkan poinnya saja
-            athleteMap[nameKey].total_points += currentPoints;
+          if (existing) {
+            existing.total_points += (Number(item.points) || 0);
           } else {
-            // Jika nama baru, buat entry baru
-            athleteMap[nameKey] = {
-              player_name: nameKey,
+            acc.push({
+              player_name: cleanName,
               category: detail.kategori || 'Senior',
               seed: item.seed || 'Non-Seed',
-              total_points: currentPoints,
+              total_points: Number(item.points) || 0,
               bonus: 0
-            };
+            });
           }
         }
-      });
+        return acc;
+      }, []);
 
-      // Ubah objek map kembali menjadi array untuk dikirim ke Supabase
-      const finalDataToUpsert = Object.values(athleteMap);
-
-      // 3. Simpan ke database menggunakan UPSERT
-      const { error: upsertError } = await supabase
+      // 3. Update Database (Delete then Insert) - Strategi paling stabil
+      // Menghapus data lama untuk memastikan tidak ada ID yang bentrok
+      const { error: deleteError } = await supabase
         .from('rankings')
-        .upsert(finalDataToUpsert, { 
-          onConflict: 'player_name' // Pastikan kolom ini UNIQUE di database
-        });
+        .delete()
+        .neq('player_name', 'SISTEM_RESERVED_IGNORE'); // Menghapus semua baris
 
-      if (upsertError) throw upsertError;
+      if (deleteError) throw deleteError;
+
+      // Masukkan data baru yang sudah bersih
+      const { error: insertError } = await supabase
+        .from('rankings')
+        .insert(consolidated);
+
+      if (insertError) throw insertError;
       
-      alert(`Berhasil sinkronisasi ${finalDataToUpsert.length} data atlet.`);
+      alert(`Berhasil sinkronisasi ${consolidated.length} atlet.`);
       fetchRankings();
     } catch (err: any) {
       console.error(err);
-      alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan sistem"));
+      alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan database"));
     } finally {
       setLoading(false);
     }
   };
 
-  // --- SUBMIT MANUAL ---
+  // --- SUBMIT MANUAL (EDIT/TAMBAH) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setIsSaving(true);
 
     try {
+      const finalPoints = (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0);
       const payload = {
         player_name: formData.player_name?.trim().toUpperCase(),
         category: formData.category,
         seed: formData.seed,
-        total_points: (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0),
+        total_points: finalPoints,
         bonus: Number(formData.bonus) || 0
       };
 
-      const { error } = await supabase
-        .from('rankings')
-        .upsert([payload], { onConflict: 'player_name' });
+      let error;
+      if (editingId) {
+        // Mode Edit
+        const res = await supabase.from('rankings').update(payload).eq('id', editingId);
+        error = res.error;
+      } else {
+        // Mode Tambah Baru
+        const res = await supabase.from('rankings').upsert([payload], { onConflict: 'player_name' });
+        error = res.error;
+      }
 
       if (error) throw error;
       
       setIsModalOpen(false);
+      setEditingId(null);
       fetchRankings();
     } catch (err: any) {
-      setFormError(err.message);
+      setFormError(err.message.includes('unique') ? "Nama atlet sudah ada!" : err.message);
     } finally {
       setIsSaving(false);
     }
@@ -170,7 +178,7 @@ export default function AdminRanking() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12">
+    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 font-sans">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
@@ -178,22 +186,23 @@ export default function AdminRanking() {
             <h1 className="text-5xl font-black italic tracking-tighter uppercase leading-none">
               MANAJEMEN<span className="text-blue-600"> RANKING</span>
             </h1>
+            <p className="text-zinc-500 text-[10px] font-bold uppercase mt-2 tracking-[0.2em]">Database Synchronization System</p>
           </div>
           
           <div className="flex gap-3 w-full md:w-auto">
             <button 
               onClick={syncFromStats}
               disabled={loading}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-zinc-900 border border-white/10 px-6 py-4 rounded-xl font-bold uppercase text-[10px] hover:bg-zinc-800 transition-all"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-zinc-900 border border-white/10 px-6 py-4 rounded-xl font-bold uppercase text-[10px] hover:bg-zinc-800 transition-all text-zinc-300"
             >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
-              Sinkron Poin
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> 
+              Sinkron Ulang Poin
             </button>
             <button 
               onClick={() => { setEditingId(null); setFormData({player_name:'', category:'Senior', seed:'Seed A', total_points:0, bonus:0}); setIsModalOpen(true); }}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 px-6 py-4 rounded-xl font-bold uppercase text-[10px] transition-all"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 px-6 py-4 rounded-xl font-bold uppercase text-[10px] transition-all shadow-lg shadow-blue-600/20"
             >
-              <Plus size={16} /> Tambah Atlet
+              <Plus size={14} /> Tambah Atlet
             </button>
           </div>
         </div>
@@ -205,13 +214,13 @@ export default function AdminRanking() {
             <input 
               type="text" 
               placeholder="CARI NAMA ATLET..." 
-              className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-12 pr-4 outline-none text-xs font-bold"
+              className="w-full bg-black/40 border border-white/5 rounded-xl py-3 pl-12 pr-4 outline-none text-xs font-bold uppercase"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select 
-            className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-bold text-xs outline-none"
+            className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-bold text-xs outline-none cursor-pointer"
             value={selectedSeed}
             onChange={(e) => setSelectedSeed(e.target.value)}
           >
@@ -222,48 +231,65 @@ export default function AdminRanking() {
           </select>
         </div>
 
-        {/* Table */}
-        <div className="bg-zinc-900/20 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-md overflow-x-auto">
+        {/* Table Content */}
+        <div className="bg-zinc-900/20 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-md overflow-x-auto shadow-2xl">
           <table className="w-full text-left min-w-[700px]">
-            <thead className="bg-white/[0.02] border-b border-white/5">
+            <thead className="bg-white/[0.02] border-b border-white/5 text-zinc-500">
               <tr>
-                <th className="p-5 text-[10px] font-black uppercase text-zinc-500">Pos</th>
-                <th className="p-5 text-[10px] font-black uppercase text-zinc-500">Atlet</th>
-                <th className="p-5 text-[10px] font-black uppercase text-zinc-500">Kategori</th>
-                <th className="p-5 text-[10px] font-black uppercase text-zinc-500 text-center">Seed</th>
-                <th className="p-5 text-[10px] font-black uppercase text-zinc-500">Total Poin</th>
-                <th className="p-5 text-[10px] font-black uppercase text-zinc-500 text-right">Aksi</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest">Pos</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest">Atlet</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest">Kategori</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest text-center">Status</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest text-center">Poin</th>
+                <th className="p-5 text-[10px] font-black uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="p-20 text-center">
-                    <Loader2 className="animate-spin mx-auto text-blue-600" size={30} />
+                    <Loader2 className="animate-spin mx-auto text-blue-600 mb-2" size={30} />
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase">Mengolah Database...</p>
                   </td>
                 </tr>
               ) : filteredRankings.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-20 text-center text-zinc-500 font-bold uppercase tracking-widest text-xs">Data Tidak Ditemukan</td>
+                  <td colSpan={6} className="p-20 text-center text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Data Tidak Ditemukan</td>
                 </tr>
               ) : (
                 filteredRankings.map((item, index) => (
                   <tr key={item.id} className="hover:bg-white/[0.01] transition-all group">
                     <td className="p-5 font-black italic text-blue-600">#{String(index + 1).padStart(2, '0')}</td>
-                    <td className="p-5 font-black uppercase italic text-sm">{item.player_name}</td>
                     <td className="p-5">
-                       <span className="bg-zinc-800 px-3 py-1 rounded text-[9px] font-bold text-zinc-400 uppercase">{item.category}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-white/10 group-hover:border-blue-500/50 transition-all">
+                          <User size={14} className="text-zinc-500" />
+                        </div>
+                        <span className="font-black uppercase italic text-sm tracking-tight">{item.player_name}</span>
+                      </div>
+                    </td>
+                    <td className="p-5">
+                       <span className="bg-zinc-900 border border-white/5 px-3 py-1 rounded text-[9px] font-bold text-zinc-400 uppercase">{item.category}</span>
                     </td>
                     <td className="p-5 text-center">
-                      <span className={`px-3 py-1 rounded text-[9px] font-bold uppercase ${item.seed.includes('A') ? 'bg-blue-600/20 text-blue-400' : 'bg-purple-600/20 text-purple-400'}`}>
+                      <span className={`px-3 py-1 rounded text-[9px] font-black uppercase ${
+                        item.seed.includes('A') ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 
+                        item.seed.includes('B') ? 'bg-purple-600/10 text-purple-400 border border-purple-600/20' : 
+                        'bg-zinc-800 text-zinc-500'
+                      }`}>
                         {item.seed}
                       </span>
                     </td>
-                    <td className="p-5 font-bold text-zinc-400">{item.total_points?.toLocaleString()} PTS</td>
+                    <td className="p-5 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="font-black text-white text-base leading-none">{item.total_points?.toLocaleString()}</span>
+                        {item.bonus > 0 && <span className="text-[8px] text-blue-500 font-bold mt-1">+{item.bonus} BONUS</span>}
+                      </div>
+                    </td>
                     <td className="p-5 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => { setEditingId(item.id); setFormData(item); setIsModalOpen(true); }} className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-all"><Edit3 size={14}/></button>
-                        <button onClick={() => handleDelete(item.id)} className="p-2 bg-zinc-800 hover:bg-red-900/50 rounded-lg transition-all"><Trash2 size={14}/></button>
+                      <div className="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-all">
+                        <button onClick={() => { setEditingId(item.id); setFormData(item); setIsModalOpen(true); }} className="p-2 bg-zinc-900 hover:bg-blue-600 rounded-lg transition-all border border-white/5"><Edit3 size={14}/></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-2 bg-zinc-900 hover:bg-red-600 rounded-lg transition-all border border-white/5"><Trash2 size={14}/></button>
                       </div>
                     </td>
                   </tr>
@@ -276,52 +302,68 @@ export default function AdminRanking() {
 
       {/* Modal Form */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-950 w-full max-w-lg rounded-3xl border border-white/10 overflow-hidden">
-            <div className="p-6 border-b border-white/5 flex justify-between items-center">
-              <h3 className="font-black uppercase italic tracking-tighter">Form Data Atlet</h3>
-              <button onClick={() => setIsModalOpen(false)}><X size={20}/></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="bg-zinc-950 w-full max-w-lg rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+              <h3 className="font-black uppercase italic tracking-tighter text-lg">
+                {editingId ? 'Edit' : 'Tambah'} <span className="text-blue-600">Atlet</span>
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-full"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              {formError && (
+                <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 text-red-500 text-[10px] font-bold uppercase tracking-widest">
+                  <AlertCircle size={16}/> {formError}
+                </div>
+              )}
+
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase">Nama Lengkap</label>
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Nama Lengkap</label>
                 <input 
                   required 
-                  className="w-full bg-zinc-900 border border-white/5 rounded-xl p-3 outline-none focus:border-blue-600 uppercase font-bold text-sm" 
+                  className="w-full bg-zinc-900 border border-white/5 rounded-xl p-4 outline-none focus:border-blue-600 uppercase font-black text-sm transition-all" 
                   value={formData.player_name} 
                   onChange={e => setFormData({...formData, player_name: e.target.value})} 
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase">Kategori</label>
-                  <select className="w-full bg-zinc-900 border border-white/5 rounded-xl p-3 outline-none text-xs font-bold" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Kategori</label>
+                  <select className="w-full bg-zinc-900 border border-white/5 rounded-xl p-4 outline-none text-xs font-bold uppercase" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                     <option value="Senior">Senior</option>
                     <option value="Muda">Muda</option>
                     <option value="Veteran">Veteran</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase">Seed</label>
-                  <select className="w-full bg-zinc-900 border border-white/5 rounded-xl p-3 outline-none text-xs font-bold" value={formData.seed} onChange={e => setFormData({...formData, seed: e.target.value})}>
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Seed Status</label>
+                  <select className="w-full bg-zinc-900 border border-white/5 rounded-xl p-4 outline-none text-xs font-bold uppercase" value={formData.seed} onChange={e => setFormData({...formData, seed: e.target.value})}>
                     <option value="Seed A">Seed A</option>
                     <option value="Seed B">Seed B</option>
                     <option value="Non-Seed">Non-Seed</option>
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-2xl">
+
+              <div className="grid grid-cols-2 gap-4 bg-white/[0.03] p-6 rounded-2xl border border-white/5">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase">Poin Dasar</label>
-                  <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-2 outline-none font-bold" value={formData.total_points} onChange={e => setFormData({...formData, total_points: Number(e.target.value)})} />
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Poin Dasar</label>
+                  <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-3 outline-none font-black text-white" value={formData.total_points} onChange={e => setFormData({...formData, total_points: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-blue-400 uppercase">Poin Bonus</label>
-                  <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-2 outline-none font-bold text-blue-400" value={formData.bonus} onChange={e => setFormData({...formData, bonus: Number(e.target.value)})} />
+                  <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Poin Bonus</label>
+                  <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-3 outline-none font-black text-blue-400" value={formData.bonus} onChange={e => setFormData({...formData, bonus: Number(e.target.value)})} />
                 </div>
               </div>
-              <button disabled={isSaving} className="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-black uppercase text-xs tracking-widest transition-all">
-                {isSaving ? 'Menyimpan...' : 'Simpan Data'}
+
+              <button 
+                disabled={isSaving} 
+                className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 rounded-2xl font-black uppercase text-xs tracking-[0.3em] transition-all flex items-center justify-center gap-2"
+              >
+                {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                {isSaving ? 'MEMPROSES...' : 'SIMPAN DATA'}
               </button>
             </form>
           </div>

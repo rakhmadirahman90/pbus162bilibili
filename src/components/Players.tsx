@@ -1,17 +1,17 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import { supabase } from "../supabase"; // Pastikan path config benar
 
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
 import { 
-  X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info
+  X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
 } from 'lucide-react';
 
-// --- DATA SOURCE & PEMENANG ---
+// --- DATA SOURCE & PEMENANG (Tetap dipertahankan untuk kalkulasi poin) ---
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -27,112 +27,95 @@ const Players: React.FC = () => {
   const [currentAgeGroup, setCurrentAgeGroup] = useState('Semua'); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
+  
+  // --- STATE BARU UNTUK DATABASE ---
+  const [dbPlayers, setDbPlayers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const [_, setInit] = useState(false);
 
-  // 1. TAMBAHKAN INI: Listener agar Navbar bisa mengubah filter di sini
+  // 1. FUNGSI FETCH DATA DARI SUPABASE
+  const fetchPlayersFromDB = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pendaftaran')
+        .select('*')
+        .order('created_at', { ascending: true }); // Menggunakan urutan daftar untuk rank awal
+
+      if (error) throw error;
+      setDbPlayers(data || []);
+    } catch (err) {
+      console.error("Gagal mengambil data atlet:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 2. REALTIME LISTENER & INITIAL FETCH
+  useEffect(() => {
+    fetchPlayersFromDB();
+
+    const channel = supabase
+      .channel('pendaftaran_realtime')
+      .on('postgres_changes', 
+        { event: '*', table: 'pendaftaran', schema: 'public' }, 
+        () => fetchPlayersFromDB()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Listener untuk Navbar (Kode Anda sebelumnya)
   useEffect(() => {
     const handleFilterAtlet = (event: any) => {
-      const category = event.detail; // Mengambil 'Senior' atau 'Muda'
-      if (category) {
-        setCurrentAgeGroup(category);
-      }
+      const category = event.detail;
+      if (category) setCurrentAgeGroup(category);
     };
-
-    // Mendengarkan sinyal 'filterAtlet' dari Navbar
     window.addEventListener('filterAtlet', handleFilterAtlet);
-    
-    return () => {
-      window.removeEventListener('filterAtlet', handleFilterAtlet);
-    };
+    return () => window.removeEventListener('filterAtlet', handleFilterAtlet);
   }, []);
 
   useEffect(() => {
     setInit(true);
   }, []);
 
+  // 3. PROSES DATA: Menggabungkan Data DB dengan Logika Poin/Seed
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
-      'A': { base: 10000, bonus: 300, label: 'Seed A', age: 'Senior' },
-      'B+': { base: 8500, bonus: 500, label: 'Seed B+', age: 'Senior' },
-      'B-': { base: 7000, bonus: 300, label: 'Seed B-', age: 'Senior' },
-      'C': { base: 5500, bonus: 500, label: 'Seed C', age: 'Muda' },
+      'Pemula (U-15)': { base: 5500, bonus: 500, label: 'Seed C', age: 'Muda' },
+      'Remaja (U-17)': { base: 6000, bonus: 500, label: 'Seed C', age: 'Muda' },
+      'Taruna (U-19)': { base: 6500, bonus: 500, label: 'Seed C', age: 'Muda' },
+      'Dewasa / Umum': { base: 8500, bonus: 500, label: 'Seed B+', age: 'Senior' },
+      'Veteran (35+ / 40+)': { base: 10000, bonus: 300, label: 'Seed A', age: 'Senior' },
     };
 
-    const rawData = [
-      { name: "Agustilaar", group: "A", img: "gemini_generated_image_qdfwfpqdfwfpqdfw.png", bio: "Pemain kunci dengan pertahanan solid dan visi bermain yang tajam." },
-      { name: "Herman", group: "A", img: "https://images.pexels.com/photos/6253570/pexels-photo-6253570.jpeg", bio: "Spesialis smash tajam dengan akurasi penempatan bola yang tinggi." },
-      { name: "Darwis (TNI)", group: "A", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Kedisiplinan tinggi dan stamina yang luar biasa di lapangan." },
-      { name: "Salman", group: "A", img: "https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg", bio: "Ahli dalam permainan net yang tipis dan mengecoh lawan." },
-      { name: "Lutfi", group: "A", img: "https://images.pexels.com/photos/3660204/pexels-photo-3660204.jpeg", bio: "Pemain lincah dengan kemampuan backhand yang mematikan." },
-      { name: "Udin", group: "A", img: "gemini_generated_image_ein7bkein7bkein7.png", bio: "Andalan tim dalam serangan cepat dan drive horizontal." },
-      { name: "Aldy Sandra", group: "A", img: "https://images.pexels.com/photos/11224855/pexels-photo-11224855.jpeg", bio: "Kombinasi kekuatan dan teknik yang sangat seimbang." },
-      { name: "Mustakim", group: "A", img: "gemini_generated_image_gh30n4gh30n4gh30.png", bio: "Memiliki kontrol permainan yang tenang di poin-poin kritis." },
-      { name: "Rifai", group: "A", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Strategist lapangan yang handal membaca pergerakan lawan." },
-      { name: "Acos", group: "A", img: "https://images.pexels.com/photos/8007471/pexels-photo-8007471.jpeg", bio: "Power player dengan serangan bertubi-tubi yang sulit dibendung." },
-      { name: "H. Wawan", group: "B+", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Pengalaman tinggi dalam mengatur ritme permainan ganda." },
-      { name: "Bustan", group: "B+", img: "gemini_generated_image_abml4qabml4qabml.png", bio: "Pemain yang ulet dan pantang menyerah dalam mengejar bola." },
-      { name: "Dr. Khaliq", group: "B+", img: "gemini_generated_image_l4hhwml4hhwml4hh.png", bio: "Akurasi penempatan bola yang presisi dan cerdas." },
-      { name: "Momota", group: "B+", img: "https://images.pexels.com/photos/4307869/pexels-photo-4307869.jpeg", bio: "Gaya bermain teknis yang terinspirasi dari legenda bulutangkis." },
-      { name: "H. Ismail", group: "B+", img: "https://images.pexels.com/photos/3785079/pexels-photo-3785079.jpeg", bio: "Pemain senior dengan teknik drop shot yang sangat halus." },
-      { name: "Saleh", group: "B+", img: "https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg", bio: "Dikenal dengan pertahanan 'tembok' yang sulit ditembus." },
-      { name: "H. Zaidi", group: "B+", img: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg", bio: "Memiliki flick serve yang sering mengecoh lawan di depan net." },
-      { name: "Zainuddin", group: "B+", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Agresif dalam melakukan serangan-serangan cepat depan net." },
-      { name: "Lumpue", group: "B+", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Pemain enerjik yang mengandalkan kecepatan kaki (footwork)." },
-      { name: "Madhy", group: "B+", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Spesialis bola-bola atas dengan jangkauan yang luas." },
-      { name: "Vhio", group: "B+", img: "gemini_generated_image_3ntq3x3ntq3x3ntq.png", bio: "Pemain muda berbakat dengan potensi besar di kategori Senior." },
-      { name: "Anto", group: "B+", img: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg", bio: "Handal dalam melakukan drive cepat satu lawan satu." },
-      { name: "Lukman", group: "B+", img: "https://images.pexels.com/photos/775358/pexels-photo-775358.jpeg", bio: "Visi bermain ganda yang sangat baik dan suportif bagi partner." },
-      { name: "Sandra", group: "B+", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Memiliki kontrol emosi yang stabil di lapangan pertandingan." },
-      { name: "Amri", group: "B+", img: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg", bio: "Pemain yang konsisten dalam menjaga area belakang lapangan." },
-      { name: "Nasri Lapas", group: "B+", img: "https://images.pexels.com/photos/775358/pexels-photo-775358.jpeg", bio: "Andalan dalam duel-duel panjang (rally) di klasemen B+." },
-      { name: "Aprijal", group: "B+", img: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg", bio: "Teknik smash menyilang menjadi senjata utamanya." },
-      { name: "Arifuddin", group: "B+", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Fokus tinggi pada penempatan bola di sudut-sudut lapangan." },
-      { name: "H Amier", group: "B+", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain senior yang sangat dihormati dengan teknik yang mumpuni." },
-      { name: "Rustam", group: "B+", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Dikenal dengan gaya main yang santai namun sangat efektif." },
-      { name: "A. Arwan", group: "B+", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Pemain dengan variasi pukulan yang sulit ditebak lawan." },
-      { name: "Laganing", group: "B+", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Memiliki semangat juang tinggi di setiap turnamen internal." },
-      { name: "Prof. Fikri", group: "B-", img: "gemini_generated_image_mzatg7mzatg7mzat.png", bio: "Akademisi di lapangan yang bermain dengan logika dan strategi matang." },
-      { name: "Marzuki", group: "B-", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Andalan dalam mengamankan area depan net." },
-      { name: "A. Mansur", group: "B-", img: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg", bio: "Gaya main klasik dengan efisiensi tenaga yang luar biasa." },
-      { name: "Darwis R.", group: "B-", img: "https://images.pexels.com/photos/7045704/pexels-photo-7045704.jpeg", bio: "Pemain yang gigih dalam mengejar bola-bola sulit." },
-      { name: "Ali", group: "B-", img: "https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg", bio: "Dikenal sebagai pemain yang sangat suportif bagi rekan duetnya." },
-      { name: "Saldy", group: "B-", img: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg", bio: "Andalan tim dalam serangan-serangan smash lurus." },
-      { name: "Mulyadi", group: "B-", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Pertahanan yang rapat menjadi ciri khas permainannya." },
-      { name: "Haedir", group: "B-", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Memiliki pukulan lop yang akurat hingga garis belakang." },
-      { name: "H Fitra", group: "B-", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Pemain dengan pergerakan yang lincah dan cepat." },
-      { name: "Kurnia", group: "B-", img: "https://images.pexels.com/photos/3778876/pexels-photo-3778876.jpeg", bio: "Cerdas dalam menaruh bola-bola tipis di area depan lawan." },
-      { name: "Arsan", group: "C", img: "gemini_generated_image_yz5sjxyz5sjxyz5s.png", bio: "Rising star di kategori C dengan perkembangan teknik yang sangat pesat." },
-      { name: "H. Hasym", group: "C", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain muda dengan semangat kompetisi yang luar biasa." },
-      { name: "H. Anwar", group: "C", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Gaya main menyerang yang menjadi ciri khas generasi muda PB US 162." },
-      { name: "Yakob", group: "C", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Stamina prima yang menjadi momok bagi lawan di reli-reli panjang." },
-      { name: "Ust. Usman", group: "C", img: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg", bio: "Ketenangan batin di lapangan mencerminkan kepribadiannya." },
-      { name: "Surakati", group: "C", img: "https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg", bio: "Pemain muda yang ulet dan sangat rajin melatih footwork." },
-      { name: "H. Faizal", group: "C", img: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg", bio: "Muda dan berbahaya dengan smash keras yang mematikan." },
-      { name: "H. Ude", group: "C", img: "https://images.pexels.com/photos/775358/pexels-photo-775358.jpeg", bio: "Selalu tampil maksimal dan memberikan kejutan di lapangan." },
-      { name: "Hidayatullah", group: "C", img: "whatsapp_image_2025-12-30_at_15.33.37.jpeg", bio: "Recent Champion! Pemain muda paling menonjol saat ini dengan determinasi tinggi." },
-      { name: "H. Pangeran", group: "C", img: "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg", bio: "Memiliki insting mencuri poin yang sangat baik di depan net." },
-      { name: "Syarifuddin", group: "C", img: "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg", bio: "Pemain yang cerdas dalam memilih momen untuk menyerang balik." },
-      { name: "H. Tantong", group: "C", img: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg", bio: "Pemain muda penutup daftar roster dengan potensi juara yang besar." }
-    ];
+    // Default jika kategori tidak terdaftar
+    const defaultConfig = { base: 5000, bonus: 200, label: 'UNSEEDED', age: 'Senior' };
 
-    return rawData.map((p) => {
-      const conf = config[p.group];
-      const isWinner = EVENT_LOG[0].winners.includes(p.name);
-      const rankInGroup = rawData.filter(x => x.group === p.group).findIndex(y => y.name === p.name);
-      const totalPoints = (conf.base - (rankInGroup * 50)) + (isWinner ? conf.bonus : 0);
+    return dbPlayers.map((p, index) => {
+      const conf = config[p.kategori] || defaultConfig;
+      const isWinner = EVENT_LOG[0].winners.includes(p.nama);
+      
+      // Kalkulasi Poin (Menggunakan urutan index di DB)
+      const totalPoints = (conf.base - (index * 50)) + (isWinner ? conf.bonus : 0);
       
       return {
         ...p,
+        name: p.nama, // Mapping dari kolom 'nama'
+        img: p.foto_url, // Mapping dari kolom 'foto_url'
+        bio: p.pengalaman || "Atlet profesional PB US 162 dengan dedikasi tinggi.",
         totalPoints,
         isWinner,
         ageGroup: conf.age,
         categoryLabel: conf.label,
       };
     }).sort((a, b) => b.totalPoints - a.totalPoints);
-  }, []);
+  }, [dbPlayers]);
 
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
@@ -151,10 +134,10 @@ const Players: React.FC = () => {
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
           <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in duration-300">
             <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center overflow-hidden h-[400px] md:h-auto">
-              <img src={selectedPlayer.img} className="w-full h-full object-contain p-8 md:p-14" alt={selectedPlayer.name} />
+              <img src={selectedPlayer.img} className="w-full h-full object-cover p-4" alt={selectedPlayer.name} />
               {selectedPlayer.isWinner && (
                 <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl">
-                  <Award size={18} /> WINNER - INTERNAL CUP IV
+                  <Award size={18} /> WINNER - INTERNAL CUP
                 </div>
               )}
             </div>
@@ -164,7 +147,7 @@ const Players: React.FC = () => {
                 <span className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-blue-500 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.ageGroup}</span>
                 <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.categoryLabel}</span>
               </div>
-              <h2 className="text-5xl md:text-7xl font-black uppercase mb-8 tracking-tighter leading-[0.9]">{selectedPlayer.name}</h2>
+              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9]">{selectedPlayer.name}</h2>
               <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
                 <div className="flex items-center gap-3 mb-4 text-blue-500">
                     <Info size={20} />
@@ -176,7 +159,7 @@ const Players: React.FC = () => {
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
                     <Zap className="text-blue-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Global Rank</p>
-                    <p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.name === selectedPlayer.name) + 1}</p>
+                    <p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
                 </div>
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
                     <Trophy className="text-yellow-500 mb-2" size={20} />
@@ -210,13 +193,13 @@ const Players: React.FC = () => {
           </div>
         </div>
 
-        {/* STATS & FILTER */}
+        {/* FILTER TABS */}
         <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
             <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
               {[
-                { label: 'Semua', count: 54 },
-                { label: 'Senior', count: 42 },
-                { label: 'Muda', count: 12 }
+                { label: 'Semua', count: dbPlayers.length },
+                { label: 'Senior', count: processedPlayers.filter(p => p.ageGroup === 'Senior').length },
+                { label: 'Muda', count: processedPlayers.filter(p => p.ageGroup === 'Muda').length }
               ].map((tab) => (
                 <button 
                   key={tab.label}
@@ -230,63 +213,70 @@ const Players: React.FC = () => {
             </div>
         </div>
 
-        {/* SWIPER DENGAN OBSERVER */}
-        <div className="relative group/slider">
-          <Swiper
-            modules={[Navigation, Pagination, Autoplay]}
-            key={currentAgeGroup} 
-            observer={true} 
-            observeParents={true} 
-            spaceBetween={25}
-            slidesPerView={1.2}
-            navigation={{
-              prevEl: prevRef.current,
-              nextEl: nextRef.current,
-            }}
-            onBeforeInit={(swiper) => {
-               // @ts-ignore
-               swiper.params.navigation.prevEl = prevRef.current;
-               // @ts-ignore
-               swiper.params.navigation.nextEl = nextRef.current;
-            }}
-            breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
-            className="!pb-20"
-          >
-            {filteredPlayers.map((player) => (
-              <SwiperSlide key={`${currentAgeGroup}-${player.name}`}>
-                <div 
-                  onClick={() => setSelectedPlayer(player)} 
-                  className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
-                >
-                  <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
-                  <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
-                    {processedPlayers.findIndex(p => p.name === player.name) + 1}
+        {/* LOADING STATE */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-zinc-500">
+            <Loader2 className="animate-spin" size={40} />
+            <p className="font-black uppercase tracking-widest text-xs">Menghubungkan Database...</p>
+          </div>
+        ) : (
+          <div className="relative group/slider">
+            <Swiper
+              modules={[Navigation, Pagination, Autoplay]}
+              key={`${currentAgeGroup}-${filteredPlayers.length}`} // Key unik agar swiper refresh saat data berubah
+              observer={true} 
+              observeParents={true} 
+              spaceBetween={25}
+              slidesPerView={1.2}
+              navigation={{
+                prevEl: prevRef.current,
+                nextEl: nextRef.current,
+              }}
+              onBeforeInit={(swiper) => {
+                 // @ts-ignore
+                 swiper.params.navigation.prevEl = prevRef.current;
+                 // @ts-ignore
+                 swiper.params.navigation.nextEl = nextRef.current;
+              }}
+              breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
+              className="!pb-20"
+            >
+              {filteredPlayers.map((player) => (
+                <SwiperSlide key={player.id}>
+                  <div 
+                    onClick={() => setSelectedPlayer(player)} 
+                    className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
+                  >
+                    <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
+                    <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
+                      {processedPlayers.findIndex(p => p.id === player.id) + 1}
+                    </div>
+                    {player.isWinner && (
+                      <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg">
+                        <Trophy size={18} />
+                      </div>
+                    )}
+                    <div className="absolute bottom-10 left-10 right-10">
+                      <div className="flex items-center gap-2 mb-2">
+                           <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                           <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
+                      </div>
+                      <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1">{player.name}</h3>
+                      <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
+                        <span>{player.categoryLabel}</span>
+                        <span className="text-white font-mono">{player.totalPoints.toLocaleString()} PTS</span>
+                      </div>
+                    </div>
                   </div>
-                  {player.isWinner && (
-                    <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg">
-                      <Trophy size={18} />
-                    </div>
-                  )}
-                  <div className="absolute bottom-10 left-10 right-10">
-                    <div className="flex items-center gap-2 mb-2">
-                         <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                         <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
-                    </div>
-                    <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1">{player.name}</h3>
-                    <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
-                      <span>{player.categoryLabel}</span>
-                      <span className="text-white font-mono">{player.totalPoints.toLocaleString()} PTS</span>
-                    </div>
-                  </div>
-                </div>
-              </SwiperSlide>
-            ))}
-          </Swiper>
-          
-          <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>
-          <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>
-        </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+            
+            <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>
+            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>
+          </div>
+        )}
       </div>
     </section>
   );

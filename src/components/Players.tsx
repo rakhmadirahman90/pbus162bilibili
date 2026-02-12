@@ -11,7 +11,7 @@ import {
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
 } from 'lucide-react';
 
-// --- DATA SOURCE & PEMENANG ---
+// --- DATA SOURCE & PEMENANG (BONUS +300 SESUAI TABEL POIN) ---
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -35,13 +35,12 @@ const Players: React.FC = () => {
   const nextRef = useRef<HTMLButtonElement>(null);
   const [_, setInit] = useState(false);
 
-  // 1. FUNGSI FETCH DATA
+  // 1. FUNGSI FETCH DATA (MENGAMBIL SEMUA KOLOM TERMASUK PENGALAMAN)
   const fetchPlayersFromDB = async () => {
     try {
       const { data, error } = await supabase
         .from('pendaftaran')
-        .select('*')
-        .order('created_at', { ascending: true });
+        .select('*');
 
       if (error) throw error;
       setDbPlayers(data || []);
@@ -82,40 +81,48 @@ const Players: React.FC = () => {
     setInit(true);
   }, []);
 
-  // 3. PROSES DATA DENGAN LOGIKA TABEL POIN BARU
+  // 3. PROSES DATA: SINKRONISASI POIN (10.300 PTS) & DESKRIPSI DATABASE
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
-      'Veteran (35+ / 40+)': { base: 10000, label: 'Seed A', age: 'Senior' },
-      'Dewasa / Umum': { base: 8500, label: 'Seed B+', age: 'Senior' },
-      'Taruna (U-19)': { base: 6500, label: 'Seed C', age: 'Muda' },
-      'Remaja (U-17)': { base: 6000, label: 'Seed C', age: 'Muda' },
-      'Pemula (U-15)': { base: 5500, label: 'Seed C', age: 'Muda' },
+      // Menyesuaikan kunci dengan database (SENIOR, DEWASA, dll)
+      'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
+      'VETERAN (35+ / 40+)': { base: 10000, label: 'Seed A', age: 'Senior' },
+      'DEWASA': { base: 8500, label: 'Seed B+', age: 'Senior' },
+      'DEWASA / UMUM': { base: 8500, label: 'Seed B+', age: 'Senior' },
+      'TARUNA (U-19)': { base: 6500, label: 'Seed C', age: 'Muda' },
+      'REMAJA (U-17)': { base: 6000, label: 'Seed C', age: 'Muda' },
+      'PEMULA (U-15)': { base: 5500, label: 'Seed C', age: 'Muda' },
     };
 
     const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
 
-    return dbPlayers.map((p, index) => {
-      const conf = config[p.kategori] || defaultConfig;
+    return dbPlayers.map((p) => {
+      const playerCat = p.kategori ? p.kategori.toUpperCase() : '';
+      const conf = config[playerCat] || defaultConfig;
       
-      // Cek kemenangan sesuai tabel (+300 untuk Turnamen Internal/Cup)
+      // LOGIKA POIN: Base + Bonus Menang Internal (+300)
       const isWinner = EVENT_LOG[0].winners.includes(p.nama);
       const winBonus = isWinner ? 300 : 0;
       
-      // Pengurangan index diperhalus menjadi 10 agar tidak merusak base point
-      // Agustilaar (Veteran 10.000 + Win 300) = 10.300
-      const totalPoints = (conf.base + winBonus) - (index * 10);
+      // Total Poin murni dari tabel standar (Tanpa pengurangan index agar sinkron 10.300)
+      const totalPoints = conf.base + winBonus;
       
       return {
         ...p,
         name: p.nama,
         img: p.foto_url,
-        bio: p.pengalaman || "Atlet profesional PB US 162 dengan dedikasi tinggi.",
+        // DESKRIPSI: Mengambil kolom 'pengalaman', jika isi hanya "ok" tampilkan default
+        bio: p.pengalaman && p.pengalaman.toLowerCase() !== "ok" 
+             ? p.pengalaman 
+             : `Atlet profesional PB US 162 kategori ${p.kategori}.`,
         totalPoints,
         isWinner,
         ageGroup: conf.age,
         categoryLabel: conf.label,
       };
-    }).sort((a, b) => b.totalPoints - a.totalPoints);
+    })
+    // URUTAN: Poin tertinggi selalu nomor #1
+    .sort((a, b) => b.totalPoints - a.totalPoints);
   }, [dbPlayers]);
 
   const filteredPlayers = useMemo(() => {
@@ -149,6 +156,7 @@ const Players: React.FC = () => {
                 <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.categoryLabel}</span>
               </div>
               <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9]">{selectedPlayer.name}</h2>
+              
               <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
                 <div className="flex items-center gap-3 mb-4 text-blue-500">
                     <Info size={20} />
@@ -156,6 +164,7 @@ const Players: React.FC = () => {
                 </div>
                 <p className="text-zinc-400 text-lg leading-relaxed italic">"{selectedPlayer.bio}"</p>
               </div>
+
               <div className="grid grid-cols-2 gap-5">
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
                     <Zap className="text-blue-500 mb-2" size={20} />
@@ -165,7 +174,7 @@ const Players: React.FC = () => {
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
                     <Trophy className="text-yellow-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Poin Klasemen</p>
-                    <p className="text-2xl font-black">{selectedPlayer.totalPoints.toLocaleString()}</p>
+                    <p className="text-2xl font-black">{selectedPlayer.totalPoints.toLocaleString()} PTS</p>
                 </div>
               </div>
             </div>
@@ -179,9 +188,7 @@ const Players: React.FC = () => {
             <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">
               PROFIL <span className="text-blue-600">PEMAIN</span>
             </h2>
-            <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">
-              Kenal Lebih Dekat Dengan Atlet Kami
-            </p>
+            <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">Kenal Lebih Dekat Dengan Atlet Kami</p>
           </div>
           <div className="relative w-full md:w-[320px]">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
@@ -194,7 +201,6 @@ const Players: React.FC = () => {
           </div>
         </div>
 
-        {/* FILTER TABS */}
         <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
             <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
               {[
@@ -214,7 +220,6 @@ const Players: React.FC = () => {
             </div>
         </div>
 
-        {/* LOADING STATE */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-zinc-500">
             <Loader2 className="animate-spin" size={40} />
@@ -229,10 +234,7 @@ const Players: React.FC = () => {
               observeParents={true} 
               spaceBetween={25}
               slidesPerView={1.2}
-              navigation={{
-                prevEl: prevRef.current,
-                nextEl: nextRef.current,
-              }}
+              navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
               onBeforeInit={(swiper) => {
                  // @ts-ignore
                  swiper.params.navigation.prevEl = prevRef.current;
@@ -250,14 +252,17 @@ const Players: React.FC = () => {
                   >
                     <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
+                    
                     <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
                       {processedPlayers.findIndex(p => p.id === player.id) + 1}
                     </div>
+
                     {player.isWinner && (
                       <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg">
                         <Trophy size={18} />
                       </div>
                     )}
+
                     <div className="absolute bottom-10 left-10 right-10">
                       <div className="flex items-center gap-2 mb-2">
                            <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>

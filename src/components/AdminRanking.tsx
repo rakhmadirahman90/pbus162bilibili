@@ -6,7 +6,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// Interface diperbarui dengan photo_url
+// Interface
 interface Ranking {
   id: string;
   player_name: string;
@@ -14,7 +14,7 @@ interface Ranking {
   seed: string;
   total_points: number;
   bonus: number;
-  photo_url?: string; // Tambahan untuk foto
+  photo_url?: string; 
   updated_at?: string;
 }
 
@@ -58,20 +58,20 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // --- LOGIKA SINKRONISASI TOTAL (DENGAN FOTO ATLET) ---
+  // --- LOGIKA SINKRONISASI TOTAL (DISEMPURNAKAN UNTUK KOLOM foto_url) ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Sistem akan menghapus data lama dan menghitung ulang poin serta memperbarui FOTO atlet. Lanjutkan?");
+    const confirm = window.confirm("Sistem akan menghitung ulang poin dan memperbarui FOTO dari database pendaftaran. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data stats + foto dari tabel pendaftaran
+      // 1. Ambil data stats + foto_url dari tabel pendaftaran
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
           points,
           seed,
-          pendaftaran ( nama, kategori, foto )
+          pendaftaran ( nama, kategori, foto_url )
         `);
 
       if (statsError) throw statsError;
@@ -80,7 +80,6 @@ export default function AdminRanking() {
         return;
       }
 
-      // 2. Agregasi dengan Map
       const athleteMap = new Map();
 
       statsData.forEach((item: any) => {
@@ -100,7 +99,8 @@ export default function AdminRanking() {
               seed: item.seed || 'Non-Seed',
               total_points: currentPoints,
               bonus: 0,
-              photo_url: detail.foto || null // MENYIMPAN FOTO DARI DATA PENDAFTARAN
+              // PERBAIKAN: Menggunakan foto_url sesuai struktur tabel pendaftaran kamu
+              photo_url: detail.foto_url || null 
             });
           }
         }
@@ -108,11 +108,11 @@ export default function AdminRanking() {
 
       const finalDataArray = Array.from(athleteMap.values());
 
-      // 3. Update Database (Reset and Insert)
+      // 2. Eksekusi Database: Clean & Rebuild
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'RESERVED_IGNORE');
+        .neq('player_name', 'RESERVED_SYSTEM_IGNORE');
 
       if (deleteError) throw deleteError;
 
@@ -122,11 +122,11 @@ export default function AdminRanking() {
 
       if (insertError) throw insertError;
       
-      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet dengan foto.`);
+      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet dengan foto terbaru.`);
       fetchRankings();
     } catch (err: any) {
       console.error("Sync Error:", err);
-      alert("Gagal Sinkron: " + err.message);
+      alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan database"));
     } finally {
       setLoading(false);
     }
@@ -139,6 +139,7 @@ export default function AdminRanking() {
     setIsSaving(true);
 
     try {
+      // Poin total = poin dari stats + bonus manual
       const finalPoints = (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0);
       const payload = {
         player_name: formData.player_name?.trim().toUpperCase(),
@@ -172,8 +173,13 @@ export default function AdminRanking() {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Hapus atlet ini dari ranking?")) return;
-    await supabase.from('rankings').delete().eq('id', id);
-    fetchRankings();
+    try {
+      const { error } = await supabase.from('rankings').delete().eq('id', id);
+      if (error) throw error;
+      fetchRankings();
+    } catch (err: any) {
+      alert("Gagal menghapus: " + err.message);
+    }
   };
 
   const filteredRankings = rankings.filter(r => 
@@ -266,17 +272,21 @@ export default function AdminRanking() {
                     <td className="p-5 font-black italic text-blue-600">#{String(index + 1).padStart(2, '0')}</td>
                     <td className="p-5">
                       <div className="flex items-center gap-3">
-                        {/* UPDATE: FOTO ATLET DARI DATABASE */}
-                        <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-white/10 group-hover:border-blue-500/50 transition-all overflow-hidden">
+                        {/* FOTO ATLET DENGAN FALLBACK */}
+                        <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center border border-white/10 group-hover:border-blue-500/50 transition-all overflow-hidden shadow-inner">
                           {item.photo_url ? (
                             <img 
                               src={item.photo_url} 
                               alt={item.player_name} 
                               className="w-full h-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${item.player_name}&background=random`; }}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => { 
+                                const target = e.target as HTMLImageElement;
+                                target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.player_name)}&background=0D8ABC&color=fff&bold=true`; 
+                              }}
                             />
                           ) : (
-                            <User size={16} className="text-zinc-500" />
+                            <User size={16} className="text-zinc-600" />
                           )}
                         </div>
                         <span className="font-black uppercase italic text-sm tracking-tight">{item.player_name}</span>
@@ -374,11 +384,11 @@ export default function AdminRanking() {
 
               <div className="grid grid-cols-2 gap-4 bg-white/[0.03] p-6 rounded-2xl border border-white/5">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Poin Dasar</label>
+                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Poin Dasar (Dari Stats)</label>
                   <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-3 outline-none font-black text-white" value={formData.total_points} onChange={e => setFormData({...formData, total_points: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Poin Bonus</label>
+                  <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Poin Bonus Manual</label>
                   <input type="number" className="w-full bg-black border border-white/5 rounded-lg p-3 outline-none font-black text-blue-400" value={formData.bonus} onChange={e => setFormData({...formData, bonus: Number(e.target.value)})} />
                 </div>
               </div>

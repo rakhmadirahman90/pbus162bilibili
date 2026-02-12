@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabase'; 
 
-// Import Komponen Landing Page
+// --- 1. Import Komponen Landing Page ---
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import About from './components/About';
@@ -14,15 +14,19 @@ import RegistrationForm from './components/RegistrationForm';
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
 
-// Import Komponen Admin
+// --- 2. Import Komponen Admin ---
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
 import ManajemenAtlet from './ManajemenAtlet';
 import AdminMatch from './components/AdminMatch'; 
-// PEMBARUAN: Import komponen Galeri dan Kontak
 import AdminGallery from './components/AdminGallery'; 
 import AdminContact from './components/AdminContact';
+
+// --- 3. Import Komponen Admin Khusus (Pastikan file ini ada) ---
+// Jika nama filenya berbeda, silakan sesuaikan import di bawah ini:
+// import AdminRanking from './components/AdminRanking'; 
+// import AdminNews from './components/AdminNews';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -46,7 +50,10 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white font-black italic uppercase tracking-widest">
-        Loading System...
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="animate-pulse text-xs">Synchronizing System...</span>
+        </div>
       </div>
     );
   }
@@ -54,7 +61,9 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* ROUTE UTAMA: LANDING PAGE LENGKAP */}
+        {/* ==========================================
+            ROUTE UTAMA: LANDING PAGE 
+            ========================================== */}
         <Route path="/" element={
           <div className="min-h-screen bg-white">
             <Navbar />
@@ -72,55 +81,64 @@ export default function App() {
           </div>
         } />
 
-        {/* ROUTE LOGIN: HANYA DIAKSES VIA URL MANUAL /login */}
+        {/* ==========================================
+            ROUTE LOGIN 
+            ========================================== */}
         <Route 
           path="/login" 
           element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} 
         />
 
-        {/* ROUTE ADMIN: PROTECTED BY SESSION */}
+        {/* ==========================================
+            ROUTE ADMIN (PROTECTED)
+            ========================================== */}
         <Route 
           path="/admin/*" 
           element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} 
         />
 
-        {/* CATCH-ALL: REDIRECT KE HOME JIKA URL TIDAK ADA */}
+        {/* CATCH-ALL REDIRECT */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
 }
 
-// Layout Khusus Admin Dashboard
+/**
+ * Layout Khusus Admin Dashboard
+ * Mengelola semua sub-menu navigasi admin
+ */
 function AdminLayout({ session }: { session: any }) {
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      {/* Sidebar untuk navigasi internal admin */}
+    <div className="flex min-h-screen bg-[#050505]">
+      {/* Sidebar Navigasi Utama */}
       <Sidebar email={session.user.email} />
       
-      {/* Area Konten Dinamis Dashboard */}
-      <main className="flex-1 overflow-y-auto bg-[#050505]">
+      {/* Area Konten Dinamis Admin */}
+      <main className="flex-1 overflow-y-auto border-l border-white/5 bg-zinc-950/50">
         <Routes>
-          {/* Menu default admin adalah Manajemen Pendaftaran */}
+          {/* A. SEKSI MAIN DASHBOARD */}
           <Route path="dashboard" element={<ManajemenPendaftaran />} />
-          
-          {/* PEMBARUAN: Mengarah ke manajemen atlet */}
           <Route path="atlet" element={<ManajemenAtlet />} />
 
-          {/* PEMBARUAN: Route baru untuk Update Skor Pertandingan */}
+          {/* B. SEKSI LIVE UPDATES */}
+          {/* 1. Update Skor & Poin Pertandingan */}
           <Route path="skor" element={<AdminMatch />} />
 
-          {/* PEMBARUAN: Route untuk Galeri Media */}
+          {/* 2. Update Berita/News (Placeholder jika belum ada komponennya) */}
+          <Route path="berita" element={<div className="p-10 text-white font-black italic uppercase text-3xl">Kelola Berita & Event</div>} />
+          
+          {/* 3. Update Ranking Atlet (Klasemen) */}
+          {/* Ganti <div> di bawah dengan <AdminRanking /> jika komponen sudah siap */}
+          <Route path="ranking" element={<div className="p-10 text-white font-black italic uppercase text-3xl">Kelola Ranking & Klasemen</div>} />
+
+          {/* 4. Galeri Media (Upload Foto/Video) */}
           <Route path="galeri" element={<AdminGallery />} />
 
-          {/* PEMBARUAN: Route untuk Kelola Kontak */}
+          {/* 5. Kelola Kontak (Sinkronisasi Landing Page) */}
           <Route path="kontak" element={<AdminContact />} />
           
-          {/* Placeholder untuk menu lain agar tidak error saat diklik */}
-          <Route path="berita" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Berita (Segera)</div>} />
-          <Route path="ranking" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Ranking (Segera)</div>} />
-          
-          {/* Fallback jika sub-route tidak ditemukan */}
+          {/* Fallback internal admin: Kembali ke Dashboard */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </main>

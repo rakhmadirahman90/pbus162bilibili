@@ -20,9 +20,9 @@ import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
 import ManajemenAtlet from './ManajemenAtlet';
 import AdminMatch from './components/AdminMatch'; 
-
-// --- PEMBARUAN: Import Komponen AdminContact ---
-import AdminContact from './components/AdminContact'; 
+// PEMBARUAN: Import komponen Galeri dan Kontak
+import AdminGallery from './components/AdminGallery'; 
+import AdminContact from './components/AdminContact';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -109,14 +109,16 @@ function AdminLayout({ session }: { session: any }) {
 
           {/* PEMBARUAN: Route baru untuk Update Skor Pertandingan */}
           <Route path="skor" element={<AdminMatch />} />
-          
-          {/* PEMBARUAN: Route untuk Kelola Kontak (Landing Page Sync) */}
+
+          {/* PEMBARUAN: Route untuk Galeri Media */}
+          <Route path="galeri" element={<AdminGallery />} />
+
+          {/* PEMBARUAN: Route untuk Kelola Kontak */}
           <Route path="kontak" element={<AdminContact />} />
           
           {/* Placeholder untuk menu lain agar tidak error saat diklik */}
           <Route path="berita" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Berita (Segera)</div>} />
           <Route path="ranking" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Ranking (Segera)</div>} />
-          <Route path="galeri" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Galeri Media (Segera)</div>} />
           
           {/* Fallback jika sub-route tidak ditemukan */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />

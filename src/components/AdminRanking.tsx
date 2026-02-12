@@ -69,12 +69,11 @@ export default function AdminRanking() {
     }
   }, [successMsg]);
 
-  // --- LOGIKA UPLOAD FOTO KE STORAGE ---
+  // --- LOGIKA UPLOAD FOTO KE STORAGE (FIXED BUCKET) ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validasi file
     if (!file.type.startsWith('image/')) {
       alert("Hanya file gambar yang diizinkan!");
       return;
@@ -83,19 +82,18 @@ export default function AdminRanking() {
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `ranking-photos/${fileName}`;
 
-      // 1. Upload ke Bucket 'atlet-photos' (Pastikan bucket ini sudah dibuat di Supabase)
+      // Menggunakan bucket 'images' sesuai dashboard Supabase Anda
       const { error: uploadError } = await supabase.storage
-        .from('atlet-photos')
+        .from('images') 
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 2. Ambil Public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('atlet-photos')
+        .from('images')
         .getPublicUrl(filePath);
 
       setFormData({ ...formData, photo_url: publicUrl });
@@ -107,19 +105,21 @@ export default function AdminRanking() {
     }
   };
 
-  // --- LOGIKA SINKRONISASI FOTO & POIN ---
+  // --- LOGIKA SINKRONISASI (FIXED COLUMN & NULL CHECK) ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Sistem akan menghitung ulang poin dan MENARIK FOTO dari tabel pendaftaran. Lanjutkan?");
+    const confirm = window.confirm("Sistem akan menghitung ulang poin dan menarik foto dari tabel pendaftaran. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
+      // 1. Ambil data stats (Mencoba 'nama' jika 'player_name' tidak ada)
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
-        .select('points, seed, player_name');
+        .select('*'); // Ambil semua untuk menghindari error column not found di awal
 
       if (statsError) throw statsError;
 
+      // 2. Ambil data pendaftaran
       const { data: pendaftaranData, error: pendaftaranError } = await supabase
         .from('pendaftaran')
         .select('nama, foto_url, kategori');
@@ -141,8 +141,11 @@ export default function AdminRanking() {
       const athleteMap = new Map();
 
       statsData?.forEach((item: any) => {
-        if (item.player_name) {
-          const cleanName = clean(item.player_name);
+        // Fallback: cek properti 'nama' jika 'player_name' undefined
+        const rawName = item.player_name || item.nama || item.atlet;
+        
+        if (rawName) {
+          const cleanName = clean(rawName);
           const currentPoints = Number(item.points) || 0;
           const profile = profileMap.get(cleanName);
 
@@ -167,17 +170,17 @@ export default function AdminRanking() {
 
       const finalDataArray = Array.from(athleteMap.values());
 
-      if (finalDataArray.length === 0) {
-        throw new Error("Tidak ada data atlet yang valid ditemukan.");
-      }
+      if (finalDataArray.length === 0) throw new Error("Tidak ada data atlet yang valid.");
 
+      // Bersihkan tabel rankings lama (kecuali sistem)
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'SYSTEM_RESERVED');
+        .neq('player_name', '_SYSTEM_');
 
       if (deleteError) throw deleteError;
 
+      // Masukkan data baru
       const { error: insertError } = await supabase
         .from('rankings')
         .insert(finalDataArray);
@@ -188,7 +191,7 @@ export default function AdminRanking() {
       fetchRankings();
     } catch (err: any) {
       console.error("Sync Error:", err);
-      alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan"));
+      alert("Gagal Sinkron: " + (err.message || "Cek konsistensi nama kolom di tabel atlet_stats"));
     } finally {
       setLoading(false);
     }
@@ -373,7 +376,6 @@ export default function AdminRanking() {
                               alt={item.player_name} 
                               className="w-full h-full object-cover"
                               loading="lazy"
-                              referrerPolicy="no-referrer"
                               onError={(e) => { 
                                 const target = e.target as HTMLImageElement;
                                 target.onerror = null;
@@ -459,7 +461,7 @@ export default function AdminRanking() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
               {formError && (
                 <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 text-red-500 text-[10px] font-bold uppercase tracking-widest">
                   <AlertCircle size={18}/> {formError}
@@ -470,7 +472,7 @@ export default function AdminRanking() {
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Foto Atlet</label>
                 <div className="flex items-center gap-6 p-4 bg-white/[0.02] border border-white/5 rounded-3xl">
-                  <div className="relative w-24 h-24 bg-zinc-900 rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center group/photo">
+                  <div className="relative w-24 h-24 bg-zinc-900 rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center">
                     {formData.photo_url ? (
                       <img src={formData.photo_url} className="w-full h-full object-cover" alt="Preview" />
                     ) : (
@@ -497,7 +499,7 @@ export default function AdminRanking() {
                     >
                       <Upload size={14} /> Pilih Gambar
                     </button>
-                    <p className="text-[8px] text-zinc-500 leading-tight">Maksimal 2MB. Format: JPG, PNG, WEBP.</p>
+                    <p className="text-[8px] text-zinc-500 leading-tight">Maksimal 2MB. Bucket: images/ranking-photos</p>
                   </div>
                 </div>
                 <input 
@@ -513,7 +515,7 @@ export default function AdminRanking() {
                 <input 
                   required 
                   placeholder="MASUKKAN NAMA ATLET..."
-                  className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 uppercase font-black text-sm transition-all focus:ring-4 focus:ring-blue-600/10" 
+                  className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 outline-none focus:border-blue-600 uppercase font-black text-sm transition-all" 
                   value={formData.player_name} 
                   onChange={e => setFormData({...formData, player_name: e.target.value})} 
                 />
@@ -523,7 +525,7 @@ export default function AdminRanking() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Kategori</label>
                   <select 
-                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 outline-none text-xs font-bold uppercase cursor-pointer focus:border-blue-600" 
+                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 outline-none text-xs font-bold uppercase cursor-pointer" 
                     value={formData.category} 
                     onChange={e => setFormData({...formData, category: e.target.value})}
                   >
@@ -535,7 +537,7 @@ export default function AdminRanking() {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Seed Status</label>
                   <select 
-                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 outline-none text-xs font-bold uppercase cursor-pointer focus:border-blue-600" 
+                    className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 outline-none text-xs font-bold uppercase cursor-pointer" 
                     value={formData.seed} 
                     onChange={e => setFormData({...formData, seed: e.target.value})}
                   >
@@ -551,7 +553,7 @@ export default function AdminRanking() {
                   <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Poin Dasar</label>
                   <input 
                     type="number" 
-                    className="w-full bg-black/40 border border-white/5 rounded-xl p-3 outline-none font-black text-white focus:border-blue-600" 
+                    className="w-full bg-black/40 border border-white/5 rounded-xl p-3 outline-none font-black text-white" 
                     value={formData.total_points} 
                     onChange={e => setFormData({...formData, total_points: Number(e.target.value)})} 
                   />
@@ -560,7 +562,7 @@ export default function AdminRanking() {
                   <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Poin Bonus</label>
                   <input 
                     type="number" 
-                    className="w-full bg-black/40 border border-white/5 rounded-xl p-3 outline-none font-black text-blue-500 focus:border-blue-600" 
+                    className="w-full bg-black/40 border border-white/5 rounded-xl p-3 outline-none font-black text-blue-500" 
                     value={formData.bonus} 
                     onChange={e => setFormData({...formData, bonus: Number(e.target.value)})} 
                   />

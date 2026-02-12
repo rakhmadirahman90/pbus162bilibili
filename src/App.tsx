@@ -19,6 +19,7 @@ import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
 import ManajemenAtlet from './ManajemenAtlet';
+import AdminBerita from './components/AdminBerita';
 // PEMBARUAN: Import komponen skor yang baru dibuat
 import AdminMatch from './components/AdminMatch'; 
 

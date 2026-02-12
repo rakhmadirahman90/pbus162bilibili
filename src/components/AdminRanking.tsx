@@ -23,7 +23,6 @@ export default function AdminRanking() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeed, setSelectedSeed] = useState('Semua');
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Ranking>>({
     player_name: '',
@@ -32,13 +31,10 @@ export default function AdminRanking() {
     total_points: 0,
     bonus: 0
   });
-
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRankings();
-    
-    // Realtime subscription
     const subscription = supabase
       .channel('public:rankings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
@@ -69,11 +65,11 @@ export default function AdminRanking() {
   };
 
   /**
-   * FUNGSI SINKRONISASI (DIPERBAIKI)
-   * Mengintegrasikan data dari atlet_stats ke rankings dengan proteksi duplikasi ketat
+   * PENYEMPURNAAN FUNGSI SINKRONISASI
+   * Menggunakan Map Agregasi untuk menjumlahkan poin jika nama atlet muncul berkali-kali
    */
   const syncFromStats = async () => {
-    if (!window.confirm("Sinkronisasi akan memperbarui poin berdasarkan data pendaftaran terbaru. Lanjutkan?")) return;
+    if (!window.confirm("Sinkronisasi akan menjumlahkan poin atlet dari data statistik. Lanjutkan?")) return;
     
     setLoading(true);
     try {
@@ -88,25 +84,39 @@ export default function AdminRanking() {
       if (statsError) throw statsError;
 
       if (statsData && statsData.length > 0) {
-        const uniquePlayersMap = new Map();
+        const aggregatedMap = new Map();
 
         statsData.forEach(item => {
-          // Gunakan optional chaining dan trim untuk membersihkan whitespace
           const rawName = item.pendaftaran?.nama;
           if (rawName) {
-            const cleanName = rawName.trim();
-            uniquePlayersMap.set(cleanName, {
-              player_name: cleanName,
-              category: item.pendaftaran?.kategori || 'Senior',
-              seed: item.seed || 'Non-Seed',
-              total_points: item.points || 0,
-              bonus: 0 // Default reset bonus saat sinkron massal jika diperlukan
-            });
+            // Normalisasi nama ke Uppercase untuk mencegah duplikasi "Agus" vs "AGUS"
+            const cleanName = rawName.trim().toUpperCase();
+            const existing = aggregatedMap.get(cleanName);
+            
+            if (existing) {
+              // Jika atlet sudah ada, tambahkan poinnya
+              aggregatedMap.set(cleanName, {
+                ...existing,
+                total_points: (existing.total_points || 0) + (item.points || 0),
+                // Tetapkan seed yang paling valid
+                seed: item.seed || existing.seed
+              });
+            } else {
+              // Jika atlet baru
+              aggregatedMap.set(cleanName, {
+                player_name: cleanName,
+                category: item.pendaftaran?.kategori || 'Senior',
+                seed: item.seed || 'Non-Seed',
+                total_points: item.points || 0,
+                bonus: 0
+              });
+            }
           }
         });
 
-        const upsertData = Array.from(uniquePlayersMap.values());
+        const upsertData = Array.from(aggregatedMap.values());
 
+        // Gunakan upsert dengan batasan player_name
         const { error: upsertError } = await supabase
           .from('rankings')
           .upsert(upsertData, { 
@@ -116,14 +126,14 @@ export default function AdminRanking() {
 
         if (upsertError) throw upsertError;
         
-        alert(`Sinkronisasi Berhasil! ${upsertData.length} data atlet telah diperbarui.`);
+        alert(`Sinkronisasi Berhasil! ${upsertData.length} atlet unik telah diperbarui.`);
         fetchRankings();
       } else {
-        alert("Tidak ada data di Statistik Atlet untuk disinkronkan.");
+        alert("Tidak ada data di Statistik Atlet.");
       }
     } catch (err: any) {
-      console.error("Sync Error Detail:", err);
-      alert("Gagal Sinkron: " + err.message);
+      console.error("Sync Error:", err);
+      alert("Gagal Sinkron: " + (err.hint || err.message));
     } finally {
       setLoading(false);
     }
@@ -132,7 +142,6 @@ export default function AdminRanking() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-
     if (!formData.player_name?.trim()) {
       setFormError("Nama atlet wajib diisi");
       return;
@@ -140,22 +149,16 @@ export default function AdminRanking() {
 
     setIsSaving(true);
     try {
-      // Membersihkan nama sebelum simpan
       const payload = {
         ...formData,
-        player_name: formData.player_name.trim()
+        player_name: formData.player_name.trim().toUpperCase()
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('rankings')
-          .update(payload)
-          .eq('id', editingId);
+        const { error } = await supabase.from('rankings').update(payload).eq('id', editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('rankings')
-          .upsert([payload], { onConflict: 'player_name' });
+        const { error } = await supabase.from('rankings').upsert([payload], { onConflict: 'player_name' });
         if (error) throw error;
       }
       
@@ -163,20 +166,20 @@ export default function AdminRanking() {
       setEditingId(null);
       fetchRankings();
     } catch (err: any) {
-      setFormError("Gagal menyimpan data: " + (err.hint || err.message));
+      setFormError("Error: Nama atlet mungkin sudah terdaftar di ranking.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Hapus data atlet ini dari peringkat? Tindakan ini tidak bisa dibatalkan.")) {
+    if (window.confirm("Hapus atlet dari ranking?")) {
       try {
         const { error } = await supabase.from('rankings').delete().eq('id', id);
         if (error) throw error;
         fetchRankings();
       } catch (err: any) {
-        alert("Gagal menghapus: " + err.message);
+        alert(err.message);
       }
     }
   };
@@ -188,13 +191,7 @@ export default function AdminRanking() {
       setFormData(item);
     } else {
       setEditingId(null);
-      setFormData({ 
-        player_name: '', 
-        category: 'Senior', 
-        seed: 'Seed A', 
-        total_points: 0, 
-        bonus: 0 
-      });
+      setFormData({ player_name: '', category: 'Senior', seed: 'Seed A', total_points: 0, bonus: 0 });
     }
     setIsModalOpen(true);
   };
@@ -207,7 +204,6 @@ export default function AdminRanking() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 relative">
-      {/* Glow Effect */}
       <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/5 blur-[100px] rounded-full -z-10" />
 
       <div className="max-w-6xl mx-auto relative z-10">
@@ -247,7 +243,7 @@ export default function AdminRanking() {
             <input 
               type="text" 
               placeholder="CARI NAMA ATLET..." 
-              className="w-full bg-black border border-white/10 rounded-xl py-4 pl-12 pr-6 outline-none focus:border-blue-600 font-bold text-[10px] tracking-widest uppercase transition-all"
+              className="w-full bg-black border border-white/10 rounded-xl py-4 pl-12 pr-6 outline-none focus:border-blue-600 font-bold text-[10px] tracking-widest uppercase"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -256,7 +252,7 @@ export default function AdminRanking() {
              <div className="flex items-center gap-2 bg-black border border-white/10 rounded-xl px-4 py-2">
                 <Filter size={14} className="text-blue-500" />
                 <select 
-                  className="bg-transparent font-black text-[9px] uppercase tracking-tighter outline-none cursor-pointer appearance-none pr-4"
+                  className="bg-transparent font-black text-[9px] uppercase tracking-tighter outline-none cursor-pointer"
                   value={selectedSeed}
                   onChange={(e) => setSelectedSeed(e.target.value)}
                 >
@@ -287,7 +283,7 @@ export default function AdminRanking() {
                 {loading ? (
                   <tr><td colSpan={6} className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" size={32} /></td></tr>
                 ) : filteredRankings.length === 0 ? (
-                  <tr><td colSpan={6} className="p-20 text-center text-zinc-600 font-bold uppercase italic tracking-widest">Data Tidak Ditemukan</td></tr>
+                  <tr><td colSpan={6} className="p-20 text-center text-zinc-600 font-bold uppercase italic tracking-widest">Data Kosong</td></tr>
                 ) : (
                   filteredRankings.map((item, index) => (
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
@@ -320,8 +316,8 @@ export default function AdminRanking() {
                       </td>
                       <td className="p-6">
                         <div className="flex justify-end gap-2 opacity-30 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openModal(item)} className="p-3 bg-zinc-800 hover:bg-blue-600 rounded-xl transition-all border border-white/5" title="Edit Data"><Edit3 size={16} /></button>
-                          <button onClick={() => handleDelete(item.id)} className="p-3 bg-zinc-800 hover:bg-red-600 rounded-xl transition-all border border-white/5" title="Hapus Data"><Trash2 size={16} /></button>
+                          <button onClick={() => openModal(item)} className="p-3 bg-zinc-800 hover:bg-blue-600 rounded-xl transition-all border border-white/5"><Edit3 size={16} /></button>
+                          <button onClick={() => handleDelete(item.id)} className="p-3 bg-zinc-800 hover:bg-red-600 rounded-xl transition-all border border-white/5"><Trash2 size={16} /></button>
                         </div>
                       </td>
                     </tr>
@@ -346,32 +342,17 @@ export default function AdminRanking() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
-              {formError && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                  <AlertCircle size={14}/> {formError}
-                </div>
-              )}
+              {formError && <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><AlertCircle size={14}/> {formError}</div>}
               
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nama Lengkap Atlet</label>
-                <input 
-                  required 
-                  type="text" 
-                  placeholder="Masukkan nama..." 
-                  className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white transition-colors" 
-                  value={formData.player_name} 
-                  onChange={e => setFormData({...formData, player_name: e.target.value})} 
-                />
+                <input required type="text" placeholder="Masukkan nama..." className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.player_name} onChange={e => setFormData({...formData, player_name: e.target.value})} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Kategori</label>
-                  <select 
-                    className="w-full px-5 py-4 bg-[#1a1a1a] rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" 
-                    value={formData.category} 
-                    onChange={e => setFormData({...formData, category: e.target.value})}
-                  >
+                  <select className="w-full px-5 py-4 bg-[#1a1a1a] rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                     <option value="Senior">Senior</option>
                     <option value="Muda">Muda</option>
                     <option value="Veteran">Veteran</option>
@@ -379,11 +360,7 @@ export default function AdminRanking() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Klasifikasi Seed</label>
-                  <select 
-                    className="w-full px-5 py-4 bg-[#1a1a1a] rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" 
-                    value={formData.seed} 
-                    onChange={e => setFormData({...formData, seed: e.target.value})}
-                  >
+                  <select className="w-full px-5 py-4 bg-[#1a1a1a] rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.seed} onChange={e => setFormData({...formData, seed: e.target.value})}>
                     <option value="Seed A">Seed A</option>
                     <option value="Seed B">Seed B</option>
                     <option value="Non-Seed">Non-Seed</option>
@@ -394,33 +371,17 @@ export default function AdminRanking() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Total Poin</label>
-                  <input 
-                    required 
-                    type="number" 
-                    className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" 
-                    value={formData.total_points} 
-                    onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} 
-                  />
+                  <input required type="number" className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.total_points} onChange={e => setFormData({...formData, total_points: parseInt(e.target.value) || 0})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-1">Bonus Poin</label>
-                  <input 
-                    type="number" 
-                    className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" 
-                    value={formData.bonus} 
-                    onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} 
-                  />
+                  <input type="number" className="w-full px-5 py-4 bg-white/5 rounded-xl border border-white/5 focus:border-blue-600 outline-none font-bold text-sm text-white" value={formData.bonus} onChange={e => setFormData({...formData, bonus: parseInt(e.target.value) || 0})} />
                 </div>
               </div>
 
               <div className="pt-4">
-                <button 
-                  type="submit" 
-                  disabled={isSaving} 
-                  className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-600/20 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} 
-                  {editingId ? 'Simpan Perubahan' : 'Tambahkan Peringkat'}
+                <button type="submit" disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-600/20 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50">
+                  {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} {editingId ? 'Simpan Perubahan' : 'Tambahkan Peringkat'}
                 </button>
               </div>
             </form>

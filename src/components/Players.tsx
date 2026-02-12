@@ -11,7 +11,7 @@ import {
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
 } from 'lucide-react';
 
-// --- DATA SOURCE FALLBACK ---
+// --- DATA SOURCE FALLBACK (Tetap ada namun diprioritaskan data DB) ---
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -35,10 +35,10 @@ const Players: React.FC = () => {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  // 1. FUNGSI FETCH DATA DENGAN JOIN STATS
+  // 1. FUNGSI FETCH DATA DENGAN JOIN STATS & PERTANDINGAN
   const fetchPlayersFromDB = async () => {
     try {
-      // Mengambil data dari pendaftaran dan join atlet_stats (untuk poin manajemen)
+      // Mengambil data profil, statistik, dan riwayat pertandingan (untuk otomatisasi Winner)
       const { data: players, error: pError } = await supabase
         .from('pendaftaran')
         .select(`
@@ -48,6 +48,10 @@ const Players: React.FC = () => {
             rank,
             seed,
             bio
+          ),
+          pertandingan (
+            kategori_kegiatan,
+            hasil
           )
         `);
 
@@ -69,7 +73,7 @@ const Players: React.FC = () => {
     }
   };
 
-  // 2. REALTIME LISTENER (Mendengarkan perubahan di semua tabel terkait)
+  // 2. REALTIME LISTENER (Menambahkan tabel pertandingan ke dalam list pantauan)
   useEffect(() => {
     fetchPlayersFromDB();
 
@@ -77,6 +81,7 @@ const Players: React.FC = () => {
       .channel('db_realtime_updates')
       .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, () => fetchPlayersFromDB())
       .on('postgres_changes', { event: '*', table: 'atlet_stats', schema: 'public' }, () => fetchPlayersFromDB())
+      .on('postgres_changes', { event: '*', table: 'pertandingan', schema: 'public' }, () => fetchPlayersFromDB())
       .on('postgres_changes', { event: '*', table: 'hasil_turnamen', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
 
@@ -95,7 +100,7 @@ const Players: React.FC = () => {
     return () => window.removeEventListener('filterAtlet', handleFilterAtlet);
   }, []);
 
-  // 3. PROSES DATA: PRIORITAS POIN MANAJEMEN (10.350)
+  // 3. PROSES DATA: OTOMATISASI WINNER & POIN
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
       'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
@@ -108,20 +113,24 @@ const Players: React.FC = () => {
     };
 
     const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
+    
+    // Gabungkan list pemenang manual dengan list fallback
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
-      // Ambil data stats dari hasil join
       const stats = Array.isArray(p.atlet_stats) ? p.atlet_stats[0] : p.atlet_stats;
+      const history = Array.isArray(p.pertandingan) ? p.pertandingan : [];
       
       const playerCat = p.kategori ? p.kategori.toUpperCase() : '';
       const conf = config[playerCat] || defaultConfig;
-      const isWinner = allWinners.includes(p.nama);
+
+      // OTOMATISASI WINNER:
+      // Cek apakah ada record di tabel pertandingan dimana kategori='Internal' dan hasil='Menang'
+      // ATAU jika namanya ada di daftar pemenang lama (fallback)
+      const hasWonInternal = history.some(m => m.kategori_kegiatan === 'Internal' && m.hasil === 'Menang');
+      const isWinner = hasWonInternal || allWinners.includes(p.nama);
       
-      // LOGIKA POIN PRIORITAS:
-      // 1. Cek 'atlet_stats.points' (Data dari Manajemen Atlet) -> Misal: 10350
-      // 2. Jika kosong, cek kolom 'p.poin' (Data tabel pendaftaran langsung)
-      // 3. Jika keduanya kosong, baru gunakan rumus otomatis (Base + Bonus Winner)
+      // PRIORITAS POIN: Poin dari atlet_stats (Manajemen) > Poin pendaftaran > Kalkulasi Otomatis
       const manualPoints = Number(stats?.points) || Number(p.poin) || 0;
       const totalPoints = manualPoints > 0 ? manualPoints : (conf.base + (isWinner ? 300 : 0));
       
@@ -134,7 +143,8 @@ const Players: React.FC = () => {
         isWinner,
         ageGroup: conf.age,
         categoryLabel: stats?.seed || conf.label,
-        globalRank: stats?.rank || null
+        globalRank: stats?.rank || null,
+        matchHistory: history // Menyimpan riwayat untuk digunakan di modal jika perlu
       };
     })
     .sort((a, b) => b.totalPoints - a.totalPoints);
@@ -160,7 +170,7 @@ const Players: React.FC = () => {
               <img src={selectedPlayer.img} className="w-full h-full object-cover p-4" alt={selectedPlayer.name} />
               {selectedPlayer.isWinner && (
                 <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl">
-                  <Award size={18} /> WINNER - INTERNAL CUP
+                  <Award size={18} /> WINNER - PB US 162
                 </div>
               )}
             </div>

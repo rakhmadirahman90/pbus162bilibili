@@ -60,14 +60,14 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // --- LOGIKA SINKRONISASI TOTAL ---
+  // --- LOGIKA SINKRONISASI TOTAL (DIPERBAIKI UNTUK FOTO & ERROR 21000) ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Sistem akan menghitung ulang poin dan memperbarui FOTO dari database pendaftaran. Lanjutkan?");
+    const confirm = window.confirm("Sistem akan menghitung ulang poin dan menyalin foto dari database pendaftaran. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data stats + foto_url dari tabel pendaftaran
+      // 1. Ambil data stats + join pendaftaran untuk ambil foto_url
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
         .select(`
@@ -82,19 +82,24 @@ export default function AdminRanking() {
         return;
       }
 
+      // 2. Map data untuk menggabungkan nama ganda (Mencegah ERROR: 21000)
       const athleteMap = new Map();
 
       statsData.forEach((item: any) => {
-        // Handle array atau single object dari join pendaftaran
         const detail = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
         
         if (detail?.nama) {
           const cleanName = detail.nama.trim().toUpperCase();
           const currentPoints = Number(item.points) || 0;
+          const currentPhoto = detail.foto_url || null;
 
           if (athleteMap.has(cleanName)) {
             const existing = athleteMap.get(cleanName);
             existing.total_points += currentPoints;
+            // Update foto jika data sebelumnya kosong
+            if (!existing.photo_url && currentPhoto) {
+              existing.photo_url = currentPhoto;
+            }
           } else {
             athleteMap.set(cleanName, {
               player_name: cleanName,
@@ -102,7 +107,7 @@ export default function AdminRanking() {
               seed: item.seed || 'Non-Seed',
               total_points: currentPoints,
               bonus: 0,
-              photo_url: detail.foto_url || null 
+              photo_url: currentPhoto // MEMASTIKAN FOTO MASUK
             });
           }
         }
@@ -110,11 +115,11 @@ export default function AdminRanking() {
 
       const finalDataArray = Array.from(athleteMap.values());
 
-      // 2. Eksekusi Database: Hapus data lama (kecuali sistem) lalu masukkan yang baru
+      // 3. Eksekusi Database: Delete dulu baru Insert (Cara paling aman menghindari conflict)
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'RESERVED_SYSTEM_IGNORE');
+        .neq('player_name', 'SYSTEM_RESERVED');
 
       if (deleteError) throw deleteError;
 
@@ -124,7 +129,7 @@ export default function AdminRanking() {
 
       if (insertError) throw insertError;
       
-      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet.`);
+      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet beserta foto.`);
       fetchRankings();
     } catch (err: any) {
       console.error("Sync Error:", err);
@@ -141,7 +146,6 @@ export default function AdminRanking() {
     setIsSaving(true);
 
     try {
-      // Validasi sederhana
       if (!formData.player_name) throw new Error("Nama atlet wajib diisi");
 
       const payload = {

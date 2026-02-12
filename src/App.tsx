@@ -18,6 +18,7 @@ import Footer from './components/Footer';
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
+import ManajemenAtlet from './ManajemenAtlet';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);

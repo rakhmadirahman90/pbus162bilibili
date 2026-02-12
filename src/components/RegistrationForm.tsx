@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase'; 
-import { Loader2, Send, CheckCircle2, User, Phone, MapPin, Award, Image as ImageIcon, ChevronDown, Users, Trophy } from 'lucide-center';
+import { 
+  Loader2, Send, CheckCircle2, User, Phone, 
+  MapPin, Award, Image as ImageIcon, ChevronDown, 
+  Users, Trophy 
+} from 'lucide-react'; // <-- Pastikan ini lucide-react
 
 export default function RegistrationForm() {
   const [loading, setLoading] = useState(false);
@@ -29,7 +33,6 @@ export default function RegistrationForm() {
     try {
       let publicUrl = "";
       
-      // 1. LOGIKA UPLOAD DOKUMEN
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
@@ -48,7 +51,6 @@ export default function RegistrationForm() {
         publicUrl = urlData.publicUrl;
       }
 
-      // 2. INSERT KE DATABASE (Termasuk kolom pengalaman)
       const { error: dbError } = await supabase
         .from('pendaftaran')
         .insert([{ 
@@ -63,7 +65,6 @@ export default function RegistrationForm() {
 
       if (dbError) throw dbError;
 
-      // 3. NOTIFIKASI WHATSAPP
       const adminPhoneNumber = "6281219027234";
       const waMessage = window.encodeURIComponent(
         `*PENDAFTARAN ATLET BARU*\n\n` +
@@ -103,13 +104,11 @@ export default function RegistrationForm() {
         <p className="text-center text-slate-500 font-bold mb-8 text-sm">Lengkapi data calon atlet di bawah ini</p>
         
         <div className="space-y-5">
-          {/* Input Nama */}
           <div className="relative group">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600" size={20} />
             <input required value={formData.nama} className={inputClass} placeholder="NAMA LENGKAP" onChange={e => setFormData({...formData, nama: e.target.value})} />
           </div>
 
-          {/* Input Jenis Kelamin */}
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-700 uppercase ml-2 tracking-widest italic text-[10px]">Jenis Kelamin</label>
             <div className="grid grid-cols-2 gap-4">
@@ -122,19 +121,16 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* Input WhatsApp */}
           <div className="relative group">
             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600" size={20} />
             <input required type="tel" value={formData.whatsapp} className={inputClass} placeholder="NOMOR WHATSAPP (628...)" onChange={e => setFormData({...formData, whatsapp: e.target.value})} />
           </div>
 
-          {/* Input Domisili */}
           <div className="relative group">
             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600" size={20} />
             <input required value={formData.domisili} className={inputClass} placeholder="KOTA DOMISILI" onChange={e => setFormData({...formData, domisili: e.target.value})} />
           </div>
 
-          {/* Select Kategori */}
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-700 uppercase ml-2 tracking-widest italic text-[10px]">Pilih Kategori Umur</label>
             <div className="relative group">
@@ -146,7 +142,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* Input Pengalaman (DIKEMBALIKAN) */}
           <div className="relative group">
             <Trophy className="absolute left-4 top-5 text-slate-400 group-focus-within:text-blue-600" size={20} />
             <textarea 
@@ -157,7 +152,6 @@ export default function RegistrationForm() {
             />
           </div>
 
-          {/* Upload Foto */}
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-700 uppercase ml-2 tracking-widest italic text-[10px]">Upload Foto Identitas (KK/AKTE)</label>
             <div className="relative group">
@@ -169,7 +163,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* Tombol Daftar */}
           <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:bg-slate-300">
             {loading ? <><Loader2 className="animate-spin" /> MEMPROSES...</> : <><Send size={20} /> DAFTAR SEKARANG</>}
           </button>

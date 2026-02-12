@@ -60,55 +60,60 @@ export default function AdminRanking() {
     fetchRankings();
   }, [fetchRankings]);
 
-  // --- LOGIKA SINKRONISASI TOTAL (DIPERBAIKI UNTUK FOTO & ERROR 21000) ---
+  // --- LOGIKA SINKRONISASI FOTO & POIN (FULL FIX) ---
   const syncFromStats = async () => {
-    const confirm = window.confirm("Sistem akan menghitung ulang poin dan menyalin foto dari database pendaftaran. Lanjutkan?");
+    const confirm = window.confirm("Sistem akan menghitung ulang poin dan MENARIK FOTO dari tabel pendaftaran. Lanjutkan?");
     if (!confirm) return;
     
     setLoading(true);
     try {
-      // 1. Ambil data stats + join pendaftaran untuk ambil foto_url
+      // 1. Ambil data statistik poin
       const { data: statsData, error: statsError } = await supabase
         .from('atlet_stats')
-        .select(`
-          points,
-          seed,
-          pendaftaran ( nama, kategori, foto_url )
-        `);
+        .select('points, seed, player_name');
 
       if (statsError) throw statsError;
-      if (!statsData || statsData.length === 0) {
-        alert("Tidak ada data di tabel statistik atlet.");
-        return;
-      }
 
-      // 2. Map data untuk menggabungkan nama ganda (Mencegah ERROR: 21000)
+      // 2. Ambil data pendaftaran untuk referensi FOTO dan KATEGORI
+      const { data: pendaftaranData, error: pendaftaranError } = await supabase
+        .from('pendaftaran')
+        .select('nama, foto_url, kategori');
+
+      if (pendaftaranError) throw pendaftaranError;
+
+      // 3. Buat Map untuk mempercepat pencarian foto berdasarkan nama
+      const photoMap = new Map();
+      pendaftaranData?.forEach(p => {
+        if (p.nama) {
+          photoMap.set(p.nama.trim().toUpperCase(), {
+            url: p.foto_url,
+            kat: p.kategori
+          });
+        }
+      });
+
+      // 4. Proses penggabungan data (Aggregation)
       const athleteMap = new Map();
 
-      statsData.forEach((item: any) => {
-        // Ambil data pertama jika join mengembalikan array
-        const detail = Array.isArray(item.pendaftaran) ? item.pendaftaran[0] : item.pendaftaran;
-        
-        if (detail?.nama) {
-          const cleanName = detail.nama.trim().toUpperCase();
+      statsData?.forEach((item: any) => {
+        if (item.player_name) {
+          const cleanName = item.player_name.trim().toUpperCase();
           const currentPoints = Number(item.points) || 0;
-          const currentPhoto = detail.foto_url || null;
+          
+          // Cari data pendukung (foto & kategori) dari pendaftaran
+          const profile = photoMap.get(cleanName);
 
           if (athleteMap.has(cleanName)) {
             const existing = athleteMap.get(cleanName);
             existing.total_points += currentPoints;
-            // Gunakan foto jika data sebelumnya masih kosong
-            if (!existing.photo_url && currentPhoto) {
-              existing.photo_url = currentPhoto;
-            }
           } else {
             athleteMap.set(cleanName, {
               player_name: cleanName,
-              category: detail.kategori || 'Senior',
+              category: profile?.kat || 'Senior',
               seed: item.seed || 'Non-Seed',
               total_points: currentPoints,
               bonus: 0,
-              photo_url: currentPhoto 
+              photo_url: profile?.url || null // MENYIMPAN FOTO KE DATABASE RANKING
             });
           }
         }
@@ -116,12 +121,17 @@ export default function AdminRanking() {
 
       const finalDataArray = Array.from(athleteMap.values());
 
-      // 3. Eksekusi Database: Delete dulu baru Insert (Cara paling aman menghindari conflict 21000)
-      // Menghapus baris yang ada kecuali baris yang mungkin dikunci sistem
+      if (finalDataArray.length === 0) {
+        alert("Tidak ada data untuk disinkronkan.");
+        return;
+      }
+
+      // 5. Eksekusi Database: Bersihkan lalu Masukkan data baru
+      // Menghapus semua data kecuali sistem (untuk menghindari conflict)
       const { error: deleteError } = await supabase
         .from('rankings')
         .delete()
-        .neq('player_name', 'SYSTEM_RESERVED_VAL'); 
+        .neq('player_name', 'SYSTEM_RESERVED_PROTECT');
 
       if (deleteError) throw deleteError;
 
@@ -131,17 +141,17 @@ export default function AdminRanking() {
 
       if (insertError) throw insertError;
       
-      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet beserta foto.`);
-      await fetchRankings(); // Refresh tampilan
+      alert(`Berhasil sinkronisasi ${finalDataArray.length} atlet. Foto telah diperbarui.`);
+      fetchRankings();
     } catch (err: any) {
       console.error("Sync Error:", err);
-      alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan database"));
+      alert("Gagal Sinkron: " + (err.message || "Terjadi kesalahan"));
     } finally {
       setLoading(false);
     }
   };
 
-  // --- SUBMIT MANUAL (EDIT/TAMBAH) ---
+  // --- SUBMIT MANUAL ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -155,7 +165,6 @@ export default function AdminRanking() {
         player_name: cleanName,
         category: formData.category,
         seed: formData.seed,
-        // Kalkulasi total_points dari Poin Dasar + Bonus
         total_points: (Number(formData.total_points) || 0) + (Number(formData.bonus) || 0),
         bonus: Number(formData.bonus) || 0,
         photo_url: formData.photo_url || null
@@ -163,23 +172,18 @@ export default function AdminRanking() {
 
       let error;
       if (editingId) {
-        const { error: updateError } = await supabase
-          .from('rankings')
-          .update(payload)
-          .eq('id', editingId);
-        error = updateError;
+        const res = await supabase.from('rankings').update(payload).eq('id', editingId);
+        error = res.error;
       } else {
-        const { error: upsertError } = await supabase
-          .from('rankings')
-          .upsert([payload], { onConflict: 'player_name' });
-        error = upsertError;
+        const res = await supabase.from('rankings').upsert([payload], { onConflict: 'player_name' });
+        error = res.error;
       }
 
       if (error) throw error;
       
       setIsModalOpen(false);
       setEditingId(null);
-      await fetchRankings(); // Refresh list
+      fetchRankings();
     } catch (err: any) {
       setFormError(err.message.includes('unique') ? "Nama atlet sudah terdaftar!" : err.message);
     } finally {
@@ -198,7 +202,6 @@ export default function AdminRanking() {
     }
   };
 
-  // --- FILTER LOGIC ---
   const filteredRankings = rankings.filter(r => {
     const matchesSearch = r.player_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSeed = selectedSeed === 'Semua' || r.seed === selectedSeed;
@@ -228,7 +231,7 @@ export default function AdminRanking() {
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-zinc-900 border border-white/10 px-6 py-4 rounded-xl font-bold uppercase text-[10px] hover:bg-zinc-800 transition-all text-zinc-300 disabled:opacity-50"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> 
-              Sinkron Ulang Poin
+              Sinkron Ulang Poin & Foto
             </button>
             <button 
               onClick={() => { 

@@ -19,11 +19,10 @@ import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
 import ManajemenAtlet from './ManajemenAtlet';
-import AdminBerita from './components/AdminBerita';
 import AdminMatch from './components/AdminMatch'; 
-// --- TAMBAHKAN IMPORT BARU DISINI ---
-import AdminRanking from './components/AdminRanking'; 
-import AdminGallery from './components/AdminGallery'; // <--- TAMBAHAN BARU
+
+// --- PEMBARUAN: Import Komponen AdminContact ---
+import AdminContact from './components/AdminContact'; 
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -47,10 +46,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white font-black italic uppercase tracking-widest">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          Loading System...
-        </div>
+        Loading System...
       </div>
     );
   }
@@ -76,7 +72,7 @@ export default function App() {
           </div>
         } />
 
-        {/* ROUTE LOGIN */}
+        {/* ROUTE LOGIN: HANYA DIAKSES VIA URL MANUAL /login */}
         <Route 
           path="/login" 
           element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} 
@@ -88,47 +84,41 @@ export default function App() {
           element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} 
         />
 
-        {/* CATCH-ALL */}
+        {/* CATCH-ALL: REDIRECT KE HOME JIKA URL TIDAK ADA */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
 }
 
-/**
- * PERBAIKAN PADA ADMIN LAYOUT
- * Menghubungkan AdminRanking dan AdminGallery ke Route
- */
+// Layout Khusus Admin Dashboard
 function AdminLayout({ session }: { session: any }) {
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* Sidebar tetap di kiri */}
+      {/* Sidebar untuk navigasi internal admin */}
       <Sidebar email={session.user.email} />
       
-      {/* Area Konten Utama */}
-      <main className="flex-1 overflow-y-auto bg-[#050505] min-h-screen">
+      {/* Area Konten Dinamis Dashboard */}
+      <main className="flex-1 overflow-y-auto bg-[#050505]">
         <Routes>
-          {/* 1. Dashboard / Pendaftaran */}
+          {/* Menu default admin adalah Manajemen Pendaftaran */}
           <Route path="dashboard" element={<ManajemenPendaftaran />} />
           
-          {/* 2. Manajemen Atlet */}
+          {/* PEMBARUAN: Mengarah ke manajemen atlet */}
           <Route path="atlet" element={<ManajemenAtlet />} />
 
-          {/* 3. Update Skor (AdminMatch) */}
+          {/* PEMBARUAN: Route baru untuk Update Skor Pertandingan */}
           <Route path="skor" element={<AdminMatch />} />
-
-          {/* 4. Update Berita */}
-          <Route path="berita" element={<AdminBerita />} />
           
-          {/* 5. Update Ranking */}
-          <Route path="ranking" element={<AdminRanking />} />
-
-          {/* 6. Update Galeri Media (SEKARANG SUDAH AKTIF) */}
-          <Route path="galeri" element={<AdminGallery />} />
-
-          <Route path="/admin/kontak" element={<AdminContact />} />
+          {/* PEMBARUAN: Route untuk Kelola Kontak (Landing Page Sync) */}
+          <Route path="kontak" element={<AdminContact />} />
           
-          {/* Fallback internal admin */}
+          {/* Placeholder untuk menu lain agar tidak error saat diklik */}
+          <Route path="berita" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Berita (Segera)</div>} />
+          <Route path="ranking" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Update Ranking (Segera)</div>} />
+          <Route path="galeri" element={<div className="p-10 font-black italic uppercase text-3xl text-white">Halaman Galeri Media (Segera)</div>} />
+          
+          {/* Fallback jika sub-route tidak ditemukan */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
       </main>

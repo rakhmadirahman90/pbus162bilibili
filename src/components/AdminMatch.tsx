@@ -64,15 +64,26 @@ const AdminMatch: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('pertandingan').insert([
-        { 
-          pendaftaran_id: selectedPlayer, 
-          kategori_kegiatan: kategori, 
-          hasil: hasil 
-        }
-      ]);
+      // PERBAIKAN: Menggunakan insert biasa tanpa onConflict untuk menghindari error database
+      const { error } = await supabase
+        .from('pertandingan')
+        .insert([
+          { 
+            pendaftaran_id: selectedPlayer, 
+            kategori_kegiatan: kategori, 
+            hasil: hasil 
+          }
+        ]);
+
       if (error) throw error;
+      
+      // KODE BARU: Reset form dan fetch ulang data agar instan
       setSelectedPlayer('');
+      setHasil('Menang');
+      setKategori('Harian');
+      await fetchRecentMatches(); // Refresh daftar di bawah
+      
+      alert("Skor berhasil dicatat! Poin atlet telah diperbarui.");
     } catch (err: any) {
       alert("Gagal: " + err.message);
     } finally {
@@ -82,8 +93,13 @@ const AdminMatch: React.FC = () => {
 
   const deleteMatch = async (id: string) => {
     if (!confirm("Hapus pertandingan ini? Poin atlet akan otomatis berkurang kembali.")) return;
-    const { error } = await supabase.from('pertandingan').delete().eq('id', id);
-    if (error) alert("Gagal menghapus");
+    try {
+      const { error } = await supabase.from('pertandingan').delete().eq('id', id);
+      if (error) throw error;
+      await fetchRecentMatches(); // Refresh daftar setelah hapus
+    } catch (err: any) {
+      alert("Gagal menghapus: " + err.message);
+    }
   };
 
   return (
@@ -176,7 +192,7 @@ const AdminMatch: React.FC = () => {
                 {recentMatches.length === 0 && (
                   <p className="text-zinc-600 text-xs italic">Belum ada riwayat pertandingan.</p>
                 )}
-                {recentMatches.map((match) => (
+                {recentMatches.map((match: any) => (
                   <div key={match.id} className="flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5 group">
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-white uppercase">{match.pendaftaran?.nama}</span>

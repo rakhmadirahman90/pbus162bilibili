@@ -49,8 +49,10 @@ const AdminMatch: React.FC = () => {
   }, []);
 
   const fetchPlayers = async () => {
+    setIsLoading(true);
     const { data } = await supabase.from('pendaftaran').select('id, nama, kategori').order('nama');
     if (data) setPlayers(data);
+    setIsLoading(false);
   };
 
   const fetchRecentMatches = async () => {
@@ -58,6 +60,7 @@ const AdminMatch: React.FC = () => {
       .from('pertandingan')
       .select(`
         id,
+        pendaftaran_id,
         kategori_kegiatan,
         hasil,
         created_at,
@@ -70,41 +73,45 @@ const AdminMatch: React.FC = () => {
 
   /**
    * PENYEMPURNAAN FUNGSI SINKRONISASI
-   * Menggunakan logika anti-duplikat untuk mencegah error "Affect row a second time"
+   * Mendukung dual-column (points & poin) dan perbaikan update manual
    */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
-      // 1. Ambil data stats atlet saat ini (Gunakan maybeSingle untuk keamanan)
+      // 1. Ambil data stats atlet saat ini
       const { data: currentStats } = await supabase
         .from('atlet_stats')
         .select('*')
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
 
-      const newTotalPoints = (currentStats?.points || 0) + pointsToAdd;
+      // Mendukung kolom lama (points) atau kolom baru (poin)
+      const existingPoints = currentStats?.poin || currentStats?.points || 0;
+      const newTotalPoints = existingPoints + pointsToAdd;
+      
       const playerInfo = players.find(p => p.id === playerId);
-
       if (!playerInfo) throw new Error("Data atlet tidak ditemukan");
 
-      // 2. Update tabel atlet_stats dengan pendaftaran_id sebagai kunci unik
+      // 2. Update tabel atlet_stats (Gunakan kedua kolom points & poin untuk keamanan)
       const { error: updateStatsError } = await supabase
         .from('atlet_stats')
         .upsert({
           pendaftaran_id: playerId,
-          points: newTotalPoints,
+          player_name: playerInfo.nama,
+          points: newTotalPoints, // Kolom lama
+          poin: newTotalPoints,   // Kolom baru
           last_match_at: new Date().toISOString()
-        }, { onConflict: 'pendaftaran_id' }); // Kunci unik ID pendaftaran
+        }, { onConflict: 'pendaftaran_id' });
 
       if (updateStatsError) throw updateStatsError;
 
-      // 3. Sinkronisasi ke tabel rankings dengan logika pembersihan nama
-      // Menggunakan player_name sebagai kunci unik agar Landing Page tetap bersih
+      // 3. Sinkronisasi ke tabel rankings (Gunakan player_name sebagai kunci unik)
       const { error: rankingError } = await supabase
         .from('rankings')
         .upsert({
           player_name: playerInfo.nama,
           category: playerInfo.kategori || 'Senior',
-          total_points: newTotalPoints,
+          total_points: newTotalPoints, // Kolom lama
+          poin: newTotalPoints,         // Kolom baru
           seed: currentStats?.seed || 'UNSEEDED',
           bonus: pointsToAdd >= 100 ? pointsToAdd : 0
         }, { onConflict: 'player_name' });
@@ -114,11 +121,6 @@ const AdminMatch: React.FC = () => {
       return true;
     } catch (err: any) {
       console.error("Sinkronisasi Gagal:", err.message);
-      // Jika masih error "Affect row a second time", berarti ada dua baris di rankings dengan nama sama
-      // Kita beri alert yang lebih deskriptif
-      if (err.message.includes("second time")) {
-        alert("Peringatan: Terdeteksi duplikasi nama di tabel rankings. Sistem telah memblokir entri ganda.");
-      }
       return false;
     }
   };
@@ -152,6 +154,7 @@ const AdminMatch: React.FC = () => {
         setKategori('Harian');
         
         setShowSuccess(true);
+        fetchRecentMatches();
         setTimeout(() => setShowSuccess(false), 4000);
       } else {
          throw new Error("Gagal menyinkronkan data ke tabel ranking.");
@@ -164,11 +167,29 @@ const AdminMatch: React.FC = () => {
     }
   };
 
+  /**
+   * FUNGSI HAPUS DENGAN AUTO-REDUCE POINT
+   * Menghapus log pertandingan sekaligus mengurangi poin pemain secara otomatis
+   */
   const deleteMatch = async (id: string) => {
-    if (!confirm("Hapus log ini? Peringatan: Poin tidak akan berkurang otomatis.")) return;
+    const matchToDelete = recentMatches.find(m => m.id === id);
+    if (!matchToDelete) return;
+
+    if (!confirm(`Hapus log ${matchToDelete.pendaftaran?.nama}? Poin akan dikurangi sesuai hasil pertandingan ini.`)) return;
+    
     try {
+      // 1. Hitung poin yang harus ditarik kembali
+      const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
+      
+      // 2. Kurangi poin di database
+      const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
+      
+      if (!syncSuccess) throw new Error("Gagal menyesuaikan poin saat menghapus.");
+
+      // 3. Hapus baris pertandingan
       const { error } = await supabase.from('pertandingan').delete().eq('id', id);
       if (error) throw error;
+
       fetchRecentMatches();
     } catch (err: any) {
       alert("Gagal menghapus: " + err.message);
@@ -211,7 +232,6 @@ const AdminMatch: React.FC = () => {
           {/* Main Form */}
           <div className="md:col-span-2 space-y-8">
             <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-              {/* Form Glossy Effect */}
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
               
               <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
@@ -297,7 +317,7 @@ const AdminMatch: React.FC = () => {
                           <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{match.kategori_kegiatan} • {match.hasil}</p>
                         </div>
                       </div>
-                      <button onClick={() => deleteMatch(match.id)} className="p-3 text-zinc-800 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all opacity-0 group-hover:opacity-100">
+                      <button onClick={() => deleteMatch(match.id)} className="p-3 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all opacity-0 group-hover:opacity-100">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -353,7 +373,6 @@ const AdminMatch: React.FC = () => {
 
       <style>{`
         select option { background-color: #0c0c0c; color: #fff; }
-        @keyframes progress { from { width: 100%; } to { width: 0%; } }
       `}</style>
     </div>
   );

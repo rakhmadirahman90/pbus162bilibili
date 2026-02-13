@@ -38,20 +38,30 @@ const AdminMatch: React.FC = () => {
     fetchPlayers();
     fetchRecentMatches();
 
+    // Inisialisasi Real-time Subscriptions
     const channel = supabase
-      .channel('admin_realtime')
-      .on('postgres_changes', { event: '*', table: 'pertandingan', schema: 'public' }, () => {
-        fetchRecentMatches();
-      })
+      .channel('admin_realtime_v2')
+      .on('postgres_changes', 
+        { event: '*', table: 'pertandingan', schema: 'public' }, 
+        () => {
+          fetchRecentMatches();
+        }
+      )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
   }, []);
 
   const fetchPlayers = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('pendaftaran').select('id, nama, kategori').order('nama');
+      const { data, error } = await supabase
+        .from('pendaftaran')
+        .select('id, nama, kategori')
+        .order('nama');
+      
       if (error) throw error;
       if (data) setPlayers(data);
     } catch (err: any) {
@@ -85,7 +95,7 @@ const AdminMatch: React.FC = () => {
 
   /**
    * PENYEMPURNAAN FUNGSI SINKRONISASI
-   * Mendukung dual-column (points & poin) dan perbaikan update manual
+   * Mendukung dual-column (points & poin) dan pembaruan tabel ranking
    */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
@@ -98,34 +108,34 @@ const AdminMatch: React.FC = () => {
 
       if (statsError) throw statsError;
 
-      // Mendukung kolom lama (points) atau kolom baru (poin)
+      // Logika Penentuan Poin (Mendukung migrasi kolom 'points' ke 'poin')
       const existingPoints = currentStats?.poin || currentStats?.points || 0;
       const newTotalPoints = existingPoints + pointsToAdd;
       
       const playerInfo = players.find(p => p.id === playerId);
       if (!playerInfo) throw new Error("Data atlet tidak ditemukan di state lokal");
 
-      // 2. Update tabel atlet_stats (Gunakan kedua kolom points & poin untuk keamanan)
+      // 2. Update tabel atlet_stats
       const { error: updateStatsError } = await supabase
         .from('atlet_stats')
         .upsert({
           pendaftaran_id: playerId,
           player_name: playerInfo.nama,
-          points: newTotalPoints, // Kolom lama
+          points: newTotalPoints, // Compatibility kolom lama
           poin: newTotalPoints,   // Kolom baru
           last_match_at: new Date().toISOString()
         }, { onConflict: 'pendaftaran_id' });
 
       if (updateStatsError) throw updateStatsError;
 
-      // 3. Sinkronisasi ke tabel rankings (Gunakan player_name sebagai kunci unik)
+      // 3. Sinkronisasi ke tabel rankings secara paralel
       const { error: rankingError } = await supabase
         .from('rankings')
         .upsert({
           player_name: playerInfo.nama,
           category: playerInfo.kategori || 'Senior',
-          total_points: newTotalPoints, // Kolom lama
-          poin: newTotalPoints,         // Kolom baru
+          total_points: newTotalPoints,
+          poin: newTotalPoints,
           seed: currentStats?.seed || 'UNSEEDED',
           bonus: pointsToAdd >= 100 ? pointsToAdd : 0
         }, { onConflict: 'player_name' });
@@ -156,26 +166,28 @@ const AdminMatch: React.FC = () => {
 
       if (matchError) throw matchError;
 
-      // 2. Kalkulasi Poin
+      // 2. Kalkulasi Poin sesuai Matrix
       const pointsToAdd = POINT_MAP[kategori][hasil] || 0;
       
-      // 3. Jalankan Sinkronisasi Poin & Ranking
+      // 3. Jalankan Sinkronisasi Poin & Ranking Global
       const syncSuccess = await syncPlayerPerformance(selectedPlayer, pointsToAdd);
 
       if (syncSuccess) {
+        // Reset Form
         setSelectedPlayer('');
         setHasil('Menang');
         setKategori('Harian');
         
+        // UI Feedback
         setShowSuccess(true);
-        fetchRecentMatches();
+        fetchRecentMatches(); // Force refresh local data
         setTimeout(() => setShowSuccess(false), 4000);
       } else {
-         throw new Error("Gagal menyinkronkan data ke tabel ranking (cek koneksi database).");
+         throw new Error("Poin tersimpan namun sinkronisasi ranking gagal.");
       }
 
     } catch (err: any) {
-      alert("Gagal memperbarui: " + err.message);
+      alert("Error System: " + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -183,30 +195,34 @@ const AdminMatch: React.FC = () => {
 
   /**
    * FUNGSI HAPUS DENGAN AUTO-REDUCE POINT
-   * Menghapus log pertandingan sekaligus mengurangi poin pemain secara otomatis
    */
   const deleteMatch = async (id: string) => {
     const matchToDelete = recentMatches.find(m => m.id === id);
     if (!matchToDelete) return;
 
-    if (!confirm(`Hapus log ${matchToDelete.pendaftaran?.nama}? Poin akan dikurangi sesuai hasil pertandingan ini.`)) return;
+    const confirmMsg = `Hapus match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi kembali.`;
+    if (!window.confirm(confirmMsg)) return;
     
     try {
-      // 1. Hitung poin yang harus ditarik kembali (negative value)
+      // 1. Kalkulasi poin negatif untuk rollback
       const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
       
-      // 2. Kurangi poin di database
+      // 2. Update database (Rollback Poin)
       const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
       
-      if (!syncSuccess) throw new Error("Gagal menyesuaikan poin saat menghapus.");
+      if (!syncSuccess) throw new Error("Gagal melakukan rollback poin.");
 
-      // 3. Hapus baris pertandingan
-      const { error } = await supabase.from('pertandingan').delete().eq('id', id);
+      // 3. Hapus record pertandingan
+      const { error } = await supabase
+        .from('pertandingan')
+        .delete()
+        .eq('id', id);
+
       if (error) throw error;
 
       fetchRecentMatches();
     } catch (err: any) {
-      alert("Gagal menghapus: " + err.message);
+      alert("Hapus Gagal: " + err.message);
     }
   };
 
@@ -236,8 +252,9 @@ const AdminMatch: React.FC = () => {
           
           <div className="flex gap-4">
              <button 
-               onClick={() => { fetchPlayers(); fetchRecentMatches(); }} 
-               className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95"
+                onClick={() => { fetchPlayers(); fetchRecentMatches(); }} 
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95 disabled:opacity-50"
+                disabled={isLoading}
              >
                 <RefreshCcw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh Sync
              </button>
@@ -305,7 +322,7 @@ const AdminMatch: React.FC = () => {
                   disabled={isSubmitting || !selectedPlayer}
                   className="w-full group relative overflow-hidden bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-2xl shadow-blue-600/30"
                 >
-                  {isSubmitting ? <Loader2 className="animate-spin" /> : <Send size={18} />}
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
                   {isSubmitting ? "SYNCING TO DATABASE..." : "SUBMIT & UPDATE RANKING"}
                 </button>
               </form>

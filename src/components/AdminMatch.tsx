@@ -50,25 +50,37 @@ const AdminMatch: React.FC = () => {
 
   const fetchPlayers = async () => {
     setIsLoading(true);
-    const { data } = await supabase.from('pendaftaran').select('id, nama, kategori').order('nama');
-    if (data) setPlayers(data);
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase.from('pendaftaran').select('id, nama, kategori').order('nama');
+      if (error) throw error;
+      if (data) setPlayers(data);
+    } catch (err: any) {
+      console.error("Gagal mengambil data pemain:", err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const fetchRecentMatches = async () => {
-    const { data } = await supabase
-      .from('pertandingan')
-      .select(`
-        id,
-        pendaftaran_id,
-        kategori_kegiatan,
-        hasil,
-        created_at,
-        pendaftaran ( nama )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    if (data) setRecentMatches(data);
+    try {
+      const { data, error } = await supabase
+        .from('pertandingan')
+        .select(`
+          id,
+          pendaftaran_id,
+          kategori_kegiatan,
+          hasil,
+          created_at,
+          pendaftaran ( nama )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+      if (data) setRecentMatches(data);
+    } catch (err: any) {
+      console.error("Gagal mengambil riwayat pertandingan:", err.message);
+    }
   };
 
   /**
@@ -78,18 +90,20 @@ const AdminMatch: React.FC = () => {
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
       // 1. Ambil data stats atlet saat ini
-      const { data: currentStats } = await supabase
+      const { data: currentStats, error: statsError } = await supabase
         .from('atlet_stats')
         .select('*')
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
+
+      if (statsError) throw statsError;
 
       // Mendukung kolom lama (points) atau kolom baru (poin)
       const existingPoints = currentStats?.poin || currentStats?.points || 0;
       const newTotalPoints = existingPoints + pointsToAdd;
       
       const playerInfo = players.find(p => p.id === playerId);
-      if (!playerInfo) throw new Error("Data atlet tidak ditemukan");
+      if (!playerInfo) throw new Error("Data atlet tidak ditemukan di state lokal");
 
       // 2. Update tabel atlet_stats (Gunakan kedua kolom points & poin untuk keamanan)
       const { error: updateStatsError } = await supabase
@@ -157,7 +171,7 @@ const AdminMatch: React.FC = () => {
         fetchRecentMatches();
         setTimeout(() => setShowSuccess(false), 4000);
       } else {
-         throw new Error("Gagal menyinkronkan data ke tabel ranking.");
+         throw new Error("Gagal menyinkronkan data ke tabel ranking (cek koneksi database).");
       }
 
     } catch (err: any) {
@@ -178,7 +192,7 @@ const AdminMatch: React.FC = () => {
     if (!confirm(`Hapus log ${matchToDelete.pendaftaran?.nama}? Poin akan dikurangi sesuai hasil pertandingan ini.`)) return;
     
     try {
-      // 1. Hitung poin yang harus ditarik kembali
+      // 1. Hitung poin yang harus ditarik kembali (negative value)
       const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
       
       // 2. Kurangi poin di database
@@ -221,7 +235,10 @@ const AdminMatch: React.FC = () => {
           </div>
           
           <div className="flex gap-4">
-             <button onClick={() => { fetchPlayers(); fetchRecentMatches(); }} className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95">
+             <button 
+               onClick={() => { fetchPlayers(); fetchRecentMatches(); }} 
+               className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95"
+             >
                 <RefreshCcw size={14} className={isLoading ? 'animate-spin' : ''} /> Refresh Sync
              </button>
           </div>
@@ -317,7 +334,10 @@ const AdminMatch: React.FC = () => {
                           <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{match.kategori_kegiatan} • {match.hasil}</p>
                         </div>
                       </div>
-                      <button onClick={() => deleteMatch(match.id)} className="p-3 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all opacity-0 group-hover:opacity-100">
+                      <button 
+                        onClick={() => deleteMatch(match.id)} 
+                        className="p-3 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all opacity-0 group-hover:opacity-100"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>

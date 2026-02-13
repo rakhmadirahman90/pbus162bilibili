@@ -94,12 +94,12 @@ const AdminMatch: React.FC = () => {
   };
 
   /**
-   * FIX FINAL: FUNGSI SINKRONISASI CERDAS
-   * Menangani pengecekan kolom 'poin' vs 'points' agar penghapusan tidak error
+   * PENYEMPURNAAN FUNGSI SINKRONISASI
+   * Menggunakan deteksi kolom dinamis untuk mencegah error "column does not exist"
    */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
-      // 1. Cek data statistik saat ini
+      // 1. Ambil state statistik saat ini
       const { data: currentStats, error: statsError } = await supabase
         .from('atlet_stats')
         .select('*')
@@ -108,29 +108,22 @@ const AdminMatch: React.FC = () => {
 
       if (statsError) throw statsError;
 
-      // Ambil poin yang ada (mendukung poin atau points)
-      const existingPoints = currentStats?.poin ?? currentStats?.points ?? 0;
+      // Deteksi kolom poin secara cerdas (poin vs points)
+      const statsPointKey = currentStats && 'points' in currentStats ? 'points' : 'poin';
+      const existingPoints = currentStats ? (currentStats[statsPointKey] || 0) : 0;
       const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
       
       const playerInfo = players.find(p => p.id === playerId);
-      if (!playerInfo) throw new Error("Data atlet tidak ditemukan");
+      if (!playerInfo) throw new Error("Data atlet tidak ditemukan di state lokal");
 
-      // --- LOGIKA UPDATE ATLET_STATS ---
+      // --- UPDATE TABEL ATLET_STATS ---
       const statsPayload: any = {
         pendaftaran_id: playerId,
         player_name: playerInfo.nama,
         last_match_at: new Date().toISOString()
       };
-
-      // Hanya kirim kolom 'poin' jika kolom tersebut memang ada di database
-      if (currentStats && 'poin' in currentStats) {
-        statsPayload.poin = newTotalPoints;
-      } else if (currentStats && 'points' in currentStats) {
-        statsPayload.points = newTotalPoints;
-      } else {
-        // Jika data baru (upsert), kirim default 'points' saja untuk amannya
-        statsPayload.points = newTotalPoints;
-      }
+      // Assign ke kolom yang terdeteksi
+      statsPayload[statsPointKey] = newTotalPoints;
 
       const { error: upStatsError } = await supabase
         .from('atlet_stats')
@@ -138,14 +131,7 @@ const AdminMatch: React.FC = () => {
 
       if (upStatsError) throw upStatsError;
 
-      // --- LOGIKA UPDATE RANKINGS ---
-      const rankingPayload: any = {
-        player_name: playerInfo.nama,
-        category: playerInfo.kategori || 'Senior',
-        seed: currentStats?.seed || 'UNSEEDED',
-        bonus: pointsToAdd >= 100 ? pointsToAdd : 0
-      };
-
+      // --- UPDATE TABEL RANKINGS ---
       // Cek kolom di tabel rankings sebelum update
       const { data: currentRank } = await supabase
         .from('rankings')
@@ -153,22 +139,30 @@ const AdminMatch: React.FC = () => {
         .eq('player_name', playerInfo.nama)
         .maybeSingle();
 
+      const rankingPayload: any = {
+        player_name: playerInfo.nama,
+        category: playerInfo.kategori || 'Senior',
+        total_points: newTotalPoints,
+        seed: currentStats?.seed || 'UNSEEDED',
+        bonus: pointsToAdd >= 100 ? pointsToAdd : 0
+      };
+
+      // Jika kolom 'poin' ada di tabel rankings, sertakan dalam payload
       if (currentRank && 'poin' in currentRank) {
         rankingPayload.poin = newTotalPoints;
       }
-      
-      // Selalu kirim total_points karena biasanya ini kolom standar
-      rankingPayload.total_points = newTotalPoints;
 
-      const { error: rankError } = await supabase
+      const { error: rankingError } = await supabase
         .from('rankings')
         .upsert(rankingPayload, { onConflict: 'player_name' });
 
-      if (rankError) {
-        // Jika error karena 'poin', coba hapus 'poin' dari payload
-        if (rankError.message.includes('poin')) {
+      if (rankingError) {
+        // Fallback jika masih error kolom 'poin'
+        if (rankingError.message.includes('poin')) {
             delete rankingPayload.poin;
             await supabase.from('rankings').upsert(rankingPayload, { onConflict: 'player_name' });
+        } else {
+            throw rankingError;
         }
       }
 
@@ -207,7 +201,7 @@ const AdminMatch: React.FC = () => {
         fetchRecentMatches();
         setTimeout(() => setShowSuccess(false), 4000);
       } else {
-         throw new Error("Gagal sinkronisasi data.");
+         throw new Error("Poin gagal disinkronkan ke ranking.");
       }
 
     } catch (err: any) {
@@ -221,19 +215,18 @@ const AdminMatch: React.FC = () => {
     const matchToDelete = recentMatches.find(m => m.id === id);
     if (!matchToDelete) return;
 
-    const confirmMsg = `Hapus riwayat ${matchToDelete.pendaftaran?.nama}? Poin akan dikurangi otomatis.`;
+    const confirmMsg = `Hapus riwayat ${matchToDelete.pendaftaran?.nama}? Poin akan dikurangi otomatis (Rollback).`;
     if (!window.confirm(confirmMsg)) return;
     
     try {
-      // 1. Rollback poin (Gunakan angka negatif)
+      // 1. Rollback poin (Gunakan angka negatif dari matrix)
       const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
       
-      // Jalankan sinkronisasi rollback dulu
+      // Jalankan sinkronisasi rollback
       const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
       
       if (!syncSuccess) {
-        // Jika gagal rollback karena masalah kolom, tanyakan apakah tetap ingin hapus
-        if(!window.confirm("Gagal update poin (kolom db tidak cocok), hapus riwayat saja?")) return;
+        if(!window.confirm("Gagal update poin, hapus riwayat saja tanpa rollback?")) return;
       }
 
       // 2. Hapus record pertandingan

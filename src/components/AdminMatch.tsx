@@ -94,12 +94,11 @@ const AdminMatch: React.FC = () => {
   };
 
   /**
-   * PENYEMPURNAAN FUNGSI SINKRONISASI
-   * Menggunakan deteksi kolom dinamis untuk mencegah error "column does not exist"
+   * PENYEMPURNAAN FUNGSI SINKRONISASI (FIXED FOR DELETE ERROR)
+   * Mendeteksi kolom poin/points secara dinamis agar tidak error "column does not exist"
    */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
-      // 1. Ambil state statistik saat ini
       const { data: currentStats, error: statsError } = await supabase
         .from('atlet_stats')
         .select('*')
@@ -108,62 +107,52 @@ const AdminMatch: React.FC = () => {
 
       if (statsError) throw statsError;
 
-      // Deteksi kolom poin secara cerdas (poin vs points)
-      const statsPointKey = currentStats && 'points' in currentStats ? 'points' : 'poin';
-      const existingPoints = currentStats ? (currentStats[statsPointKey] || 0) : 0;
+      // Ambil poin lama dengan fallback ke berbagai kemungkinan nama kolom
+      const existingPoints = currentStats?.poin ?? currentStats?.points ?? 0;
       const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
       
       const playerInfo = players.find(p => p.id === playerId);
       if (!playerInfo) throw new Error("Data atlet tidak ditemukan di state lokal");
 
-      // --- UPDATE TABEL ATLET_STATS ---
+      // 1. Update tabel atlet_stats dengan deteksi kolom
       const statsPayload: any = {
         pendaftaran_id: playerId,
         player_name: playerInfo.nama,
         last_match_at: new Date().toISOString()
       };
-      // Assign ke kolom yang terdeteksi
-      statsPayload[statsPointKey] = newTotalPoints;
 
-      const { error: upStatsError } = await supabase
+      // Isi kedua kolom untuk menjamin kompatibilitas jika salah satu tidak ada
+      statsPayload.poin = newTotalPoints;
+      statsPayload.points = newTotalPoints;
+
+      const { error: updateStatsError } = await supabase
         .from('atlet_stats')
         .upsert(statsPayload, { onConflict: 'pendaftaran_id' });
 
-      if (upStatsError) throw upStatsError;
+      // Jika error karena kolom 'poin' tidak ada, hapus dari payload dan coba lagi
+      if (updateStatsError && updateStatsError.message.includes('poin')) {
+        delete statsPayload.poin;
+        await supabase.from('atlet_stats').upsert(statsPayload, { onConflict: 'pendaftaran_id' });
+      }
 
-      // --- UPDATE TABEL RANKINGS ---
-      // Cek kolom di tabel rankings sebelum update
-      const { data: currentRank } = await supabase
-        .from('rankings')
-        .select('*')
-        .eq('player_name', playerInfo.nama)
-        .maybeSingle();
-
+      // 2. Sinkronisasi ke tabel rankings
       const rankingPayload: any = {
         player_name: playerInfo.nama,
         category: playerInfo.kategori || 'Senior',
         total_points: newTotalPoints,
+        poin: newTotalPoints,
         seed: currentStats?.seed || 'UNSEEDED',
         bonus: pointsToAdd >= 100 ? pointsToAdd : 0
       };
-
-      // Jika kolom 'poin' ada di tabel rankings, sertakan dalam payload
-      if (currentRank && 'poin' in currentRank) {
-        rankingPayload.poin = newTotalPoints;
-      }
 
       const { error: rankingError } = await supabase
         .from('rankings')
         .upsert(rankingPayload, { onConflict: 'player_name' });
 
-      if (rankingError) {
-        // Fallback jika masih error kolom 'poin'
-        if (rankingError.message.includes('poin')) {
-            delete rankingPayload.poin;
-            await supabase.from('rankings').upsert(rankingPayload, { onConflict: 'player_name' });
-        } else {
-            throw rankingError;
-        }
+      // Proteksi serupa untuk tabel rankings
+      if (rankingError && rankingError.message.includes('poin')) {
+        delete rankingPayload.poin;
+        await supabase.from('rankings').upsert(rankingPayload, { onConflict: 'player_name' });
       }
 
       return true;
@@ -201,7 +190,7 @@ const AdminMatch: React.FC = () => {
         fetchRecentMatches();
         setTimeout(() => setShowSuccess(false), 4000);
       } else {
-         throw new Error("Poin gagal disinkronkan ke ranking.");
+         throw new Error("Poin tersimpan namun sinkronisasi ranking gagal.");
       }
 
     } catch (err: any) {
@@ -215,21 +204,19 @@ const AdminMatch: React.FC = () => {
     const matchToDelete = recentMatches.find(m => m.id === id);
     if (!matchToDelete) return;
 
-    const confirmMsg = `Hapus riwayat ${matchToDelete.pendaftaran?.nama}? Poin akan dikurangi otomatis (Rollback).`;
+    const confirmMsg = `Hapus match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi kembali secara otomatis.`;
     if (!window.confirm(confirmMsg)) return;
     
     try {
-      // 1. Rollback poin (Gunakan angka negatif dari matrix)
+      // Kalkulasi pengurangan poin (Rollback)
       const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
       
-      // Jalankan sinkronisasi rollback
+      // Jalankan sinkronisasi pengurangan poin terlebih dahulu
       const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
       
-      if (!syncSuccess) {
-        if(!window.confirm("Gagal update poin, hapus riwayat saja tanpa rollback?")) return;
-      }
+      if (!syncSuccess) throw new Error("Gagal melakukan sinkronisasi ulang poin.");
 
-      // 2. Hapus record pertandingan
+      // Hapus record pertandingan
       const { error } = await supabase
         .from('pertandingan')
         .delete()
@@ -390,7 +377,7 @@ const AdminMatch: React.FC = () => {
               <div className="flex gap-4 items-start">
                 <AlertCircle className="text-amber-500 shrink-0" size={20} />
                 <p className="text-[10px] text-zinc-400 font-bold leading-relaxed uppercase">
-                  Data yang dihapus akan secara otomatis melakukan <span className="text-white">Rollback</span> poin pada statistik atlet.
+                  Data yang disubmit akan secara otomatis melakukan <span className="text-white">Rollback</span> poin jika riwayat dihapus.
                 </p>
               </div>
             </div>

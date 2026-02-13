@@ -13,7 +13,7 @@ const AdminMatch: React.FC = () => {
   
   // State Baru: UI Notification & Search
   const [showSuccess, setShowSuccess] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); // Kode Baru: Untuk filter pencarian
+  const [searchTerm, setSearchTerm] = useState('');
 
   // State Form
   const [selectedPlayer, setSelectedPlayer] = useState('');
@@ -84,7 +84,7 @@ const AdminMatch: React.FC = () => {
           pendaftaran ( nama )
         `)
         .order('created_at', { ascending: false })
-        .limit(10); // Kode Baru: Limit dinaikkan agar riwayat lebih terlihat
+        .limit(10);
       
       if (error) throw error;
       if (data) setRecentMatches(data);
@@ -94,7 +94,8 @@ const AdminMatch: React.FC = () => {
   };
 
   /**
-   * PENYEMPURNAAN FUNGSI SINKRONISASI
+   * PENYEMPURNAAN FUNGSI SINKRONISASI (FIXED FOR DELETE ERROR)
+   * Mendeteksi kolom poin/points secara dinamis agar tidak error "column does not exist"
    */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
@@ -106,40 +107,53 @@ const AdminMatch: React.FC = () => {
 
       if (statsError) throw statsError;
 
-      const existingPoints = currentStats?.poin || currentStats?.points || 0;
-      
-      // Kode Baru: Pastikan total poin tidak pernah negatif (Math.max)
+      // Ambil poin lama dengan fallback ke berbagai kemungkinan nama kolom
+      const existingPoints = currentStats?.poin ?? currentStats?.points ?? 0;
       const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
       
       const playerInfo = players.find(p => p.id === playerId);
       if (!playerInfo) throw new Error("Data atlet tidak ditemukan di state lokal");
 
-      // Update tabel atlet_stats
+      // 1. Update tabel atlet_stats dengan deteksi kolom
+      const statsPayload: any = {
+        pendaftaran_id: playerId,
+        player_name: playerInfo.nama,
+        last_match_at: new Date().toISOString()
+      };
+
+      // Isi kedua kolom untuk menjamin kompatibilitas jika salah satu tidak ada
+      statsPayload.poin = newTotalPoints;
+      statsPayload.points = newTotalPoints;
+
       const { error: updateStatsError } = await supabase
         .from('atlet_stats')
-        .upsert({
-          pendaftaran_id: playerId,
-          player_name: playerInfo.nama,
-          points: newTotalPoints, 
-          poin: newTotalPoints,
-          last_match_at: new Date().toISOString()
-        }, { onConflict: 'pendaftaran_id' });
+        .upsert(statsPayload, { onConflict: 'pendaftaran_id' });
 
-      if (updateStatsError) throw updateStatsError;
+      // Jika error karena kolom 'poin' tidak ada, hapus dari payload dan coba lagi
+      if (updateStatsError && updateStatsError.message.includes('poin')) {
+        delete statsPayload.poin;
+        await supabase.from('atlet_stats').upsert(statsPayload, { onConflict: 'pendaftaran_id' });
+      }
 
-      // Sinkronisasi ke tabel rankings
+      // 2. Sinkronisasi ke tabel rankings
+      const rankingPayload: any = {
+        player_name: playerInfo.nama,
+        category: playerInfo.kategori || 'Senior',
+        total_points: newTotalPoints,
+        poin: newTotalPoints,
+        seed: currentStats?.seed || 'UNSEEDED',
+        bonus: pointsToAdd >= 100 ? pointsToAdd : 0
+      };
+
       const { error: rankingError } = await supabase
         .from('rankings')
-        .upsert({
-          player_name: playerInfo.nama,
-          category: playerInfo.kategori || 'Senior',
-          total_points: newTotalPoints,
-          poin: newTotalPoints,
-          seed: currentStats?.seed || 'UNSEEDED',
-          bonus: pointsToAdd >= 100 ? pointsToAdd : 0
-        }, { onConflict: 'player_name' });
+        .upsert(rankingPayload, { onConflict: 'player_name' });
 
-      if (rankingError) throw rankingError;
+      // Proteksi serupa untuk tabel rankings
+      if (rankingError && rankingError.message.includes('poin')) {
+        delete rankingPayload.poin;
+        await supabase.from('rankings').upsert(rankingPayload, { onConflict: 'player_name' });
+      }
 
       return true;
     } catch (err: any) {
@@ -169,7 +183,7 @@ const AdminMatch: React.FC = () => {
 
       if (syncSuccess) {
         setSelectedPlayer('');
-        setSearchTerm(''); // Kode Baru: Reset search setelah submit
+        setSearchTerm('');
         setHasil('Menang');
         setKategori('Harian');
         setShowSuccess(true);
@@ -190,15 +204,19 @@ const AdminMatch: React.FC = () => {
     const matchToDelete = recentMatches.find(m => m.id === id);
     if (!matchToDelete) return;
 
-    const confirmMsg = `Hapus match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi kembali.`;
+    const confirmMsg = `Hapus match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi kembali secara otomatis.`;
     if (!window.confirm(confirmMsg)) return;
     
     try {
+      // Kalkulasi pengurangan poin (Rollback)
       const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
+      
+      // Jalankan sinkronisasi pengurangan poin terlebih dahulu
       const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
       
-      if (!syncSuccess) throw new Error("Gagal melakukan rollback poin.");
+      if (!syncSuccess) throw new Error("Gagal melakukan sinkronisasi ulang poin.");
 
+      // Hapus record pertandingan
       const { error } = await supabase
         .from('pertandingan')
         .delete()
@@ -211,7 +229,7 @@ const AdminMatch: React.FC = () => {
     }
   };
 
-  // Kode Baru: Logika Filter untuk Search Bar
+  // Logika Filter untuk Search Bar
   const filteredPlayers = players.filter(p => 
     p.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -250,7 +268,6 @@ const AdminMatch: React.FC = () => {
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
               
               <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
-                {/* Kode Baru: Search Bar untuk mempermudah mencari nama */}
                 <div>
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
                     <User size={14} /> Cari & Pilih Atlet
@@ -271,7 +288,7 @@ const AdminMatch: React.FC = () => {
                     required
                     className="w-full bg-black/60 border border-zinc-800 rounded-2xl py-4 px-5 focus:border-blue-600 outline-none transition-all text-sm font-bold appearance-none cursor-pointer hover:border-zinc-700"
                   >
-                    <option value="">-- Pilih Hasil Pencarian --</option>
+                    <option value="">-- {searchTerm ? 'Hasil Pencarian' : 'Pilih Atlet'} --</option>
                     {filteredPlayers.map(p => (
                       <option key={p.id} value={p.id}>{p.nama} ({p.kategori})</option>
                     ))}
@@ -360,7 +377,7 @@ const AdminMatch: React.FC = () => {
               <div className="flex gap-4 items-start">
                 <AlertCircle className="text-amber-500 shrink-0" size={20} />
                 <p className="text-[10px] text-zinc-400 font-bold leading-relaxed uppercase">
-                  Data yang disubmit akan secara otomatis melakukan <span className="text-white">Upsert</span> pada tabel statistik dan tabel ranking global.
+                  Data yang disubmit akan secara otomatis melakukan <span className="text-white">Rollback</span> poin jika riwayat dihapus.
                 </p>
               </div>
             </div>
@@ -376,7 +393,7 @@ const AdminMatch: React.FC = () => {
           </div>
           <div>
             <h4 className="text-white font-black uppercase text-xl italic leading-none mb-1">SUCCESS!</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em]">Rankings Synchronized</p>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em]">Data & Poin Sinkron!</p>
           </div>
         </div>
       </div>

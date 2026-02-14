@@ -11,7 +11,7 @@ import {
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
 } from 'lucide-react';
 
-// --- DATA SOURCE FALLBACK (Tetap ada namun diprioritaskan data DB) ---
+// --- DATA SOURCE FALLBACK ---
 const EVENT_LOG = [
   { 
     id: 1, 
@@ -23,8 +23,13 @@ const EVENT_LOG = [
   },
 ];
 
-const Players: React.FC = () => {
-  const [currentAgeGroup, setCurrentAgeGroup] = useState('Semua'); 
+// Menambahkan Interface Props untuk Sinkronisasi dengan App.tsx
+interface PlayersProps {
+  initialFilter?: string;
+}
+
+const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
+  const [currentAgeGroup, setCurrentAgeGroup] = useState(initialFilter); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
   
@@ -35,10 +40,15 @@ const Players: React.FC = () => {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  // 1. FUNGSI FETCH DATA DENGAN JOIN STATS & PERTANDINGAN
+  // SINKRONISASI: Update state jika initialFilter dari props berubah (via Navbar)
+  useEffect(() => {
+    if (initialFilter) {
+      setCurrentAgeGroup(initialFilter);
+    }
+  }, [initialFilter]);
+
   const fetchPlayersFromDB = async () => {
     try {
-      // Mengambil data profil, statistik, dan riwayat pertandingan (untuk otomatisasi Winner)
       const { data: players, error: pError } = await supabase
         .from('pendaftaran')
         .select(`
@@ -73,7 +83,6 @@ const Players: React.FC = () => {
     }
   };
 
-  // 2. REALTIME LISTENER (Menambahkan tabel pertandingan ke dalam list pantauan)
   useEffect(() => {
     fetchPlayersFromDB();
 
@@ -90,7 +99,7 @@ const Players: React.FC = () => {
     };
   }, []);
 
-  // Listener untuk event eksternal filter
+  // Listener untuk event kustom (opsional, sebagai backup dari initialFilter)
   useEffect(() => {
     const handleFilterAtlet = (event: any) => {
       const category = event.detail;
@@ -100,7 +109,6 @@ const Players: React.FC = () => {
     return () => window.removeEventListener('filterAtlet', handleFilterAtlet);
   }, []);
 
-  // 3. PROSES DATA: OTOMATISASI WINNER & POIN
   const processedPlayers = useMemo(() => {
     const config: Record<string, any> = {
       'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
@@ -113,8 +121,6 @@ const Players: React.FC = () => {
     };
 
     const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
-    
-    // Gabungkan list pemenang manual dengan list fallback
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
@@ -124,13 +130,9 @@ const Players: React.FC = () => {
       const playerCat = p.kategori ? p.kategori.toUpperCase() : '';
       const conf = config[playerCat] || defaultConfig;
 
-      // OTOMATISASI WINNER:
-      // Cek apakah ada record di tabel pertandingan dimana kategori='Internal' dan hasil='Menang'
-      // ATAU jika namanya ada di daftar pemenang lama (fallback)
       const hasWonInternal = history.some(m => m.kategori_kegiatan === 'Internal' && m.hasil === 'Menang');
       const isWinner = hasWonInternal || allWinners.includes(p.nama);
       
-      // PRIORITAS POIN: Poin dari atlet_stats (Manajemen) > Poin pendaftaran > Kalkulasi Otomatis
       const manualPoints = Number(stats?.points) || Number(p.poin) || 0;
       const totalPoints = manualPoints > 0 ? manualPoints : (conf.base + (isWinner ? 300 : 0));
       
@@ -144,7 +146,7 @@ const Players: React.FC = () => {
         ageGroup: conf.age,
         categoryLabel: stats?.seed || conf.label,
         globalRank: stats?.rank || null,
-        matchHistory: history // Menyimpan riwayat untuk digunakan di modal jika perlu
+        matchHistory: history 
       };
     })
     .sort((a, b) => b.totalPoints - a.totalPoints);

@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { supabase } from "../supabase"; // Pastikan path ini benar
+import { supabase } from "../supabase"; 
 import { X, Camera, Info, ChevronDown, ChevronUp, PlayCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 export default function Gallery() {
   const [galleryItems, setGalleryItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null); // UUID adalah string
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [activeTab, setActiveTab] = useState<'image' | 'video'>('image');
 
@@ -39,23 +39,38 @@ export default function Gallery() {
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
-  // Helper untuk format URL YouTube
-  const getEmbedUrl = (url: string) => {
-    if (url.includes('youtube.com/embed/')) return url;
-    const videoId = url.split('v=')[1]?.split('&')[0] || url.split('/').pop();
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+  // --- KODE BARU: HELPER UNTUK EKSTRAK ID YOUTUBE ---
+  const getYouTubeID = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
   };
 
-  // Helper untuk mendapatkan thumbnail YouTube jika itu video YT tapi tidak ada image
+  // Helper untuk format URL YouTube (Embed)
+  const getEmbedUrl = (url: string) => {
+    if (url.includes('youtube.com/embed/')) return url;
+    const videoId = getYouTubeID(url);
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+    }
+    return url;
+  };
+
+  // Helper untuk mendapatkan thumbnail
   const getThumbnail = (item: any) => {
     if (item.type === 'image') return item.url;
-    // Jika video YouTube, kita bisa generate thumbnail otomatis jika kolom image kosong
-    if (item.url.includes('youtube.com') || item.url.includes('youtu.be')) {
-      const videoId = item.url.split('v=')[1]?.split('&')[0] || item.url.split('/').pop();
-      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    
+    // Cek apakah video YouTube
+    const videoId = getYouTubeID(item.url);
+    if (videoId) {
+      // Menggunakan hqdefault atau maxresdefault untuk kualitas lebih baik
+      return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
     }
-    return item.url; // Untuk video lokal biasanya butuh thumbnail manual
+    
+    // Jika video lokal, tampilkan placeholder atau item.url jika storage menyediakan thumbnail
+    return item.url; 
   };
+  // ------------------------------------------------
 
   const filteredMedia = useMemo(() => {
     const filtered = galleryItems.filter(item => item.type === activeTab);
@@ -116,17 +131,23 @@ export default function Gallery() {
         ) : (
           /* Grid Media */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredMedia.map((item) => (
+            {filteredMedia.length > 0 ? filteredMedia.map((item) => (
               <div
                 key={item.id}
                 onClick={() => setSelectedId(item.id)}
                 className="group relative cursor-pointer overflow-hidden rounded-[2.5rem] shadow-md hover:shadow-2xl border border-slate-100 transition-all duration-500 animate-in fade-in"
               >
-                <div className="aspect-[4/3] relative">
+                <div className="aspect-[4/3] relative bg-slate-200">
                   <img
                     src={getThumbnail(item)}
                     alt={item.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    onError={(e: any) => {
+                      // Jika maxresdefault gagal (karena video kecil), fallback ke hqdefault
+                      if (e.target.src.includes('maxresdefault')) {
+                        e.target.src = e.target.src.replace('maxresdefault', 'hqdefault');
+                      }
+                    }}
                   />
                   {item.type === 'video' && (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/30 group-hover:bg-slate-900/50 transition-all">
@@ -146,7 +167,11 @@ export default function Gallery() {
                   </p>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="col-span-full py-20 text-center text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-100 rounded-[3rem]">
+                Belum ada {activeTab === 'image' ? 'foto' : 'video'} yang diunggah
+              </div>
+            )}
           </div>
         )}
 
@@ -191,7 +216,7 @@ export default function Gallery() {
                     </video>
                   ) : (
                     <iframe
-                      className="w-full h-full"
+                      className="w-full h-full border-0"
                       src={getEmbedUrl(activeMedia.url)}
                       title={activeMedia.title}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

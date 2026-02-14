@@ -1,17 +1,40 @@
-import React, { useState } from 'react'; // Menambahkan useState untuk internal state
+import React, { useState, useEffect } from 'react'; 
 import { BookOpen, Target, Rocket, Shield, Award, MapPin, CheckCircle2 } from 'lucide-react';
+// PERBAIKAN: Mengikuti path yang sama dengan Navbar agar tidak error import
+import { supabase } from '../supabase'; 
 
 interface AboutProps {
-  activeTab?: string; // Dibuat opsional agar tidak error jika tidak dikirim
-  onTabChange?: (id: string) => void; // Dibuat opsional
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
 }
 
 export default function About({ activeTab: propsActiveTab, onTabChange }: AboutProps) {
-  // State internal jika props tidak dikirim dari App.tsx
   const [internalTab, setInternalTab] = useState('sejarah');
+  const [dynamicContent, setDynamicContent] = useState<Record<string, any>>({});
   
-  // Menggunakan activeTab dari props jika ada, jika tidak pakai internal state
+  // Menggunakan activeTab dari props (Navbar) jika ada, jika tidak pakai internal state
   const activeTab = propsActiveTab || internalTab;
+
+  useEffect(() => {
+    fetchAboutContent();
+  }, []);
+
+  const fetchAboutContent = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'about_content')
+        .maybeSingle();
+      
+      if (!error && data) {
+        const val = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        setDynamicContent(val);
+      }
+    } catch (err) {
+      console.error("Error fetching about content:", err);
+    }
+  };
 
   const handleTabChange = (id: string) => {
     if (onTabChange) {
@@ -56,15 +79,15 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         {/* Tab Content Box */}
         <div className="bg-slate-50 rounded-[2.5rem] p-8 md:p-12 border border-slate-100 shadow-sm min-h-[450px]">
           
-          {/* SEJARAH */}
+          {/* SEJARAH - Menggunakan ID agar bisa di-scroll dari Navbar */}
           {activeTab === 'sejarah' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div id="sejarah" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="text-center mb-12">
                 <h3 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 uppercase tracking-tight">
-                  MEMBINA <span className="text-blue-600">LEGENDA</span> MASA DEPAN
+                  {dynamicContent.sejarah_title || "MEMBINA"} <span className="text-blue-600">{dynamicContent.sejarah_accent || "LEGENDA"}</span> MASA DEPAN
                 </h3>
                 <p className="text-slate-500 text-lg max-w-3xl mx-auto leading-relaxed font-medium">
-                  PB US 162 Bilibili bukan sekadar klub, melainkan ekosistem pembinaan bulutangkis terpadu yang menggabungkan disiplin, teknik modern, dan semangat juang.
+                  {dynamicContent.sejarah_desc || "PB US 162 Bilibili bukan sekadar klub, melainkan ekosistem pembinaan bulutangkis terpadu yang menggabungkan disiplin, teknik modern, dan semangat juang."}
                 </p>
               </div>
 
@@ -83,7 +106,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     Pusat Pelatihan Berstandar Tinggi di Parepare
                   </h4>
                   <p className="text-slate-600 text-lg leading-relaxed">
-                    Lahir dari semangat memajukan olahraga di Sulawesi Selatan, <strong>PB US 162</strong> kini menjadi barometer pembinaan bulutangkis regional. Kami menerapkan kurikulum latihan yang mengadaptasi standar nasional untuk memastikan setiap atlet memiliki fondasi teknik yang kuat.
+                    Lahir dari semangat memajukan olahraga di Sulawesi Selatan, <strong>PB US 162</strong> kini menjadi barometer pembinaan bulutangkis regional.
                   </p>
                   
                   <ul className="space-y-4">
@@ -106,9 +129,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* VISI MISI */}
+          {/* VISI MISI - Menggunakan ID agar bisa di-scroll dari Navbar */}
           {activeTab === 'visi-misi' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 grid md:grid-cols-2 gap-8 h-full items-center">
+            <div id="visi-misi" className="animate-in fade-in slide-in-from-bottom-4 duration-500 grid md:grid-cols-2 gap-8 h-full items-center">
               <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group min-h-[300px] flex flex-col justify-center">
                 <div className="absolute top-0 right-0 p-6 opacity-10 text-blue-600 group-hover:scale-110 transition-transform">
                   <Target size={120} />
@@ -118,7 +141,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
                 <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase">Visi Utama</span>
                 <p className="text-slate-700 text-2xl font-bold leading-tight italic">
-                  "Menjadi klub bulutangkis rujukan nasional yang mencetak atlet berprestasi dunia."
+                  "{dynamicContent.vision || "Menjadi klub bulutangkis rujukan nasional yang mencetak atlet berprestasi dunia."}"
                 </p>
               </div>
 
@@ -131,7 +154,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
                 <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase">Misi Kami</span>
                 <ul className="space-y-3 text-slate-700 font-medium">
-                  {["Pelatihan terstruktur & disiplin", "Fasilitas berstandar internasional", "Kompetisi rutin berkala", "Pembentukan karakter juara"].map((misi, i) => (
+                  {(dynamicContent.missions || ["Pelatihan terstruktur & disiplin", "Fasilitas berstandar internasional", "Kompetisi rutin berkala", "Pembentukan karakter juara"]).map((misi, i) => (
                     <li key={i} className="flex items-center gap-2 italic">
                       <CheckCircle2 size={16} className="text-blue-500" /> {misi}
                     </li>
@@ -141,9 +164,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* FASILITAS */}
+          {/* FASILITAS - Menggunakan ID agar bisa di-scroll dari Navbar */}
           {activeTab === 'fasilitas' && (
-            <div className="animate-in fade-in duration-500 grid md:grid-cols-2 gap-12 items-center">
+            <div id="fasilitas" className="animate-in fade-in duration-500 grid md:grid-cols-2 gap-12 items-center">
               <div>
                 <h3 className="text-2xl font-black mb-8 text-slate-800 uppercase">Fasilitas Standar Nasional</h3>
                 <ul className="space-y-5">

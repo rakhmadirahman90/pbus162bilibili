@@ -14,7 +14,8 @@ import {
   Settings,
   Database,
   ExternalLink,
-  Phone // Menambahkan ikon Phone untuk menu kontak
+  Phone,
+  Menu // Menambahkan ikon Menu untuk Kelola Navbar
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -64,7 +65,8 @@ export default function Sidebar({ email }: { email: string }) {
         { name: 'Update Berita', path: '/admin/berita', icon: Newspaper },
         { name: 'Update Ranking', path: '/admin/ranking', icon: Trophy },
         { name: 'Galeri Media', path: '/admin/galeri', icon: Image },
-        { name: 'Kelola Kontak', path: '/admin/kontak', icon: Phone }, // Menu Baru ditambahkan di sini
+        { name: 'Kelola Kontak', path: '/admin/kontak', icon: Phone },
+        { name: 'Kelola Navbar', path: '/admin/navbar', icon: Menu }, // MENU BARU ditambahkan di sini
       ]
     }
   ];

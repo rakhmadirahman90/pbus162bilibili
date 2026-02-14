@@ -26,9 +26,16 @@ import AdminGallery from './components/AdminGallery';
 // --- TAMBAHAN IMPORT BARU UNTUK KONTAK ---
 import AdminContact from './components/AdminContact'; 
 
+// --- KODE BARU: IMPORT KELOLA NAVBAR ---
+import KelolaNavbar from './components/KelolaNavbar'; 
+
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // --- STATE BARU UNTUK NAVIGASI DINAMIS ---
+  const [activeAboutTab, setActiveAboutTab] = useState('sejarah');
+  const [activeAthleteFilter, setActiveAthleteFilter] = useState('all');
 
   useEffect(() => {
     // Ambil sesi login saat ini
@@ -44,6 +51,40 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // --- FUNGSI NAVIGASI GLOBAL (SINKRONISASI SUB-MENU) ---
+  const handleNavigate = (sectionId: string, subPath?: string) => {
+    // 1. Jika tujuannya adalah bagian dari About
+    if (sectionId === 'tentang-kami' || ['sejarah', 'visi-misi', 'fasilitas'].includes(subPath || '')) {
+      if (subPath) setActiveAboutTab(subPath);
+    }
+
+    // 2. Jika tujuannya adalah bagian dari Atlet
+    if (sectionId === 'atlet' && subPath) {
+      setActiveAthleteFilter(subPath);
+      // Trigger event untuk komponen Players/Athletes
+      const event = new CustomEvent('filterAtlet', { detail: subPath });
+      window.dispatchEvent(event);
+    }
+
+    // 3. Logika Scroll ke elemen
+    const targetId = subPath || sectionId;
+    setTimeout(() => {
+      const element = document.getElementById(targetId) || document.getElementById(sectionId);
+      if (element) {
+        const offset = 80;
+        const bodyRect = document.body.getBoundingClientRect().top;
+        const elementRect = element.getBoundingClientRect().top;
+        const elementPosition = elementRect - bodyRect;
+        const offsetPosition = elementPosition - offset;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+  };
 
   if (loading) {
     return (
@@ -62,17 +103,34 @@ export default function App() {
         {/* ROUTE UTAMA: LANDING PAGE LENGKAP */}
         <Route path="/" element={
           <div className="min-h-screen bg-white">
-            <Navbar />
+            {/* Mengirim fungsi navigasi ke Navbar */}
+            <Navbar onNavigate={handleNavigate} />
+            
             <Hero />
-            <About />
+            
+            {/* About menerima state tab aktif dari Navbar */}
+            <About 
+              activeTab={activeAboutTab} 
+              onTabChange={(id) => setActiveAboutTab(id)} 
+            />
+            
             <News />
-            <Athletes />
+            
+            {/* Athletes menerima state filter aktif dari Navbar */}
+            <Athletes 
+              initialFilter={activeAthleteFilter} 
+            />
+            
             <Ranking />
+            
             <Gallery />
-            <section id="daftar" className="py-20 bg-slate-900">
+            
+            <section id="register" className="py-20 bg-slate-900">
               <RegistrationForm />
             </section>
+            
             <Contact />
+            
             <Footer />
           </div>
         } />
@@ -98,7 +156,7 @@ export default function App() {
 
 /**
  * PERBAIKAN PADA ADMIN LAYOUT
- * Menghubungkan semua komponen admin termasuk Kelola Kontak
+ * Menghubungkan semua komponen admin termasuk Kelola Kontak & Navbar
  */
 function AdminLayout({ session }: { session: any }) {
   return (
@@ -127,8 +185,11 @@ function AdminLayout({ session }: { session: any }) {
           {/* 6. Update Galeri Media */}
           <Route path="galeri" element={<AdminGallery />} />
 
-          {/* 7. Kelola Kontak (TAMBAHAN BARU UNTUK SINKRONISASI LANDING PAGE) */}
+          {/* 7. Kelola Kontak */}
           <Route path="kontak" element={<AdminContact />} />
+
+          {/* 8. KODE BARU: KELOLA NAVBAR (SINKRONISASI NAVIGASI) */}
+          <Route path="navbar" element={<KelolaNavbar />} />
           
           {/* Fallback internal admin */}
           <Route path="*" element={<Navigate to="dashboard" replace />} />

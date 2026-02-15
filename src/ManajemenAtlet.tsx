@@ -36,7 +36,6 @@ export default function ManajemenAtlet() {
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- STATES FOR IMAGE CROPPER ---
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -57,6 +56,7 @@ export default function ManajemenAtlet() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
+      // PERBAIKAN: Query join untuk memastikan data dari pendaftaran dan stats terbaca
       const { data, error } = await supabase
         .from('pendaftaran')
         .select(`
@@ -74,24 +74,27 @@ export default function ManajemenAtlet() {
       if (error) throw error;
 
       if (data) {
-        const formattedData = data.map((item: any) => ({
-          ...item,
-          rank: item.atlet_stats?.[0]?.rank || 0,
-          points: item.atlet_stats?.[0]?.points || 0,
-          seed: item.atlet_stats?.[0]?.seed || 'UNSEEDED',
-          bio: item.atlet_stats?.[0]?.bio || "Data profil belum dilengkapi.",
-          prestasi: item.atlet_stats?.[0]?.prestasi_terakhir || "CONTENDER"
-        }));
+        const formattedData = data.map((item: any) => {
+          // Ambil data dari array atlet_stats (biasanya index 0 karena 1-to-1)
+          const stats = item.atlet_stats?.[0] || {};
+          return {
+            ...item,
+            rank: stats.rank || 0,
+            points: stats.points || 0,
+            seed: stats.seed || 'UNSEEDED',
+            bio: stats.bio || "Data profil belum dilengkapi.",
+            prestasi: stats.prestasi_terakhir || "CONTENDER"
+          };
+        });
         setAtlets(formattedData);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching atlets:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- LOGIKA IMAGE CROPPER ---
   const onCropComplete = useCallback((_: any, pixels: any) => {
     setCroppedAreaPixels(pixels);
   }, []);
@@ -142,13 +145,22 @@ export default function ManajemenAtlet() {
 
         const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
-        setEditingStats({ ...editingStats, foto_url: publicUrl });
-        await supabase.from('pendaftaran').update({ foto_url: publicUrl }).eq('id', editingStats.id);
+        // Update foto_url di tabel pendaftaran
+        const { error: updateError } = await supabase
+          .from('pendaftaran')
+          .update({ foto_url: publicUrl })
+          .eq('id', editingStats.id);
 
+        if (updateError) throw updateError;
+
+        setEditingStats({ ...editingStats, foto_url: publicUrl });
         setImageToCrop(null);
         setNotifMessage("Foto Atlet Berhasil Di-crop!");
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
+        
+        // Refresh data agar list terupdate
+        fetchAtlets();
       }, 'image/jpeg');
 
     } catch (err) {
@@ -165,11 +177,12 @@ export default function ManajemenAtlet() {
     
     setIsSaving(true);
     try {
+      // 1. Cek keberadaan di atlet_stats
       const { data: existingStats } = await supabase
         .from('atlet_stats')
         .select('id')
         .eq('pendaftaran_id', editingStats.id)
-        .single();
+        .maybeSingle();
 
       const statsPayload = {
         pendaftaran_id: editingStats.id,
@@ -186,6 +199,7 @@ export default function ManajemenAtlet() {
         await supabase.from('atlet_stats').insert([statsPayload]);
       }
 
+      // 2. Sync ke tabel rankings (Upsert berdasarkan nama)
       await supabase
         .from('rankings')
         .upsert({
@@ -211,7 +225,7 @@ export default function ManajemenAtlet() {
   };
 
   const filteredAtlets = atlets.filter(a => 
-    a.nama.toLowerCase().includes(searchTerm.toLowerCase())
+    a.nama?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -222,10 +236,8 @@ export default function ManajemenAtlet() {
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
-    /* PERBAIKAN LAYOUT: Menggunakan h-full flex flex-col agar tidak scroll satu halaman penuh */
     <div className="h-full flex flex-col bg-[#f8fafc] font-sans relative overflow-hidden">
-      
-      {/* HEADER TETAP (FIXED) */}
+      {/* HEADER */}
       <div className="flex-shrink-0 p-4 md:p-8 pb-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
@@ -252,7 +264,6 @@ export default function ManajemenAtlet() {
             </div>
           </div>
 
-          {/* SEARCH BAR TETAP */}
           <div className="relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={22} />
             <input 
@@ -265,7 +276,7 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* AREA SCROLLABLE (HANYA BAGIAN INI YANG SCROLL) */}
+      {/* MAIN CONTENT */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 scroll-smooth">
         <div className="max-w-7xl mx-auto pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -274,43 +285,48 @@ export default function ManajemenAtlet() {
                  <Loader2 className="animate-spin m-auto text-blue-600 mb-4" size={40} />
                  <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Mengakses Server...</p>
               </div>
-            ) : currentItems.map((atlet) => (
-              <div 
-                key={atlet.id}
-                onClick={() => setSelectedAtlet(atlet)}
-                className="bg-white p-4 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group border border-slate-100 relative overflow-hidden"
-              >
-                <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden mb-5 bg-slate-100 shadow-inner">
-                  {atlet.foto_url ? (
-                    <img src={atlet.foto_url} className="w-full h-full object-cover object-[center_25%] group-hover:scale-110 transition-transform duration-700" alt={atlet.nama} />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-200"><User className="text-slate-400" size={60} /></div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60" />
-                  <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase tracking-tighter">
-                    #{atlet.rank || '??'} GLOBAL
+            ) : currentItems.length > 0 ? (
+              currentItems.map((atlet) => (
+                <div 
+                  key={atlet.id}
+                  onClick={() => setSelectedAtlet(atlet)}
+                  className="bg-white p-4 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group border border-slate-100 relative overflow-hidden"
+                >
+                  <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden mb-5 bg-slate-100 shadow-inner">
+                    {atlet.foto_url ? (
+                      <img src={atlet.foto_url} className="w-full h-full object-cover object-[center_25%] group-hover:scale-110 transition-transform duration-700" alt={atlet.nama} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-200"><User className="text-slate-400" size={60} /></div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60" />
+                    <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase tracking-tighter">
+                      #{atlet.rank || '??'} GLOBAL
+                    </div>
                   </div>
-                </div>
 
-                <div className="px-2">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">{atlet.kategori}</p>
-                  <h3 className="text-lg font-black text-slate-900 uppercase italic truncate mb-4 leading-tight">{atlet.nama}</h3>
-                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase">Points</p>
-                      <p className="text-sm font-black text-slate-900 tracking-tighter">{atlet.points.toLocaleString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[8px] font-black text-slate-400 uppercase">Seed</p>
-                      <p className="text-[10px] font-black text-emerald-600 italic tracking-tighter uppercase">{atlet.seed}</p>
+                  <div className="px-2">
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">{atlet.kategori}</p>
+                    <h3 className="text-lg font-black text-slate-900 uppercase italic truncate mb-4 leading-tight">{atlet.nama}</h3>
+                    <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                      <div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Points</p>
+                        <p className="text-sm font-black text-slate-900 tracking-tighter">{atlet.points.toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Seed</p>
+                        <p className="text-[10px] font-black text-emerald-600 italic tracking-tighter uppercase">{atlet.seed}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="col-span-full py-32 text-center text-slate-400 font-bold uppercase tracking-widest">
+                Data Tidak Ditemukan
               </div>
-            ))}
+            )}
           </div>
 
-          {/* PAGINATION DI DALAM SCROLL AREA */}
           {!loading && totalPages > 1 && (
             <div className="flex justify-center items-center gap-3 mt-16 pb-10">
               <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft size={20} /></button>
@@ -379,7 +395,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* MODAL EDIT STATS */}
+      {/* MODAL EDIT */}
       {isEditModalOpen && editingStats && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20 my-8">
@@ -390,39 +406,36 @@ export default function ManajemenAtlet() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10">
               <div className="space-y-4">
                 <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-slate-100 shadow-inner group">
-                   <img src={editingStats.foto_url || '/placeholder.jpg'} className="w-full h-full object-cover" alt="Current" />
+                   <img src={editingStats.foto_url || 'https://via.placeholder.com/300x400?text=No+Photo'} className="w-full h-full object-cover" alt="Current" />
                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center cursor-pointer text-white backdrop-blur-sm">
                       <Camera size={40} className="mb-2" />
                       <span className="font-black text-[10px] uppercase tracking-widest">Update Photo</span>
                       <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                    </label>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-relaxed">Tips: Rasio 3:4 disarankan agar presisi.</p>
-                </div>
               </div>
               <form onSubmit={handleUpdateStats} className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank</label>
-                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900" value={editingStats.rank} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
+                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900" value={editingStats.rank || 0} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>
-                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
+                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900" value={editingStats.points || 0} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
                   </div>
                 </div>
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Category</label>
-                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase" value={editingStats.seed} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
+                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase" value={editingStats.seed || ''} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievements</label>
-                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase italic" value={editingStats.prestasi} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
+                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase italic" value={editingStats.prestasi || ''} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
                 </div>
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Biography</label>
-                    <textarea rows={3} className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-bold text-slate-700 text-sm" value={editingStats.bio} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
+                    <textarea rows={3} className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-bold text-slate-700 text-sm" value={editingStats.bio || ''} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
                 </div>
                 <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:bg-slate-300">
                   {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
@@ -434,7 +447,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* IMAGE CROPPER MODAL */}
+      {/* CROPPER */}
       {imageToCrop && (
         <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-6 backdrop-blur-2xl">
            <div className="w-full max-w-2xl relative aspect-[3/4] bg-zinc-900 rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
@@ -450,24 +463,23 @@ export default function ManajemenAtlet() {
            </div>
            <div className="mt-10 w-full max-w-xl">
               <div className="flex items-center gap-6 mb-8 bg-white/5 p-4 rounded-2xl border border-white/10">
-                <span className="text-white text-[10px] font-black uppercase tracking-widest">Zoom Control</span>
+                <span className="text-white text-[10px] font-black uppercase tracking-widest">Zoom</span>
                 <input type="range" value={zoom} min={1} max={3} step={0.1} className="w-full accent-blue-600 h-1 bg-white/20 rounded-full appearance-none" onChange={(e) => setZoom(Number(e.target.value))} />
               </div>
               <div className="flex gap-4">
-                <button onClick={() => setImageToCrop(null)} className="flex-1 py-5 bg-white/10 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:bg-white/20 transition-all border border-white/5">Cancel</button>
-                <button onClick={executeCropAndUpload} disabled={isCropping} className="flex-1 py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-2xl flex items-center justify-center gap-3 hover:bg-blue-500 transition-all active:scale-95">
+                <button onClick={() => setImageToCrop(null)} className="flex-1 py-5 bg-white/10 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:bg-white/20 transition-all">Cancel</button>
+                <button onClick={executeCropAndUpload} disabled={isCropping} className="flex-1 py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-2xl flex items-center justify-center gap-3">
                   {isCropping ? <Loader2 className="animate-spin" size={18}/> : <Scissors size={18}/>}
-                  Confirm & Upload
+                  Confirm
                 </button>
               </div>
            </div>
         </div>
       )}
 
-      {/* SUCCESS NOTIFICATION */}
+      {/* SUCCESS NOTIF */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
         <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6 min-w-[380px] overflow-hidden relative">
-          <div className="absolute bottom-0 left-0 h-1 bg-blue-600" style={{ width: showSuccess ? '100%' : '0%', transition: 'width 3s linear' }} />
           <div className="bg-blue-600 p-4 rounded-2xl shadow-lg animate-bounce"><Zap size={24} className="text-white fill-white" /></div>
           <div>
             <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">{notifMessage}</h4>

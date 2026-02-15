@@ -49,7 +49,7 @@ export default function ManajemenAtlet() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
-      // PERBAIKAN: Memastikan join table atlet_stats terbaca dengan benar
+      // PERBAIKAN: Melakukan join tabel secara menyeluruh
       const { data, error } = await supabase
         .from('pendaftaran')
         .select(`
@@ -74,12 +74,20 @@ export default function ManajemenAtlet() {
       if (error) throw error;
 
       if (data) {
-        // PERBAIKAN: Mapping data dengan fallback value yang kuat 
-        // agar komponen UI tidak merender 'undefined' atau 'NaN'
+        // LOGIKA FALLBACK: Memastikan data yang stats-nya kosong tetap tampil dengan default value
         const formattedData = data.map((item: any) => {
-          const stats = item.atlet_stats?.[0]; // Ambil elemen pertama dari array join
+          const stats = item.atlet_stats && item.atlet_stats.length > 0 ? item.atlet_stats[0] : null;
+          
           return {
-            ...item,
+            id: item.id,
+            nama: item.nama || 'Tanpa Nama',
+            whatsapp: item.whatsapp || '-',
+            kategori: item.kategori || 'UMUM',
+            domisili: item.domisili || 'Parepare',
+            foto_url: item.foto_url || '',
+            jenis_kelamin: item.jenis_kelamin || '-',
+            status: item.status || 'Inactive',
+            // Default stats jika di database belum ada entry di tabel atlet_stats
             rank: stats?.rank || 0,
             points: stats?.points || 0,
             seed: stats?.seed || 'UNSEEDED',
@@ -102,8 +110,8 @@ export default function ManajemenAtlet() {
     
     setIsSaving(true);
     try {
-      // 1. Cek keberadaan data stats
-      const { data: existingStats } = await supabase
+      // 1. UPSERT KE ATLET_STATS (Cek pendaftaran_id)
+      const { data: checkStats } = await supabase
         .from('atlet_stats')
         .select('id')
         .eq('pendaftaran_id', editingStats.id)
@@ -111,30 +119,31 @@ export default function ManajemenAtlet() {
 
       const statsPayload = {
         pendaftaran_id: editingStats.id,
-        rank: editingStats.rank || 0,
-        points: editingStats.points || 0,
+        rank: Number(editingStats.rank) || 0,
+        points: Number(editingStats.points) || 0,
         seed: editingStats.seed || 'UNSEEDED',
         bio: editingStats.bio || '',
         prestasi_terakhir: editingStats.prestasi 
       };
 
-      if (existingStats) {
+      if (checkStats) {
         await supabase.from('atlet_stats').update(statsPayload).eq('pendaftaran_id', editingStats.id);
       } else {
         await supabase.from('atlet_stats').insert([statsPayload]);
       }
 
-      // 2. Sinkronisasi Rankings
+      // 2. SINKRONISASI KE TABEL RANKINGS (Agar tampil di Landing Page/Live Score)
       await supabase
         .from('rankings')
         .upsert({
           player_name: editingStats.nama,
           category: editingStats.kategori,
           seed: editingStats.seed,
-          total_points: editingStats.points,
-          rank: editingStats.rank?.toString()
+          total_points: Number(editingStats.points) || 0,
+          rank: editingStats.rank?.toString() || "0"
         }, { onConflict: 'player_name' });
 
+      // 3. UPDATE STATUS DI TABEL PENDAFTARAN
       await supabase.from('pendaftaran').update({ status: 'Active' }).eq('id', editingStats.id);
 
       await fetchAtlets();
@@ -147,12 +156,13 @@ export default function ManajemenAtlet() {
       setSelectedAtlet(null);
     } catch (err) {
       console.error("Update Error:", err);
-      alert("Gagal memperbarui data");
+      alert("Gagal memperbarui data. Cek koneksi atau database.");
     } finally {
       setIsSaving(false);
     }
   };
 
+  // Logic filter pencarian
   const filteredAtlets = atlets.filter(a => 
     a.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -167,7 +177,9 @@ export default function ManajemenAtlet() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans relative overflow-hidden">
       
-      {/* HEADER SECTION */}
+      {/* BACKGROUND DECORATION */}
+      <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-100 rounded-full blur-[120px] opacity-50 z-0"></div>
+      
       <div className="max-w-7xl mx-auto mb-8 relative z-10">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
           <div>
@@ -180,6 +192,7 @@ export default function ManajemenAtlet() {
             </h1>
             <p className="text-slate-500 font-medium text-sm">Dashboard kendali data profil dan performa atlet.</p>
           </div>
+          
           <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
              <div className="text-center">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Atlet</p>
@@ -190,10 +203,12 @@ export default function ManajemenAtlet() {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ranked</p>
                 <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank > 0).length}</p>
              </div>
+             <button onClick={fetchAtlets} className="p-3 bg-slate-50 hover:bg-blue-50 rounded-full transition-colors text-slate-400 hover:text-blue-600">
+                <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
+             </button>
           </div>
         </div>
 
-        {/* SEARCH BAR */}
         <div className="relative mb-10 group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={22} />
           <input 
@@ -204,7 +219,6 @@ export default function ManajemenAtlet() {
           />
         </div>
 
-        {/* ATLET GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading ? (
             <div className="col-span-full py-32 text-center">
@@ -212,8 +226,9 @@ export default function ManajemenAtlet() {
                <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Mengunduh Data Atlet...</p>
             </div>
           ) : currentItems.length === 0 ? (
-            <div className="col-span-full py-32 text-center">
-               <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Tidak ada data ditemukan</p>
+            <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+               <Users className="m-auto text-slate-200 mb-4" size={60} />
+               <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Data Atlet Masih Kosong</p>
             </div>
           ) : (
             currentItems.map((atlet) => (
@@ -226,10 +241,12 @@ export default function ManajemenAtlet() {
                   {atlet.foto_url ? (
                     <img src={atlet.foto_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={atlet.nama} />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-200"><User className="text-slate-400" size={60} /></div>
+                    <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400">
+                      <User size={60} />
+                    </div>
                   )}
                   <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase tracking-tighter">
-                    #{atlet.rank || '??'} GLOBAL
+                    #{atlet.rank || '0'} GLOBAL
                   </div>
                 </div>
                 <div className="px-2">
@@ -257,16 +274,16 @@ export default function ManajemenAtlet() {
             <button 
               onClick={() => paginate(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all group"
+              className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"
             >
               <ChevronLeft size={20} />
             </button>
-            <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto max-w-[200px] md:max-w-none">
               {[...Array(totalPages)].map((_, i) => (
                 <button
                   key={i + 1}
                   onClick={() => paginate(i + 1)}
-                  className={`w-12 h-12 rounded-xl font-black text-sm transition-all ${
+                  className={`min-w-[48px] h-12 rounded-xl font-black text-sm transition-all ${
                     currentPage === i + 1 
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
                     : "text-slate-400 hover:bg-slate-50"
@@ -287,9 +304,9 @@ export default function ManajemenAtlet() {
         )}
       </div>
 
-      {/* MODAL DETAIL */}
+      {/* MODAL DETAIL ATLET */}
       {selectedAtlet && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/5">
             <button 
               onClick={() => setSelectedAtlet(null)}
@@ -298,7 +315,8 @@ export default function ManajemenAtlet() {
               <X size={24} />
             </button>
 
-            <div className="w-full md:w-[45%] relative bg-zinc-900 overflow-hidden">
+            {/* FOTO SIDE */}
+            <div className="w-full md:w-[45%] relative bg-zinc-900 overflow-hidden min-h-[300px]">
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent z-10"></div>
               {selectedAtlet.foto_url ? (
                 <img src={selectedAtlet.foto_url} className="w-full h-full object-cover scale-105" alt={selectedAtlet.nama} />
@@ -315,6 +333,7 @@ export default function ManajemenAtlet() {
               </div>
             </div>
 
+            {/* INFO SIDE */}
             <div className="w-full md:w-[55%] p-10 md:p-16 flex flex-col justify-center">
               <div className="flex justify-between items-center mb-8">
                 <div className="flex gap-2">
@@ -333,34 +352,32 @@ export default function ManajemenAtlet() {
                 </button>
               </div>
 
-              <h2 className="text-5xl md:text-7xl font-black text-white italic uppercase tracking-tighter mb-10 leading-[0.85]">
-                {selectedAtlet.nama.split(' ')[0]}<br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white/20 to-transparent">{selectedAtlet.nama.split(' ').slice(1).join(' ')}</span>
+              <h2 className="text-5xl md:text-6xl font-black text-white italic uppercase tracking-tighter mb-10 leading-[0.85]">
+                {selectedAtlet.nama}
               </h2>
 
               <div className="grid grid-cols-2 gap-4 mb-10">
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5 hover:border-blue-500/20 transition-colors">
+                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
                     <TrendingUp className="text-blue-500 mb-3" size={24} />
                     <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Global Standing</p>
                     <p className="text-3xl font-black text-white italic leading-none">#{selectedAtlet.rank}</p>
                   </div>
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5 hover:border-amber-500/20 transition-colors">
+                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
                     <Zap className="text-amber-500 mb-3" size={24} />
                     <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Total Points</p>
                     <p className="text-3xl font-black text-white italic leading-none">{selectedAtlet.points.toLocaleString()}</p>
                   </div>
               </div>
 
-              {/* DATA LENGKAP PENDAFTARAN */}
               <div className="grid grid-cols-2 gap-8 mb-10 border-t border-white/5 pt-8">
-                 <div>
+                  <div>
                     <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Domisili</p>
                     <p className="text-white font-bold text-sm uppercase">{selectedAtlet.domisili}</p>
-                 </div>
-                 <div>
+                  </div>
+                  <div>
                     <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">WhatsApp</p>
                     <p className="text-white font-bold text-sm uppercase">{selectedAtlet.whatsapp}</p>
-                 </div>
+                  </div>
               </div>
 
               <div className="bg-blue-600/5 p-8 rounded-3xl border border-blue-600/10 relative">
@@ -374,10 +391,10 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* MODAL EDIT SECTION (Tidak ada perubahan) */}
+      {/* MODAL EDIT PERFORMA */}
       {isEditModalOpen && editingStats && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20">
+          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
             <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
               <h3 className="font-black text-2xl uppercase italic tracking-tighter">Edit <span className="text-blue-600">Performance</span></h3>
               <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full transition-all"><X size={24}/></button>
@@ -414,18 +431,17 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* NOTIFICATION TOAST (Tidak ada perubahan) */}
+      {/* NOTIFICATION TOAST */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
       }`}>
-        <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(37,99,235,0.2)] flex items-center gap-6 min-w-[380px] overflow-hidden relative">
-          <div className="absolute bottom-0 left-0 h-1 bg-blue-600" style={{ width: showSuccess ? '100%' : '0%', transition: 'width 3s linear' }} />
-          <div className="bg-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-600/40 animate-bounce">
+        <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6">
+          <div className="bg-blue-600 p-4 rounded-2xl animate-bounce">
             <Zap size={24} className="text-white fill-white" />
           </div>
           <div>
-            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1 text-nowrap">{notifMessage}</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Sync Successful</p>
+            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">{notifMessage}</h4>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Database Updated</p>
           </div>
         </div>
       </div>

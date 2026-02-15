@@ -61,41 +61,45 @@ export default function ManajemenAtlet() {
 const fetchAtlets = async () => {
   setLoading(true);
   try {
-    // 1. Ambil data pendaftaran saja
-    const { data: pendaftaran, error: pError } = await supabase
+    // 1. Ambil data pendaftaran
+    const { data: pendaftaranData, error: pError } = await supabase
       .from('pendaftaran')
       .select('*')
       .order('nama', { ascending: true });
 
     if (pError) throw pError;
 
-    // 2. Ambil data stats saja
-    const { data: stats, error: sError } = await supabase
-      .from('atlet_stats')
-      .select('*');
+    // 2. Ambil data rankings (diurutkan berdasarkan poin tertinggi)
+    const { data: rankingsData, error: rError } = await supabase
+      .from('rankings')
+      .select('*')
+      .order('total_points', { ascending: false });
 
-    if (pendaftaran) {
-      const formatted = pendaftaran.map(atlet => {
-        // Cari stats yang punya pendaftaran_id yang sama dengan id atlet ini
-        const itemStat = stats?.find(s => s.pendaftaran_id === atlet.id);
+    if (rError) throw rError;
+
+    // 3. Gabungkan data
+    if (pendaftaranData) {
+      const combined = pendaftaranData.map((atlet) => {
+        // Cari posisi ranking berdasarkan urutan poin di tabel rankings
+        const rankIndex = rankingsData?.findIndex(r => r.nama === atlet.nama) ?? -1;
+        const stats = rankingsData?.find(r => r.nama === atlet.nama);
+
         return {
           ...atlet,
-          rank: itemStat?.rank || 0,
-          points: itemStat?.points || 0,
-          seed: itemStat?.seed || 'UNSEEDED',
-          bio: itemStat?.bio || "Belum ada bio.",
-          prestasi: itemStat?.prestasi_terakhir || "REGULER"
+          // Jika ketemu di tabel rankings, index + 1 adalah posisi rank-nya
+          rank: rankIndex !== -1 ? rankIndex + 1 : 0, 
+          points: stats?.total_points || 0,
+          seed: stats?.total_points > 10000 ? 'SEED A' : 'SEED B', // Contoh logika seed sederhana
         };
       });
-      setAtlets(formatted);
+      setAtlets(combined);
     }
   } catch (err: any) {
-    console.error("DEBUG ERROR:", err.message);
+    console.error("Error fetching data:", err.message);
   } finally {
     setLoading(false);
   }
 };
-
   const handleUpdateStats = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStats || !editingStats.id) return;

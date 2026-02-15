@@ -54,7 +54,6 @@ export default function ManajemenPendaftaran() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
-  // --- FUNGSI KOMPRESI GAMBAR ---
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -68,10 +67,8 @@ export default function ManajemenPendaftaran() {
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
-
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-
           canvas.toBlob((blob) => {
             resolve(blob as Blob);
           }, 'image/jpeg', 0.8);
@@ -91,7 +88,6 @@ export default function ManajemenPendaftaran() {
       Domisili: item.domisili || '-',
       Tanggal_Daftar: item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pendaftar");
@@ -105,7 +101,6 @@ export default function ManajemenPendaftaran() {
     doc.text("LAPORAN DATA PENDAFTARAN ATLET", 14, 15);
     doc.setFontSize(10);
     doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 22);
-    
     const tableColumn = ["No", "Nama Atlet", "Gender", "Kategori", "Domisili", "WhatsApp"];
     const tableRows = filteredData.map((item, index) => [
       index + 1,
@@ -115,7 +110,6 @@ export default function ManajemenPendaftaran() {
       item.domisili || '-',
       item.whatsapp || '-'
     ]);
-
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
@@ -124,7 +118,6 @@ export default function ManajemenPendaftaran() {
       headStyles: { fillColor: [37, 99, 235], fontStyle: 'bold' },
       styles: { fontSize: 8 },
     });
-
     doc.save(`Data_Atlet_${Date.now()}.pdf`);
   };
 
@@ -158,7 +151,6 @@ export default function ManajemenPendaftaran() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // PERBAIKAN: Menambahkan safety checks agar tidak blank jika ada kolom yang null
   const filteredData = (registrants || []).filter(item => 
     (item?.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -169,13 +161,17 @@ export default function ManajemenPendaftaran() {
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const deleteOldFile = async (url: string) => {
-    if (!url) return;
+    if (!url || !url.includes('identitas-atlet')) return;
     try {
-      const fileName = url.split('/').pop();
-      if (fileName) await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
+      const parts = url.split('/');
+      const fileName = parts[parts.length - 1];
+      if (fileName) {
+        await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
+      }
     } catch (e) { console.error("Gagal hapus file lama", e); }
   };
 
+  // --- PERBAIKAN: HANDLE FILE UPLOAD ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0] || !editingItem) return;
     const file = e.target.files[0];
@@ -183,18 +179,26 @@ export default function ManajemenPendaftaran() {
     
     try {
       const compressedBlob = await compressImage(file);
-      const filePath = `identitas/${editingItem.id}-${Date.now()}.jpg`;
+      const fileExt = 'jpg';
+      const fileName = `${editingItem.id}-${Date.now()}.${fileExt}`;
+      const filePath = `identitas/${fileName}`;
 
-      if (editingItem.foto_url) await deleteOldFile(editingItem.foto_url);
-      
+      // Upload file baru ke Storage
       const { error: uploadError } = await supabase.storage
         .from('identitas-atlet')
-        .upload(filePath, compressedBlob, { contentType: 'image/jpeg' });
+        .upload(filePath, compressedBlob, { 
+          contentType: 'image/jpeg',
+          upsert: true 
+        });
 
       if (uploadError) throw uploadError;
 
+      // Ambil Public URL
       const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
-      setEditingItem({ ...editingItem, foto_url: publicUrl });
+      
+      // Update state local editingItem dengan URL baru
+      setEditingItem(prev => prev ? { ...prev, foto_url: publicUrl } : null);
+      
     } catch (error: any) { 
       alert("Gagal upload: " + error.message); 
     } finally { 
@@ -212,24 +216,32 @@ export default function ManajemenPendaftaran() {
     }
   };
 
+  // --- PERBAIKAN: HANDLE UPDATE (PASTIKAN FOTO_URL TERIKUT) ---
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingItem) return;
+    if (!editingItem || uploading) return;
+    
     setIsSaving(true);
     try {
+      // Kita ambil URL foto dari state editingItem yang terbaru
       const { error } = await supabase.from('pendaftaran').update({
         nama: (editingItem.nama || '').toUpperCase(),
         whatsapp: editingItem.whatsapp,
         domisili: editingItem.domisili,
         kategori: editingItem.kategori,
         jenis_kelamin: editingItem.jenis_kelamin, 
-        foto_url: editingItem.foto_url
+        foto_url: editingItem.foto_url // Pastikan ini terkirim
       }).eq('id', editingItem.id);
+
       if (error) throw error;
+      
       setIsEditModalOpen(false);
-      fetchData(); // Refresh data setelah update
-    } catch (error: any) { alert(error.message); } 
-    finally { setIsSaving(false); }
+      fetchData(); // Refresh list
+    } catch (error: any) { 
+      alert("Gagal menyimpan: " + error.message); 
+    } finally { 
+      setIsSaving(false); 
+    }
   };
 
   return (
@@ -384,7 +396,7 @@ export default function ManajemenPendaftaran() {
             <div className="flex gap-1.5 flex-wrap justify-center">
                 {[...Array(totalPages || 0)].map((_, i) => (
                  <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60'}`}>
-                   {i + 1}
+                    {i + 1}
                  </button>
                 ))}
             </div>
@@ -409,7 +421,7 @@ export default function ManajemenPendaftaran() {
                 <div className="relative">
                   <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
                     {editingItem.foto_url ? (
-                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" /> 
+                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
                     ) : (
                       <User size={30} className="m-auto mt-4 text-slate-200" />
                     )}
@@ -473,7 +485,7 @@ export default function ManajemenPendaftaran() {
       {previewImage && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-lg w-full">
-            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" />
+            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" alt="preview-large" />
           </div>
         </div>
       )}

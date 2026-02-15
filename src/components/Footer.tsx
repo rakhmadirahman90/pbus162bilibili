@@ -1,13 +1,52 @@
-import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
+import { supabase } from '../supabase'; // Pastikan path import sesuai dengan struktur project Anda
 
 export default function Footer() {
-  // Fungsi untuk scroll halus dengan offset (menghindari tertutup navbar)
+  // --- KODE BARU: State untuk Data Dinamis ---
+  const [config, setConfig] = useState({
+    description: 'Membina legenda masa depan dengan fasilitas standar nasional dan sport-science.',
+    address: 'Jl. Andi Makkasau No. 171, Parepare, Indonesia',
+    copyright: `© ${new Date().getFullYear()} PB US 162 Bilibili. All rights reserved.`,
+    phone: '+62 812 1902 7234',
+    email: 'info@pbus162bilibili.id'
+  });
+  const [loading, setLoading] = useState(true);
+
+  // --- KODE BARU: Fetching data dari site_settings ---
+  useEffect(() => {
+    async function loadFooterData() {
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('footer_config')
+          .single();
+
+        if (data?.footer_config) {
+          const fc = data.footer_config;
+          setConfig({
+            description: fc.description || config.description,
+            address: fc.address || config.address,
+            copyright: fc.copyright || config.copyright,
+            phone: fc.phone || config.phone,
+            email: fc.email || config.email
+          });
+        }
+      } catch (err) {
+        console.error("Error loading footer config:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadFooterData();
+  }, []);
+
+  // Fungsi scroll halus original (dipertahankan sesuai permintaan)
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
     const element = document.getElementById(id);
     if (element) {
-      const offset = 80; // Menyesuaikan tinggi navbar agar judul tidak tertutup
+      const offset = 80; 
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -26,23 +65,23 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-8 mb-12">
           
           {/* Brand & Deskripsi */}
-          <div>
+          <div className="animate-in fade-in duration-700">
             <div className="flex items-center space-x-3 mb-4">
               <img
                 src="/photo_2026-02-03_00-32-07.jpg"
                 alt="Logo PB US 162"
                 className="w-12 h-12 rounded-full object-cover border-2 border-slate-700"
               />
-              <h3 className="text-xl font-bold">PB US 162 Bilibili</h3>
+              <h3 className="text-xl font-bold italic tracking-tighter">PB US 162 <span className="text-blue-500">BILIBILI</span></h3>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Membina legenda masa depan dengan fasilitas standar nasional dan sport-science.
+              {config.description}
             </p>
           </div>
 
           {/* Navigasi Lengkap */}
           <div>
-            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Navigasi</h4>
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest text-xs">Navigasi</h4>
             <ul className="space-y-3">
               {[
                 { name: 'Beranda', id: 'home' },
@@ -56,7 +95,7 @@ export default function Footer() {
                   <a 
                     href={`#${item.id}`}
                     onClick={(e) => scrollToSection(e, item.id)}
-                    className="text-gray-400 hover:text-white hover:translate-x-2 transition-all duration-300 text-sm inline-block cursor-pointer"
+                    className="text-gray-400 hover:text-white hover:translate-x-2 transition-all duration-300 text-sm inline-block cursor-pointer font-medium"
                   >
                     {item.name}
                   </a>
@@ -65,26 +104,26 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Kontak */}
+          {/* Kontak - Terhubung dengan state dinamis */}
           <div>
-            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Kontak</h4>
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest text-xs">Hubungi Kami</h4>
             <ul className="space-y-4">
-              <li className="flex items-start space-x-3">
-                <MapPin size={20} className="text-blue-500 mt-1 shrink-0" />
+              <li className="flex items-start space-x-3 group">
+                <MapPin size={18} className="text-blue-500 mt-1 shrink-0 group-hover:scale-110 transition-transform" />
                 <span className="text-gray-400 text-sm">
-                  Jl. Andi Makkasau No. 171, Parepare, Indonesia
+                  {config.address}
                 </span>
               </li>
-              <li className="flex items-center space-x-3">
-                <Phone size={20} className="text-blue-500 shrink-0" />
-                <a href="tel:+6281219027234" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  +62 812 1902 7234
+              <li className="flex items-center space-x-3 group">
+                <Phone size={18} className="text-blue-500 shrink-0 group-hover:scale-110 transition-transform" />
+                <a href={`tel:${config.phone.replace(/\s+/g, '')}`} className="text-gray-400 hover:text-white text-sm transition-colors">
+                  {config.phone}
                 </a>
               </li>
-              <li className="flex items-center space-x-3">
-                <Mail size={20} className="text-blue-500 shrink-0" />
-                <a href="mailto:info@pbus162bilibili.id" className="text-gray-400 hover:text-white text-sm transition-colors">
-                  info@pbus162bilibili.id
+              <li className="flex items-center space-x-3 group">
+                <Mail size={18} className="text-blue-500 shrink-0 group-hover:scale-110 transition-transform" />
+                <a href={`mailto:${config.email}`} className="text-gray-400 hover:text-white text-sm transition-colors">
+                  {config.email}
                 </a>
               </li>
             </ul>
@@ -92,30 +131,35 @@ export default function Footer() {
 
           {/* Social Media */}
           <div>
-            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest">Ikuti Kami</h4>
+            <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest text-xs">Ikuti Kami</h4>
             <div className="flex space-x-4">
               {[Facebook, Instagram, Twitter, Youtube].map((Icon, index) => (
                 <a
                   key={index}
                   href="#"
-                  className="bg-slate-800 hover:bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg"
+                  className="bg-slate-800 hover:bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:-translate-y-1"
                 >
                   <Icon size={18} />
                 </a>
               ))}
             </div>
+            {/* Status Indicator saat loading data dari server */}
+            {loading && (
+              <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                <Loader2 size={10} className="animate-spin" /> Syncing Data...
+              </div>
+            )}
           </div>
 
         </div>
 
         {/* Bottom Footer */}
         <div className="border-t border-slate-800 pt-8 text-center">
-          <p className="text-gray-500 text-xs">
-            &copy; {new Date().getFullYear()} PB US 162 Bilibili. All rights reserved.
+          <p className="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+            {config.copyright}
           </p>
         </div>
       </div>
     </footer>
-    
   );
 }

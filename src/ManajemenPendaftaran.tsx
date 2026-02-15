@@ -54,7 +54,7 @@ export default function ManajemenPendaftaran() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
-  // --- FUNGSI KOMPRESI GAMBAR (BARU) ---
+  // --- FUNGSI KOMPRESI GAMBAR ---
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -64,7 +64,7 @@ export default function ManajemenPendaftaran() {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Standar optimal agar tidak pecah
+          const MAX_WIDTH = 800;
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
@@ -74,21 +74,22 @@ export default function ManajemenPendaftaran() {
 
           canvas.toBlob((blob) => {
             resolve(blob as Blob);
-          }, 'image/jpeg', 0.8); // Kualitas 80% (Seimbang tajam & ringan)
+          }, 'image/jpeg', 0.8);
         };
       };
     });
   };
 
   const exportToExcel = () => {
+    if (filteredData.length === 0) return alert("Tidak ada data untuk diekspor");
     const dataToExport = filteredData.map((item, index) => ({
       No: index + 1,
-      Nama: item.nama.toUpperCase(),
-      Gender: item.jenis_kelamin,
-      Kategori: item.kategori,
-      WhatsApp: item.whatsapp,
-      Domisili: item.domisili,
-      Tanggal_Daftar: new Date(item.created_at).toLocaleDateString('id-ID')
+      Nama: (item.nama || '').toUpperCase(),
+      Gender: item.jenis_kelamin || '-',
+      Kategori: item.kategori || '-',
+      WhatsApp: item.whatsapp || '-',
+      Domisili: item.domisili || '-',
+      Tanggal_Daftar: item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -98,6 +99,7 @@ export default function ManajemenPendaftaran() {
   };
 
   const exportToPDF = () => {
+    if (filteredData.length === 0) return alert("Tidak ada data untuk diekspor");
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("LAPORAN DATA PENDAFTARAN ATLET", 14, 15);
@@ -107,11 +109,11 @@ export default function ManajemenPendaftaran() {
     const tableColumn = ["No", "Nama Atlet", "Gender", "Kategori", "Domisili", "WhatsApp"];
     const tableRows = filteredData.map((item, index) => [
       index + 1,
-      item.nama.toUpperCase(),
-      item.jenis_kelamin,
-      item.kategori,
-      item.domisili,
-      item.whatsapp
+      (item.nama || '').toUpperCase(),
+      item.jenis_kelamin || '-',
+      item.kategori || '-',
+      item.domisili || '-',
+      item.whatsapp || '-'
     ]);
 
     autoTable(doc, {
@@ -156,9 +158,11 @@ export default function ManajemenPendaftaran() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const filteredData = registrants.filter(item => 
-    item.nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.domisili?.toLowerCase().includes(searchTerm.toLowerCase())
+  // PERBAIKAN: Menambahkan safety checks agar tidak blank jika ada kolom yang null
+  const filteredData = (registrants || []).filter(item => 
+    (item?.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -166,8 +170,10 @@ export default function ManajemenPendaftaran() {
 
   const deleteOldFile = async (url: string) => {
     if (!url) return;
-    const fileName = url.split('/').pop();
-    if (fileName) await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
+    try {
+      const fileName = url.split('/').pop();
+      if (fileName) await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
+    } catch (e) { console.error("Gagal hapus file lama", e); }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,7 +182,6 @@ export default function ManajemenPendaftaran() {
     setUploading(true);
     
     try {
-      // PROSES KOMPRESI SEBELUM UPLOAD (BARU)
       const compressedBlob = await compressImage(file);
       const filePath = `identitas/${editingItem.id}-${Date.now()}.jpg`;
 
@@ -213,7 +218,7 @@ export default function ManajemenPendaftaran() {
     setIsSaving(true);
     try {
       const { error } = await supabase.from('pendaftaran').update({
-        nama: editingItem.nama.toUpperCase(),
+        nama: (editingItem.nama || '').toUpperCase(),
         whatsapp: editingItem.whatsapp,
         domisili: editingItem.domisili,
         kategori: editingItem.kategori,
@@ -222,6 +227,7 @@ export default function ManajemenPendaftaran() {
       }).eq('id', editingItem.id);
       if (error) throw error;
       setIsEditModalOpen(false);
+      fetchData(); // Refresh data setelah update
     } catch (error: any) { alert(error.message); } 
     finally { setIsSaving(false); }
   };
@@ -293,6 +299,8 @@ export default function ManajemenPendaftaran() {
               <tbody className="divide-y divide-slate-50">
                 {loading && registrants.length === 0 ? (
                   <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold uppercase text-xs">Memuat Data...</td></tr>
+                ) : currentItems.length === 0 ? (
+                  <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold uppercase text-xs">Data Tidak Ditemukan</td></tr>
                 ) : currentItems.map((item, index) => (
                   <tr key={item.id} className="hover:bg-blue-50/50 even:bg-slate-50/20 transition-all duration-150 group">
                     <td className="pl-6 pr-2 py-2 text-center">
@@ -311,41 +319,41 @@ export default function ManajemenPendaftaran() {
                             <img 
                               src={item.foto_url} 
                               className="w-full h-full object-cover object-top" 
-                              style={{ imageRendering: '-webkit-optimize-contrast' }} // Agar tajam di tabel
-                              alt={item.nama} 
+                              style={{ imageRendering: '-webkit-optimize-contrast' }} 
+                              alt={item.nama || 'atlet'} 
                             />
                           ) : (
                             <User className="m-auto mt-1.5 text-slate-400" size={18} />
                           )}
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-800 text-xs uppercase leading-tight">{item.nama}</h4>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">ID: {item.id.slice(0,6)}</span>
+                          <h4 className="font-bold text-slate-800 text-xs uppercase leading-tight">{item.nama || 'No Name'}</h4>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">ID: {item.id ? item.id.slice(0,6) : 'N/A'}</span>
                         </div>
                       </div>
                     </td>
 
                     <td className="px-4 py-2">
                       <span className={`text-[10px] font-bold uppercase ${item.jenis_kelamin === 'Putra' ? 'text-blue-600' : 'text-rose-500'}`}>
-                        {item.jenis_kelamin}
+                        {item.jenis_kelamin || '-'}
                       </span>
                     </td>
 
                     <td className="px-4 py-2">
                       <span className="inline-flex items-center bg-blue-600 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase italic shadow-sm">
-                        {item.kategori}
+                        {item.kategori || 'UMUM'}
                       </span>
                     </td>
 
                     <td className="px-4 py-2 text-center">
-                      <a href={`https://wa.me/${item.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-bold text-slate-700 hover:text-green-600 bg-white border border-slate-100 px-3 py-1 rounded-lg transition-all text-[11px]">
-                        <Phone size={12} className="text-green-500" /> {item.whatsapp}
+                      <a href={`https://wa.me/${(item.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-bold text-slate-700 hover:text-green-600 bg-white border border-slate-100 px-3 py-1 rounded-lg transition-all text-[11px]">
+                        <Phone size={12} className="text-green-500" /> {item.whatsapp || '-'}
                       </a>
                     </td>
 
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-1.5 font-bold text-slate-600 uppercase text-[10px]">
-                        <MapPin size={12} className="text-rose-500" /> {item.domisili}
+                        <MapPin size={12} className="text-rose-500" /> {item.domisili || '-'}
                       </div>
                     </td>
 
@@ -373,8 +381,8 @@ export default function ManajemenPendaftaran() {
             <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors">
               <ChevronLeft size={16} />
             </button>
-            <div className="flex gap-1.5">
-                {[...Array(totalPages)].map((_, i) => (
+            <div className="flex gap-1.5 flex-wrap justify-center">
+                {[...Array(totalPages || 0)].map((_, i) => (
                  <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60'}`}>
                    {i + 1}
                  </button>
@@ -401,7 +409,7 @@ export default function ManajemenPendaftaran() {
                 <div className="relative">
                   <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
                     {editingItem.foto_url ? (
-                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" style={{ imageRendering: 'auto' }} /> 
+                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" /> 
                     ) : (
                       <User size={30} className="m-auto mt-4 text-slate-200" />
                     )}
@@ -414,7 +422,7 @@ export default function ManajemenPendaftaran() {
                 </div>
                 <div className="flex-1 space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</label>
-                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" value={editingItem.nama} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" value={editingItem.nama || ''} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
                 </div>
               </div>
 
@@ -437,17 +445,17 @@ export default function ManajemenPendaftaran() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
-                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.whatsapp} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.whatsapp || ''} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
-                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.kategori} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
+                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.kategori || ''} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
                     {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2 space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili</label>
-                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" value={editingItem.domisili} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" value={editingItem.domisili || ''} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
                 </div>
               </div>
               <div className="pt-2">
@@ -465,7 +473,7 @@ export default function ManajemenPendaftaran() {
       {previewImage && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-lg w-full">
-            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" style={{ imageRendering: 'auto' }} />
+            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" />
           </div>
         </div>
       )}

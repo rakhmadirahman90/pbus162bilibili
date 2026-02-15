@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors, Plus
 } from 'lucide-react';
 
+// Standar poin berdasarkan Seed
 const SEED_STANDARDS: Record<string, number> = {
   'SEED A': 10000,
   'SEED B+': 8500,
@@ -49,6 +50,8 @@ export default function ManajemenAtlet() {
   });
   
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- STATES FOR IMAGE CROPPER ---
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -62,6 +65,10 @@ export default function ManajemenAtlet() {
     fetchAtlets();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const fetchAtlets = async () => {
     setLoading(true);
     try {
@@ -71,6 +78,7 @@ export default function ManajemenAtlet() {
         .order('nama', { ascending: true });
       
       if (error) throw error;
+
       if (data) {
         const formattedData = data.map((item: any) => ({
           ...item,
@@ -89,6 +97,7 @@ export default function ManajemenAtlet() {
     }
   };
 
+  // Otomatis update poin saat seed dipilih
   const handleSeedUpdate = (newSeed: string, target: 'edit' | 'add') => {
     const standardizedPoints = SEED_STANDARDS[newSeed.toUpperCase()] ?? 0;
     if (target === 'edit' && editingStats) {
@@ -110,25 +119,18 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- PERBAIKAN FUNGSI CROP (MENGGUNAKAN BUCKET identitas_atlet) ---
   const executeCropAndUpload = async () => {
-    if (!croppedAreaPixels || !imageToCrop) {
-      alert("Data tidak lengkap untuk proses crop");
-      return;
-    }
+    if (!croppedAreaPixels || !imageToCrop) return;
     
     setIsCropping(true);
     try {
       const image = new Image();
       image.src = imageToCrop;
-      await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = reject;
-      });
+      await new Promise(res => image.onload = res);
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error("Gagal menginisialisasi canvas");
+      if (!ctx) return;
 
       canvas.width = croppedAreaPixels.width;
       canvas.height = croppedAreaPixels.height;
@@ -142,19 +144,19 @@ export default function ManajemenAtlet() {
       );
 
       const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.9));
-      if (!blob) throw new Error("Gagal membuat file gambar");
+      if (!blob) return;
 
       const fileName = `${Date.now()}-atlet.jpg`;
       const filePath = `atlet_photos/${fileName}`;
 
-      // UPLOAD KE BUCKET identitas_atlet
+      // --- MENGGUNAKAN BUCKET "foto" ---
       const { error: uploadError } = await supabase.storage
-        .from('identitas_atlet') 
+        .from('foto') 
         .upload(filePath, blob);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage.from('identitas_atlet').getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage.from('foto').getPublicUrl(filePath);
 
       if (isAddModalOpen) {
         setNewAtlet({ ...newAtlet, foto_url: publicUrl });
@@ -164,13 +166,13 @@ export default function ManajemenAtlet() {
       }
 
       setImageToCrop(null);
-      setNotifMessage("Foto Berhasil Diproses!");
+      setNotifMessage("Foto Berhasil Diupload!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      alert(`Error: ${err.message || "Gagal memproses gambar"}`);
+      alert("Gagal memproses gambar. Pastikan bucket 'foto' sudah ada dan Publik.");
     } finally {
       setIsCropping(false);
     }
@@ -207,7 +209,7 @@ export default function ManajemenAtlet() {
       }, { onConflict: 'player_name' });
 
       await fetchAtlets();
-      setNotifMessage("Data Atlet Disinkronkan!");
+      setNotifMessage("Data Berhasil Diperbarui!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       setIsEditModalOpen(false);
@@ -250,7 +252,7 @@ export default function ManajemenAtlet() {
       await fetchAtlets();
       setIsAddModalOpen(false);
       setNewAtlet({ nama: '', kategori: "MEN'S SINGLE", seed: 'UNSEEDED', points: 0, rank: 0, bio: '', prestasi: 'CONTENDER', foto_url: '' });
-      setNotifMessage("Atlet Baru Ditambahkan!");
+      setNotifMessage("Atlet Berhasil Ditambahkan!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
@@ -261,13 +263,14 @@ export default function ManajemenAtlet() {
     }
   };
 
-  const filteredAtlets = atlets.filter(a => a.nama.toLowerCase().includes(searchTerm.toLowerCase()));
-  const currentItems = filteredAtlets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(filteredAtlets.length / itemsPerPage);
+  const currentItems = atlets.filter(a => a.nama.toLowerCase().includes(searchTerm.toLowerCase()))
+                            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(atlets.filter(a => a.nama.toLowerCase().includes(searchTerm.toLowerCase())).length / itemsPerPage);
 
   return (
     <div className="h-full flex flex-col bg-[#f8fafc] font-sans relative overflow-hidden">
-      {/* HEADER */}
+      
+      {/* HEADER SECTION */}
       <div className="flex-shrink-0 p-4 md:p-8 pb-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
@@ -283,7 +286,7 @@ export default function ManajemenAtlet() {
             <div className="flex items-center gap-4">
                <button 
                 onClick={() => setIsAddModalOpen(true)}
-                className="bg-blue-600 hover:bg-slate-900 text-white px-6 py-4 rounded-2xl flex items-center gap-3 font-black text-[10px] tracking-widest transition-all shadow-lg"
+                className="bg-blue-600 hover:bg-slate-900 text-white px-6 py-4 rounded-2xl flex items-center gap-3 font-black text-[10px] tracking-widest transition-all shadow-lg shadow-blue-200"
                >
                  <Plus size={18} /> TAMBAH ATLET
                </button>
@@ -308,7 +311,7 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* GRID KONTEN */}
+      {/* ATHLETE GRID */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-20">
         <div className="max-w-7xl mx-auto pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -329,7 +332,7 @@ export default function ManajemenAtlet() {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-slate-200"><User className="text-slate-400" size={60} /></div>
                   )}
-                  <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase">
+                  <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase tracking-tighter">
                     #{atlet.rank || '??'} GLOBAL
                   </div>
                 </div>
@@ -343,7 +346,7 @@ export default function ManajemenAtlet() {
                     </div>
                     <div className="text-right">
                       <p className="text-[8px] font-black text-slate-400 uppercase">Seed</p>
-                      <p className="text-[10px] font-black text-emerald-600 uppercase">{atlet.seed}</p>
+                      <p className="text-[10px] font-black text-emerald-600 uppercase italic">{atlet.seed}</p>
                     </div>
                   </div>
                 </div>
@@ -354,13 +357,13 @@ export default function ManajemenAtlet() {
           {/* PAGINATION */}
           {!loading && totalPages > 1 && (
             <div className="flex justify-center items-center gap-3 mt-16 pb-10">
-              <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-4 bg-white rounded-2xl shadow-sm disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft size={20} /></button>
+              <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-4 bg-white rounded-2xl shadow-sm hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft size={20} /></button>
               <div className="flex gap-2 bg-white p-2 rounded-2xl border border-slate-100">
                 {[...Array(totalPages)].map((_, i) => (
                   <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-12 h-12 rounded-xl font-black text-sm ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>{i + 1}</button>
                 ))}
               </div>
-              <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-4 bg-white rounded-2xl shadow-sm disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"><ChevronRight size={20} /></button>
+              <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-4 bg-white rounded-2xl shadow-sm hover:bg-blue-600 hover:text-white transition-all"><ChevronRight size={20} /></button>
             </div>
           )}
         </div>
@@ -419,7 +422,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* MODAL EDIT / TAMBAH ATLET */}
+      {/* FORM MODAL (ADD & EDIT) */}
       {(isEditModalOpen || isAddModalOpen) && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 my-8">
@@ -440,7 +443,7 @@ export default function ManajemenAtlet() {
                    </label>
                 </div>
                 <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-relaxed">Tips: Poin akan menyesuaikan otomatis saat kategori Seed diubah.</p>
+                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-relaxed">Poin akan menyesuaikan otomatis sesuai kategori Seed.</p>
                 </div>
               </div>
               <form onSubmit={isAddModalOpen ? handleAddAtlet : handleUpdateStats} className="space-y-4">
@@ -457,7 +460,7 @@ export default function ManajemenAtlet() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>
-                    <input type="number" className="w-full px-5 py-3 bg-blue-50 text-blue-700 rounded-xl border-2 border-blue-100 font-black" value={isAddModalOpen ? newAtlet.points : editingStats?.points} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, points: parseInt(e.target.value)}) : setEditingStats({...editingStats!, points: parseInt(e.target.value)})} />
+                    <input type="number" className="w-full px-5 py-3 bg-blue-50 text-blue-700 rounded-xl border-2 border-blue-100 font-black" value={isAddModalOpen ? newAtlet.points : editingStats?.points} readOnly />
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -472,17 +475,6 @@ export default function ManajemenAtlet() {
                       ))}
                     </select>
                 </div>
-                {isAddModalOpen && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Tanding</label>
-                    <select className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={newAtlet.kategori} onChange={e => setNewAtlet({...newAtlet, kategori: e.target.value})}>
-                      <option value="MEN'S SINGLE">MEN'S SINGLE</option>
-                      <option value="WOMEN'S SINGLE">WOMEN'S SINGLE</option>
-                      <option value="MEN'S DOUBLE">MEN'S DOUBLE</option>
-                      <option value="WOMEN'S DOUBLE">WOMEN'S DOUBLE</option>
-                    </select>
-                  </div>
-                )}
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievements</label>
                     <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black italic uppercase" value={isAddModalOpen ? newAtlet.prestasi : editingStats?.prestasi} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, prestasi: e.target.value}) : setEditingStats({...editingStats!, prestasi: e.target.value})} />
@@ -497,7 +489,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* CROP MODAL (Z-INDEX TERTINGGI 300) */}
+      {/* CROP MODAL */}
       {imageToCrop && (
         <div className="fixed inset-0 z-[300] bg-slate-950 flex flex-col items-center justify-center p-6 backdrop-blur-2xl">
            <div className="w-full max-w-2xl relative aspect-[3/4] bg-zinc-900 rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
@@ -531,7 +523,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* NOTIFICATION (Z-INDEX 400) */}
+      {/* SUCCESS NOTIFICATION */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[400] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
         <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6 min-w-[380px] overflow-hidden relative">
           <div className="absolute bottom-0 left-0 h-1 bg-blue-600" style={{ width: showSuccess ? '100%' : '0%', transition: 'width 3s linear' }} />

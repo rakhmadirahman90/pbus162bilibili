@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Globe, ChevronDown, Menu, X, MapPin, UserPlus } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
@@ -22,42 +22,23 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     default_lang: 'ID'
   });
 
-  useEffect(() => {
-    fetchNavSettings();
-    fetchBrandingSettings();
-    
-    const navSubscription = supabase
-      .channel('navbar_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'navbar_settings' }, () => {
-        fetchNavSettings();
-      })
-      .subscribe();
-
-    const brandSubscription = supabase
-      .channel('brand_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, () => {
-        fetchBrandingSettings();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(navSubscription);
-      supabase.removeChannel(brandSubscription);
-    };
+  // Fungsi Fetching (Dibungkus useCallback agar stabil)
+  const fetchNavSettings = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('navbar_settings')
+        .select('*')
+        .order('order_index', { ascending: true });
+      
+      if (!error && data) {
+        setNavData(data);
+      }
+    } catch (err) {
+      console.error("Fetch Nav Error:", err);
+    }
   }, []);
 
-  const fetchNavSettings = async () => {
-    const { data, error } = await supabase
-      .from('navbar_settings')
-      .select('*')
-      .order('order_index', { ascending: true });
-    
-    if (!error && data) {
-      setNavData(data);
-    }
-  };
-
-  const fetchBrandingSettings = async () => {
+  const fetchBrandingSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('site_settings')
@@ -78,28 +59,49 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     } catch (err) {
       console.error("Error fetching branding:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNavSettings();
+    fetchBrandingSettings();
+    
+    // Realtime Subscription untuk perubahan Navbar
+    const navSubscription = supabase
+      .channel('navbar_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'navbar_settings' }, () => {
+        fetchNavSettings();
+      })
+      .subscribe();
+
+    // Realtime Subscription untuk perubahan Branding
+    const brandSubscription = supabase
+      .channel('brand_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, () => {
+        fetchBrandingSettings();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(navSubscription);
+      supabase.removeChannel(brandSubscription);
+    };
+  }, [fetchNavSettings, fetchBrandingSettings]);
 
   const getSubMenus = (parentId: string) => {
     return navData.filter(item => item.parent_id === parentId);
   };
 
-  // --- LOGIKA NAVIGASI TOTAL (IMPROVED FOR SUBMENUS) ---
+  // --- LOGIKA NAVIGASI TOTAL (IMPROVED) ---
   const handleNavClick = (path: string, subPath?: string) => {
-    // 1. Tutup semua UI Menu
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
 
-    // 2. Tentukan ID Target
-    // Jika ada subPath (seperti 'sejarah'), gunakan subPath. Jika tidak, gunakan path.
     const targetId = subPath || path;
     
-    // 3. Eksekusi Scroll Smooth
-    // Kita beri sedikit delay agar menu tertutup dulu sebelum scroll dimulai
     setTimeout(() => {
       const element = document.getElementById(targetId);
       if (element) {
-        const offset = 90; // Offset sedikit lebih besar dari tinggi navbar agar tidak mepet
+        const offset = 90;
         const bodyRect = document.body.getBoundingClientRect().top;
         const elementRect = element.getBoundingClientRect().top;
         const elementPosition = elementRect - bodyRect;
@@ -112,12 +114,10 @@ export default function Navbar({ onNavigate }: NavbarProps) {
       }
     }, 100);
 
-    // 4. Jalankan fungsi navigasi bawaan agar state aplikasi sinkron
     onNavigate(path, subPath);
 
-    // 5. Trigger event khusus untuk filter Atlet (Senior/Muda)
+    // Trigger filter untuk komponen Atlet jika diperlukan
     if (path === 'atlet' && subPath) {
-      // Pastikan CustomEvent dikirim agar komponen Atlet menangkap filternya
       const event = new CustomEvent('filterAtlet', { detail: subPath });
       window.dispatchEvent(event);
     }
@@ -203,7 +203,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             )
           ))}
 
-          {/* ACTION BUTTONS */}
+          {/* ACTION BUTTONS (Kontak & Pendaftaran) */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('contact-action')}
@@ -231,7 +231,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
           {/* LANG PICKER */}
           <div className="relative h-20 flex items-center">
-             <button className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10">
+             <button className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
                 <Globe size={14} className="text-blue-400" />
                 <span className="text-[10px] font-black">{currentLang}</span>
              </button>
@@ -239,23 +239,23 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         </div>
 
         {/* MOBILE TOGGLE */}
-        <button className="md:hidden p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+        <button className="md:hidden p-2 text-slate-300 hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </div>
 
-      {/* --- MOBILE MENU --- */}
+      {/* --- MOBILE MENU (OVERLAY) --- */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 animate-in slide-in-from-top duration-300 overflow-y-auto max-h-[calc(100vh-80px)]">
+        <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 animate-in slide-in-from-top duration-300 overflow-y-auto max-h-[calc(100vh-80px)] shadow-2xl">
           <div className="flex flex-col p-6 gap-4">
             {navData.filter(item => !item.parent_id).map((menu) => (
               <React.Fragment key={menu.id}>
                 <button 
                   onClick={() => menu.type !== 'dropdown' ? handleNavClick(menu.path) : (activeDropdown === menu.id ? setActiveDropdown(null) : setActiveDropdown(menu.id))}
-                  className="mobile-nav-link text-left flex justify-between items-center"
+                  className="mobile-nav-link text-left flex justify-between items-center py-2"
                 >
                   {menu.label}
-                  {menu.type === 'dropdown' && <ChevronDown size={16} />}
+                  {menu.type === 'dropdown' && <ChevronDown size={16} className={activeDropdown === menu.id ? 'rotate-180 transition-transform' : 'transition-transform'} />}
                 </button>
                 {(menu.type === 'dropdown' && activeDropdown === menu.id) && (
                   <div className="flex flex-col gap-3 pl-4 border-l border-blue-500/30 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
@@ -263,7 +263,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
                       <button 
                         key={sub.id} 
                         onClick={() => handleNavClick(menu.path, sub.path)} 
-                        className="mobile-sub-link"
+                        className="mobile-sub-link py-1"
                       >
                         {sub.label}
                       </button>
@@ -273,22 +273,85 @@ export default function Navbar({ onNavigate }: NavbarProps) {
                 <div className="h-px bg-white/5" />
               </React.Fragment>
             ))}
-            <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-left text-blue-400">Hubungi Kami</button>
-            <button onClick={() => handleNavClick('register')} className="bg-blue-600 p-3 rounded-lg font-bold text-center">Daftar Sekarang</button>
+            
+            {/* Mobile Contact & Action */}
+            <div className="flex flex-col gap-4 mt-2">
+              <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-left text-blue-400">Hubungi Kami</button>
+              <button 
+                onClick={() => handleNavClick('register')} 
+                className="bg-blue-600 hover:bg-blue-500 p-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 shadow-lg shadow-blue-900/20"
+              >
+                Daftar Sekarang
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* STYLES */}
       <style>{`
-        .nav-link { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #cbd5e1; background: none; border: none; cursor: pointer; }
+        .nav-link { 
+          font-size: 11px; 
+          font-weight: 700; 
+          text-transform: uppercase; 
+          letter-spacing: 0.15em; 
+          color: #cbd5e1; 
+          background: none; 
+          border: none; 
+          cursor: pointer; 
+          position: relative;
+        }
         .nav-link:hover { color: #3b82f6; }
-        .dropdown-container { position: absolute; top: 80%; width: 14rem; padding-top: 1rem; animation: dropdownFade 0.2s ease-out; z-index: 110; }
-        .dropdown-content { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); }
-        .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #e2e8f0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); background: none; transition: 0.2s; cursor: pointer; }
-        .dropdown-item:hover { background: #2563eb; color: white; }
-        .mobile-nav-link { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #f8fafc; }
-        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; padding: 5px 0; }
-        @keyframes dropdownFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .nav-link::after {
+          content: '';
+          position: absolute;
+          bottom: -4px;
+          left: 0;
+          width: 0;
+          height: 2px;
+          background: #3b82f6;
+          transition: width 0.3s;
+        }
+        .nav-link:hover::after { width: 100%; }
+
+        .dropdown-container { 
+          position: absolute; 
+          top: 80%; 
+          width: 14rem; 
+          padding-top: 1rem; 
+          animation: dropdownFade 0.2s ease-out; 
+          z-index: 110; 
+        }
+        .dropdown-content { 
+          background: #1e293b; 
+          border: 1px solid #334155; 
+          border-radius: 1rem; 
+          overflow: hidden; 
+          box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); 
+        }
+        .dropdown-item { 
+          width: 100%; 
+          text-align: left; 
+          padding: 1rem 1.5rem; 
+          font-size: 10px; 
+          font-weight: 700; 
+          text-transform: uppercase; 
+          color: #e2e8f0; 
+          border-bottom: 1px solid rgba(51, 65, 85, 0.2); 
+          background: none; 
+          transition: 0.2s; 
+          cursor: pointer; 
+        }
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover { background: #2563eb; color: white; padding-left: 1.75rem; }
+
+        .mobile-nav-link { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #f8fafc; letter-spacing: 0.05em; }
+        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+        
+        @keyframes dropdownFade { 
+          from { opacity: 0; transform: translateY(8px); } 
+          to { opacity: 1; transform: translateY(0); } 
+        }
       `}</style>
     </nav>
   );

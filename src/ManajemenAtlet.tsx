@@ -49,18 +49,12 @@ export default function ManajemenAtlet() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
-      // PERBAIKAN: Memastikan semua kolom diambil termasuk foto_url
+      // 1. Ambil data dari tabel pendaftaran
+      // 2. Lakukan JOIN ke tabel atlet_stats untuk data performa
       const { data, error } = await supabase
         .from('pendaftaran')
         .select(`
-          id,
-          nama,
-          whatsapp,
-          kategori,
-          domisili,
-          foto_url,
-          jenis_kelamin,
-          status,
+          *,
           atlet_stats (
             rank,
             points,
@@ -74,14 +68,15 @@ export default function ManajemenAtlet() {
       if (error) throw error;
 
       if (data) {
+        // MAPPING DATA: Menggabungkan data pendaftaran dengan data stats dari array join
         const formattedData = data.map((item: any) => ({
           ...item,
-          // PERBAIKAN: Mapping data dari array atlet_stats (Supabase return array untuk join)
+          // Mengambil data dari array atlet_stats (index 0) jika ada, jika tidak gunakan default
           rank: item.atlet_stats?.[0]?.rank || 0,
           points: item.atlet_stats?.[0]?.points || 0,
           seed: item.atlet_stats?.[0]?.seed || 'UNSEEDED',
-          bio: item.atlet_stats?.[0]?.bio || "Data profil belum dilengkapi.",
-          prestasi: item.atlet_stats?.[0]?.prestasi_terakhir || "CONTENDER"
+          bio: item.atlet_stats?.[0]?.bio || "Profil atlet profesional.",
+          prestasi: item.atlet_stats?.[0]?.prestasi_terakhir || "NEW CONTENDER"
         }));
         setAtlets(formattedData);
       }
@@ -98,12 +93,12 @@ export default function ManajemenAtlet() {
     
     setIsSaving(true);
     try {
-      // 1. Update ke atlet_stats (Pastikan kolom sesuai gambar database sebelumnya)
+      // 1. Cek apakah record sudah ada di atlet_stats
       const { data: existingStats } = await supabase
         .from('atlet_stats')
         .select('id')
         .eq('pendaftaran_id', editingStats.id)
-        .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika kosong
+        .maybeSingle();
 
       const statsPayload = {
         pendaftaran_id: editingStats.id,
@@ -111,18 +106,17 @@ export default function ManajemenAtlet() {
         points: editingStats.points,
         seed: editingStats.seed,
         bio: editingStats.bio,
-        // Kolom di database Anda adalah prestasi_terakhir (bukan prestasi)
         prestasi_terakhir: editingStats.prestasi 
       };
 
+      // Simpan/Update ke atlet_stats
       if (existingStats) {
         await supabase.from('atlet_stats').update(statsPayload).eq('pendaftaran_id', editingStats.id);
       } else {
         await supabase.from('atlet_stats').insert([statsPayload]);
       }
 
-      // 2. INTEGRASI KE TABEL RANKINGS
-      // Sesuai diskusi sebelumnya: player_name adalah kunci sinkronisasi
+      // 2. Sinkronisasi ke tabel Rankings (untuk Landing Page)
       await supabase
         .from('rankings')
         .upsert({
@@ -130,12 +124,13 @@ export default function ManajemenAtlet() {
           category: editingStats.kategori,
           seed: editingStats.seed,
           total_points: editingStats.points,
-          rank: editingStats.rank?.toString() // Sinkronisasi rank ke tabel rankings
+          rank: editingStats.rank?.toString()
         }, { onConflict: 'player_name' });
 
-      // 3. Update status pendaftaran
-      await supabase.from('pendaftaran').update({ status: editingStats.status || 'Active' }).eq('id', editingStats.id);
+      // 3. Update status pendaftaran secara opsional
+      await supabase.from('pendaftaran').update({ status: 'Active' }).eq('id', editingStats.id);
 
+      // REFRESH DATA
       await fetchAtlets();
       
       setNotifMessage("Data Terintegrasi!");
@@ -146,7 +141,7 @@ export default function ManajemenAtlet() {
       setSelectedAtlet(null);
     } catch (err) {
       console.error("Update Error:", err);
-      alert("Gagal sinkronisasi data");
+      alert("Gagal memperbarui data");
     } finally {
       setIsSaving(false);
     }
@@ -166,7 +161,7 @@ export default function ManajemenAtlet() {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans relative overflow-hidden">
       
-      {/* HEADER STATS */}
+      {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-8 relative z-10">
         <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
           <div>
@@ -177,22 +172,22 @@ export default function ManajemenAtlet() {
             <h1 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter">
               Manajemen <span className="text-blue-600">Atlet</span>
             </h1>
-            <p className="text-slate-500 font-medium text-sm">Kelola data prestasi dan profil profesional atlet secara realtime.</p>
+            <p className="text-slate-500 font-medium text-sm">Manajemen pendaftaran dan prestasi atlet dalam satu dashboard.</p>
           </div>
           <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
              <div className="text-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Atlet</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Registrasi</p>
                 <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
              </div>
              <div className="w-[1px] h-10 bg-slate-100"></div>
              <div className="text-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
-                <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aktif</p>
+                <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.points > 0).length}</p>
              </div>
           </div>
         </div>
 
-        {/* SEARCH BAR */}
+        {/* SEARCH */}
         <div className="relative mb-10 group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={22} />
           <input 
@@ -208,7 +203,7 @@ export default function ManajemenAtlet() {
           {loading ? (
             <div className="col-span-full py-32 text-center">
                <Loader2 className="animate-spin m-auto text-blue-600 mb-4" size={40} />
-               <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Mengakses Server...</p>
+               <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Menyinkronkan Data...</p>
             </div>
           ) : currentItems.map((atlet) => (
             <div 
@@ -217,7 +212,6 @@ export default function ManajemenAtlet() {
               className="bg-white p-5 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group border border-slate-100 relative overflow-hidden"
             >
               <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden mb-5 bg-slate-100 shadow-inner">
-                {/* PERBAIKAN: Menampilkan foto_url dari pendaftaran */}
                 {atlet.foto_url ? (
                   <img src={atlet.foto_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={atlet.nama} />
                 ) : (
@@ -345,6 +339,18 @@ export default function ManajemenAtlet() {
                   </div>
               </div>
 
+              {/* DATA TAMBAHAN DARI PENDAFTARAN */}
+              <div className="grid grid-cols-2 gap-8 mb-10 border-t border-white/5 pt-8">
+                 <div>
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Domisili</p>
+                    <p className="text-white font-bold text-sm uppercase">{selectedAtlet.domisili}</p>
+                 </div>
+                 <div>
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Kontak</p>
+                    <p className="text-white font-bold text-sm uppercase">{selectedAtlet.whatsapp}</p>
+                 </div>
+              </div>
+
               <div className="bg-blue-600/5 p-8 rounded-3xl border border-blue-600/10 relative">
                   <div className="absolute -top-3 left-6 px-3 bg-blue-600 text-[9px] font-black uppercase tracking-widest italic rounded text-white py-1">Athlete Bio</div>
                   <p className="text-slate-400 text-sm leading-relaxed italic font-medium">
@@ -396,7 +402,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* SUCCESS NOTIFICATION */}
+      {/* NOTIFICATION */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
       }`}>
@@ -407,17 +413,11 @@ export default function ManajemenAtlet() {
           </div>
           <div>
             <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1 text-nowrap">{notifMessage}</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Connected to Rankings System</p>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Sync Successful</p>
           </div>
         </div>
       </div>
 
-      <style>{`
-        @keyframes progress {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-      `}</style>
     </div>
   );
 }

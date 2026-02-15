@@ -48,19 +48,14 @@ export default function ManajemenAtlet() {
 
   const fetchAtlets = async () => {
     setLoading(true);
+    console.log("🔄 Memulai sinkronisasi data dari Supabase...");
+    
     try {
-      // PERBAIKAN: Melakukan join tabel secara menyeluruh
+      // PERBAIKAN: Query diperjelas dan menambahkan pengecekan error yang lebih detail
       const { data, error } = await supabase
         .from('pendaftaran')
         .select(`
-          id,
-          nama,
-          whatsapp,
-          kategori,
-          domisili,
-          foto_url,
-          jenis_kelamin,
-          status,
+          *,
           atlet_stats (
             rank,
             points,
@@ -71,12 +66,17 @@ export default function ManajemenAtlet() {
         `)
         .order('nama', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Supabase Error:", error.message);
+        throw error;
+      }
 
       if (data) {
-        // LOGIKA FALLBACK: Memastikan data yang stats-nya kosong tetap tampil dengan default value
+        console.log("✅ Data mentah berhasil ditarik:", data.length, "baris ditemukan.");
+        
         const formattedData = data.map((item: any) => {
-          const stats = item.atlet_stats && item.atlet_stats.length > 0 ? item.atlet_stats[0] : null;
+          // Supabase return atlet_stats sebagai array karena relasi 1-to-many atau many-to-one
+          const stats = Array.isArray(item.atlet_stats) ? item.atlet_stats[0] : item.atlet_stats;
           
           return {
             id: item.id,
@@ -87,18 +87,22 @@ export default function ManajemenAtlet() {
             foto_url: item.foto_url || '',
             jenis_kelamin: item.jenis_kelamin || '-',
             status: item.status || 'Inactive',
-            // Default stats jika di database belum ada entry di tabel atlet_stats
-            rank: stats?.rank || 0,
-            points: stats?.points || 0,
-            seed: stats?.seed || 'UNSEEDED',
-            bio: stats?.bio || "Profil atlet profesional belum dilengkapi.",
-            prestasi: stats?.prestasi_terakhir || "NEW CONTENDER"
+            // Gunakan optional chaining dan fallback yang aman
+            rank: stats?.rank ?? 0,
+            points: stats?.points ?? 0,
+            seed: stats?.seed ?? 'UNSEEDED',
+            bio: stats?.bio ?? "Profil atlet profesional belum dilengkapi.",
+            prestasi: stats?.prestasi_terakhir ?? "NEW CONTENDER"
           };
         });
+
+        console.log("📊 Data terformat:", formattedData);
         setAtlets(formattedData);
       }
     } catch (err) {
-      console.error("Fetch Error:", err);
+      console.error("❌ Critical Fetch Error:", err);
+      // Cek apakah tabel pendaftaran benar-benar ada
+      alert("Gagal mengambil data. Pastikan tabel 'pendaftaran' tersedia di Supabase.");
     } finally {
       setLoading(false);
     }
@@ -110,7 +114,7 @@ export default function ManajemenAtlet() {
     
     setIsSaving(true);
     try {
-      // 1. UPSERT KE ATLET_STATS (Cek pendaftaran_id)
+      // 1. UPSERT KE ATLET_STATS
       const { data: checkStats } = await supabase
         .from('atlet_stats')
         .select('id')
@@ -132,7 +136,7 @@ export default function ManajemenAtlet() {
         await supabase.from('atlet_stats').insert([statsPayload]);
       }
 
-      // 2. SINKRONISASI KE TABEL RANKINGS (Agar tampil di Landing Page/Live Score)
+      // 2. SINKRONISASI KE TABEL RANKINGS
       await supabase
         .from('rankings')
         .upsert({
@@ -162,7 +166,6 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // Logic filter pencarian
   const filteredAtlets = atlets.filter(a => 
     a.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -176,8 +179,6 @@ export default function ManajemenAtlet() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans relative overflow-hidden">
-      
-      {/* BACKGROUND DECORATION */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-100 rounded-full blur-[120px] opacity-50 z-0"></div>
       
       <div className="max-w-7xl mx-auto mb-8 relative z-10">
@@ -228,7 +229,8 @@ export default function ManajemenAtlet() {
           ) : currentItems.length === 0 ? (
             <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
                <Users className="m-auto text-slate-200 mb-4" size={60} />
-               <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Data Atlet Masih Kosong</p>
+               <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Data Tidak Ditemukan</p>
+               <button onClick={fetchAtlets} className="mt-4 text-blue-600 font-bold text-xs uppercase tracking-widest hover:underline">Refresh Database</button>
             </div>
           ) : (
             currentItems.map((atlet) => (
@@ -268,7 +270,6 @@ export default function ManajemenAtlet() {
           )}
         </div>
 
-        {/* PAGINATION */}
         {!loading && totalPages > 1 && (
           <div className="flex justify-center items-center gap-3 mt-16">
             <button 
@@ -278,7 +279,7 @@ export default function ManajemenAtlet() {
             >
               <ChevronLeft size={20} />
             </button>
-            <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto max-w-[200px] md:max-w-none">
+            <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
               {[...Array(totalPages)].map((_, i) => (
                 <button
                   key={i + 1}
@@ -306,85 +307,39 @@ export default function ManajemenAtlet() {
 
       {/* MODAL DETAIL ATLET */}
       {selectedAtlet && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-500">
-          <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-[0_0_100px_rgba(0,0,0,0.5)] border border-white/5">
-            <button 
-              onClick={() => setSelectedAtlet(null)}
-              className="absolute top-8 right-8 z-50 p-3 bg-white/5 hover:bg-red-500 text-white rounded-full transition-all border border-white/10"
-            >
-              <X size={24} />
-            </button>
-
-            {/* FOTO SIDE */}
-            <div className="w-full md:w-[45%] relative bg-zinc-900 overflow-hidden min-h-[300px]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-xl">
+          <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row border border-white/5">
+            <button onClick={() => setSelectedAtlet(null)} className="absolute top-8 right-8 z-50 p-3 bg-white/5 hover:bg-red-500 text-white rounded-full border border-white/10"><X size={24} /></button>
+            <div className="w-full md:w-[45%] relative bg-zinc-900 min-h-[300px]">
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent z-10"></div>
               {selectedAtlet.foto_url ? (
-                <img src={selectedAtlet.foto_url} className="w-full h-full object-cover scale-105" alt={selectedAtlet.nama} />
+                <img src={selectedAtlet.foto_url} className="w-full h-full object-cover" alt={selectedAtlet.nama} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={150} className="text-white/5" /></div>
               )}
-              <div className="absolute bottom-10 left-10 z-20">
-                 <div className="bg-blue-600 text-white text-[10px] font-black px-5 py-2 rounded-full mb-3 inline-block border border-blue-400/30 uppercase tracking-[0.2em] italic shadow-xl">
-                    PRO ATHLETE STATUS
-                 </div>
-                 <div className="bg-amber-400 text-black font-black text-[11px] px-5 py-2 rounded-xl flex items-center gap-3 shadow-2xl italic uppercase tracking-tighter">
-                    <Trophy size={16} /> {selectedAtlet.prestasi}
-                 </div>
-              </div>
             </div>
-
-            {/* INFO SIDE */}
             <div className="w-full md:w-[55%] p-10 md:p-16 flex flex-col justify-center">
               <div className="flex justify-between items-center mb-8">
                 <div className="flex gap-2">
-                  <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-4 py-1.5 rounded-lg border border-blue-600/30 uppercase tracking-widest italic">
-                    {selectedAtlet.kategori}
-                  </span>
-                  <span className="bg-white/5 text-white/40 text-[10px] font-black px-4 py-1.5 rounded-lg border border-white/10 uppercase tracking-widest italic">
-                    {selectedAtlet.seed}
-                  </span>
+                  <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-4 py-1.5 rounded-lg border border-blue-600/30 uppercase tracking-widest italic">{selectedAtlet.kategori}</span>
                 </div>
-                <button 
-                  onClick={() => { setEditingStats(selectedAtlet); setIsEditModalOpen(true); }}
-                  className="group flex items-center gap-2 text-white/30 hover:text-blue-400 text-[10px] font-black transition-all uppercase tracking-widest border border-white/5 px-4 py-2 rounded-full hover:bg-white/5"
-                >
-                  <Edit3 size={14} className="group-hover:rotate-12 transition-transform" /> UPDATE STATISTICS
-                </button>
+                <button onClick={() => { setEditingStats(selectedAtlet); setIsEditModalOpen(true); }} className="flex items-center gap-2 text-white/30 hover:text-blue-400 text-[10px] font-black uppercase tracking-widest border border-white/5 px-4 py-2 rounded-full hover:bg-white/5"><Edit3 size={14} /> UPDATE STATS</button>
               </div>
-
-              <h2 className="text-5xl md:text-6xl font-black text-white italic uppercase tracking-tighter mb-10 leading-[0.85]">
-                {selectedAtlet.nama}
-              </h2>
-
+              <h2 className="text-5xl md:text-6xl font-black text-white italic uppercase tracking-tighter mb-10 leading-[0.85]">{selectedAtlet.nama}</h2>
               <div className="grid grid-cols-2 gap-4 mb-10">
                   <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
                     <TrendingUp className="text-blue-500 mb-3" size={24} />
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Global Standing</p>
-                    <p className="text-3xl font-black text-white italic leading-none">#{selectedAtlet.rank}</p>
+                    <p className="text-[10px] font-black text-white/20 uppercase mb-1">Standing</p>
+                    <p className="text-3xl font-black text-white italic">#{selectedAtlet.rank}</p>
                   </div>
                   <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
                     <Zap className="text-amber-500 mb-3" size={24} />
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Total Points</p>
-                    <p className="text-3xl font-black text-white italic leading-none">{selectedAtlet.points.toLocaleString()}</p>
+                    <p className="text-[10px] font-black text-white/20 uppercase mb-1">Points</p>
+                    <p className="text-3xl font-black text-white italic">{selectedAtlet.points.toLocaleString()}</p>
                   </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-8 mb-10 border-t border-white/5 pt-8">
-                  <div>
-                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Domisili</p>
-                    <p className="text-white font-bold text-sm uppercase">{selectedAtlet.domisili}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">WhatsApp</p>
-                    <p className="text-white font-bold text-sm uppercase">{selectedAtlet.whatsapp}</p>
-                  </div>
-              </div>
-
-              <div className="bg-blue-600/5 p-8 rounded-3xl border border-blue-600/10 relative">
-                  <div className="absolute -top-3 left-6 px-3 bg-blue-600 text-[9px] font-black uppercase tracking-widest italic rounded text-white py-1">Athlete Bio</div>
-                  <p className="text-slate-400 text-sm leading-relaxed italic font-medium">
-                    "{selectedAtlet.bio}"
-                  </p>
+              <div className="bg-blue-600/5 p-8 rounded-3xl border border-blue-600/10">
+                  <p className="text-slate-400 text-sm leading-relaxed italic font-medium">"{selectedAtlet.bio}"</p>
               </div>
             </div>
           </div>
@@ -394,35 +349,31 @@ export default function ManajemenAtlet() {
       {/* MODAL EDIT PERFORMA */}
       {isEditModalOpen && editingStats && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[3rem] overflow-hidden">
             <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
               <h3 className="font-black text-2xl uppercase italic tracking-tighter">Edit <span className="text-blue-600">Performance</span></h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full transition-all"><X size={24}/></button>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 text-slate-300 hover:text-red-500 rounded-full"><X size={24}/></button>
             </div>
             <form onSubmit={handleUpdateStats} className="p-10 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank Position</label>
-                  <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all shadow-inner" value={editingStats.rank} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank</label>
+                  <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black" value={editingStats.rank} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Poin</label>
-                  <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 focus:ring-2 focus:ring-blue-500 transition-all shadow-inner" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>
+                  <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
                 </div>
               </div>
               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Category</label>
-                  <input type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 uppercase tracking-widest shadow-inner" value={editingStats.seed} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed</label>
+                  <input type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black uppercase" value={editingStats.seed} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
               </div>
               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prestasi Terakhir</label>
-                  <input type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-black text-slate-900 uppercase italic shadow-inner" value={editingStats.prestasi} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bio</label>
+                  <textarea rows={3} className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-bold text-sm" value={editingStats.bio} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
               </div>
-              <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Biografi & Karakter</label>
-                  <textarea rows={4} className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-none font-bold text-slate-700 text-sm shadow-inner" value={editingStats.bio} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
-              </div>
-              <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] shadow-xl shadow-blue-200 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:bg-slate-200">
+              <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 transition-all">
                 {isSaving ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
                 Publish & Synchronize
               </button>
@@ -431,18 +382,11 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* NOTIFICATION TOAST */}
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${
-        showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
-      }`}>
-        <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6">
-          <div className="bg-blue-600 p-4 rounded-2xl animate-bounce">
-            <Zap size={24} className="text-white fill-white" />
-          </div>
-          <div>
-            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">{notifMessage}</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Database Updated</p>
-          </div>
+      {/* NOTIFICATION */}
+      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+        <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] flex items-center gap-6">
+          <Zap size={24} className="text-white fill-white animate-bounce" />
+          <h4 className="text-white font-black uppercase tracking-tighter text-xl italic">{notifMessage}</h4>
         </div>
       </div>
 

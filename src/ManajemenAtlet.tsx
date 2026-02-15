@@ -5,9 +5,8 @@ import {
   Search, User, X, Award, TrendingUp, Users, 
   MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
   ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors
-} from 'lucide-react'; // Pastikan library lucide-react terpasang
+} from 'lucide-react';
 
-// 1. Tambahkan Interface yang lebih ketat untuk konsistensi data
 interface Registrant {
   id: string;
   nama: string;
@@ -46,93 +45,67 @@ export default function ManajemenAtlet() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [notifMessage, setNotifMessage] = useState('');
 
-  // --- KODE BARU / PERBAIKAN START ---
-
-  // Efek untuk fetch data saat pertama kali load
   useEffect(() => {
     fetchAtlets();
   }, []);
 
-  // Reset ke halaman 1 saat mencari
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-const fetchAtlets = async () => {
-  setLoading(true);
-  try {
-    // 1. Ambil data profil dasar dari pendaftaran
-    const { data: pendaftaran, error: pError } = await supabase
-      .from('pendaftaran')
-      .select('*')
-      .order('nama', { ascending: true });
+  const fetchAtlets = async () => {
+    setLoading(true);
+    try {
+      const { data: pendaftaran, error: pError } = await supabase
+        .from('pendaftaran')
+        .select('*')
+        .order('nama', { ascending: true });
 
-    if (pError) throw pError;
+      if (pError) throw pError;
 
-    // 2. Ambil data dari tabel rankings untuk poin dan urutan rank
-    // Pastikan nama kolom 'total_points' atau 'points' sesuai dengan DB Anda
-    const { data: rankings, error: rError } = await supabase
-      .from('rankings')
-      .select('*')
-      .order('total_points', { ascending: false });
+      const { data: rankings, error: rError } = await supabase
+        .from('rankings')
+        .select('*')
+        .order('total_points', { ascending: false });
 
-    if (rError) throw rError;
+      if (rError) throw rError;
 
-    if (pendaftaran) {
-      const formatted = pendaftaran.map((atlet) => {
-        // Cari data di tabel rankings yang namanya sama (case-insensitive & trim spasi)
-        const rankingMatch = rankings?.find(
-          (r) => r.player_name?.trim().toLowerCase() === atlet.nama?.trim().toLowerCase()
-        );
+      if (pendaftaran) {
+        const formatted = pendaftaran.map((atlet) => {
+          // Logika pencocokan nama yang lebih akurat (trim & lowercase)
+          const rankPosisi = rankings?.findIndex(
+            (r) => (r.player_name || r.nama)?.trim().toLowerCase() === atlet.nama?.trim().toLowerCase()
+          );
 
-        // Cari posisi index untuk menentukan Ranking Global
-        const rankPosisi = rankings?.findIndex(
-          (r) => r.player_name?.trim().toLowerCase() === atlet.nama?.trim().toLowerCase()
-        );
+          const rankingMatch = rankPosisi !== -1 ? rankings![rankPosisi] : null;
 
-        return {
-          ...atlet,
-          // Ambil poin dari tabel rankings, jika tidak ada baru set 0
-          points: rankingMatch?.total_points || 0,
-          // Rank adalah index + 1 (karena index mulai dari 0)
-          rank: rankPosisi !== -1 ? rankPosisi + 1 : 0,
-          seed: rankingMatch?.seed || 'UNSEEDED',
-          // Jika di tabel rankings ada foto yang lebih update, gunakan itu
-          foto_url: atlet.foto_url || rankingMatch?.photo_url
-        };
-      });
+          return {
+            ...atlet,
+            points: rankingMatch?.total_points || 0,
+            rank: rankPosisi !== -1 ? rankPosisi + 1 : 0,
+            seed: rankingMatch?.seed || 'UNSEEDED',
+            foto_url: atlet.foto_url || rankingMatch?.photo_url || '',
+            bio: rankingMatch?.bio || "No biography available.",
+            prestasi: rankingMatch?.achievement || "Regular Player"
+          };
+        });
 
-      setAtlets(formatted);
+        setAtlets(formatted);
+      }
+    } catch (err: any) {
+      console.error("Sync Error:", err.message);
+    } finally {
+      setLoading(false);
     }
-  } catch (err: any) {
-    console.error("Gagal sinkronisasi poin:", err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleUpdateStats = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStats || !editingStats.id) return;
     
     setIsSaving(true);
     try {
-      // 1. Sync ke tabel atlet_stats (UPSERT: Update if exists, Insert if not)
-      const statsPayload = {
-        pendaftaran_id: editingStats.id,
-        rank: editingStats.rank || 0,
-        points: editingStats.points || 0,
-        seed: editingStats.seed || 'UNSEEDED',
-        bio: editingStats.bio || '',
-        prestasi_terakhir: editingStats.prestasi || ''
-      };
-
-      const { error: statsError } = await supabase
-        .from('atlet_stats')
-        .upsert(statsPayload, { onConflict: 'pendaftaran_id' });
-
-      if (statsError) throw statsError;
-
-      // 2. Sync ke tabel rankings (Penting untuk leaderboard utama)
+      // 1. Sync ke rankings
       const { error: rankError } = await supabase
         .from('rankings')
         .upsert({
@@ -144,106 +117,33 @@ const fetchAtlets = async () => {
 
       if (rankError) throw rankError;
 
-      // Sukses
       await fetchAtlets();
-      setNotifMessage("Data Atlet & Ranking Berhasil Disinkronkan!");
+      setNotifMessage("Data Sync Successfully!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       setIsEditModalOpen(false);
       setSelectedAtlet(null);
     } catch (err: any) {
-      console.error("Update Error:", err.message);
-      alert("Error saat menyimpan: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // --- KODE BARU / PERBAIKAN END ---
-
-  // Fungsi Image Cropping (Sesuai kode awal Anda)
-  const onCropComplete = useCallback((_: any, pixels: any) => {
-    setCroppedAreaPixels(pixels);
-  }, []);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const reader = new FileReader();
-      reader.onload = () => setImageToCrop(reader.result as string);
-      reader.readAsDataURL(e.target.files[0]);
-    }
-  };
-
-  const executeCropAndUpload = async () => {
-    if (!croppedAreaPixels || !imageToCrop || !editingStats?.id) return;
-    setIsCropping(true);
-    try {
-      const image = new Image();
-      image.src = imageToCrop;
-      await new Promise(res => image.onload = res);
-
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      canvas.width = croppedAreaPixels.width;
-      canvas.height = croppedAreaPixels.height;
-
-      ctx.drawImage(
-        image,
-        croppedAreaPixels.x, croppedAreaPixels.y,
-        croppedAreaPixels.width, croppedAreaPixels.height,
-        0, 0,
-        croppedAreaPixels.width, croppedAreaPixels.height
-      );
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const fileName = `${editingStats.id}-${Date.now()}.jpg`;
-        const filePath = `atlet_photos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, blob);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-
-        await supabase.from('pendaftaran').update({ foto_url: publicUrl }).eq('id', editingStats.id);
-
-        setEditingStats({ ...editingStats, foto_url: publicUrl });
-        setImageToCrop(null);
-        setNotifMessage("Foto Berhasil Diperbarui!");
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
-        fetchAtlets();
-      }, 'image/jpeg');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsCropping(false);
-    }
-  };
-
-  // Logic Pagination & Search
   const filteredAtlets = atlets.filter(a => 
     a.nama?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredAtlets.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredAtlets.length / itemsPerPage);
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
-    <div className="h-full flex flex-col bg-[#f8fafc] font-sans relative overflow-hidden">
-      {/* BAGIAN UI / JSX: 
-        Tetap menggunakan desain High-End Anda namun pastikan prop 'selectedAtlet'
-        terisi data hasil mapping terbaru di atas agar stat muncul.
-      */}
+    <div className="h-screen flex flex-col bg-[#f8fafc] font-sans relative overflow-hidden">
       
-      {/* HEADER & SEARCH BAR (Sesuai kode awal) */}
+      {/* HEADER SECTION */}
       <div className="flex-shrink-0 p-4 md:p-8 pb-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
@@ -281,8 +181,8 @@ const fetchAtlets = async () => {
         </div>
       </div>
 
-      {/* RENDER LIST ATLET (Sesuai kode awal) */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 scroll-smooth">
+      {/* MAIN LIST SECTION */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-32">
         <div className="max-w-7xl mx-auto pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {loading ? (
@@ -304,7 +204,7 @@ const fetchAtlets = async () => {
                       <div className="w-full h-full flex items-center justify-center bg-slate-200"><User className="text-slate-400" size={60} /></div>
                     )}
                     <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase">
-                      #{atlet.rank || '??'} GLOBAL
+                      #{atlet.rank > 0 ? atlet.rank : '??'} GLOBAL
                     </div>
                   </div>
                   <div className="px-2">
@@ -332,7 +232,56 @@ const fetchAtlets = async () => {
         </div>
       </div>
 
-      {/* MODAL DETAIL (Sesuai kode awal) */}
+      {/* FOOTER PAGINATION - DITAMBAHKAN */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-slate-100 p-4 z-50">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:block">
+            Halaman {currentPage} dari {totalPages}
+          </p>
+          
+          <div className="flex items-center gap-2 m-auto md:m-0">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-3 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-blue-600 hover:text-white disabled:opacity-30 transition-all shadow-sm"
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <div className="flex gap-1">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-10 h-10 rounded-xl font-black text-[10px] transition-all border ${
+                    currentPage === i + 1 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' 
+                    : 'bg-white text-slate-400 border-slate-200 hover:border-blue-300'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-3 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-blue-600 hover:text-white disabled:opacity-30 transition-all shadow-sm"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          <div className="hidden md:block">
+            <button onClick={() => fetchAtlets()} className="flex items-center gap-2 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:opacity-70 transition-opacity">
+              <RefreshCcw size={14} /> Refresh Data
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL DETAIL */}
       {selectedAtlet && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/5">
@@ -366,7 +315,7 @@ const fetchAtlets = async () => {
                   <div className="bg-white/5 p-6 rounded-3xl border border-white/5 transition-colors">
                     <TrendingUp className="text-blue-500 mb-3" size={24} />
                     <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Global Standing</p>
-                    <p className="text-3xl font-black text-white italic">#{selectedAtlet.rank}</p>
+                    <p className="text-3xl font-black text-white italic">#{selectedAtlet.rank > 0 ? selectedAtlet.rank : '??'}</p>
                   </div>
                   <div className="bg-white/5 p-6 rounded-3xl border border-white/5 transition-colors">
                     <Zap className="text-amber-500 mb-3" size={24} />
@@ -382,49 +331,41 @@ const fetchAtlets = async () => {
         </div>
       )}
 
-      {/* MODAL EDIT & CROPPER (Sesuai kode awal namun dengan handleUpdateStats yang diperbaiki) */}
-      {/* ... sisanya tetap sesuai kode Anda ... */}
-      
-      {/* MODAL EDIT (Snippet untuk tombol save yang terhubung ke handleUpdateStats) */}
+      {/* MODAL EDIT */}
       {isEditModalOpen && editingStats && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden">
-             {/* ... form content Anda ... */}
-             <div className="p-10">
-               <form onSubmit={handleUpdateStats} className="space-y-5">
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank</label>
-                      <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={editingStats.rank || 0} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
-                    </div>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden relative">
+              <button onClick={() => setIsEditModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
+              <div className="p-10">
+                <h3 className="text-2xl font-black italic uppercase mb-8">Edit <span className="text-blue-600">Performance</span></h3>
+                <form onSubmit={handleUpdateStats} className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>
                       <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={editingStats.points || 0} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
                     </div>
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievements</label>
-                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase italic" value={editingStats.prestasi || ''} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Biography</label>
-                    <textarea rows={3} className="w-full px-5 py-3 bg-slate-100 rounded-xl font-bold text-sm" value={editingStats.bio || ''} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
-                 </div>
-                 <button disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
-                   {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                   Save Performance
-                 </button>
-               </form>
-             </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed</label>
+                      <select className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.seed || 'UNSEEDED'} onChange={e => setEditingStats({...editingStats, seed: e.target.value})}>
+                        <option value="UNSEEDED">UNSEEDED</option>
+                        <option value="SEED A">SEED A</option>
+                        <option value="SEED B">SEED B</option>
+                        <option value="TOP SEED">TOP SEED</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
+                    {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                    Save Performance
+                  </button>
+                </form>
+              </div>
            </div>
         </div>
       )}
 
-      {/* FOOTER PAGINATION */}
-      {/* ... kode pagination Anda ... */}
-
-      {/* NOTIFIKASI SUKSES */}
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+      {/* NOTIFICATION */}
+      <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
         <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6">
           <div className="bg-blue-600 p-4 rounded-2xl animate-bounce"><Zap size={24} className="text-white fill-white" /></div>
           <div>

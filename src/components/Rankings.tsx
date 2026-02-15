@@ -19,18 +19,18 @@ const Rankings: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // 1. Ambil Data dari Supabase
   useEffect(() => {
     fetchRankings();
 
-    // Setup Realtime agar ranking update otomatis saat admin input skor/atlet baru
+    // Setup Realtime agar ranking update otomatis
     const subscription = supabase
-      .channel('public:rankings_landing') // Channel unik untuk landing page
+      .channel('public:rankings_landing')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'rankings' }, 
-        (payload) => {
-          console.log("Change detected:", payload);
+        () => {
           fetchRankings();
         }
       )
@@ -42,26 +42,28 @@ const Rankings: React.FC = () => {
   }, []);
 
   const fetchRankings = async () => {
+    setLoading(true);
+    setFetchError(null);
     try {
-      // Menarik data terbaru dari tabel rankings
       const { data, error } = await supabase
         .from('rankings')
         .select('*')
-        .order('total_points', { ascending: false }); // Urutkan poin tertinggi di atas
+        .order('total_points', { ascending: false });
 
       if (error) throw error;
       
       if (data) {
         setDbRankings(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gagal mengambil data ranking:", error);
+      setFetchError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Styling Kategori yang diperluas
+  // 2. Styling Kategori
   const getCategoryStyles = (seed: string) => {
     const s = seed?.toUpperCase() || '';
     if (s.includes('A')) return { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20' };
@@ -71,17 +73,22 @@ const Rankings: React.FC = () => {
     return { bg: 'bg-slate-500/10', text: 'text-slate-500', border: 'border-slate-500/20' };
   };
 
-  // 3. Filter Data dengan pengecekan null safety
+  // 3. Filter Data dengan perbaikan logika pencocokan
   const filteredData = useMemo(() => {
     return dbRankings.filter(p => {
       const name = p.player_name?.toLowerCase() || "";
-      const seed = p.seed || "";
+      const seedRaw = p.seed?.toUpperCase() || "";
+      const categoryRaw = p.category?.toUpperCase() || "";
       
       const matchesSearch = name.includes(searchTerm.toLowerCase());
+      
+      // Logika Filter Kategori yang lebih cerdas:
+      // Mencocokkan berdasarkan Seed (A, B+, dll) atau kolom Category
       const matchesCategory = activeCategory === "All" || 
-                              seed === `Seed ${activeCategory}` || 
-                              seed === activeCategory ||
-                              (activeCategory === 'A' && seed.includes('A'));
+                              seedRaw === activeCategory.toUpperCase() || 
+                              seedRaw === `SEED ${activeCategory.toUpperCase()}` ||
+                              categoryRaw === activeCategory.toUpperCase() ||
+                              (activeCategory === 'A' && seedRaw.includes('A'));
       
       return matchesSearch && matchesCategory;
     });
@@ -157,19 +164,27 @@ const Rankings: React.FC = () => {
                       <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Sinkronisasi Database...</p>
                     </td>
                   </tr>
+                ) : fetchError ? (
+                  <tr>
+                    <td colSpan={5} className="py-24 text-center">
+                      <AlertCircle className="mx-auto text-red-500 mb-4" size={40} />
+                      <p className="text-red-400 font-black text-xs uppercase tracking-widest">Error: {fetchError}</p>
+                      <p className="text-slate-500 text-[10px] mt-2 italic">Pastikan kebijakan RLS Supabase sudah 'Public'</p>
+                    </td>
+                  </tr>
                 ) : dbRankings.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-24 text-center">
                       <div className="flex flex-col items-center gap-3 opacity-20">
                         <AlertCircle size={48} />
-                        <p className="font-black text-xs uppercase tracking-[0.3em]">Belum ada data atlet</p>
+                        <p className="font-black text-xs uppercase tracking-[0.3em]">Belum ada data atlet di database</p>
                       </div>
                     </td>
                   </tr>
                 ) : filteredData.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-24 text-center">
-                      <p className="text-slate-600 font-black text-xs uppercase tracking-widest italic">Atlet tidak ditemukan</p>
+                      <p className="text-slate-600 font-black text-xs uppercase tracking-widest italic">Atlet tidak ditemukan untuk kategori "{activeCategory}"</p>
                     </td>
                   </tr>
                 ) : (
@@ -195,7 +210,7 @@ const Rankings: React.FC = () => {
                         </td>
                         <td className="px-6 py-6">
                           <span className={`text-[9px] font-black px-3 py-1.5 rounded-lg border uppercase tracking-widest whitespace-nowrap ${style.bg} ${style.text} ${style.border}`}>
-                            {player.seed || 'NON-SEED'}
+                            {player.seed || player.category || 'NON-SEED'}
                           </span>
                         </td>
                         <td className="px-6 py-6 text-right font-mono font-black text-white text-xl tracking-tighter">

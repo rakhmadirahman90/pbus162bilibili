@@ -73,18 +73,15 @@ export default function ManajemenAtlet() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('pendaftaran')
-        .select(`
-          *,
-          atlet_stats (
-            rank,
-            points,
-            seed,
-            bio,
-            prestasi_terakhir
-          )
-        `)
-        .order('nama', { ascending: true });
+  .from('atlet_stats')
+  .select(`
+    *,
+    pendaftaran (
+      nama,
+      kategori,
+      foto_url
+    )
+  `);
       
       if (error) throw error;
 

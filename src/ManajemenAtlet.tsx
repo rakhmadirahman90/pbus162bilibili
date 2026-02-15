@@ -61,41 +61,51 @@ export default function ManajemenAtlet() {
 const fetchAtlets = async () => {
   setLoading(true);
   try {
-    // 1. Ambil data pendaftaran
-    const { data: pendaftaranData, error: pError } = await supabase
+    // 1. Ambil data profil dasar dari pendaftaran
+    const { data: pendaftaran, error: pError } = await supabase
       .from('pendaftaran')
       .select('*')
       .order('nama', { ascending: true });
 
     if (pError) throw pError;
 
-    // 2. Ambil data rankings (diurutkan berdasarkan poin tertinggi)
-    const { data: rankingsData, error: rError } = await supabase
+    // 2. Ambil data dari tabel rankings untuk poin dan urutan rank
+    // Pastikan nama kolom 'total_points' atau 'points' sesuai dengan DB Anda
+    const { data: rankings, error: rError } = await supabase
       .from('rankings')
       .select('*')
       .order('total_points', { ascending: false });
 
     if (rError) throw rError;
 
-    // 3. Gabungkan data
-    if (pendaftaranData) {
-      const combined = pendaftaranData.map((atlet) => {
-        // Cari posisi ranking berdasarkan urutan poin di tabel rankings
-        const rankIndex = rankingsData?.findIndex(r => r.nama === atlet.nama) ?? -1;
-        const stats = rankingsData?.find(r => r.nama === atlet.nama);
+    if (pendaftaran) {
+      const formatted = pendaftaran.map((atlet) => {
+        // Cari data di tabel rankings yang namanya sama (case-insensitive & trim spasi)
+        const rankingMatch = rankings?.find(
+          (r) => r.player_name?.trim().toLowerCase() === atlet.nama?.trim().toLowerCase()
+        );
+
+        // Cari posisi index untuk menentukan Ranking Global
+        const rankPosisi = rankings?.findIndex(
+          (r) => r.player_name?.trim().toLowerCase() === atlet.nama?.trim().toLowerCase()
+        );
 
         return {
           ...atlet,
-          // Jika ketemu di tabel rankings, index + 1 adalah posisi rank-nya
-          rank: rankIndex !== -1 ? rankIndex + 1 : 0, 
-          points: stats?.total_points || 0,
-          seed: stats?.total_points > 10000 ? 'SEED A' : 'SEED B', // Contoh logika seed sederhana
+          // Ambil poin dari tabel rankings, jika tidak ada baru set 0
+          points: rankingMatch?.total_points || 0,
+          // Rank adalah index + 1 (karena index mulai dari 0)
+          rank: rankPosisi !== -1 ? rankPosisi + 1 : 0,
+          seed: rankingMatch?.seed || 'UNSEEDED',
+          // Jika di tabel rankings ada foto yang lebih update, gunakan itu
+          foto_url: atlet.foto_url || rankingMatch?.photo_url
         };
       });
-      setAtlets(combined);
+
+      setAtlets(formatted);
     }
   } catch (err: any) {
-    console.error("Error fetching data:", err.message);
+    console.error("Gagal sinkronisasi poin:", err.message);
   } finally {
     setLoading(false);
   }

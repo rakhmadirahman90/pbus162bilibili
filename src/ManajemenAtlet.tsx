@@ -5,7 +5,7 @@ import {
   Search, User, X, Award, TrendingUp, Users, 
   MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
   ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors
-} from 'lucide-center'; // Pastikan library lucide-react terpasang
+} from 'lucide-react'; // Pastikan library lucide-react terpasang
 
 // 1. Tambahkan Interface yang lebih ketat untuk konsistensi data
 interface Registrant {

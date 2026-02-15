@@ -42,10 +42,10 @@ export default function ManajemenAtlet() {
   const itemsPerPage = 8;
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false); // Menu Tambah Atlet
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false); 
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [newAtlet, setNewAtlet] = useState<Partial<Registrant>>({
-    nama: '', kategori: 'MEN\'S SINGLE', seed: 'UNSEEDED', points: 0, rank: 0, bio: '', prestasi: 'CONTENDER'
+    nama: '', kategori: "MEN'S SINGLE", seed: 'UNSEEDED', points: 0, rank: 0, bio: '', prestasi: 'CONTENDER', foto_url: ''
   });
   
   const [isSaving, setIsSaving] = useState(false);
@@ -110,9 +110,9 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- PERBAIKAN FUNGSI CROP ---
+  // --- PERBAIKAN FUNGSI CROP (MENGGUNAKAN BUCKET identitas_atlet) ---
   const executeCropAndUpload = async () => {
-    if (!croppedAreaPixels || !imageToCrop || (!editingStats?.id && !isAddModalOpen)) {
+    if (!croppedAreaPixels || !imageToCrop) {
       alert("Data tidak lengkap untuk proses crop");
       return;
     }
@@ -147,19 +147,19 @@ export default function ManajemenAtlet() {
       const fileName = `${Date.now()}-atlet.jpg`;
       const filePath = `atlet_photos/${fileName}`;
 
+      // UPLOAD KE BUCKET identitas_atlet
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
+        .from('identitas_atlet') 
         .upload(filePath, blob);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage.from('identitas_atlet').getPublicUrl(filePath);
 
       if (isAddModalOpen) {
         setNewAtlet({ ...newAtlet, foto_url: publicUrl });
       } else if (editingStats) {
         setEditingStats({ ...editingStats, foto_url: publicUrl });
-        // Update URL foto langsung ke tabel utama pendaftaran
         await supabase.from('pendaftaran').update({ foto_url: publicUrl }).eq('id', editingStats.id);
       }
 
@@ -199,7 +199,6 @@ export default function ManajemenAtlet() {
         await supabase.from('atlet_stats').insert([statsPayload]);
       }
 
-      // Sync ke tabel rankings
       await supabase.from('rankings').upsert({
         player_name: editingStats.nama,
         category: editingStats.kategori,
@@ -225,7 +224,6 @@ export default function ManajemenAtlet() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      // 1. Insert ke pendaftaran
       const { data: pendaftaran, error: pError } = await supabase
         .from('pendaftaran')
         .insert([{
@@ -240,7 +238,6 @@ export default function ManajemenAtlet() {
 
       if (pError) throw pError;
 
-      // 2. Insert ke atlet_stats
       await supabase.from('atlet_stats').insert([{
         pendaftaran_id: pendaftaran.id,
         rank: newAtlet.rank,
@@ -252,7 +249,7 @@ export default function ManajemenAtlet() {
 
       await fetchAtlets();
       setIsAddModalOpen(false);
-      setNewAtlet({ nama: '', kategori: 'MEN\'S SINGLE', seed: 'UNSEEDED', points: 0, rank: 0, bio: '', prestasi: 'CONTENDER' });
+      setNewAtlet({ nama: '', kategori: "MEN'S SINGLE", seed: 'UNSEEDED', points: 0, rank: 0, bio: '', prestasi: 'CONTENDER', foto_url: '' });
       setNotifMessage("Atlet Baru Ditambahkan!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -500,7 +497,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* CROP MODAL (Z-INDEX TERTINGGI) */}
+      {/* CROP MODAL (Z-INDEX TERTINGGI 300) */}
       {imageToCrop && (
         <div className="fixed inset-0 z-[300] bg-slate-950 flex flex-col items-center justify-center p-6 backdrop-blur-2xl">
            <div className="w-full max-w-2xl relative aspect-[3/4] bg-zinc-900 rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
@@ -534,7 +531,7 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* NOTIFICATION */}
+      {/* NOTIFICATION (Z-INDEX 400) */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[400] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
         <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6 min-w-[380px] overflow-hidden relative">
           <div className="absolute bottom-0 left-0 h-1 bg-blue-600" style={{ width: showSuccess ? '100%' : '0%', transition: 'width 3s linear' }} />

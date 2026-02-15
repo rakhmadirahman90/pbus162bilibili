@@ -3,8 +3,8 @@ import { supabase } from "../supabase";
 import { 
   Menu, Plus, Trash2, MoveUp, MoveDown, 
   Link as LinkIcon, Layers, RefreshCcw, CheckCircle2,
-  ChevronRight, CornerDownRight, GripVertical, Settings, Globe, Image as ImageIcon,
-  Upload, X, AlertCircle, Save, Edit3
+  CornerDownRight, GripVertical, Settings, Globe, Image as ImageIcon,
+  AlertCircle, Save
 } from 'lucide-react';
 
 const KelolaNavbar: React.FC = () => {
@@ -26,7 +26,7 @@ const KelolaNavbar: React.FC = () => {
 
   // --- STATE UNTUK DRAG & DROP & EDITING ---
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null); // State baru untuk inline edit
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // State Form Lengkap
   const [label, setLabel] = useState('');
@@ -68,6 +68,30 @@ const KelolaNavbar: React.FC = () => {
     }
   };
 
+  // --- PERBAIKAN LOGIKA SIMPAN (SOLUSI ERROR LABEL) ---
+  const performBrandingUpsert = async (newSettings: any) => {
+    // Mencoba melakukan update hanya pada kolom 'value' terlebih dahulu 
+    // untuk menghindari error jika kolom 'label' tidak terdeteksi oleh cache schema Supabase
+    const payload: any = { 
+      key: 'navbar_branding', 
+      value: newSettings 
+    };
+
+    // Kita tambahkan label secara opsional. Jika kolom label benar-benar hilang di DB, 
+    // Supabase biasanya akan memberikan error spesifik.
+    const { error } = await supabase
+      .from('site_settings')
+      .upsert({ ...payload, label: 'Pengaturan Header & Branding' }, { onConflict: 'key' });
+
+    // Jika gagal karena kolom label, coba upsert tanpa kolom label
+    if (error && error.message.includes('label')) {
+      console.warn("Retrying without 'label' column due to schema cache issue...");
+      return await supabase.from('site_settings').upsert(payload, { onConflict: 'key' });
+    }
+
+    return { error };
+  };
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,15 +113,14 @@ const KelolaNavbar: React.FC = () => {
       if (data?.publicUrl) {
         const newSettings = { ...brandSettings, logo_url: data.publicUrl };
         setBrandSettings(newSettings);
-        await supabase.from('site_settings').upsert({ 
-          key: 'navbar_branding', 
-          value: newSettings,
-          label: 'Pengaturan Header & Branding'
-        });
+        
+        const { error: upsertError } = await performBrandingUpsert(newSettings);
+        if (upsertError) throw upsertError;
+        
         triggerSuccess();
       }
     } catch (err: any) {
-      alert("Gagal upload: " + err.message + ". Pastikan bucket 'assets' sudah dibuat dan diatur ke PUBLIC.");
+      alert("Gagal upload: " + err.message);
     } finally {
       setIsUploading(false);
     }
@@ -105,20 +128,17 @@ const KelolaNavbar: React.FC = () => {
 
   const handleSaveBrand = async () => {
     setIsSavingBrand(true);
-    const { error } = await supabase
-      .from('site_settings')
-      .upsert({ 
-        key: 'navbar_branding', 
-        value: brandSettings,
-        label: 'Pengaturan Header & Branding'
-      }, { onConflict: 'key' });
-
-    if (!error) triggerSuccess();
-    else alert("Error simpan branding: " + error.message);
-    setIsSavingBrand(false);
+    try {
+      const { error } = await performBrandingUpsert(brandSettings);
+      if (error) throw error;
+      triggerSuccess();
+    } catch (err: any) {
+      alert("Error simpan branding: " + err.message);
+    } finally {
+      setIsSavingBrand(false);
+    }
   };
 
-  // --- LOGIC INLINE UPDATE (FITUR BARU) ---
   const handleInlineUpdate = async (id: string, field: string, value: string) => {
     const { error } = await supabase
       .from('navbar_settings')
@@ -132,7 +152,6 @@ const KelolaNavbar: React.FC = () => {
     }
   };
 
-  // --- LOGIC DRAG AND DROP ---
   const handleDragStart = (index: number) => setDraggedItemIndex(index);
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
@@ -192,7 +211,7 @@ const KelolaNavbar: React.FC = () => {
   };
 
   const deleteMenu = async (id: string) => {
-    if (!window.confirm("Hapus menu ini? Jika ini adalah parent, semua sub-menu juga akan terhapus.")) return;
+    if (!window.confirm("Hapus menu ini?")) return;
     await supabase.from('navbar_settings').delete().eq('id', id);
     fetchNavbar();
   };
@@ -321,10 +340,10 @@ const KelolaNavbar: React.FC = () => {
                   className={`space-y-4 transition-all duration-300 ${draggedItemIndex === index ? 'opacity-30 scale-95 blur-sm' : 'opacity-100'}`}
                   draggable onDragStart={() => handleDragStart(index)} onDragOver={handleDragOver} onDrop={() => handleDrop(index)}
                 >
-                  <div className="group flex items-center justify-between bg-zinc-900 border border-white/5 p-6 rounded-[2.2rem] hover:border-blue-600/50 transition-all shadow-2xl cursor-grab active:cursor-grabbing relative overflow-hidden">
+                  <div className="group flex items-center justify-between bg-zinc-900 border border-white/5 p-6 rounded-[2.2rem] hover:border-blue-600/50 transition-all shadow-2xl cursor-grab active:cursor-grabbing">
                     <div className="flex items-center gap-6">
-                      <GripVertical size={20} className="text-zinc-800 group-hover:text-blue-500 transition-colors" />
-                      <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center text-blue-500 font-black text-sm border border-white/5 shadow-inner">
+                      <GripVertical size={20} className="text-zinc-800 group-hover:text-blue-500" />
+                      <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center text-blue-500 font-black text-sm border border-white/5">
                         {index + 1}
                       </div>
                       <div>
@@ -338,8 +357,8 @@ const KelolaNavbar: React.FC = () => {
                           />
                         ) : (
                           <div className="flex items-center gap-3">
-                            <h4 onClick={() => setEditingId(item.id)} className="font-black uppercase italic text-lg tracking-tighter hover:text-blue-500 transition-colors cursor-pointer">{item.label}</h4>
-                            {item.type === 'dropdown' && <span className="px-3 py-1 bg-blue-600 text-white text-[7px] font-black rounded-full uppercase tracking-widest shadow-lg shadow-blue-600/30">Group</span>}
+                            <h4 onClick={() => setEditingId(item.id)} className="font-black uppercase italic text-lg tracking-tighter hover:text-blue-500 cursor-pointer">{item.label}</h4>
+                            {item.type === 'dropdown' && <span className="px-3 py-1 bg-blue-600 text-white text-[7px] font-black rounded-full uppercase tracking-widest">Group</span>}
                           </div>
                         )}
                         <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest flex items-center gap-2 mt-1"><LinkIcon size={12}/> {item.path}</p>
@@ -347,14 +366,13 @@ const KelolaNavbar: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex bg-black/40 p-1 rounded-xl mr-2">
-                        <button onClick={() => updateOrder(item.id, index, 'up')} className="p-2 text-zinc-600 hover:text-white transition-all"><MoveUp size={16}/></button>
-                        <button onClick={() => updateOrder(item.id, index, 'down')} className="p-2 text-zinc-600 hover:text-white transition-all"><MoveDown size={16}/></button>
+                        <button onClick={() => updateOrder(item.id, index, 'up')} className="p-2 text-zinc-600 hover:text-white"><MoveUp size={16}/></button>
+                        <button onClick={() => updateOrder(item.id, index, 'down')} className="p-2 text-zinc-600 hover:text-white"><MoveDown size={16}/></button>
                       </div>
                       <button onClick={() => deleteMenu(item.id)} className="w-11 h-11 flex items-center justify-center bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white rounded-xl transition-all shadow-xl"><Trash2 size={18}/></button>
                     </div>
                   </div>
 
-                  {/* Sub Menu Section */}
                   <div className="ml-16 space-y-3 border-l-2 border-zinc-900 pl-8 pb-4">
                     {getSubMenus(item.id).map((sub) => (
                       <div key={sub.id} className="flex items-center justify-between bg-zinc-900/40 border border-white/5 p-4 rounded-2xl hover:bg-zinc-800 transition-all group/sub">
@@ -385,7 +403,7 @@ const KelolaNavbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Success Toast Notification */}
+      {/* Success Notification */}
       <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 transition-all duration-1000 z-[100] ${showSuccess ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20 pointer-events-none'}`}>
         <div className="bg-blue-600 px-10 py-5 rounded-full flex items-center gap-4 shadow-[0_30px_60px_rgba(37,99,235,0.4)] border border-white/20">
           <div className="bg-white/20 p-2 rounded-full text-white animate-pulse"><CheckCircle2 size={20} /></div>

@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors, Plus
 } from 'lucide-react';
 
-// --- STANDAR POIN BERDASARKAN SEED ---
+// STANDAR POIN OTOMATIS BERDASARKAN SEED
 const SEED_STANDARDS: Record<string, number> = {
   'SEED A': 10000,
   'SEED B+': 8500,
@@ -17,7 +17,7 @@ const SEED_STANDARDS: Record<string, number> = {
   'UNSEEDED': 0
 };
 
-// --- DEFINISI KATEGORI ---
+// KATEGORI UMUM
 const KATEGORI_UMUM = [
   "TUNGGAL PUTRA (MS)",
   "TUNGGAL PUTRI (WS)",
@@ -26,18 +26,14 @@ const KATEGORI_UMUM = [
   "GANDA CAMPURAN (XD)"
 ];
 
-const KATEGORI_KHUSUS = [
-  "TARUNA / MUDA",
-  "DEWASA / SENIOR",
-  "VETERAN"
-];
+// STATUS KHUSUS
+const STATUS_KHUSUS = ["SENIOR", "MUDA (YOUTH)"];
 
 interface Registrant {
   id: string;
   nama: string;
   whatsapp: string;
   kategori: string;
-  kategori_khusus?: string; // Kolom baru
   domisili: string;
   foto_url: string;
   jenis_kelamin: string;
@@ -46,7 +42,7 @@ interface Registrant {
   seed: string;
   bio: string;
   prestasi: string;
-  status?: string;
+  status_umur: string; // Tambahan kategori khusus
 }
 
 export default function ManajemenAtlet() {
@@ -58,23 +54,26 @@ export default function ManajemenAtlet() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Modals State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false); 
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
+  
+  // FORM DATA UNTUK ATLET BARU
   const [newAtlet, setNewAtlet] = useState<Partial<Registrant>>({
-    nama: '', 
-    kategori: "TUNGGAL PUTRA (MS)", 
-    kategori_khusus: "DEWASA / SENIOR",
-    seed: 'UNSEEDED', 
-    points: 0, 
-    rank: 0, 
-    bio: '', 
-    prestasi: 'CONTENDER', 
-    foto_url: ''
+    nama: '',
+    kategori: "TUNGGAL PUTRA (MS)",
+    seed: 'UNSEEDED',
+    points: 0,
+    rank: 0,
+    bio: '',
+    prestasi: 'CONTENDER',
+    foto_url: '',
+    status_umur: 'SENIOR'
   });
   
   const [isSaving, setIsSaving] = useState(false);
+
+  // --- IMAGE CROPPER STATES ---
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -91,9 +90,10 @@ export default function ManajemenAtlet() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
+      // Mengambil data pendaftaran dan relasi stats, diurutkan berdasarkan poin (Rank Otomatis)
       const { data, error } = await supabase
         .from('pendaftaran')
-        .select(`*, atlet_stats (rank, points, seed, bio, prestasi_terakhir)`)
+        .select(`*, atlet_stats (rank, points, seed, bio, prestasi_terakhir, status_umur)`)
         .order('nama', { ascending: true });
       
       if (error) throw error;
@@ -104,9 +104,13 @@ export default function ManajemenAtlet() {
           points: item.atlet_stats?.[0]?.points || 0,
           seed: item.atlet_stats?.[0]?.seed || 'UNSEEDED',
           bio: item.atlet_stats?.[0]?.bio || "Data profil belum dilengkapi.",
-          prestasi: item.atlet_stats?.[0]?.prestasi_terakhir || "CONTENDER"
+          prestasi: item.atlet_stats?.[0]?.prestasi_terakhir || "CONTENDER",
+          status_umur: item.atlet_stats?.[0]?.status_umur || "SENIOR"
         }));
-        setAtlets(formattedData);
+        
+        // Sorting berdasarkan poin tertinggi untuk menampilkan ranking yang benar
+        const sortedByPoints = [...formattedData].sort((a, b) => b.points - a.points);
+        setAtlets(sortedByPoints);
       }
     } catch (err) {
       console.error(err);
@@ -115,6 +119,7 @@ export default function ManajemenAtlet() {
     }
   };
 
+  // FUNGSI UPDATE POIN OTOMATIS SAAT SEED DIPILIH
   const handleSeedUpdate = (newSeed: string, target: 'edit' | 'add') => {
     const standardizedPoints = SEED_STANDARDS[newSeed.toUpperCase()] ?? 0;
     if (target === 'edit' && editingStats) {
@@ -136,7 +141,6 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- LOGIKA UPLOAD KE BUCKET "foto" ---
   const executeCropAndUpload = async () => {
     if (!croppedAreaPixels || !imageToCrop) return;
     
@@ -144,7 +148,7 @@ export default function ManajemenAtlet() {
     try {
       const image = new Image();
       image.src = imageToCrop;
-      await new Promise(res => image.onload = res);
+      await new Promise((resolve) => image.onload = resolve);
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -167,9 +171,8 @@ export default function ManajemenAtlet() {
       const fileName = `${Date.now()}-atlet.jpg`;
       const filePath = `atlet_photos/${fileName}`;
 
-      // Memastikan menggunakan bucket 'foto'
       const { error: uploadError } = await supabase.storage
-        .from('foto') 
+        .from('foto') // Menggunakan bucket "foto" sesuai permintaan sebelumnya
         .upload(filePath, blob);
 
       if (uploadError) throw uploadError;
@@ -184,7 +187,7 @@ export default function ManajemenAtlet() {
       }
 
       setImageToCrop(null);
-      setNotifMessage("Foto Berhasil Diunggah!");
+      setNotifMessage("Foto Berhasil Diperbarui!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
@@ -194,47 +197,7 @@ export default function ManajemenAtlet() {
     }
   };
 
-  const handleUpdateStats = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingStats || !editingStats.id) return;
-    setIsSaving(true);
-    try {
-      // Update data utama (Kategori)
-      await supabase.from('pendaftaran').update({
-        kategori: editingStats.kategori,
-        kategori_khusus: editingStats.kategori_khusus
-      }).eq('id', editingStats.id);
-
-      // Update data statistik
-      const statsPayload = {
-        pendaftaran_id: editingStats.id,
-        rank: editingStats.rank,
-        points: editingStats.points,
-        seed: editingStats.seed,
-        bio: editingStats.bio,
-        prestasi_terakhir: editingStats.prestasi
-      };
-
-      const { data: existing } = await supabase.from('atlet_stats').select('id').eq('pendaftaran_id', editingStats.id).single();
-      if (existing) {
-        await supabase.from('atlet_stats').update(statsPayload).eq('pendaftaran_id', editingStats.id);
-      } else {
-        await supabase.from('atlet_stats').insert([statsPayload]);
-      }
-
-      await fetchAtlets();
-      setNotifMessage("Data Atlet Diperbarui!");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-      setIsEditModalOpen(false);
-      setSelectedAtlet(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
+  // TAMBAH ATLET BARU (SINKRONISASI OTOMATIS)
   const handleAddAtlet = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -244,7 +207,6 @@ export default function ManajemenAtlet() {
         .insert([{
           nama: newAtlet.nama,
           kategori: newAtlet.kategori,
-          kategori_khusus: newAtlet.kategori_khusus,
           foto_url: newAtlet.foto_url,
           domisili: 'Internal',
           whatsapp: '0'
@@ -259,17 +221,61 @@ export default function ManajemenAtlet() {
         points: newAtlet.points,
         seed: newAtlet.seed,
         bio: newAtlet.bio,
-        prestasi_terakhir: newAtlet.prestasi
+        prestasi_terakhir: newAtlet.prestasi,
+        status_umur: newAtlet.status_umur
       }]);
+
+      await supabase.from('rankings').upsert({
+        player_name: newAtlet.nama,
+        category: newAtlet.kategori,
+        seed: newAtlet.seed,
+        total_points: newAtlet.points
+      }, { onConflict: 'player_name' });
 
       await fetchAtlets();
       setIsAddModalOpen(false);
-      setNewAtlet({ nama: '', kategori: "TUNGGAL PUTRA (MS)", seed: 'UNSEEDED', points: 0, rank: 0, bio: '', prestasi: 'CONTENDER', foto_url: '' });
-      setNotifMessage("Atlet Berhasil Ditambahkan!");
+      setNewAtlet({ nama: '', kategori: "TUNGGAL PUTRA (MS)", seed: 'UNSEEDED', points: 0, rank: 0, bio: '', prestasi: 'CONTENDER', foto_url: '', status_umur: 'SENIOR' });
+      setNotifMessage("Atlet Berhasil Diregistrasi!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
+      console.error(err);
       alert("Gagal menambah atlet");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateStats = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStats?.id) return;
+    setIsSaving(true);
+    try {
+      const statsPayload = {
+        pendaftaran_id: editingStats.id,
+        rank: editingStats.rank,
+        points: editingStats.points,
+        seed: editingStats.seed,
+        bio: editingStats.bio,
+        prestasi_terakhir: editingStats.prestasi,
+        status_umur: editingStats.status_umur
+      };
+
+      const { data: existing } = await supabase.from('atlet_stats').select('id').eq('pendaftaran_id', editingStats.id).single();
+      if (existing) {
+        await supabase.from('atlet_stats').update(statsPayload).eq('pendaftaran_id', editingStats.id);
+      } else {
+        await supabase.from('atlet_stats').insert([statsPayload]);
+      }
+
+      await fetchAtlets();
+      setNotifMessage("Statistik Sinkron!");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+      setIsEditModalOpen(false);
+      setSelectedAtlet(null);
+    } catch (err) {
+      alert("Error Sync Data");
     } finally {
       setIsSaving(false);
     }
@@ -281,7 +287,7 @@ export default function ManajemenAtlet() {
 
   return (
     <div className="h-full flex flex-col bg-[#f8fafc] font-sans relative overflow-hidden">
-      {/* HEADER SECTION */}
+      {/* HEADER */}
       <div className="flex-shrink-0 p-4 md:p-8 pb-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
@@ -299,12 +305,8 @@ export default function ManajemenAtlet() {
                 onClick={() => setIsAddModalOpen(true)}
                 className="bg-blue-600 hover:bg-slate-900 text-white px-6 py-4 rounded-2xl flex items-center gap-3 font-black text-[10px] tracking-widest transition-all shadow-lg"
                >
-                 <Plus size={18} /> TAMBAH ATLET
+                 <Plus size={18} /> TAMBAH ATLET BARU
                </button>
-               <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Total Database</p>
-                    <p className="text-2xl font-black text-slate-900 leading-none text-center">{atlets.length}</p>
-               </div>
             </div>
           </div>
 
@@ -313,21 +315,21 @@ export default function ManajemenAtlet() {
             <input 
               type="text"
               placeholder="CARI NAMA ATLET..."
-              className="w-full pl-14 pr-8 py-5 bg-white rounded-[2rem] border-none shadow-sm focus:ring-4 focus:ring-blue-100 transition-all font-black uppercase text-sm tracking-widest placeholder:text-slate-300"
+              className="w-full pl-14 pr-8 py-5 bg-white rounded-[2rem] border-none shadow-sm focus:ring-4 focus:ring-blue-100 transition-all font-black uppercase text-sm tracking-widest"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
       </div>
 
-      {/* ATHLETE GRID */}
+      {/* GRID ATLET */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-20">
         <div className="max-w-7xl mx-auto pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {loading ? (
               <div className="col-span-full py-32 text-center">
                  <Loader2 className="animate-spin m-auto text-blue-600 mb-4" size={40} />
-                 <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Sinkronisasi Data...</p>
+                 <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Mengakses Server...</p>
               </div>
             ) : currentItems.map((atlet) => (
               <div 
@@ -344,11 +346,14 @@ export default function ManajemenAtlet() {
                   <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase">
                     #{atlet.rank || '??'} GLOBAL
                   </div>
+                  <div className="absolute bottom-4 right-4 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-lg uppercase italic shadow-lg">
+                    {atlet.status_umur}
+                  </div>
                 </div>
                 <div className="px-2">
-                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1">{atlet.kategori_khusus || 'DEWASA'}</p>
-                  <h3 className="text-lg font-black text-slate-900 uppercase italic truncate mb-3">{atlet.nama}</h3>
-                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">{atlet.kategori}</p>
+                  <h3 className="text-lg font-black text-slate-900 uppercase italic truncate mb-4">{atlet.nama}</h3>
+                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
                     <div>
                       <p className="text-[8px] font-black text-slate-400 uppercase">Points</p>
                       <p className="text-sm font-black text-slate-900">{atlet.points.toLocaleString()}</p>
@@ -362,133 +367,106 @@ export default function ManajemenAtlet() {
               </div>
             ))}
           </div>
+
+          {/* PAGINATION */}
+          {!loading && totalPages > 1 && (
+            <div className="flex justify-center items-center gap-3 mt-16 pb-10">
+              <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-4 bg-white rounded-2xl shadow-sm disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all border border-slate-100"><ChevronLeft size={20} /></button>
+              <div className="flex gap-2 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+                {[...Array(totalPages)].map((_, i) => (
+                  <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-12 h-12 rounded-xl font-black text-sm transition-all ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>{i + 1}</button>
+                ))}
+              </div>
+              <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-4 bg-white rounded-2xl shadow-sm disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all border border-slate-100"><ChevronRight size={20} /></button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* DETAIL MODAL */}
-      {selectedAtlet && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl">
-          <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/5">
-            <button onClick={() => setSelectedAtlet(null)} className="absolute top-8 right-8 z-50 p-3 bg-white/5 hover:bg-red-500 text-white rounded-full transition-all"><X size={24} /></button>
-            <div className="w-full md:w-[45%] h-[400px] md:h-auto relative bg-zinc-900 overflow-hidden">
-              {selectedAtlet.foto_url ? (
-                <img src={selectedAtlet.foto_url} className="w-full h-full object-cover" alt={selectedAtlet.nama} />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={150} className="text-white/5" /></div>
-              )}
-            </div>
-            <div className="w-full md:w-[55%] p-10 md:p-16 flex flex-col justify-center">
-              <div className="flex gap-2 mb-6">
-                <span className="bg-blue-600 text-white text-[9px] font-black px-4 py-1.5 rounded-lg uppercase italic tracking-widest">{selectedAtlet.kategori}</span>
-                <span className="bg-white/10 text-white/60 text-[9px] font-black px-4 py-1.5 rounded-lg uppercase italic tracking-widest">{selectedAtlet.kategori_khusus}</span>
-              </div>
-              <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter mb-10 leading-none">
-                {selectedAtlet.nama}
-              </h2>
-              <div className="grid grid-cols-2 gap-4 mb-10">
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
-                    <TrendingUp className="text-blue-500 mb-2" size={24} />
-                    <p className="text-[9px] font-black text-white/20 uppercase mb-1 tracking-widest">Rank</p>
-                    <p className="text-3xl font-black text-white italic leading-none">#{selectedAtlet.rank}</p>
-                  </div>
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
-                    <Zap className="text-amber-500 mb-2" size={24} />
-                    <p className="text-[9px] font-black text-white/20 uppercase mb-1 tracking-widest">Points</p>
-                    <p className="text-3xl font-black text-white italic leading-none">{selectedAtlet.points.toLocaleString()}</p>
-                  </div>
-              </div>
-              <button onClick={() => { setEditingStats(selectedAtlet); setIsEditModalOpen(true); }} className="w-fit flex items-center gap-3 text-blue-400 text-[10px] font-black uppercase tracking-widest border border-blue-400/20 px-6 py-3 rounded-full hover:bg-blue-400 hover:text-white transition-all">
-                <Edit3 size={14} /> Update Athlete Data
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* EDIT / ADD MODAL */}
+      {/* MODAL ADD / EDIT */}
       {(isEditModalOpen || isAddModalOpen) && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden my-8">
-            <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 my-8">
+            <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
               <h3 className="font-black text-2xl uppercase italic tracking-tighter">
-                {isAddModalOpen ? 'Tambah' : 'Edit'} <span className="text-blue-600">Atlet</span>
+                {isAddModalOpen ? 'Registrasi' : 'Update'} <span className="text-blue-600">Atlet</span>
               </h3>
               <button onClick={() => { setIsEditModalOpen(false); setIsAddModalOpen(false); }} className="p-2 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full transition-all"><X size={24}/></button>
             </div>
-            
-            <div className="p-10">
-              <form onSubmit={isAddModalOpen ? handleAddAtlet : handleUpdateStats} className="space-y-6">
-                
-                <div className="flex flex-col md:flex-row gap-8">
-                  <div className="w-full md:w-1/3">
-                    <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-slate-100 shadow-inner group">
-                      <img src={(isAddModalOpen ? newAtlet.foto_url : editingStats?.foto_url) || '/placeholder.jpg'} className="w-full h-full object-cover" alt="Upload" />
-                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center cursor-pointer text-white">
-                        <Camera size={30} className="mb-2" />
-                        <span className="font-black text-[9px] uppercase">Ganti Foto</span>
-                        <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                      </label>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10">
+              <div className="space-y-4">
+                <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-slate-100 shadow-inner group">
+                   <img src={(isAddModalOpen ? newAtlet.foto_url : editingStats?.foto_url) || '/placeholder.jpg'} className="w-full h-full object-cover" alt="Avatar" />
+                   <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center cursor-pointer text-white backdrop-blur-sm">
+                      <Camera size={40} className="mb-2" />
+                      <span className="font-black text-[10px] uppercase tracking-widest">Ganti Foto</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                   </label>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-relaxed">Sistem akan otomatis menghitung poin berdasarkan kategori Seed yang Anda pilih.</p>
+                </div>
+              </div>
+              <form onSubmit={isAddModalOpen ? handleAddAtlet : handleUpdateStats} className="space-y-4">
+                {isAddModalOpen && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                    <input type="text" required className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={newAtlet.nama} onChange={e => setNewAtlet({...newAtlet, nama: e.target.value})} />
                   </div>
-
-                  <div className="flex-1 space-y-4">
-                    {isAddModalOpen && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                        <input type="text" required className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={newAtlet.nama} onChange={e => setNewAtlet({...newAtlet, nama: e.target.value})} />
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Umum</label>
-                        <select 
-                          className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black text-[11px]"
-                          value={isAddModalOpen ? newAtlet.kategori : editingStats?.kategori}
-                          onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, kategori: e.target.value}) : setEditingStats({...editingStats!, kategori: e.target.value})}
-                        >
-                          {KATEGORI_UMUM.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Khusus</label>
-                        <select 
-                          className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black text-[11px]"
-                          value={isAddModalOpen ? newAtlet.kategori_khusus : editingStats?.kategori_khusus}
-                          onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, kategori_khusus: e.target.value}) : setEditingStats({...editingStats!, kategori_khusus: e.target.value})}
-                        >
-                          {KATEGORI_KHUSUS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed</label>
-                        <select 
-                          className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black text-[11px]"
-                          value={isAddModalOpen ? newAtlet.seed : editingStats?.seed}
-                          onChange={e => handleSeedUpdate(e.target.value, isAddModalOpen ? 'add' : 'edit')}
-                        >
-                          {Object.keys(SEED_STANDARDS).map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank</label>
-                        <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={isAddModalOpen ? newAtlet.rank : editingStats?.rank} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, rank: parseInt(e.target.value)}) : setEditingStats({...editingStats!, rank: parseInt(e.target.value)})} />
-                      </div>
-                    </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank</label>
+                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={isAddModalOpen ? newAtlet.rank : editingStats?.rank} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, rank: parseInt(e.target.value)}) : setEditingStats({...editingStats!, rank: parseInt(e.target.value)})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Poin Otomatis</label>
+                    <input type="number" className="w-full px-5 py-3 bg-blue-50 text-blue-700 rounded-xl border-2 border-blue-100 font-black" value={isAddModalOpen ? newAtlet.points : editingStats?.points} readOnly />
                   </div>
                 </div>
-
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievements / Prestasi Terakhir</label>
-                  <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black italic uppercase" value={isAddModalOpen ? newAtlet.prestasi : editingStats?.prestasi} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, prestasi: e.target.value}) : setEditingStats({...editingStats!, prestasi: e.target.value})} />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Seed</label>
+                    <select 
+                      className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase"
+                      value={isAddModalOpen ? newAtlet.seed : editingStats?.seed}
+                      onChange={e => handleSeedUpdate(e.target.value, isAddModalOpen ? 'add' : 'edit')}
+                    >
+                      {Object.keys(SEED_STANDARDS).map(seed => (
+                        <option key={seed} value={seed}>{seed}</option>
+                      ))}
+                    </select>
                 </div>
-
-                <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 transition-all">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Tanding</label>
+                    <select 
+                      className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase"
+                      value={isAddModalOpen ? newAtlet.kategori : editingStats?.kategori}
+                      onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, kategori: e.target.value}) : setEditingStats({...editingStats!, kategori: e.target.value})}
+                    >
+                      {KATEGORI_UMUM.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status Umur</label>
+                    <select 
+                      className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase"
+                      value={isAddModalOpen ? newAtlet.status_umur : editingStats?.status_umur}
+                      onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, status_umur: e.target.value}) : setEditingStats({...editingStats!, status_umur: e.target.value})}
+                    >
+                      {STATUS_KHUSUS.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prestasi</label>
+                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black italic uppercase" value={isAddModalOpen ? newAtlet.prestasi : editingStats?.prestasi} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, prestasi: e.target.value}) : setEditingStats({...editingStats!, prestasi: e.target.value})} />
+                </div>
+                <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">
                   {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                  {isAddModalOpen ? 'DAFTARKAN ATLET SEKARANG' : 'SIMPAN PERUBAHAN'}
+                  {isAddModalOpen ? 'DAFTARKAN SEKARANG' : 'SIMPAN PERUBAHAN'}
                 </button>
               </form>
             </div>
@@ -496,34 +474,41 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* CROPPER OVERLAY */}
+      {/* CROPPER MODAL */}
       {imageToCrop && (
         <div className="fixed inset-0 z-[300] bg-slate-950 flex flex-col items-center justify-center p-6 backdrop-blur-2xl">
-           <div className="w-full max-w-2xl relative aspect-[3/4] bg-zinc-900 rounded-[3rem] overflow-hidden">
+           <div className="w-full max-w-2xl relative aspect-[3/4] bg-zinc-900 rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
               <Cropper
                 image={imageToCrop}
-                crop={crop}
-                zoom={zoom}
-                aspect={3 / 4}
-                onCropChange={setCrop}
-                onCropComplete={onCropComplete}
-                onZoomChange={setZoom}
+                crop={crop} zoom={zoom} aspect={3 / 4}
+                onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom}
               />
            </div>
-           <div className="mt-10 flex gap-4 w-full max-w-xl">
-              <button onClick={() => setImageToCrop(null)} className="flex-1 py-5 bg-white/10 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest">Batal</button>
-              <button onClick={executeCropAndUpload} disabled={isCropping} className="flex-1 py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-2xl flex items-center justify-center gap-3">
-                {isCropping ? <Loader2 className="animate-spin" size={18}/> : <Scissors size={18}/>} Potong & Simpan
-              </button>
+           <div className="mt-10 w-full max-w-xl">
+              <div className="flex gap-4">
+                <button onClick={() => setImageToCrop(null)} className="flex-1 py-5 bg-white/10 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest">Cancel</button>
+                <button 
+                  onClick={executeCropAndUpload} 
+                  disabled={isCropping} 
+                  className="flex-1 py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-2xl flex items-center justify-center gap-3"
+                >
+                  {isCropping ? <Loader2 className="animate-spin" size={18}/> : <Scissors size={18}/>}
+                  POTONG & UNGGAH
+                </button>
+              </div>
            </div>
         </div>
       )}
 
-      {/* SUCCESS NOTIFICATION */}
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[400] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'}`}>
-        <div className="bg-slate-900 text-white px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6">
-          <Zap size={24} className="text-blue-500 fill-blue-500" />
-          <h4 className="font-black uppercase tracking-tighter text-lg italic">{notifMessage}</h4>
+      {/* SUCCESS NOTIF */}
+      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[400] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+        <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6 min-w-[380px] overflow-hidden relative">
+          <div className="absolute bottom-0 left-0 h-1 bg-blue-600" style={{ width: showSuccess ? '100%' : '0%', transition: 'width 3s linear' }} />
+          <div className="bg-blue-600 p-4 rounded-2xl shadow-lg animate-bounce"><Zap size={24} className="text-white fill-white" /></div>
+          <div>
+            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">{notifMessage}</h4>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Database Tersinkronasi</p>
+          </div>
         </div>
       </div>
     </div>

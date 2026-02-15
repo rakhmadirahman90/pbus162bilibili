@@ -7,6 +7,16 @@ import {
   ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors
 } from 'lucide-react';
 
+// --- KONSTANTA STANDAR POIN DATABASE ---
+const SEED_STANDARDS: Record<string, number> = {
+  'SEED A': 10000,
+  'SEED B+': 8500,
+  'SEED B': 7500,
+  'SEED C': 6825,
+  'QUALIFIER': 500,
+  'UNSEEDED': 0
+};
+
 interface Registrant {
   id: string;
   nama: string;
@@ -36,7 +46,6 @@ export default function ManajemenAtlet() {
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- STATES FOR IMAGE CROPPER ---
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -91,7 +100,20 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- LOGIKA IMAGE CROPPER ---
+  // --- LOGIKA AUTO-POINT SESUAI SEED ---
+  const handleSeedUpdate = (newSeed: string) => {
+    if (!editingStats) return;
+    
+    // Ambil poin standar, jika tidak ada (custom input) gunakan poin lama
+    const standardizedPoints = SEED_STANDARDS[newSeed.toUpperCase()] ?? editingStats.points;
+    
+    setEditingStats({
+      ...editingStats,
+      seed: newSeed.toUpperCase(),
+      points: standardizedPoints
+    });
+  };
+
   const onCropComplete = useCallback((_: any, pixels: any) => {
     setCroppedAreaPixels(pixels);
   }, []);
@@ -222,10 +244,8 @@ export default function ManajemenAtlet() {
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
-    /* PERBAIKAN LAYOUT: Menggunakan h-full flex flex-col agar tidak scroll satu halaman penuh */
     <div className="h-full flex flex-col bg-[#f8fafc] font-sans relative overflow-hidden">
       
-      {/* HEADER TETAP (FIXED) */}
       <div className="flex-shrink-0 p-4 md:p-8 pb-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
@@ -240,19 +260,18 @@ export default function ManajemenAtlet() {
               <p className="text-slate-500 font-medium text-sm">Kelola data prestasi secara realtime.</p>
             </div>
             <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
-               <div className="text-center">
+                <div className="text-center">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
                   <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
-               </div>
-               <div className="w-[1px] h-10 bg-slate-100"></div>
-               <div className="text-center">
+                </div>
+                <div className="w-[1px] h-10 bg-slate-100"></div>
+                <div className="text-center">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
                   <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
-               </div>
+                </div>
             </div>
           </div>
 
-          {/* SEARCH BAR TETAP */}
           <div className="relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={22} />
             <input 
@@ -265,7 +284,6 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* AREA SCROLLABLE (HANYA BAGIAN INI YANG SCROLL) */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 scroll-smooth">
         <div className="max-w-7xl mx-auto pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -310,7 +328,6 @@ export default function ManajemenAtlet() {
             ))}
           </div>
 
-          {/* PAGINATION DI DALAM SCROLL AREA */}
           {!loading && totalPages > 1 && (
             <div className="flex justify-center items-center gap-3 mt-16 pb-10">
               <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft size={20} /></button>
@@ -325,7 +342,6 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* MODAL DETAIL */}
       {selectedAtlet && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/5">
@@ -379,7 +395,6 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* MODAL EDIT STATS */}
       {isEditModalOpen && editingStats && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20 my-8">
@@ -398,7 +413,7 @@ export default function ManajemenAtlet() {
                    </label>
                 </div>
                 <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-relaxed">Tips: Rasio 3:4 disarankan agar presisi.</p>
+                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-relaxed">Tips: Poin akan menyesuaikan otomatis saat kategori Seed diubah.</p>
                 </div>
               </div>
               <form onSubmit={handleUpdateStats} className="space-y-5">
@@ -409,12 +424,20 @@ export default function ManajemenAtlet() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>
-                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
+                    <input type="number" className="w-full px-5 py-3 bg-blue-50 text-blue-700 rounded-xl border-2 border-blue-100 font-black" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
                   </div>
                 </div>
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Category</label>
-                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase" value={editingStats.seed} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
+                    <select 
+                      className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase"
+                      value={editingStats.seed}
+                      onChange={e => handleSeedUpdate(e.target.value)}
+                    >
+                      {Object.keys(SEED_STANDARDS).map(seed => (
+                        <option key={seed} value={seed}>{seed}</option>
+                      ))}
+                    </select>
                 </div>
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievements</label>
@@ -434,7 +457,6 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* IMAGE CROPPER MODAL */}
       {imageToCrop && (
         <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-6 backdrop-blur-2xl">
            <div className="w-full max-w-2xl relative aspect-[3/4] bg-zinc-900 rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
@@ -464,7 +486,6 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* SUCCESS NOTIFICATION */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
         <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6 min-w-[380px] overflow-hidden relative">
           <div className="absolute bottom-0 left-0 h-1 bg-blue-600" style={{ width: showSuccess ? '100%' : '0%', transition: 'width 3s linear' }} />

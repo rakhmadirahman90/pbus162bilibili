@@ -62,28 +62,39 @@ export default function ManajemenAtlet() {
     fetchAtlets();
   }, []);
 
+  // PERBAIKAN: Query select diperjelas untuk menghindari ambiguitas data
   const fetchAtlets = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('pendaftaran')
-        .select(`*, atlet_stats (rank, points, seed, bio, prestasi_terakhir)`)
+        .select(`
+          id, nama, whatsapp, kategori, domisili, foto_url, jenis_kelamin, status,
+          atlet_stats (rank, points, seed, bio, prestasi_terakhir)
+        `)
         .order('nama', { ascending: true });
       
       if (error) throw error;
+      
       if (data) {
-        const formattedData = data.map((item: any) => ({
-          ...item,
-          rank: item.atlet_stats?.[0]?.rank || 0,
-          points: item.atlet_stats?.[0]?.points || 0,
-          seed: item.atlet_stats?.[0]?.seed || 'UNSEEDED',
-          bio: item.atlet_stats?.[0]?.bio || "Data profil belum dilengkapi.",
-          prestasi: item.atlet_stats?.[0]?.prestasi_terakhir || "CONTENDER"
-        }));
+        const formattedData = data.map((item: any) => {
+          // Mengambil data stats (menangani kasus jika array stats kosong)
+          const stats = Array.isArray(item.atlet_stats) ? item.atlet_stats[0] : item.atlet_stats;
+          
+          return {
+            ...item,
+            rank: stats?.rank || 0,
+            points: stats?.points || 0,
+            seed: stats?.seed || 'UNSEEDED',
+            bio: stats?.bio || "Data profil belum dilengkapi.",
+            prestasi: stats?.prestasi_terakhir || "CONTENDER"
+          };
+        });
         setAtlets(formattedData);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Fetch error:", err);
+      setNotifMessage("Gagal memuat data");
     } finally {
       setLoading(false);
     }
@@ -110,7 +121,6 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- FUNGSI CROP & UPLOAD KE BUCKET "foto" ---
   const executeCropAndUpload = async () => {
     if (!croppedAreaPixels || !imageToCrop) {
       alert("Data tidak lengkap untuk proses crop");
@@ -147,7 +157,6 @@ export default function ManajemenAtlet() {
       const fileName = `${Date.now()}-atlet.jpg`;
       const filePath = `atlet_photos/${fileName}`;
 
-      // --- MENGGUNAKAN BUCKET "foto" ---
       const { error: uploadError } = await supabase.storage
         .from('foto') 
         .upload(filePath, blob);
@@ -158,8 +167,9 @@ export default function ManajemenAtlet() {
 
       if (isAddModalOpen) {
         setNewAtlet({ ...newAtlet, foto_url: publicUrl });
-      } else if (editingStats) {
+      } else if (editingStats && editingStats.id) {
         setEditingStats({ ...editingStats, foto_url: publicUrl });
+        // Update langsung foto_url di tabel pendaftaran
         await supabase.from('pendaftaran').update({ foto_url: publicUrl }).eq('id', editingStats.id);
       }
 
@@ -191,7 +201,12 @@ export default function ManajemenAtlet() {
         prestasi_terakhir: editingStats.prestasi
       };
 
-      const { data: existing } = await supabase.from('atlet_stats').select('id').eq('pendaftaran_id', editingStats.id).single();
+      // PERBAIKAN: Gunakan pendaftaran_id sebagai filter yang konsisten
+      const { data: existing } = await supabase
+        .from('atlet_stats')
+        .select('id')
+        .eq('pendaftaran_id', editingStats.id)
+        .maybeSingle();
 
       if (existing) {
         await supabase.from('atlet_stats').update(statsPayload).eq('pendaftaran_id', editingStats.id);
@@ -199,6 +214,7 @@ export default function ManajemenAtlet() {
         await supabase.from('atlet_stats').insert([statsPayload]);
       }
 
+      // Sync ke tabel rankings
       await supabase.from('rankings').upsert({
         player_name: editingStats.nama,
         category: editingStats.kategori,
@@ -224,6 +240,7 @@ export default function ManajemenAtlet() {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // 1. Insert ke pendaftaran
       const { data: pendaftaran, error: pError } = await supabase
         .from('pendaftaran')
         .insert([{
@@ -231,14 +248,16 @@ export default function ManajemenAtlet() {
           kategori: newAtlet.kategori,
           foto_url: newAtlet.foto_url,
           domisili: 'Internal',
-          whatsapp: '0'
+          whatsapp: '0',
+          jenis_kelamin: 'PRIA' // default
         }])
         .select()
         .single();
 
       if (pError) throw pError;
 
-      await supabase.from('atlet_stats').insert([{
+      // 2. Insert ke atlet_stats menggunakan ID yang baru dibuat
+      const { error: sError } = await supabase.from('atlet_stats').insert([{
         pendaftaran_id: pendaftaran.id,
         rank: newAtlet.rank,
         points: newAtlet.points,
@@ -246,6 +265,8 @@ export default function ManajemenAtlet() {
         bio: newAtlet.bio,
         prestasi_terakhir: newAtlet.prestasi
       }]);
+
+      if (sError) throw sError;
 
       await fetchAtlets();
       setIsAddModalOpen(false);
@@ -255,7 +276,7 @@ export default function ManajemenAtlet() {
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      alert("Gagal menambah atlet");
+      alert("Gagal menambah atlet. Pastikan semua tabel tersedia.");
     } finally {
       setIsSaving(false);
     }
@@ -317,6 +338,13 @@ export default function ManajemenAtlet() {
                  <Loader2 className="animate-spin m-auto text-blue-600 mb-4" size={40} />
                  <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Mengakses Server...</p>
               </div>
+            ) : currentItems.length === 0 ? (
+                <div className="col-span-full py-32 text-center">
+                  <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Tidak ada data atlet ditemukan</p>
+                  <button onClick={fetchAtlets} className="mt-4 text-blue-600 font-bold flex items-center gap-2 mx-auto">
+                    <RefreshCcw size={16}/> Refresh Data
+                  </button>
+                </div>
             ) : currentItems.map((atlet) => (
               <div 
                 key={atlet.id}
@@ -453,7 +481,7 @@ export default function ManajemenAtlet() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank</label>
-                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={isAddModalOpen ? newAtlet.rank : editingStats?.rank} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, rank: parseInt(e.target.value)}) : setEditingStats({...editingStats!, rank: parseInt(e.target.value)})} />
+                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={isAddModalOpen ? newAtlet.rank : editingStats?.rank} onChange={e => isAddModalOpen ? setNewAtlet({...newAtlet, rank: parseInt(e.target.value) || 0}) : setEditingStats({...editingStats!, rank: parseInt(e.target.value) || 0})} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>

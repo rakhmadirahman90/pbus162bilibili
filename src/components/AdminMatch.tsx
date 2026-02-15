@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from "../supabase";
 import { 
   Trophy, User, Activity, CheckCircle2, 
-  Plus, Loader2, Trash2, Send, Clock, AlertCircle, Sparkles, RefreshCcw, Search
+  Plus, Loader2, Trash2, Send, Clock, AlertCircle, Sparkles, RefreshCcw, Search, X, RotateCcw
 } from 'lucide-react';
 
 const AdminMatch: React.FC = () => {
@@ -13,6 +13,7 @@ const AdminMatch: React.FC = () => {
   
   // State Baru: UI Notification & Search
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showRollbackSuccess, setShowRollbackSuccess] = useState(false); // State baru untuk notifikasi hapus
   const [searchTerm, setSearchTerm] = useState('');
 
   // State Form
@@ -93,10 +94,6 @@ const AdminMatch: React.FC = () => {
     }
   };
 
-  /**
-   * PENYEMPURNAAN FUNGSI SINKRONISASI (FIXED FOR DELETE ERROR)
-   * Mendeteksi kolom poin/points secara dinamis agar tidak error "column does not exist"
-   */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
       const { data: currentStats, error: statsError } = await supabase
@@ -107,21 +104,18 @@ const AdminMatch: React.FC = () => {
 
       if (statsError) throw statsError;
 
-      // Ambil poin lama dengan fallback ke berbagai kemungkinan nama kolom
       const existingPoints = currentStats?.poin ?? currentStats?.points ?? 0;
       const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
       
       const playerInfo = players.find(p => p.id === playerId);
       if (!playerInfo) throw new Error("Data atlet tidak ditemukan di state lokal");
 
-      // 1. Update tabel atlet_stats dengan deteksi kolom
       const statsPayload: any = {
         pendaftaran_id: playerId,
         player_name: playerInfo.nama,
         last_match_at: new Date().toISOString()
       };
 
-      // Isi kedua kolom untuk menjamin kompatibilitas jika salah satu tidak ada
       statsPayload.poin = newTotalPoints;
       statsPayload.points = newTotalPoints;
 
@@ -129,13 +123,11 @@ const AdminMatch: React.FC = () => {
         .from('atlet_stats')
         .upsert(statsPayload, { onConflict: 'pendaftaran_id' });
 
-      // Jika error karena kolom 'poin' tidak ada, hapus dari payload dan coba lagi
       if (updateStatsError && updateStatsError.message.includes('poin')) {
         delete statsPayload.poin;
         await supabase.from('atlet_stats').upsert(statsPayload, { onConflict: 'pendaftaran_id' });
       }
 
-      // 2. Sinkronisasi ke tabel rankings
       const rankingPayload: any = {
         player_name: playerInfo.nama,
         category: playerInfo.kategori || 'Senior',
@@ -149,7 +141,6 @@ const AdminMatch: React.FC = () => {
         .from('rankings')
         .upsert(rankingPayload, { onConflict: 'player_name' });
 
-      // Proteksi serupa untuk tabel rankings
       if (rankingError && rankingError.message.includes('poin')) {
         delete rankingPayload.poin;
         await supabase.from('rankings').upsert(rankingPayload, { onConflict: 'player_name' });
@@ -204,32 +195,32 @@ const AdminMatch: React.FC = () => {
     const matchToDelete = recentMatches.find(m => m.id === id);
     if (!matchToDelete) return;
 
-    const confirmMsg = `Hapus match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi kembali secara otomatis.`;
+    const confirmMsg = `Hapus match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi kembali secara otomatis (Rollback).`;
     if (!window.confirm(confirmMsg)) return;
     
     try {
-      // Kalkulasi pengurangan poin (Rollback)
       const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
-      
-      // Jalankan sinkronisasi pengurangan poin terlebih dahulu
       const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
       
       if (!syncSuccess) throw new Error("Gagal melakukan sinkronisasi ulang poin.");
 
-      // Hapus record pertandingan
       const { error } = await supabase
         .from('pertandingan')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      // TRIGGER NOTIFIKASI ROLLBACK BERHASIL
+      setShowRollbackSuccess(true);
       fetchRecentMatches();
+      setTimeout(() => setShowRollbackSuccess(false), 4000);
+      
     } catch (err: any) {
       alert("Hapus Gagal: " + err.message);
     }
   };
 
-  // Logika Filter untuk Search Bar
   const filteredPlayers = players.filter(p => 
     p.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -264,6 +255,7 @@ const AdminMatch: React.FC = () => {
 
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-8">
+            {/* FORM INPUT SECTION */}
             <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
               
@@ -328,6 +320,7 @@ const AdminMatch: React.FC = () => {
               </form>
             </div>
 
+            {/* RIWAYAT SECTION */}
             <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
               <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-6">
                 <Clock size={14} /> Riwayat Update Terbaru
@@ -358,6 +351,7 @@ const AdminMatch: React.FC = () => {
             </div>
           </div>
 
+          {/* SIDEBAR INFO */}
           <div className="space-y-6">
             <div className="bg-blue-600/5 border border-blue-600/20 p-8 rounded-[2.5rem]">
               <h3 className="text-[10px] font-black tracking-widest uppercase text-blue-500 mb-6 flex items-center gap-2">
@@ -385,10 +379,11 @@ const AdminMatch: React.FC = () => {
         </div>
       </div>
 
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-50 transition-all duration-700 transform ${
+      {/* NOTIFIKASI 1: SUCCESS SUBMIT */}
+      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
-        <div className="bg-zinc-950/90 backdrop-blur-3xl border border-blue-500/50 px-10 py-6 rounded-[3rem] shadow-2xl flex items-center gap-6">
-          <div className="bg-blue-600 p-4 rounded-2xl rotate-12">
+        <div className="bg-zinc-950/90 backdrop-blur-3xl border border-blue-500/50 px-10 py-6 rounded-[3rem] shadow-[0_0_50px_rgba(37,99,235,0.3)] flex items-center gap-6">
+          <div className="bg-blue-600 p-4 rounded-2xl rotate-12 shadow-lg shadow-blue-500/40">
             <CheckCircle2 size={28} className="text-white" />
           </div>
           <div>
@@ -398,8 +393,30 @@ const AdminMatch: React.FC = () => {
         </div>
       </div>
 
+      {/* NOTIFIKASI 2: SUCCESS ROLLBACK (Hapus) */}
+      <div className={`fixed inset-0 flex items-center justify-center z-[999] transition-all duration-500 ${
+        showRollbackSuccess ? 'visible opacity-100' : 'invisible opacity-0'}`}>
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+        <div className={`bg-zinc-900 border border-red-500/50 p-10 rounded-[3rem] shadow-[0_0_60px_rgba(239,68,68,0.2)] flex flex-col items-center gap-6 relative z-10 transition-transform duration-500 ${showRollbackSuccess ? 'scale-100' : 'scale-75'}`}>
+          <div className="w-24 h-24 bg-red-600 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-red-500/40 rotate-12 group">
+            <div className="bg-white p-3 rounded-2xl -rotate-12 transition-transform group-hover:scale-110">
+              <RotateCcw size={40} className="text-red-600" />
+            </div>
+          </div>
+          <div className="text-center">
+            <h2 className="text-white text-4xl font-black italic tracking-tighter uppercase leading-none">DELETED!</h2>
+            <p className="text-red-400 font-bold tracking-[0.3em] text-[10px] uppercase mt-2">Poin Telah Di-Rollback</p>
+          </div>
+          <div className="mt-2 px-6 py-2 bg-white/5 rounded-full border border-white/5">
+             <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest italic">System Integrity Verified</span>
+          </div>
+        </div>
+      </div>
+
       <style>{`
         select option { background-color: #0c0c0c; color: #fff; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
   );

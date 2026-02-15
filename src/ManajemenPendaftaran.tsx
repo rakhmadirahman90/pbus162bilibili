@@ -1,480 +1,494 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import Cropper from 'react-easy-crop';
+import React, { useEffect, useState } from 'react';
 import { supabase } from "./supabase";
 import { 
-  Search, User, X, Award, TrendingUp, Users, 
-  MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
-  ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors
+  Trash2, 
+  RefreshCcw, 
+  Search, 
+  Phone, 
+  MapPin, 
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  X,
+  Save,
+  User,
+  Camera,
+  Loader2,
+  Users,
+  FileSpreadsheet,
+  FileText 
 } from 'lucide-react';
+
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Registrant {
   id: string;
+  created_at: string;
   nama: string;
   whatsapp: string;
   kategori: string;
   domisili: string;
+  pengalaman: string;
   foto_url: string;
   jenis_kelamin: string;
-  rank: number;
-  points: number;
-  seed: string;
-  bio: string;
-  prestasi: string;
-  status?: string;
 }
 
-export default function ManajemenAtlet() {
-  const [atlets, setAtlets] = useState<Registrant[]>([]);
+export default function ManajemenPendaftaran() {
+  const [registrants, setRegistrants] = useState<Registrant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAtlet, setSelectedAtlet] = useState<Registrant | null>(null);
-  
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
-
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
+  const [editingItem, setEditingItem] = useState<Registrant | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  const itemsPerPage = 8; 
 
-  // --- STATES FOR IMAGE CROPPER ---
-  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
-  const [isCropping, setIsCropping] = useState(false);
+  const kategoriUmur = [
+    "Pra Dini (U-9)", "Usia Dini (U-11)", "Anak-anak (U-13)", 
+    "Pemula (U-15)", "Remaja (U-17)", "Taruna (U-19)", 
+    "Dewasa / Umum", "Veteran (35+ / 40+)"
+  ];
 
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [notifMessage, setNotifMessage] = useState('');
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            resolve(blob as Blob);
+          }, 'image/jpeg', 0.8);
+        };
+      };
+    });
+  };
 
-  useEffect(() => {
-    fetchAtlets();
-  }, []);
+  const exportToExcel = () => {
+    if (filteredData.length === 0) return alert("Tidak ada data untuk diekspor");
+    const dataToExport = filteredData.map((item, index) => ({
+      No: index + 1,
+      Nama: (item.nama || '').toUpperCase(),
+      Gender: item.jenis_kelamin || '-',
+      Kategori: item.kategori || '-',
+      WhatsApp: item.whatsapp || '-',
+      Domisili: item.domisili || '-',
+      Tanggal_Daftar: item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pendaftar");
+    XLSX.writeFile(workbook, `Data_Atlet_${Date.now()}.xlsx`);
+  };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+  const exportToPDF = () => {
+    if (filteredData.length === 0) return alert("Tidak ada data untuk diekspor");
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("LAPORAN DATA PENDAFTARAN ATLET", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 22);
+    const tableColumn = ["No", "Nama Atlet", "Gender", "Kategori", "Domisili", "WhatsApp"];
+    const tableRows = filteredData.map((item, index) => [
+      index + 1,
+      (item.nama || '').toUpperCase(),
+      item.jenis_kelamin || '-',
+      item.kategori || '-',
+      item.domisili || '-',
+      item.whatsapp || '-'
+    ]);
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 28,
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235], fontStyle: 'bold' },
+      styles: { fontSize: 8 },
+    });
+    doc.save(`Data_Atlet_${Date.now()}.pdf`);
+  };
 
-  const fetchAtlets = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('pendaftaran')
-        .select(`
-          *,
-          atlet_stats (
-            rank,
-            points,
-            seed,
-            bio,
-            prestasi_terakhir
-          )
-        `)
-        .order('nama', { ascending: true });
-      
+        .select('*')
+        .order('created_at', { ascending: false });
       if (error) throw error;
-
-      if (data) {
-        const formattedData = data.map((item: any) => ({
-          ...item,
-          rank: item.atlet_stats?.[0]?.rank || 0,
-          points: item.atlet_stats?.[0]?.points || 0,
-          seed: item.atlet_stats?.[0]?.seed || 'UNSEEDED',
-          bio: item.atlet_stats?.[0]?.bio || "Data profil belum dilengkapi.",
-          prestasi: item.atlet_stats?.[0]?.prestasi_terakhir || "CONTENDER"
-        }));
-        setAtlets(formattedData);
-      }
-    } catch (err) {
-      console.error(err);
+      setRegistrants(data || []);
+    } catch (error: any) {
+      console.error('Error fetching data:', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- LOGIKA IMAGE CROPPER ---
-  const onCropComplete = useCallback((_: any, pixels: any) => {
-    setCroppedAreaPixels(pixels);
+  useEffect(() => {
+    fetchData();
+    const channel = supabase
+      .channel('pendaftaran_changes')
+      .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, 
+        (payload) => {
+          if (payload.eventType === 'INSERT') setRegistrants((prev) => [payload.new as Registrant, ...prev]);
+          else if (payload.eventType === 'UPDATE') setRegistrants((prev) => prev.map((item) => item.id === payload.new.id ? (payload.new as Registrant) : item));
+          else if (payload.eventType === 'DELETE') setRegistrants((prev) => prev.filter((item) => item.id !== payload.old.id));
+        }
+      ).subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const reader = new FileReader();
-      reader.onload = () => setImageToCrop(reader.result as string);
-      reader.readAsDataURL(e.target.files[0]);
-    }
-  };
+  const filteredData = (registrants || []).filter(item => 
+    (item?.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const executeCropAndUpload = async () => {
-    if (!croppedAreaPixels || !imageToCrop || !editingStats?.id) return;
-    
-    setIsCropping(true);
+  const deleteOldFile = async (url: string) => {
+    if (!url || !url.includes('identitas-atlet')) return;
     try {
-      const image = new Image();
-      image.src = imageToCrop;
-      await new Promise(res => image.onload = res);
+      const parts = url.split('/');
+      const fileName = parts[parts.length - 1];
+      if (fileName) {
+        await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
+      }
+    } catch (e) { console.error("Gagal hapus file lama", e); }
+  };
 
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+  // --- PERBAIKAN: HANDLE FILE UPLOAD ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !editingItem) return;
+    const file = e.target.files[0];
+    setUploading(true);
+    
+    try {
+      const compressedBlob = await compressImage(file);
+      const fileExt = 'jpg';
+      const fileName = `${editingItem.id}-${Date.now()}.${fileExt}`;
+      const filePath = `identitas/${fileName}`;
 
-      canvas.width = croppedAreaPixels.width;
-      canvas.height = croppedAreaPixels.height;
+      // Upload file baru ke Storage
+      const { error: uploadError } = await supabase.storage
+        .from('identitas-atlet')
+        .upload(filePath, compressedBlob, { 
+          contentType: 'image/jpeg',
+          upsert: true 
+        });
 
-      ctx.drawImage(
-        image,
-        croppedAreaPixels.x, croppedAreaPixels.y,
-        croppedAreaPixels.width, croppedAreaPixels.height,
-        0, 0,
-        croppedAreaPixels.width, croppedAreaPixels.height
-      );
+      if (uploadError) throw uploadError;
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const fileExt = 'jpg';
-        const fileName = `${editingStats.id}-${Date.now()}.${fileExt}`;
-        const filePath = `atlet_photos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, blob);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-
-        setEditingStats({ ...editingStats, foto_url: publicUrl });
-        await supabase.from('pendaftaran').update({ foto_url: publicUrl }).eq('id', editingStats.id);
-
-        setImageToCrop(null);
-        setNotifMessage("Foto Atlet Berhasil Di-crop!");
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
-      }, 'image/jpeg');
-
-    } catch (err) {
-      console.error(err);
-      alert("Gagal memproses gambar");
-    } finally {
-      setIsCropping(false);
+      // Ambil Public URL
+      const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
+      
+      // Update state local editingItem dengan URL baru
+      setEditingItem(prev => prev ? { ...prev, foto_url: publicUrl } : null);
+      
+    } catch (error: any) { 
+      alert("Gagal upload: " + error.message); 
+    } finally { 
+      setUploading(false); 
     }
   };
 
-  const handleUpdateStats = async (e: React.FormEvent) => {
+  const handleDelete = async (id: string, nama: string, foto_url: string) => {
+    if (window.confirm(`Hapus data ${nama}?`)) {
+      try {
+        if (foto_url) await deleteOldFile(foto_url);
+        const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
+        if (error) throw error;
+      } catch (error: any) { alert('Gagal menghapus: ' + error.message); }
+    }
+  };
+
+  // --- PERBAIKAN: HANDLE UPDATE (PASTIKAN FOTO_URL TERIKUT) ---
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingStats || !editingStats.id) return;
+    if (!editingItem || uploading) return;
     
     setIsSaving(true);
     try {
-      const { data: existingStats } = await supabase
-        .from('atlet_stats')
-        .select('id')
-        .eq('pendaftaran_id', editingStats.id)
-        .single();
+      // Kita ambil URL foto dari state editingItem yang terbaru
+      const { error } = await supabase.from('pendaftaran').update({
+        nama: (editingItem.nama || '').toUpperCase(),
+        whatsapp: editingItem.whatsapp,
+        domisili: editingItem.domisili,
+        kategori: editingItem.kategori,
+        jenis_kelamin: editingItem.jenis_kelamin, 
+        foto_url: editingItem.foto_url // Pastikan ini terkirim
+      }).eq('id', editingItem.id);
 
-      const statsPayload = {
-        pendaftaran_id: editingStats.id,
-        rank: editingStats.rank,
-        points: editingStats.points,
-        seed: editingStats.seed,
-        bio: editingStats.bio,
-        prestasi_terakhir: editingStats.prestasi
-      };
-
-      if (existingStats) {
-        await supabase.from('atlet_stats').update(statsPayload).eq('pendaftaran_id', editingStats.id);
-      } else {
-        await supabase.from('atlet_stats').insert([statsPayload]);
-      }
-
-      await supabase
-        .from('rankings')
-        .upsert({
-          player_name: editingStats.nama,
-          category: editingStats.kategori,
-          seed: editingStats.seed,
-          total_points: editingStats.points
-        }, { onConflict: 'player_name' });
-
-      await fetchAtlets();
+      if (error) throw error;
       
-      setNotifMessage("Data & Ranking Tersinkronasi!");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
       setIsEditModalOpen(false);
-      setSelectedAtlet(null);
-    } catch (err) {
-      console.error(err);
-      alert("Gagal sinkronisasi data");
-    } finally {
-      setIsSaving(false);
+      fetchData(); // Refresh list
+    } catch (error: any) { 
+      alert("Gagal menyimpan: " + error.message); 
+    } finally { 
+      setIsSaving(false); 
     }
   };
 
-  const filteredAtlets = atlets.filter(a => 
-    a.nama.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredAtlets.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredAtlets.length / itemsPerPage);
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
   return (
-    /* PERBAIKAN LAYOUT: Menggunakan h-full flex flex-col agar tidak scroll satu halaman penuh */
-    <div className="h-full flex flex-col bg-[#f8fafc] font-sans relative overflow-hidden">
-      
-      {/* HEADER TETAP (FIXED) */}
-      <div className="flex-shrink-0 p-4 md:p-8 pb-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={18} className="text-blue-600 animate-pulse" />
-                <p className="text-slate-400 text-[10px] font-black tracking-[0.3em] uppercase">Pro Database System</p>
-              </div>
-              <h1 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter">
-                Manajemen <span className="text-blue-600">Atlet</span>
-              </h1>
-              <p className="text-slate-500 font-medium text-sm">Kelola data prestasi secara realtime.</p>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      <div className="max-w-[1400px] mx-auto px-4 py-4 md:px-8">
+        
+        {/* HEADER */}
+        <header className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-600 rounded-lg shadow-md shadow-blue-100">
+              <Users className="text-white" size={20} />
             </div>
-            <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
-               <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
-                  <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
-               </div>
-               <div className="w-[1px] h-10 bg-slate-100"></div>
-               <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
-                  <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
-               </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900 uppercase italic leading-none">
+                Database <span className="text-blue-600">Atlet</span>
+              </h1>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Sistem Administrasi Real-time</p>
             </div>
           </div>
 
-          {/* SEARCH BAR TETAP */}
-          <div className="relative group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-600 transition-colors" size={22} />
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100/50">
+              <FileSpreadsheet size={14} /> EXCEL
+            </button>
+            <button onClick={exportToPDF} className="flex items-center gap-2 bg-rose-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100/50">
+              <FileText size={14} /> PDF
+            </button>
+            <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+            <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col items-center">
+              <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Total</span>
+              <span className="text-lg font-black text-blue-600 leading-none">{filteredData.length}</span>
+            </div>
+            <button onClick={fetchData} className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-slate-200">
+              <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} /> REFRESH
+            </button>
+          </div>
+        </header>
+
+        {/* SEARCH BAR */}
+        <section className="mb-4">
+          <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm transition-all focus-within:border-blue-500">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
-              placeholder="CARI NAMA ATLET..."
-              className="w-full pl-14 pr-8 py-5 bg-white rounded-[2rem] border-none shadow-sm focus:ring-4 focus:ring-blue-100 transition-all font-black uppercase text-sm tracking-widest placeholder:text-slate-300"
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cari nama atau kota..."
+              className="w-full pl-12 pr-6 py-3 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* AREA SCROLLABLE (HANYA BAGIAN INI YANG SCROLL) */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-20 scroll-smooth">
-        <div className="max-w-7xl mx-auto pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {loading ? (
-              <div className="col-span-full py-32 text-center">
-                 <Loader2 className="animate-spin m-auto text-blue-600 mb-4" size={40} />
-                 <p className="font-black text-slate-300 uppercase italic tracking-[0.3em]">Mengakses Server...</p>
-              </div>
-            ) : currentItems.map((atlet) => (
-              <div 
-                key={atlet.id}
-                onClick={() => setSelectedAtlet(atlet)}
-                className="bg-white p-4 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group border border-slate-100 relative overflow-hidden"
-              >
-                <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden mb-5 bg-slate-100 shadow-inner">
-                  {atlet.foto_url ? (
-                    <img src={atlet.foto_url} className="w-full h-full object-cover object-[center_25%] group-hover:scale-110 transition-transform duration-700" alt={atlet.nama} />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-200"><User className="text-slate-400" size={60} /></div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60" />
-                  <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl text-white text-[9px] font-black px-4 py-1.5 rounded-full border border-white/20 uppercase tracking-tighter">
-                    #{atlet.rank || '??'} GLOBAL
-                  </div>
-                </div>
+        {/* TABLE SECTION */}
+        <section className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden mb-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-900 text-white">
+                  <th className="pl-6 pr-2 py-3 font-bold uppercase text-[10px] tracking-widest w-12 text-center">No</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Profil Atlet</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Gender</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Kategori</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest text-center">WhatsApp</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Domisili</th>
+                  <th className="px-4 py-3 font-bold uppercase text-[10px] tracking-widest text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {loading && registrants.length === 0 ? (
+                  <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold uppercase text-xs">Memuat Data...</td></tr>
+                ) : currentItems.length === 0 ? (
+                  <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-bold uppercase text-xs">Data Tidak Ditemukan</td></tr>
+                ) : currentItems.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-blue-50/50 even:bg-slate-50/20 transition-all duration-150 group">
+                    <td className="pl-6 pr-2 py-2 text-center">
+                      <span className="text-xs font-black text-slate-400 group-hover:text-blue-600">
+                        {String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
+                      </span>
+                    </td>
+                    
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          onClick={() => item.foto_url && setPreviewImage(item.foto_url)}
+                          className="w-10 h-10 rounded-lg bg-slate-200 border border-white shadow-sm overflow-hidden flex-shrink-0 cursor-zoom-in"
+                        >
+                          {item.foto_url ? (
+                            <img 
+                              src={item.foto_url} 
+                              className="w-full h-full object-cover object-top" 
+                              style={{ imageRendering: '-webkit-optimize-contrast' }} 
+                              alt={item.nama || 'atlet'} 
+                            />
+                          ) : (
+                            <User className="m-auto mt-1.5 text-slate-400" size={18} />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-xs uppercase leading-tight">{item.nama || 'No Name'}</h4>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">ID: {item.id ? item.id.slice(0,6) : 'N/A'}</span>
+                        </div>
+                      </div>
+                    </td>
 
-                <div className="px-2">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">{atlet.kategori}</p>
-                  <h3 className="text-lg font-black text-slate-900 uppercase italic truncate mb-4 leading-tight">{atlet.nama}</h3>
-                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase">Points</p>
-                      <p className="text-sm font-black text-slate-900 tracking-tighter">{atlet.points.toLocaleString()}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[8px] font-black text-slate-400 uppercase">Seed</p>
-                      <p className="text-[10px] font-black text-emerald-600 italic tracking-tighter uppercase">{atlet.seed}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <td className="px-4 py-2">
+                      <span className={`text-[10px] font-bold uppercase ${item.jenis_kelamin === 'Putra' ? 'text-blue-600' : 'text-rose-500'}`}>
+                        {item.jenis_kelamin || '-'}
+                      </span>
+                    </td>
 
-          {/* PAGINATION DI DALAM SCROLL AREA */}
-          {!loading && totalPages > 1 && (
-            <div className="flex justify-center items-center gap-3 mt-16 pb-10">
-              <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1} className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"><ChevronLeft size={20} /></button>
-              <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
-                {[...Array(totalPages)].map((_, i) => (
-                  <button key={i + 1} onClick={() => paginate(i + 1)} className={`w-12 h-12 rounded-xl font-black text-sm transition-all ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>{i + 1}</button>
+                    <td className="px-4 py-2">
+                      <span className="inline-flex items-center bg-blue-600 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase italic shadow-sm">
+                        {item.kategori || 'UMUM'}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-2 text-center">
+                      <a href={`https://wa.me/${(item.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-bold text-slate-700 hover:text-green-600 bg-white border border-slate-100 px-3 py-1 rounded-lg transition-all text-[11px]">
+                        <Phone size={12} className="text-green-500" /> {item.whatsapp || '-'}
+                      </a>
+                    </td>
+
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-600 uppercase text-[10px]">
+                        <MapPin size={12} className="text-rose-500" /> {item.domisili || '-'}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-2">
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }} className="p-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-all">
+                          <Edit3 size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(item.id, item.nama, item.foto_url)} className="p-1.5 bg-rose-50 text-rose-600 rounded-md hover:bg-rose-600 hover:text-white transition-all">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-              <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages} className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 disabled:opacity-20 hover:bg-blue-600 hover:text-white transition-all"><ChevronRight size={20} /></button>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* PAGINATION */}
+        <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl text-white shadow-lg">
+          <p className="text-[9px] font-bold uppercase tracking-widest opacity-60">Halaman {currentPage} Dari {totalPages || 1}</p>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex gap-1.5 flex-wrap justify-center">
+                {[...Array(totalPages || 0)].map((_, i) => (
+                 <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60'}`}>
+                    {i + 1}
+                 </button>
+                ))}
             </div>
-          )}
-        </div>
+            <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </footer>
       </div>
 
-      {/* MODAL DETAIL */}
-      {selectedAtlet && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
-          <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/5">
-            <button onClick={() => setSelectedAtlet(null)} className="absolute top-8 right-8 z-50 p-3 bg-white/5 hover:bg-red-500 text-white rounded-full transition-all"><X size={24} /></button>
-            <div className="w-full md:w-[45%] h-[400px] md:h-auto relative bg-zinc-900 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent z-10"></div>
-              {selectedAtlet.foto_url ? (
-                <img src={selectedAtlet.foto_url} className="w-full h-full object-cover object-[center_20%]" alt={selectedAtlet.nama} />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={150} className="text-white/5" /></div>
-              )}
-              <div className="absolute bottom-10 left-10 z-20">
-                 <div className="bg-blue-600 text-white text-[10px] font-black px-5 py-2 rounded-full mb-3 inline-block uppercase italic tracking-widest shadow-xl">PRO ATHLETE</div>
-                 <div className="bg-amber-400 text-black font-black text-[11px] px-5 py-2 rounded-xl flex items-center gap-3 shadow-2xl italic uppercase tracking-tighter">
-                   <Trophy size={16} /> {selectedAtlet.prestasi}
-                 </div>
-              </div>
+      {/* MODAL EDIT */}
+      {isEditModalOpen && editingItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">Edit Atlet</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><X size={18}/></button>
             </div>
-            <div className="w-full md:w-[55%] p-10 md:p-16 flex flex-col justify-center">
-              <div className="flex justify-between items-center mb-8">
-                <div className="flex gap-2">
-                  <span className="bg-blue-600/20 text-blue-400 text-[10px] font-black px-4 py-1.5 rounded-lg border border-blue-600/30 uppercase tracking-widest italic">{selectedAtlet.kategori}</span>
-                  <span className="bg-white/5 text-white/40 text-[10px] font-black px-4 py-1.5 rounded-lg border border-white/10 uppercase tracking-widest italic">{selectedAtlet.seed}</span>
+            <form onSubmit={handleUpdate} className="p-6 space-y-4">
+              <div className="flex items-center gap-6 mb-2">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
+                    {editingItem.foto_url ? (
+                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
+                    ) : (
+                      <User size={30} className="m-auto mt-4 text-slate-200" />
+                    )}
+                    {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={20} /></div>}
+                  </div>
+                  <label className="absolute -bottom-1 -right-1 p-2 bg-blue-600 text-white rounded-lg shadow-lg cursor-pointer hover:bg-slate-900 transition-all">
+                    <Camera size={14} />
+                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                  </label>
                 </div>
-                <button onClick={() => { setEditingStats(selectedAtlet); setIsEditModalOpen(true); }} className="group flex items-center gap-2 text-white/30 hover:text-blue-400 text-[10px] font-black transition-all uppercase tracking-widest border border-white/5 px-4 py-2 rounded-full hover:bg-white/5">
-                  <Edit3 size={14} className="group-hover:rotate-12 transition-transform" /> UPDATE STATISTICS
+                <div className="flex-1 space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" value={editingItem.nama || ''} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Putra', 'Putri'].map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})}
+                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${editingItem.jenis_kelamin === g ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+                    >
+                      {g.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.whatsapp || ''} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
+                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.kategori || ''} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
+                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" value={editingItem.domisili || ''} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
+                </div>
+              </div>
+              <div className="pt-2">
+                <button type="submit" disabled={isSaving || uploading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2">
+                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                  Simpan Perubahan
                 </button>
               </div>
-              <h2 className="text-5xl md:text-7xl font-black text-white italic uppercase tracking-tighter mb-10 leading-[0.85]">
-                {selectedAtlet.nama.split(' ')[0]}<br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white/20 to-transparent">{selectedAtlet.nama.split(' ').slice(1).join(' ')}</span>
-              </h2>
-              <div className="grid grid-cols-2 gap-4 mb-10">
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5 transition-colors">
-                    <TrendingUp className="text-blue-500 mb-3" size={24} />
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Global Standing</p>
-                    <p className="text-3xl font-black text-white italic leading-none">#{selectedAtlet.rank}</p>
-                  </div>
-                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5 transition-colors">
-                    <Zap className="text-amber-500 mb-3" size={24} />
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] mb-1">Total Points</p>
-                    <p className="text-3xl font-black text-white italic leading-none">{selectedAtlet.points.toLocaleString()}</p>
-                  </div>
-              </div>
-              <div className="bg-blue-600/5 p-8 rounded-3xl border border-blue-600/10 relative">
-                  <div className="absolute -top-3 left-6 px-3 bg-blue-600 text-[9px] font-black uppercase tracking-widest italic rounded text-white py-1">Athlete Bio</div>
-                  <p className="text-slate-400 text-sm leading-relaxed italic font-medium">"{selectedAtlet.bio}"</p>
-              </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* MODAL EDIT STATS */}
-      {isEditModalOpen && editingStats && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20 my-8">
-            <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-black text-2xl uppercase italic tracking-tighter">Edit <span className="text-blue-600">Performance</span></h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full transition-all"><X size={24}/></button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-10">
-              <div className="space-y-4">
-                <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-slate-100 shadow-inner group">
-                   <img src={editingStats.foto_url || '/placeholder.jpg'} className="w-full h-full object-cover" alt="Current" />
-                   <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center cursor-pointer text-white backdrop-blur-sm">
-                      <Camera size={40} className="mb-2" />
-                      <span className="font-black text-[10px] uppercase tracking-widest">Update Photo</span>
-                      <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                   </label>
-                </div>
-                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-relaxed">Tips: Rasio 3:4 disarankan agar presisi.</p>
-                </div>
-              </div>
-              <form onSubmit={handleUpdateStats} className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rank</label>
-                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900" value={editingStats.rank} onChange={e => setEditingStats({...editingStats, rank: parseInt(e.target.value)})} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>
-                    <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900" value={editingStats.points} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Category</label>
-                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase" value={editingStats.seed} onChange={e => setEditingStats({...editingStats, seed: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievements</label>
-                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-black text-slate-900 uppercase italic" value={editingStats.prestasi} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Biography</label>
-                    <textarea rows={3} className="w-full px-5 py-3 bg-slate-100 rounded-xl border-none font-bold text-slate-700 text-sm" value={editingStats.bio} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
-                </div>
-                <button disabled={isSaving} className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:bg-slate-300">
-                  {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                  Save Performance
-                </button>
-              </form>
-            </div>
+      {/* LIGHTBOX PREVIEW */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-lg w-full">
+            <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" alt="preview-large" />
           </div>
         </div>
       )}
-
-      {/* IMAGE CROPPER MODAL */}
-      {imageToCrop && (
-        <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-6 backdrop-blur-2xl">
-           <div className="w-full max-w-2xl relative aspect-[3/4] bg-zinc-900 rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
-              <Cropper
-                image={imageToCrop}
-                crop={crop}
-                zoom={zoom}
-                aspect={3 / 4}
-                onCropChange={setCrop}
-                onCropComplete={onCropComplete}
-                onZoomChange={setZoom}
-              />
-           </div>
-           <div className="mt-10 w-full max-w-xl">
-              <div className="flex items-center gap-6 mb-8 bg-white/5 p-4 rounded-2xl border border-white/10">
-                <span className="text-white text-[10px] font-black uppercase tracking-widest">Zoom Control</span>
-                <input type="range" value={zoom} min={1} max={3} step={0.1} className="w-full accent-blue-600 h-1 bg-white/20 rounded-full appearance-none" onChange={(e) => setZoom(Number(e.target.value))} />
-              </div>
-              <div className="flex gap-4">
-                <button onClick={() => setImageToCrop(null)} className="flex-1 py-5 bg-white/10 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:bg-white/20 transition-all border border-white/5">Cancel</button>
-                <button onClick={executeCropAndUpload} disabled={isCropping} className="flex-1 py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-2xl flex items-center justify-center gap-3 hover:bg-blue-500 transition-all active:scale-95">
-                  {isCropping ? <Loader2 className="animate-spin" size={18}/> : <Scissors size={18}/>}
-                  Confirm & Upload
-                </button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* SUCCESS NOTIFICATION */}
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
-        <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6 min-w-[380px] overflow-hidden relative">
-          <div className="absolute bottom-0 left-0 h-1 bg-blue-600" style={{ width: showSuccess ? '100%' : '0%', transition: 'width 3s linear' }} />
-          <div className="bg-blue-600 p-4 rounded-2xl shadow-lg animate-bounce"><Zap size={24} className="text-white fill-white" /></div>
-          <div>
-            <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">{notifMessage}</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Database Updated</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

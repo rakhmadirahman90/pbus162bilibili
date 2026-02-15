@@ -58,51 +58,43 @@ export default function ManajemenAtlet() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const fetchAtlets = async () => {
-    setLoading(true);
-    try {
-      // Query dengan Join ke tabel atlet_stats
-      const { data, error } = await supabase
-        .from('pendaftaran')
-        .select(`
-          *,
-          atlet_stats (
-            rank,
-            points,
-            seed,
-            bio,
-            prestasi_terakhir
-          )
-        `)
-        .order('nama', { ascending: true });
-      
-      if (error) throw error;
+const fetchAtlets = async () => {
+  setLoading(true);
+  try {
+    // 1. Ambil data pendaftaran saja
+    const { data: pendaftaran, error: pError } = await supabase
+      .from('pendaftaran')
+      .select('*')
+      .order('nama', { ascending: true });
 
-      if (data) {
-        // Mapping data agar struktur nested 'atlet_stats' menjadi flat ke objek Registrant
-        const formattedData = data.map((item: any) => {
-          const stats = item.atlet_stats?.[0] || {}; // Mengambil index 0 karena relasi 1-ke-1
-          return {
-            ...item,
-            // Jika stats kosong, berikan nilai default
-            rank: stats.rank ?? 0,
-            points: stats.points ?? 0,
-            seed: stats.seed ?? 'UNSEEDED',
-            bio: stats.bio ?? "Profil atlet belum diperbarui.",
-            prestasi: stats.prestasi_terakhir ?? "REGULER PLAYER"
-          };
-        });
-        setAtlets(formattedData);
-      }
-    } catch (err: any) {
-      console.error("Fetch Error:", err.message);
-      setNotifMessage("Gagal Memuat Data!");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } finally {
-      setLoading(false);
+    if (pError) throw pError;
+
+    // 2. Ambil data stats saja
+    const { data: stats, error: sError } = await supabase
+      .from('atlet_stats')
+      .select('*');
+
+    if (pendaftaran) {
+      const formatted = pendaftaran.map(atlet => {
+        // Cari stats yang punya pendaftaran_id yang sama dengan id atlet ini
+        const itemStat = stats?.find(s => s.pendaftaran_id === atlet.id);
+        return {
+          ...atlet,
+          rank: itemStat?.rank || 0,
+          points: itemStat?.points || 0,
+          seed: itemStat?.seed || 'UNSEEDED',
+          bio: itemStat?.bio || "Belum ada bio.",
+          prestasi: itemStat?.prestasi_terakhir || "REGULER"
+        };
+      });
+      setAtlets(formatted);
     }
-  };
+  } catch (err: any) {
+    console.error("DEBUG ERROR:", err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleUpdateStats = async (e: React.FormEvent) => {
     e.preventDefault();

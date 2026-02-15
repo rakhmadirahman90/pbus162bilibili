@@ -8,7 +8,7 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
 import { 
-  X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2 
+  X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2, User 
 } from 'lucide-react';
 
 // --- DATA SOURCE FALLBACK ---
@@ -168,21 +168,36 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
           <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center overflow-hidden h-[400px] md:h-auto">
-              <img src={selectedPlayer.img} className="w-full h-full object-cover p-4" alt={selectedPlayer.name} />
+            {/* PERBAIKAN FOTO PADA MODAL: Rasio Presisi & Fokus Wajah */}
+            <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center overflow-hidden h-[450px] md:h-auto relative">
+              {selectedPlayer.img ? (
+                <img 
+                  src={selectedPlayer.img} 
+                  className="w-full h-full object-cover object-[center_20%]" 
+                  alt={selectedPlayer.name} 
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                  <User size={120} className="text-zinc-700" />
+                </div>
+              )}
+              {/* Overlay Gradient bawah foto agar teks winner terbaca */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              
               {selectedPlayer.isWinner && (
-                <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl">
+                <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl z-20 italic uppercase tracking-widest">
                   <Award size={18} /> WINNER - PB US 162
                 </div>
               )}
             </div>
+
             <div className="p-10 md:p-16 flex-1 bg-zinc-900 relative">
               <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-colors"><X size={28} /></button>
               <div className="flex gap-3 mb-6">
                 <span className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-blue-500 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.ageGroup}</span>
                 <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.categoryLabel}</span>
               </div>
-              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9]">{selectedPlayer.name}</h2>
+              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9] italic">{selectedPlayer.name}</h2>
               
               <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
                 <div className="flex items-center gap-3 mb-4 text-blue-500">
@@ -193,12 +208,12 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
               </div>
 
               <div className="grid grid-cols-2 gap-5">
-                <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
+                <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5 group hover:border-blue-500/30 transition-all">
                     <Zap className="text-blue-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Global Rank</p>
                     <p className="text-2xl font-black">#{selectedPlayer.globalRank || processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
                 </div>
-                <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
+                <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5 group hover:border-yellow-500/30 transition-all">
                     <Trophy className="text-yellow-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Poin Klasemen</p>
                     <p className="text-2xl font-black">{selectedPlayer.totalPoints.toLocaleString()} PTS</p>
@@ -271,11 +286,24 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
             >
               {filteredPlayers.map((player) => (
                 <SwiperSlide key={player.id}>
+                  {/* CARD ATLET: Rasio 3:4.5 Sangat Presisi */}
                   <div 
                     onClick={() => setSelectedPlayer(player)} 
                     className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
                   >
-                    <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
+                    {/* PERBAIKAN FOTO PADA CARD: object-[center_25%] agar wajah tetap di frame */}
+                    {player.img ? (
+                      <img 
+                        src={player.img} 
+                        className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000 object-[center_25%]" 
+                        alt={player.name} 
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                         <User size={60} className="text-zinc-700" />
+                      </div>
+                    )}
+                    
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
                     
                     <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
@@ -293,7 +321,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                            <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
                            <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
                       </div>
-                      <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1">{player.name}</h3>
+                      <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1 italic">{player.name}</h3>
                       <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
                         <span>{player.categoryLabel}</span>
                         <span className="text-white font-mono">{player.totalPoints.toLocaleString()} PTS</span>

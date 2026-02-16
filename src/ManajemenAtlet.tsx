@@ -4,32 +4,8 @@ import { supabase } from "./supabase";
 import { 
   Search, User, X, Award, TrendingUp, Users, 
   MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
-  ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors, UserPlus, Upload
+  ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors, Plus, Upload
 } from 'lucide-react';
-
-// --- HELPER UNTUK CROP IMAGE ---
-const getCroppedImg = (imageSrc: string, pixelCrop: any): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.src = imageSrc;
-    image.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject();
-      canvas.width = pixelCrop.width;
-      canvas.height = pixelCrop.height;
-      ctx.drawImage(
-        image,
-        pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
-        0, 0, pixelCrop.width, pixelCrop.height
-      );
-      canvas.toBlob((blob) => {
-        if (!blob) return reject();
-        resolve(blob);
-      }, 'image/jpeg');
-    };
-  });
-};
 
 interface Registrant {
   id: string;
@@ -47,6 +23,16 @@ interface Registrant {
   status?: string;
 }
 
+// Helper untuk Cropping Image
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.src = url;
+  });
+
 export default function ManajemenAtlet() {
   const [atlets, setAtlets] = useState<Registrant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,11 +46,13 @@ export default function ManajemenAtlet() {
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- STATE BARU: TAMBAH ATLET & CROP ---
+  // --- State Baru: Tambah Atlet & Crop ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newAtlet, setNewAtlet] = useState({
     nama: '',
+    whatsapp: '',
     kategori: 'SENIOR',
+    domisili: '',
     seed: 'UNSEEDED',
     points: 0,
     bio: 'Atlet PB US 162',
@@ -77,6 +65,7 @@ export default function ManajemenAtlet() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [isCropping, setIsCropping] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [notifMessage, setNotifMessage] = useState('');
@@ -134,70 +123,99 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- LOGIKA UPLOAD & CROP ---
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const reader = new FileReader();
-      reader.addEventListener('load', () => setImageToCrop(reader.result as string));
-      reader.readAsDataURL(e.target.files[0]);
-      setIsCropping(true);
+  // --- Logika Baru: Auto-Points Berdasarkan Seed ---
+  const handleSeedChange = (seed: string, isEditing: boolean = false) => {
+    let initialPoints = 0;
+    switch (seed) {
+      case 'TOP SEED': initialPoints = 2500; break;
+      case 'SEED A': initialPoints = 2000; break;
+      case 'SEED B': initialPoints = 1500; break;
+      case 'SEED C': initialPoints = 1000; break;
+      default: initialPoints = 0;
+    }
+
+    if (isEditing) {
+      setEditingStats(prev => ({ ...prev, seed, points: initialPoints }));
+    } else {
+      setNewAtlet(prev => ({ ...prev, seed, points: initialPoints }));
     }
   };
 
-  const saveCroppedImage = async () => {
+  // --- Logika Baru: Image Upload & Crop ---
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        setImageToCrop(reader.result as string);
+        setIsCropping(true);
+      };
+    }
+  };
+
+  const onCropComplete = useCallback((_area: any, areaPixels: any) => {
+    setCroppedAreaPixels(areaPixels);
+  }, []);
+
+  const handleUploadCroppedImage = async () => {
     if (!imageToCrop || !croppedAreaPixels) return;
-    setIsSaving(true);
+    setUploadingImage(true);
     try {
-      const croppedBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      const image = await createImage(imageToCrop);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = croppedAreaPixels.width;
+      canvas.height = croppedAreaPixels.height;
+
+      ctx?.drawImage(
+        image,
+        croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height,
+        0, 0, croppedAreaPixels.width, croppedAreaPixels.height
+      );
+
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9));
       const fileName = `atlet-${Date.now()}.jpg`;
+
+      const { data, error } = await supabase.storage.from('atlet-photos').upload(fileName, blob);
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage.from('atlet-photos').getPublicUrl(fileName);
       
-      const { error: uploadError } = await supabase.storage
-        .from('atlet-photos')
-        .upload(fileName, croppedBlob);
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('atlet-photos')
-        .getPublicUrl(fileName);
-
-      if (isAddModalOpen) {
-        setNewAtlet({ ...newAtlet, foto_url: urlData.publicUrl });
-      } else if (isEditModalOpen && editingStats) {
-        setEditingStats({ ...editingStats, foto_url: urlData.publicUrl });
-      }
-      
+      setNewAtlet(prev => ({ ...prev, foto_url: publicUrl }));
       setIsCropping(false);
       setImageToCrop(null);
     } catch (err: any) {
-      alert("Upload failed: " + err.message);
+      alert("Upload Gagal: " + err.message);
     } finally {
-      setIsSaving(false);
+      setUploadingImage(false);
     }
   };
 
-  // --- LOGIKA TAMBAH ATLET LENGKAP ---
-  const handleAddAtlet = async (e: React.FormEvent) => {
+  const handleAddNewAtlet = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      // 1. Simpan ke pendaftaran (Data Utama)
+      // 1. Masukkan ke tabel pendaftaran
       const { data: pData, error: pError } = await supabase
         .from('pendaftaran')
         .insert([{
           nama: newAtlet.nama,
+          whatsapp: newAtlet.whatsapp,
           kategori: newAtlet.kategori,
+          domisili: newAtlet.domisili,
           foto_url: newAtlet.foto_url,
-          whatsapp: '081200000000', // Default
-          domisili: 'Parepare'
-        }]).select();
+          status: 'verified'
+        }])
+        .select();
 
       if (pError) throw pError;
 
-      // 2. Simpan ke rankings (Statistik)
+      // 2. Masukkan ke tabel rankings (Logic Sinkronisasi Anda)
       const { error: rError } = await supabase
         .from('rankings')
-        .insert([{
+        .upsert({
           player_name: newAtlet.nama,
           category: newAtlet.kategori,
           seed: newAtlet.seed,
@@ -205,15 +223,14 @@ export default function ManajemenAtlet() {
           photo_url: newAtlet.foto_url,
           bio: newAtlet.bio,
           achievement: newAtlet.prestasi
-        }]);
+        }, { onConflict: 'player_name' });
 
       if (rError) throw rError;
 
-      await fetchAtlets();
       setNotifMessage("Atlet Berhasil Ditambahkan!");
       setShowSuccess(true);
       setIsAddModalOpen(false);
-      setNewAtlet({ nama: '', kategori: 'SENIOR', seed: 'UNSEEDED', points: 0, bio: 'Atlet PB US 162', prestasi: 'Regular Player', foto_url: '' });
+      fetchAtlets();
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
       alert(err.message);
@@ -228,29 +245,19 @@ export default function ManajemenAtlet() {
     
     setIsSaving(true);
     try {
-      // 1. Update Rankings
       const { error: rankError } = await supabase
         .from('rankings')
         .upsert({
           player_name: editingStats.nama,
           category: editingStats.kategori,
           seed: editingStats.seed,
-          total_points: editingStats.points,
-          photo_url: editingStats.foto_url,
-          bio: editingStats.bio,
-          achievement: editingStats.prestasi
+          total_points: editingStats.points
         }, { onConflict: 'player_name' });
 
       if (rankError) throw rankError;
 
-      // 2. Update Pendaftaran (untuk foto)
-      await supabase
-        .from('pendaftaran')
-        .update({ foto_url: editingStats.foto_url })
-        .eq('nama', editingStats.nama);
-
       await fetchAtlets();
-      setNotifMessage("Data Updated Successfully!");
+      setNotifMessage("Data Sync Successfully!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       setIsEditModalOpen(false);
@@ -289,23 +296,25 @@ export default function ManajemenAtlet() {
             </div>
             
             <div className="flex items-center gap-4">
-              <button 
+               {/* Tombol Tambah Baru */}
+               <button 
                 onClick={() => setIsAddModalOpen(true)}
-                className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-3 hover:bg-black transition-all shadow-xl shadow-blue-200"
-              >
-                <UserPlus size={18} /> Tambah Atlet
-              </button>
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-[1.5rem] shadow-xl shadow-blue-200 flex items-center gap-3 transition-all active:scale-95 group"
+               >
+                 <Plus size={20} className="group-hover:rotate-90 transition-transform" />
+                 <span className="font-black uppercase text-xs tracking-widest">Tambah Atlet</span>
+               </button>
 
               <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
-                 <div className="text-center">
+                <div className="text-center">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
                     <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
-                 </div>
-                 <div className="w-[1px] h-10 bg-slate-100"></div>
-                 <div className="text-center">
+                </div>
+                <div className="w-[1px] h-10 bg-slate-100"></div>
+                <div className="text-center">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
                     <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
-                 </div>
+                </div>
               </div>
             </div>
           </div>
@@ -422,89 +431,104 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* MODAL TAMBAH ATLET (FULL) */}
+      {/* MODAL TAMBAH ATLET BARU (Lengkap dengan Crop) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden relative flex flex-col md:flex-row">
-            <button onClick={() => setIsAddModalOpen(false)} className="absolute top-6 right-6 z-50 p-2 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-xl overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl relative flex flex-col md:flex-row overflow-hidden">
+            <button onClick={() => setIsAddModalOpen(false)} className="absolute top-6 right-6 z-10 p-3 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
             
-            <div className="w-full md:w-[40%] bg-slate-50 p-10 flex flex-col items-center justify-center border-r border-slate-100">
-               <div className="w-48 h-64 bg-white rounded-[2rem] shadow-xl overflow-hidden mb-6 relative group border-4 border-white">
-                  {newAtlet.foto_url ? (
-                    <img src={newAtlet.foto_url} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
-                      <User size={60} />
-                      <p className="text-[8px] font-black mt-2">NO PHOTO</p>
-                    </div>
-                  )}
-                  <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer backdrop-blur-sm">
-                    <Camera className="text-white" size={32} />
-                    <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
-                  </label>
-               </div>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Klik foto untuk upload</p>
+            {/* Foto Upload Section */}
+            <div className="w-full md:w-[40%] bg-slate-50 p-10 border-r border-slate-100 flex flex-col items-center justify-center">
+              <div className="w-48 h-48 rounded-[2rem] overflow-hidden bg-slate-200 shadow-inner mb-6 relative group border-4 border-white">
+                {newAtlet.foto_url ? (
+                  <img src={newAtlet.foto_url} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-full h-full p-10 text-slate-300" />
+                )}
+                <label className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                  <Camera size={30} />
+                  <span className="text-[10px] font-black uppercase mt-2">Upload Photo</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
+                </label>
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Rekomendasi: Portrait (4:5)<br/>Maksimal 2MB</p>
             </div>
 
-            <div className="flex-1 p-10">
-               <h3 className="text-2xl font-black italic uppercase mb-8"><span className="text-blue-600">Registrasi</span> Atlet Baru</h3>
-               <form onSubmit={handleAddAtlet} className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                    <input required type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm uppercase" value={newAtlet.nama} onChange={e => setNewAtlet({...newAtlet, nama: e.target.value})} />
+            {/* Form Section */}
+            <form onSubmit={handleAddNewAtlet} className="w-full md:w-[60%] p-10 md:p-14 space-y-6">
+              <h3 className="text-3xl font-black italic uppercase italic">Register <span className="text-blue-600">New Player</span></h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
+                  <input required className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm uppercase" value={newAtlet.nama} onChange={e => setNewAtlet({...newAtlet, nama: e.target.value})} placeholder="Input Name..." />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">WhatsApp</label>
+                  <input required className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.whatsapp} onChange={e => setNewAtlet({...newAtlet, whatsapp: e.target.value})} placeholder="08..." />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Domisili</label>
+                  <input className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.domisili} onChange={e => setNewAtlet({...newAtlet, domisili: e.target.value})} placeholder="City..." />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kategori</label>
+                  <select className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.kategori} onChange={e => setNewAtlet({...newAtlet, kategori: e.target.value})}>
+                    <option value="SENIOR">SENIOR</option>
+                    <option value="MUDA">MUDA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-blue-50 p-5 rounded-3xl border border-blue-100">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Skill Seed</label>
+                  <select className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl font-black text-xs" value={newAtlet.seed} onChange={e => handleSeedChange(e.target.value)}>
+                    <option value="UNSEEDED">UNSEEDED</option>
+                    <option value="SEED C">SEED C</option>
+                    <option value="SEED B">SEED B</option>
+                    <option value="SEED A">SEED A</option>
+                    <option value="TOP SEED">TOP SEED</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Auto-Points</label>
+                  <div className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-black text-sm flex items-center justify-between">
+                    <Zap size={14} /> {newAtlet.points.toLocaleString()} PTS
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</label>
-                      <select className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.kategori} onChange={e => setNewAtlet({...newAtlet, kategori: e.target.value})}>
-                        <option value="SENIOR">SENIOR</option>
-                        <option value="MUDA">MUDA</option>
-                        <option value="VETERAN">VETERAN</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed</label>
-                      <select className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.seed} onChange={e => setNewAtlet({...newAtlet, seed: e.target.value})}>
-                        <option value="UNSEEDED">UNSEEDED</option>
-                        <option value="SEED A">SEED A</option>
-                        <option value="SEED B">SEED B</option>
-                        <option value="TOP SEED">TOP SEED</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Points</label>
-                    <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.points} onChange={e => setNewAtlet({...newAtlet, points: parseInt(e.target.value)})} />
-                  </div>
-                  <button disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3 mt-4 hover:bg-black transition-all">
-                    {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                    Register Atlet
-                  </button>
-               </form>
-            </div>
+                </div>
+              </div>
+
+              <button disabled={isSaving} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 shadow-2xl hover:bg-blue-600 transition-all">
+                {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Confirm Registration
+              </button>
+            </form>
           </div>
         </div>
       )}
 
-      {/* CROPPER OVERLAY */}
+      {/* CROPPER MODAL */}
       {isCropping && imageToCrop && (
-        <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-8">
-          <div className="relative w-full max-w-2xl aspect-square bg-zinc-900 rounded-3xl overflow-hidden">
+        <div className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center p-4">
+          <div className="relative w-full max-w-lg aspect-[4/5] bg-zinc-900 rounded-3xl overflow-hidden">
             <Cropper
               image={imageToCrop}
               crop={crop}
               zoom={zoom}
-              aspect={4 / 5}
+              aspect={4/5}
               onCropChange={setCrop}
-              onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
               onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
             />
           </div>
-          <div className="mt-8 flex gap-4">
-             <button onClick={() => setIsCropping(false)} className="px-10 py-4 bg-white/10 text-white rounded-2xl font-black uppercase text-xs">Batal</button>
-             <button onClick={saveCroppedImage} className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs flex items-center gap-2">
-               <Scissors size={18} /> Terapkan & Simpan
-             </button>
+          <div className="mt-8 flex gap-4 w-full max-w-lg">
+            <button onClick={() => setIsCropping(false)} className="flex-1 py-4 bg-white/10 text-white rounded-2xl font-black uppercase text-xs">Batal</button>
+            <button onClick={handleUploadCroppedImage} disabled={uploadingImage} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2">
+              {uploadingImage ? <Loader2 className="animate-spin"/> : <Scissors size={18}/>} Terapkan Foto
+            </button>
           </div>
         </div>
       )}
@@ -514,22 +538,12 @@ export default function ManajemenAtlet() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="relative w-full max-w-5xl bg-[#0a0a0a] rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-white/5">
             <button onClick={() => setSelectedAtlet(null)} className="absolute top-8 right-8 z-50 p-3 bg-white/5 hover:bg-red-500 text-white rounded-full transition-all"><X size={24} /></button>
-            <div className="w-full md:w-[45%] h-[400px] md:h-auto relative bg-zinc-900 overflow-hidden group">
+            <div className="w-full md:w-[45%] h-[400px] md:h-auto relative bg-zinc-900 overflow-hidden">
                {selectedAtlet.foto_url ? (
                 <img src={selectedAtlet.foto_url} className="w-full h-full object-cover" alt={selectedAtlet.nama} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={150} className="text-white/5" /></div>
               )}
-              {/* TOMBOL EDIT FOTO PADA DETAIL */}
-              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center cursor-pointer backdrop-blur-sm">
-                  <Camera className="text-white mb-2" size={40} />
-                  <p className="text-white text-[10px] font-black uppercase tracking-widest">Ganti Foto Profil</p>
-                  <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                    setEditingStats(selectedAtlet);
-                    onFileChange(e);
-                  }} />
-              </label>
-
               <div className="absolute bottom-10 left-10 z-20">
                  <div className="bg-amber-400 text-black font-black text-[11px] px-5 py-2 rounded-xl flex items-center gap-3 italic uppercase tracking-tighter">
                    <Trophy size={16} /> {selectedAtlet.prestasi}
@@ -583,22 +597,15 @@ export default function ManajemenAtlet() {
                       <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={editingStats.points || 0} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed</label>
-                      <select className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.seed || 'UNSEEDED'} onChange={e => setEditingStats({...editingStats, seed: e.target.value})}>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Level</label>
+                      <select className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.seed || 'UNSEEDED'} onChange={e => handleSeedChange(e.target.value, true)}>
                         <option value="UNSEEDED">UNSEEDED</option>
-                        <option value="SEED A">SEED A</option>
+                        <option value="SEED C">SEED C</option>
                         <option value="SEED B">SEED B</option>
+                        <option value="SEED A">SEED A</option>
                         <option value="TOP SEED">TOP SEED</option>
                       </select>
                     </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievement / Prestasi</label>
-                    <input type="text" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase italic" value={editingStats.prestasi || ''} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bio / Slogan</label>
-                    <textarea className="w-full px-5 py-3 bg-slate-100 rounded-xl font-medium text-sm italic" rows={3} value={editingStats.bio || ''} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
                   </div>
                   <button disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
                     {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}

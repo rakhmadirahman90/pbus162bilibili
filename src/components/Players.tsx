@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay, Observer } from 'swiper/modules'; // Tambahkan Observer
+import { Navigation, Pagination, Autoplay, Observer } from 'swiper/modules';
 import { supabase } from "../supabase";
 
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
+// PERBAIKAN: Kembali ke lucide-react
 import { 
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2, User 
-} from 'lucide-center';
+} from 'lucide-react';
 
 // --- DATA SOURCE FALLBACK ---
 const EVENT_LOG = [
@@ -49,7 +50,6 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     try {
       if (!isSilent) setIsLoading(true);
 
-      // Sesuai gambar DB: ambil player_name, category, seed, total_points, photo_url
       const { data: rankingsData, error: rError } = await supabase
         .from('rankings')
         .select('*')
@@ -76,7 +76,6 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   useEffect(() => {
     fetchPlayersFromDB();
 
-    // Sinkronisasi otomatis saat Admin mengubah data di database
     const channel = supabase
       .channel('live_sync_players')
       .on('postgres_changes', { event: '*', table: 'rankings', schema: 'public' }, () => fetchPlayersFromDB(true))
@@ -87,18 +86,17 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     };
   }, []);
 
-  // --- LOGIKA PROSES DATA (DISESUAIKAN DENGAN DB) ---
+  // --- LOGIKA PROSES DATA ---
   const processedPlayers = useMemo(() => {
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
       const rawCategory = (p.category || "").toUpperCase();
       
-      // Logika pemetaan kategori sesuai isi DB Anda (SENIOR vs MUDA)
       let mappedAge = 'Senior';
-      if (rawCategory.includes('MUDA') || rawCategory.includes('U-')) {
+      if (rawCategory.includes('MUDA') || rawCategory.includes('U-') || rawCategory.includes('TARUNA')) {
         mappedAge = 'Muda';
-      } else if (rawCategory.includes('SENIOR') || rawCategory.includes('DEWASA')) {
+      } else {
         mappedAge = 'Senior';
       }
 
@@ -106,7 +104,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
         ...p,
         id: p.id,
         name: p.player_name || "Tanpa Nama",
-        img: p.photo_url || p.foto_url, // Sinkronisasi kolom photo_url di Supabase
+        img: p.photo_url || p.foto_url,
         bio: p.bio || `Atlet PB US 162 kategori ${p.category}.`,
         totalPoints: Number(p.total_points) || 0,
         isWinner: allWinners.some(w => w?.toLowerCase() === p.player_name?.toLowerCase()),
@@ -128,7 +126,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   return (
     <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
       
-      {/* MODAL DETAIL (Full Synced) */}
+      {/* MODAL DETAIL */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
@@ -143,22 +141,23 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl z-20 italic uppercase tracking-widest animate-pulse"><Award size={18} /> WINNER - PB US 162</div>
               )}
             </div>
-            <div className="p-10 md:p-16 flex-1 bg-zinc-900">
-              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white"><X size={28} /></button>
+            <div className="p-10 md:p-16 flex-1 bg-zinc-900 relative">
+              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-colors"><X size={28} /></button>
               <div className="flex gap-3 mb-6">
-                <span className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-blue-500 text-[10px] font-black uppercase tracking-widest">{selectedPlayer.ageGroup}</span>
-                <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black uppercase tracking-widest">{selectedPlayer.categoryLabel}</span>
+                <span className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-blue-500 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.ageGroup}</span>
+                <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.categoryLabel}</span>
               </div>
-              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter italic">{selectedPlayer.name}</h2>
+              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9] italic">{selectedPlayer.name}</h2>
               <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
+                <div className="flex items-center gap-3 mb-4 text-blue-500"><Info size={20} /><span className="text-xs font-black uppercase tracking-widest">Profil Singkat</span></div>
                 <p className="text-zinc-400 text-lg leading-relaxed italic">"{selectedPlayer.bio}"</p>
               </div>
               <div className="grid grid-cols-2 gap-5">
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
-                  <Zap className="text-blue-500 mb-2" size={20} /><p className="text-[9px] text-zinc-600 uppercase font-black">Global Rank</p><p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
+                  <Zap className="text-blue-500 mb-2" size={20} /><p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Global Rank</p><p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
                 </div>
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
-                  <Trophy className="text-yellow-500 mb-2" size={20} /><p className="text-[9px] text-zinc-600 uppercase font-black">Poin Klasemen</p><p className="text-2xl font-black">{Number(selectedPlayer.totalPoints).toLocaleString()} PTS</p>
+                  <Trophy className="text-yellow-500 mb-2" size={20} /><p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Poin Klasemen</p><p className="text-2xl font-black">{Number(selectedPlayer.totalPoints).toLocaleString()} PTS</p>
                 </div>
               </div>
             </div>
@@ -167,27 +166,27 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
       )}
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 animate-in slide-in-from-bottom duration-700">
           <div>
             <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">PROFIL <span className="text-blue-600">PEMAIN</span></h2>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-              <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">Data Sinkron dengan Admin Panel</p>
+              <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">Data Sinkron Realtime</p>
             </div>
           </div>
           <div className="relative w-full md:w-[320px]">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
             <input 
               type="text" 
-              placeholder="Cari nama atlet..." 
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold transition-all text-white shadow-xl" 
+              placeholder="Cari atlet..." 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold transition-all text-white placeholder:text-zinc-700 shadow-xl" 
               onChange={(e) => setSearchTerm(e.target.value)} 
             />
           </div>
         </div>
 
-        {/* TAB FILTER (Synced Counts) */}
-        <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
+        {/* TAB FILTER */}
+        <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16 animate-in fade-in duration-1000">
           <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
             {[
               { label: 'Semua', count: processedPlayers.length },
@@ -204,7 +203,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-zinc-500">
             <Loader2 className="animate-spin text-blue-600" size={40} />
-            <p className="font-black uppercase tracking-widest text-xs">Menarik Data dari Cloud...</p>
+            <p className="font-black uppercase tracking-widest text-xs">Menyinkronkan Database...</p>
           </div>
         ) : (
           <div className="relative group/slider">
@@ -212,7 +211,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
               <Swiper
                 modules={[Navigation, Pagination, Autoplay, Observer]}
                 onSwiper={(swiper) => (swiperInstanceRef.current = swiper)}
-                key={`swiper-${currentAgeGroup}-${filteredPlayers.length}`} // Re-render stabil
+                key={`swiper-${currentAgeGroup}-${filteredPlayers.length}`}
                 spaceBetween={25}
                 slidesPerView={1.2}
                 observer={true}
@@ -231,8 +230,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                   <SwiperSlide key={player.id}>
                     <div 
                       onClick={() => setSelectedPlayer(player)} 
-                      className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl animate-in fade-in slide-in-from-bottom-10 fill-mode-both"
                       style={{ animationDelay: `${idx * 50}ms` }}
+                      className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl animate-in fade-in slide-in-from-bottom-10 fill-mode-both"
                     >
                       {player.img ? (
                         <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000 object-[center_25%]" alt={player.name} />
@@ -240,15 +239,12 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                         <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={60} className="text-zinc-700" /></div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
-                      
                       <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
                         {processedPlayers.findIndex(p => p.id === player.id) + 1}
                       </div>
-
                       {player.isWinner && (
-                        <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg"><Trophy size={18} /></div>
+                        <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg z-10"><Trophy size={18} /></div>
                       )}
-
                       <div className="absolute bottom-10 left-10 right-10">
                         <div className="flex items-center gap-2 mb-2">
                            <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
@@ -265,9 +261,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 ))}
               </Swiper>
             ) : (
-              <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest italic animate-pulse">Belum Ada Atlet di Kategori Ini</div>
+              <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest italic animate-in fade-in">Data Belum Tersedia</div>
             )}
-            
             <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all shadow-2xl"><ChevronLeft size={32} /></button>
             <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all shadow-2xl"><ChevronRight size={32} /></button>
           </div>

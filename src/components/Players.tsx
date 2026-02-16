@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay, Observer } from 'swiper/modules'; // Tambahkan Observer
+import { Navigation, Pagination, Autoplay, Observer } from 'swiper/modules';
 import { supabase } from "../supabase";
 
 import 'swiper/css';
@@ -36,6 +36,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   const [dbWinners, setDbWinners] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Menggunakan State untuk Navigation agar Re-render saat Ref terisi
+  const [_, setInit] = useState<boolean>(false);
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const swiperInstanceRef = useRef<any>(null);
@@ -132,19 +134,20 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     });
   }, [searchTerm, currentAgeGroup, processedPlayers]);
 
-  // --- PERBAIKAN: FORCE UPDATE & SYNC ---
+  // --- PERBAIKAN: SYNC NAVIGATION & RE-INIT ---
   useEffect(() => {
-    if (swiperInstanceRef.current && !isLoading) {
-      const timer = setTimeout(() => {
-        swiperInstanceRef.current.update();
-        // Memastikan swiper menghitung ulang lebar slide setelah DOM muncul
-        if (swiperInstanceRef.current.params) {
-          swiperInstanceRef.current.slideTo(0, 0);
-        }
-      }, 500);
-      return () => clearTimeout(timer);
+    if (!isLoading && swiperInstanceRef.current) {
+      // Force Swiper untuk mengenali elemen navigasi setelah render
+      const swiper = swiperInstanceRef.current;
+      if (swiper.params && swiper.navigation) {
+        swiper.params.navigation.prevEl = prevRef.current;
+        swiper.params.navigation.nextEl = nextRef.current;
+        swiper.navigation.destroy();
+        swiper.navigation.init();
+        swiper.navigation.update();
+      }
     }
-  }, [isLoading, currentAgeGroup]);
+  }, [isLoading, filteredPlayers]);
 
   return (
     <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
@@ -223,21 +226,18 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
           <div className="relative group/slider">
             {filteredPlayers.length > 0 ? (
               <Swiper
-                modules={[Navigation, Pagination, Autoplay, Observer]} // Tambahkan Observer
+                modules={[Navigation, Pagination, Autoplay, Observer]}
                 onSwiper={(swiper) => (swiperInstanceRef.current = swiper)}
-                // PERUBAHAN KRUSIAL: Menambahkan key dinamis agar swiper merender ulang saat loading selesai
-                key={`atlet-swiper-${isLoading}-${currentAgeGroup}-${filteredPlayers.length}`}
+                key={`swiper-v4-${isLoading}-${currentAgeGroup}-${filteredPlayers.length}`}
                 spaceBetween={25}
                 slidesPerView={1.2}
                 observer={true}
                 observeParents={true}
-                navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
-                onBeforeInit={(swiper) => {
-                    // @ts-ignore
-                    swiper.params.navigation.prevEl = prevRef.current;
-                    // @ts-ignore
-                    swiper.params.navigation.nextEl = nextRef.current;
+                navigation={{ 
+                  prevEl: prevRef.current, 
+                  nextEl: nextRef.current 
                 }}
+                onInit={() => setInit(true)} // Memicu re-render agar Nav terikat
                 breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
                 className="!pb-20"
               >
@@ -274,8 +274,14 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
             ) : (
               <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest italic">Data Tidak Ditemukan</div>
             )}
-            <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>
-            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>
+            
+            {/* Navigasi Buttons */}
+            <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden">
+              <ChevronLeft size={32} />
+            </button>
+            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden">
+              <ChevronRight size={32} />
+            </button>
           </div>
         )}
       </div>

@@ -27,7 +27,6 @@ const Players: React.FC = () => {
       setIsLoading(true);
       
       // Ambil data dari atlet_stats dan join ke pendaftaran
-      // Berdasarkan image_7cf1c1.jpg, kolom di pendaftaran adalah 'nama' dan 'kategori'
       const { data, error } = await supabase
         .from('atlet_stats')
         .select(`
@@ -52,7 +51,6 @@ const Players: React.FC = () => {
 
   useEffect(() => {
     fetchPlayersFromDB();
-    // Realtime subscription agar otomatis update saat poin diubah di admin
     const channel = supabase.channel('atlet_changes')
       .on('postgres_changes', { event: '*', table: 'atlet_stats', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
@@ -63,12 +61,10 @@ const Players: React.FC = () => {
     return dbPlayers.map((p) => {
       const info = p.pendaftaran || {};
       
-      // Mapping field berdasarkan image_7cf1c1.jpg dan image_7cf1a3.jpg
       const name = info.nama || "Atlet PB US";
       const photo = info.foto_url || null;
       const categoryRaw = (info.kategori || p.seed || "SENIOR").toUpperCase();
 
-      // Penentuan Tab (Senior/Muda)
       let ageGroup = 'Senior';
       if (categoryRaw.includes('MUDA')) {
         ageGroup = 'Muda';
@@ -85,6 +81,15 @@ const Players: React.FC = () => {
       };
     });
   }, [dbPlayers]);
+
+  // --- LOGIKA PENAMBAHAN JUMLAH PEMAIN (COUNTER) ---
+  const counts = useMemo(() => {
+    return {
+      all: processedPlayers.length,
+      senior: processedPlayers.filter(p => p.ageGroup === 'Senior').length,
+      muda: processedPlayers.filter(p => p.ageGroup === 'Muda').length
+    };
+  }, [processedPlayers]);
 
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
@@ -153,15 +158,26 @@ const Players: React.FC = () => {
           </div>
         </div>
 
-        {/* Tab Filter */}
+        {/* Tab Filter dengan Counter Angka */}
         <div className="flex bg-zinc-900/50 p-1.5 rounded-full border border-zinc-800 w-fit mb-12">
-          {['Semua', 'Senior', 'Muda'].map((tab) => (
+          {[
+            { id: 'Semua', label: 'SEMUA', count: counts.all },
+            { id: 'Senior', label: 'SENIOR', count: counts.senior },
+            { id: 'Muda', label: 'MUDA', count: counts.muda }
+          ].map((tab) => (
             <button 
-              key={tab}
-              onClick={() => setCurrentAgeGroup(tab)}
-              className={`px-8 py-3 rounded-full text-[11px] font-black transition-all ${currentAgeGroup === tab ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:text-white'}`}
+              key={tab.id}
+              onClick={() => setCurrentAgeGroup(tab.id)}
+              className={`px-6 md:px-8 py-3 rounded-full text-[11px] font-black transition-all flex items-center gap-3 ${
+                currentAgeGroup === tab.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-zinc-500 hover:text-white'
+              }`}
             >
-              {tab.toUpperCase()}
+              {tab.label}
+              <span className={`text-[9px] px-2 py-0.5 rounded-md ${
+                currentAgeGroup === tab.id ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-600'
+              }`}>
+                {tab.count}
+              </span>
             </button>
           ))}
         </div>

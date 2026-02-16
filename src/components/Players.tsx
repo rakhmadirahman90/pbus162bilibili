@@ -23,7 +23,6 @@ const EVENT_LOG = [
   },
 ];
 
-// Menambahkan Interface Props untuk Sinkronisasi dengan App.tsx
 interface PlayersProps {
   initialFilter?: string;
 }
@@ -40,31 +39,29 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
-  // SINKRONISASI: Update state jika initialFilter dari props berubah (via Navbar)
   useEffect(() => {
     if (initialFilter) {
       setCurrentAgeGroup(initialFilter);
     }
   }, [initialFilter]);
 
+  // --- PERBAIKAN FETCHING DATA ---
   const fetchPlayersFromDB = async () => {
     try {
+      // 1. Ambil data pendaftaran (atlet) beserta relasi ranking/stats
+      // Pastikan relasi 'rankings' sesuai dengan nama tabel di Supabase
       const { data: players, error: pError } = await supabase
         .from('pendaftaran')
         .select(`
           *,
-          atlet_stats (
-            points,
-            rank,
+          rankings (
+            total_points,
             seed,
-            bio
-          ),
-          pertandingan (
-            kategori_kegiatan,
-            hasil
+            category
           )
         `);
 
+      // 2. Ambil data pemenang turnamen
       const { data: winnersData } = await supabase
         .from('hasil_turnamen')
         .select('nama_atlet');
@@ -87,11 +84,9 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     fetchPlayersFromDB();
 
     const channel = supabase
-      .channel('db_realtime_updates')
+      .channel('db_realtime_players')
       .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, () => fetchPlayersFromDB())
-      .on('postgres_changes', { event: '*', table: 'atlet_stats', schema: 'public' }, () => fetchPlayersFromDB())
-      .on('postgres_changes', { event: '*', table: 'pertandingan', schema: 'public' }, () => fetchPlayersFromDB())
-      .on('postgres_changes', { event: '*', table: 'hasil_turnamen', schema: 'public' }, () => fetchPlayersFromDB())
+      .on('postgres_changes', { event: '*', table: 'rankings', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
 
     return () => {
@@ -99,59 +94,49 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     };
   }, []);
 
-  // Listener untuk event kustom (opsional, sebagai backup dari initialFilter)
-  useEffect(() => {
-    const handleFilterAtlet = (event: any) => {
-      const category = event.detail;
-      if (category) setCurrentAgeGroup(category);
-    };
-    window.addEventListener('filterAtlet', handleFilterAtlet);
-    return () => window.removeEventListener('filterAtlet', handleFilterAtlet);
-  }, []);
-
+  // --- LOGIKA PROSES DATA ATLET ---
   const processedPlayers = useMemo(() => {
-    const config: Record<string, any> = {
-      'SENIOR': { base: 10000, label: 'Seed A', age: 'Senior' },
-      'VETERAN (35+ / 40+)': { base: 10000, label: 'Seed A', age: 'Senior' },
-      'DEWASA': { base: 8500, label: 'Seed B+', age: 'Senior' },
-      'DEWASA / UMUM': { base: 8500, label: 'Seed B+', age: 'Senior' },
-      'TARUNA (U-19)': { base: 6500, label: 'Seed C', age: 'Muda' },
-      'REMAJA (U-17)': { base: 6000, label: 'Seed C', age: 'Muda' },
-      'PEMULA (U-15)': { base: 5500, label: 'Seed C', age: 'Muda' },
+    const ageMapping: Record<string, string> = {
+      'SENIOR': 'Senior',
+      'VETERAN (35+ / 40+)': 'Senior',
+      'DEWASA': 'Senior',
+      'DEWASA / UMUM': 'Senior',
+      'TARUNA (U-19)': 'Muda',
+      'REMAJA (U-17)': 'Muda',
+      'PEMULA (U-15)': 'Muda',
     };
 
-    const defaultConfig = { base: 5000, label: 'UNSEEDED', age: 'Senior' };
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
-      const stats = Array.isArray(p.atlet_stats) ? p.atlet_stats[0] : p.atlet_stats;
-      const history = Array.isArray(p.pertandingan) ? p.pertandingan : [];
+      // Mengambil data ranking jika tersedia (join table)
+      const rankInfo = Array.isArray(p.rankings) ? p.rankings[0] : p.rankings;
       
-      const playerCat = p.kategori ? p.kategori.toUpperCase() : '';
-      const conf = config[playerCat] || defaultConfig;
+      const rawCategory = (p.kategori || "").toUpperCase();
+      const mappedAge = ageMapping[rawCategory] || 'Senior';
 
-      const hasWonInternal = history.some(m => m.kategori_kegiatan === 'Internal' && m.hasil === 'Menang');
-      const isWinner = hasWonInternal || allWinners.includes(p.nama);
+      // Logika Penentuan Poin: Prioritaskan dari tabel rankings, lalu poin manual, lalu default
+      const totalPoints = rankInfo?.total_points || p.poin || 0;
       
-      const manualPoints = Number(stats?.points) || Number(p.poin) || 0;
-      const totalPoints = manualPoints > 0 ? manualPoints : (conf.base + (isWinner ? 300 : 0));
+      // Deteksi Pemenang
+      const isWinner = allWinners.includes(p.nama);
       
       return {
         ...p,
         name: p.nama,
         img: p.foto_url,
-        bio: stats?.bio || (p.pengalaman && p.pengalaman.toLowerCase() !== "ok" ? p.pengalaman : `Atlet profesional PB US 162 kategori ${p.kategori}.`),
+        bio: p.pengalaman || `Atlet PB US 162 kategori ${p.kategori}.`,
         totalPoints,
         isWinner,
-        ageGroup: conf.age,
-        categoryLabel: stats?.seed || conf.label,
-        globalRank: stats?.rank || null,
-        matchHistory: history 
+        ageGroup: mappedAge,
+        categoryLabel: rankInfo?.seed || p.kategori || 'UNSEEDED',
+        // Global rank dihitung nanti setelah disortir
       };
     })
     .sort((a, b) => b.totalPoints - a.totalPoints);
   }, [dbPlayers, dbWinners]);
 
+  // --- FILTERING ---
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -168,7 +153,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
           <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in duration-300">
-            {/* PERBAIKAN FOTO PADA MODAL: Rasio Presisi & Fokus Wajah */}
+            
             <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center overflow-hidden h-[450px] md:h-auto relative">
               {selectedPlayer.img ? (
                 <img 
@@ -181,7 +166,6 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                   <User size={120} className="text-zinc-700" />
                 </div>
               )}
-              {/* Overlay Gradient bawah foto agar teks winner terbaca */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               
               {selectedPlayer.isWinner && (
@@ -211,12 +195,12 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5 group hover:border-blue-500/30 transition-all">
                     <Zap className="text-blue-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Global Rank</p>
-                    <p className="text-2xl font-black">#{selectedPlayer.globalRank || processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
+                    <p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
                 </div>
                 <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5 group hover:border-yellow-500/30 transition-all">
                     <Trophy className="text-yellow-500 mb-2" size={20} />
                     <p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Poin Klasemen</p>
-                    <p className="text-2xl font-black">{selectedPlayer.totalPoints.toLocaleString()} PTS</p>
+                    <p className="text-2xl font-black">{Number(selectedPlayer.totalPoints).toLocaleString()} PTS</p>
                 </div>
               </div>
             </div>
@@ -276,22 +260,20 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
               slidesPerView={1.2}
               navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
               onBeforeInit={(swiper) => {
-                 // @ts-ignore
-                 swiper.params.navigation.prevEl = prevRef.current;
-                 // @ts-ignore
-                 swiper.params.navigation.nextEl = nextRef.current;
+                  // @ts-ignore
+                  swiper.params.navigation.prevEl = prevRef.current;
+                  // @ts-ignore
+                  swiper.params.navigation.nextEl = nextRef.current;
               }}
               breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
               className="!pb-20"
             >
               {filteredPlayers.map((player) => (
                 <SwiperSlide key={player.id}>
-                  {/* CARD ATLET: Rasio 3:4.5 Sangat Presisi */}
                   <div 
                     onClick={() => setSelectedPlayer(player)} 
                     className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
                   >
-                    {/* PERBAIKAN FOTO PADA CARD: object-[center_25%] agar wajah tetap di frame */}
                     {player.img ? (
                       <img 
                         src={player.img} 
@@ -307,7 +289,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
                     
                     <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
-                      {player.globalRank || processedPlayers.findIndex(p => p.id === player.id) + 1}
+                      {processedPlayers.findIndex(p => p.id === player.id) + 1}
                     </div>
 
                     {player.isWinner && (
@@ -324,7 +306,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                       <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1 italic">{player.name}</h3>
                       <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
                         <span>{player.categoryLabel}</span>
-                        <span className="text-white font-mono">{player.totalPoints.toLocaleString()} PTS</span>
+                        <span className="text-white font-mono">{Number(player.totalPoints).toLocaleString()} PTS</span>
                       </div>
                     </div>
                   </div>

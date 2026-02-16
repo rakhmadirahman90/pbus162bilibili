@@ -51,29 +51,31 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   ];
 
   return (
-    /* PERBAIKAN: 
-       1. Menggunakan h-auto md:min-h-[90vh] agar tidak memaksa tinggi penuh jika layar kecil.
-       2. Menghilangkan py-20 yang terlalu besar dan menggantinya dengan pt-16 pb-8 agar tidak menabrak section bawah.
+    /* DETAIL PERBAIKAN: 
+       - h-auto untuk fleksibilitas konten
+       - bg-white bersih dengan transisi halus
     */
-    <section id="tentang-kami" className="relative w-full h-auto md:min-h-[90vh] bg-white pt-16 pb-8 flex flex-col items-center overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col">
+    <section id="tentang-kami" className="relative w-full h-auto bg-white pt-16 pb-12 flex flex-col items-center overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 w-full flex flex-col">
         
-        {/* Judul Utama - Tetap muncul sebagai identitas section */}
-        <div className="text-center mb-6 md:mb-8 shrink-0">
-          <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-3 tracking-tight uppercase">Tentang Kami</h2>
-          <div className="w-16 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
+        {/* Header Section: Judul Utama Profesional */}
+        <div className="text-center mb-8 shrink-0">
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase">
+            Tentang <span className="text-blue-600">Kami</span>
+          </h2>
+          <div className="w-20 h-1.5 bg-blue-600 mx-auto rounded-full shadow-sm"></div>
         </div>
 
-        {/* Tab Switcher - Tetap muncul di semua sub-menu */}
-        <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-8 md:mb-10 shrink-0">
+        {/* Tab Switcher: Navigasi yang Pas & Rapi */}
+        <div className="flex flex-wrap justify-center gap-2 md:gap-4 mb-10 shrink-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`px-5 md:px-8 py-2 md:py-2.5 rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wider transition-all duration-300 ${
+              className={`px-6 md:px-10 py-3 rounded-2xl font-bold text-[11px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 ${
                 activeTab === tab.id 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-105' 
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-200 scale-105' 
+                : 'bg-white text-slate-400 border-slate-100 hover:border-blue-200 hover:text-blue-500'
               }`}
             >
               {tab.label}
@@ -81,75 +83,77 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           ))}
         </div>
 
-        {/* Tab Content Box - Dioptimalkan tingginya agar pas dengan section bawah */}
-        <div className="bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 border border-slate-100 shadow-sm flex-grow flex items-center overflow-hidden">
+        {/* Tab Content Box: Background Soft dengan Padding Luas */}
+        <div className="bg-slate-50/50 rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-16 border border-slate-100 shadow-sm min-h-[500px] flex items-center transition-all duration-500">
           
-          {/* SEJARAH */}
+          {/* 1. SEJARAH: Layout Grid Seimbang */}
           {activeTab === 'sejarah' && (
-            <div id="sejarah" className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="grid lg:grid-cols-2 gap-6 md:gap-10 items-center">
-                <div className="relative group overflow-hidden rounded-[1.5rem] hidden md:block">
+            <div id="sejarah" className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="relative group hidden md:block">
+                  <div className="absolute -inset-4 bg-blue-100/50 rounded-[3rem] blur-2xl group-hover:bg-blue-200/50 transition-colors"></div>
                   <img 
                     src="photo_2026-02-03_00-32-07.jpg" 
                     alt="Latihan PB US 162" 
-                    className="relative w-full h-[250px] lg:h-[320px] object-cover shadow-xl border-4 border-white transition-transform duration-700 group-hover:scale-105"
+                    className="relative w-full h-[400px] object-cover rounded-[2.5rem] shadow-2xl border-4 border-white transition-transform duration-700 group-hover:scale-[1.02]"
                   />
                 </div>
 
-                <div className="space-y-3 md:space-y-4">
-                  <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase leading-tight">
+                <div className="space-y-6">
+                  <div className="inline-block px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest">
+                    Legacy & Spirit
+                  </div>
+                  <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase leading-[1.1]">
                     {dynamicContent.sejarah_title || "MEMBINA"} <span className="text-blue-600">{dynamicContent.sejarah_accent || "LEGENDA"}</span> MASA DEPAN
                   </h3>
-                  <p className="text-slate-500 text-sm md:text-base leading-relaxed font-medium">
-                    {dynamicContent.sejarah_desc || "PB US 162 Bilibili adalah ekosistem pembinaan bulutangkis terpadu yang menggabungkan disiplin dan teknik modern."}
+                  <p className="text-slate-500 text-base md:text-lg leading-relaxed font-medium">
+                    {dynamicContent.sejarah_desc || "PB US 162 Bilibili hadir sebagai pusat keunggulan bulutangkis yang mengintegrasikan sport-science dengan disiplin tinggi untuk mencetak atlet kelas dunia."}
                   </p>
                   
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {[
-                      "Sport-science intensif",
-                      "GOR Standar BWF",
-                      "Karier Profesional",
-                      "Klasemen Digital"
-                    ].map((item, index) => (
-                      <li key={index} className="flex items-center gap-2 text-slate-700 font-bold group">
-                        <CheckCircle2 size={14} className="text-blue-600 shrink-0" />
-                        <span className="text-[11px] md:text-xs uppercase tracking-tight">{item}</span>
-                      </li>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                    {["Sport-science intensif", "GOR Standar BWF", "Karier Profesional", "Klasemen Digital"].map((item, index) => (
+                      <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
+                        <CheckCircle2 size={18} className="text-blue-600 shrink-0" />
+                        <span className="text-xs font-bold text-slate-700 uppercase">{item}</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* VISI MISI */}
+          {/* 2. VISI MISI: Layout Card Profesional */}
           {activeTab === 'visi-misi' && (
-            <div id="visi-misi" className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 grid lg:grid-cols-2 gap-4 md:gap-6 items-stretch">
-              <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group flex flex-col justify-center min-h-[160px]">
-                <div className="absolute top-0 right-0 p-4 opacity-5 text-blue-600 group-hover:scale-110 transition-transform">
-                  <Target size={100} />
+            <div id="visi-misi" className="w-full animate-in fade-in slide-in-from-right-8 duration-700 grid lg:grid-cols-2 gap-8 items-stretch">
+              {/* Visi Card */}
+              <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+                <div className="absolute -top-10 -right-10 opacity-5 text-blue-600 transition-transform duration-700 group-hover:scale-110">
+                  <Target size={250} />
                 </div>
-                <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center mb-4 shadow-md">
-                  <Target size={20} />
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-200">
+                  <Target size={32} />
                 </div>
-                <span className="text-blue-600 font-black block mb-2 tracking-widest text-[10px] uppercase">Visi Utama</span>
-                <p className="text-slate-700 text-lg md:text-xl font-bold leading-tight italic">
+                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Visi Utama</span>
+                <p className="text-slate-800 text-2xl md:text-3xl font-bold leading-tight italic relative z-10">
                   "{dynamicContent.vision || "Menjadi klub rujukan nasional yang mencetak atlet berprestasi dunia."}"
                 </p>
               </div>
 
-              <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden group flex flex-col justify-center min-h-[160px]">
-                <div className="absolute top-0 right-0 p-4 opacity-5 text-blue-600 group-hover:scale-110 transition-transform">
-                  <Rocket size={100} />
+              {/* Misi Card */}
+              <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+                <div className="absolute -top-10 -right-10 opacity-5 text-slate-900 transition-transform duration-700 group-hover:scale-110">
+                  <Rocket size={250} />
                 </div>
-                <div className="w-10 h-10 bg-slate-800 text-white rounded-xl flex items-center justify-center mb-4 shadow-md">
-                  <Rocket size={20} />
+                <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg">
+                  <Rocket size={32} />
                 </div>
-                <span className="text-blue-600 font-black block mb-2 tracking-widest text-[10px] uppercase">Misi Kami</span>
-                <ul className="grid grid-cols-1 gap-1 text-slate-700 font-bold text-[11px] md:text-xs">
+                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Misi Strategis</span>
+                <ul className="space-y-4 relative z-10">
                   {(dynamicContent.missions || ["Latihan terstruktur & disiplin", "Fasilitas internasional", "Kompetisi rutin", "Karakter juara"]).map((misi, i) => (
-                    <li key={i} className="flex items-center gap-2 italic">
-                      <CheckCircle2 size={12} className="text-blue-500 shrink-0" /> {misi}
+                    <li key={i} className="flex items-center gap-4 text-slate-700 font-bold text-sm md:text-base italic group/item">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full group-hover/item:scale-150 transition-transform"></div>
+                      {misi}
                     </li>
                   ))}
                 </ul>
@@ -157,44 +161,53 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* FASILITAS */}
+          {/* 3. FASILITAS: Layout Collage yang Rapi */}
           {activeTab === 'fasilitas' && (
-            <div id="fasilitas" className="w-full animate-in fade-in duration-500 grid lg:grid-cols-2 gap-6 md:gap-10 items-center">
-              <div>
-                <h3 className="text-lg md:text-xl font-black mb-4 md:mb-6 text-slate-800 uppercase">Fasilitas Standar Nasional</h3>
-                <ul className="grid grid-cols-1 gap-3">
+            <div id="fasilitas" className="w-full animate-in fade-in zoom-in-95 duration-500 grid lg:grid-cols-2 gap-12 items-center">
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-3xl font-black text-slate-900 uppercase mb-2">Fasilitas Unggulan</h3>
+                  <p className="text-slate-500 font-medium italic">Standardisasi Nasional & Internasional (BWF)</p>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
                   {[
                     'Lapangan karpet standar BWF', 
                     'Pencahayaan LED anti-silau', 
                     'Fitness & Conditioning center', 
                     'Asrama atlet (Home base)'
                   ].map((item, index) => (
-                    <li key={index} className="flex items-center gap-3 text-slate-600 text-xs md:text-sm font-bold group p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                      <span className="w-7 h-7 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
-                        <Shield size={14} />
-                      </span>
-                      {item}
-                    </li>
+                    <div key={index} className="flex items-center gap-5 p-5 bg-white rounded-[1.5rem] border border-slate-100 shadow-sm hover:border-blue-500 hover:shadow-md transition-all group">
+                      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shrink-0">
+                        <Shield size={22} />
+                      </div>
+                      <span className="text-sm md:text-base font-black text-slate-700 uppercase tracking-tight">{item}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 h-[180px] md:h-[280px]">
-                <img 
-                  src="dpnkwabotttfihp7gf3r.jpg" 
-                  alt="Badminton Court" 
-                  className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
-                />
-                <div className="grid grid-rows-2 gap-2">
+              {/* Fasilitas Gallery Collage */}
+              <div className="grid grid-cols-2 gap-4 h-[400px] md:h-[500px]">
+                <div className="relative overflow-hidden rounded-[2.5rem] shadow-lg group">
+                   <img 
+                    src="dpnkwabotttfihp7gf3r.jpg" 
+                    alt="Main Court" 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-6">
+                    <span className="text-white font-bold text-xs uppercase tracking-widest">Arena Utama</span>
+                  </div>
+                </div>
+                <div className="grid grid-rows-2 gap-4">
                   <img 
                     src="dpnkwabotttfihp7gf3r.jpg" 
-                    alt="Racket" 
-                    className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
+                    alt="Side View" 
+                    className="w-full h-full object-cover rounded-[2.5rem] shadow-md border-2 border-white transition-transform duration-700 hover:scale-105"
                   />
                   <img 
                     src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" 
-                    alt="Training Gear" 
-                    className="w-full h-full object-cover rounded-2xl shadow-md border-2 border-white"
+                    alt="Equipment" 
+                    className="w-full h-full object-cover rounded-[2.5rem] shadow-md border-2 border-white transition-transform duration-700 hover:scale-105"
                   />
                 </div>
               </div>
@@ -204,4 +217,4 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       </div>
     </section>
   );
-}  
+}

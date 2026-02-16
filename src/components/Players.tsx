@@ -45,18 +45,16 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     }
   }, [initialFilter]);
 
-  // --- PERBAIKAN FETCHING DATA: FOKUS KE TABEL RANKINGS ---
+  // --- PERBAIKAN FETCHING DATA ---
   const fetchPlayersFromDB = async () => {
     try {
-      setIsLoading(true);
-      
-      // Mengambil data langsung dari tabel 'rankings' karena data poin & nama ada di sini
+      // Kita tidak mengeset isLoading(true) di sini jika ini adalah update realtime
+      // agar tidak terjadi flicker (layar putih sekejap)
       const { data: rankingsData, error: rError } = await supabase
         .from('rankings')
         .select('*')
         .order('total_points', { ascending: false });
 
-      // Tetap mengambil data pemenang turnamen
       const { data: winnersData } = await supabase
         .from('hasil_turnamen')
         .select('nama_atlet');
@@ -76,6 +74,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   };
 
   useEffect(() => {
+    // Load data pertama kali
     fetchPlayersFromDB();
 
     const channel = supabase
@@ -89,7 +88,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     };
   }, []);
 
-  // --- LOGIKA PROSES DATA ATLET: PENYESUAIAN NAMA KOLOM ---
+  // --- LOGIKA PROSES DATA ATLET ---
   const processedPlayers = useMemo(() => {
     const ageMapping: Record<string, string> = {
       'SENIOR': 'Senior',
@@ -104,10 +103,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
-      // Sesuai screenshot database Anda, kolomnya adalah 'category' dan 'player_name'
       const rawCategory = (p.category || "").toUpperCase();
       
-      // Cek apakah kategorinya mengandung kata "MUDA" atau "U-" untuk memisahkan tab filter
       let mappedAge = 'Senior';
       if (rawCategory.includes('MUDA') || rawCategory.includes('U-')) {
         mappedAge = 'Muda';
@@ -118,8 +115,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
       return {
         ...p,
         id: p.id,
-        name: p.player_name, // Menggunakan kolom 'player_name' dari tabel rankings
-        img: p.photo_url || p.foto_url, // Mendukung kolom foto jika ada
+        name: p.player_name,
+        img: p.photo_url || p.foto_url,
         bio: p.bio || `Atlet PB US 162 kategori ${p.category}.`,
         totalPoints: Number(p.total_points) || 0,
         isWinner: allWinners.includes(p.player_name),
@@ -248,72 +245,76 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
           </div>
         ) : (
           <div className="relative group/slider">
-            <Swiper
-              modules={[Navigation, Pagination, Autoplay]}
-              key={`${currentAgeGroup}-${filteredPlayers.length}`}
-              spaceBetween={25}
-              slidesPerView={1.2}
-              navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
-              onBeforeInit={(swiper) => {
-                  // @ts-ignore
-                  swiper.params.navigation.prevEl = prevRef.current;
-                  // @ts-ignore
-                  swiper.params.navigation.nextEl = nextRef.current;
-              }}
-              breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
-              className="!pb-20"
-            >
-              {filteredPlayers.map((player) => (
-                <SwiperSlide key={player.id}>
-                  <div 
-                    onClick={() => setSelectedPlayer(player)} 
-                    className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
-                  >
-                    {player.img ? (
-                      <img 
-                        src={player.img} 
-                        className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000 object-[center_25%]" 
-                        alt={player.name} 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                         <User size={60} className="text-zinc-700" />
+            {filteredPlayers.length > 0 ? (
+              <Swiper
+                modules={[Navigation, Pagination, Autoplay]}
+                // Perbaikan: Gunakan key yang berubah saat data di-load agar Swiper re-mount
+                key={`swiper-${currentAgeGroup}-${filteredPlayers.length}`}
+                spaceBetween={25}
+                slidesPerView={1.2}
+                // Tambahkan Observer agar Swiper mendeteksi perubahan DOM otomatis
+                observer={true}
+                observeParents={true}
+                navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
+                onBeforeInit={(swiper) => {
+                    // @ts-ignore
+                    swiper.params.navigation.prevEl = prevRef.current;
+                    // @ts-ignore
+                    swiper.params.navigation.nextEl = nextRef.current;
+                }}
+                breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
+                className="!pb-20"
+              >
+                {filteredPlayers.map((player) => (
+                  <SwiperSlide key={player.id}>
+                    <div 
+                      onClick={() => setSelectedPlayer(player)} 
+                      className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl"
+                    >
+                      {player.img ? (
+                        <img 
+                          src={player.img} 
+                          className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000 object-[center_25%]" 
+                          alt={player.name} 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                           <User size={60} className="text-zinc-700" />
+                        </div>
+                      )}
+                      
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
+                      
+                      <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
+                        {processedPlayers.findIndex(p => p.id === player.id) + 1}
                       </div>
-                    )}
-                    
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
-                    
-                    <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
-                      {processedPlayers.findIndex(p => p.id === player.id) + 1}
-                    </div>
 
-                    {player.isWinner && (
-                      <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg">
-                        <Trophy size={18} />
-                      </div>
-                    )}
+                      {player.isWinner && (
+                        <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg">
+                          <Trophy size={18} />
+                        </div>
+                      )}
 
-                    <div className="absolute bottom-10 left-10 right-10">
-                      <div className="flex items-center gap-2 mb-2">
-                           <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                           <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
-                      </div>
-                      <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1 italic">{player.name}</h3>
-                      <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
-                        <span>{player.categoryLabel}</span>
-                        <span className="text-white font-mono">{Number(player.totalPoints).toLocaleString()} PTS</span>
+                      <div className="absolute bottom-10 left-10 right-10">
+                        <div className="flex items-center gap-2 mb-2">
+                             <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                             <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
+                        </div>
+                        <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1 italic">{player.name}</h3>
+                        <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
+                          <span>{player.categoryLabel}</span>
+                          <span className="text-white font-mono">{Number(player.totalPoints).toLocaleString()} PTS</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </SwiperSlide>
-              ))}
-              {/* Pesan Jika Kosong */}
-              {filteredPlayers.length === 0 && (
-                 <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest">
-                    Tidak ada data atlet ditemukan
-                 </div>
-              )}
-            </Swiper>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            ) : (
+              <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest italic">
+                Tidak ada data atlet ditemukan
+              </div>
+            )}
             
             <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>
             <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>

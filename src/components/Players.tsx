@@ -7,267 +7,185 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
-// PERBAIKAN: Kembali ke lucide-react
 import { 
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2, User 
 } from 'lucide-react';
 
-// --- DATA SOURCE FALLBACK ---
-const EVENT_LOG = [
-  { 
-    id: 1, 
-    winners: [
-      "Agustilaar", "Herman", "H. Wawan", "Bustan", "Dr. Khaliq", 
-      "Momota", "Prof. Fikri", "Marzuki", "Arsan", "H. Hasym", 
-      "H. Anwar", "Yakob"
-    ] 
-  },
-];
-
-interface PlayersProps {
-  initialFilter?: string;
-}
-
-const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
+const Players: React.FC<{ initialFilter?: string }> = ({ initialFilter = 'Semua' }) => {
   const [currentAgeGroup, setCurrentAgeGroup] = useState(initialFilter); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
   
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
-  const [dbWinners, setDbWinners] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
-  const swiperInstanceRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (initialFilter) setCurrentAgeGroup(initialFilter);
-  }, [initialFilter]);
-
-  // --- FETCHING DATA ---
-  const fetchPlayersFromDB = async (isSilent = false) => {
+  // --- FETCH DATA SESUAI SCREENSHOT SUPABASE ---
+  const fetchPlayersFromDB = async () => {
     try {
-      if (!isSilent) setIsLoading(true);
-
-      const { data: rankingsData, error: rError } = await supabase
+      setIsLoading(true);
+      // Mengambil data dari tabel 'rankings' sesuai screenshot image_7b1141.jpg
+      const { data, error } = await supabase
         .from('rankings')
-        .select('*')
+        .select('*') 
         .order('total_points', { ascending: false });
 
-      const { data: winnersData } = await supabase
-        .from('hasil_turnamen')
-        .select('nama_atlet');
-
-      if (rError) throw rError;
-
-      setDbPlayers(rankingsData || []);
-      if (winnersData) {
-        setDbWinners(winnersData.map(w => w.nama_atlet?.trim()));
-      }
+      if (error) throw error;
+      if (data) setDbPlayers(data);
     } catch (err) {
-      console.error("Koneksi Database Gagal:", err);
+      console.error("Error fetching rankings:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // --- REAL-TIME ENGINE ---
   useEffect(() => {
     fetchPlayersFromDB();
-
-    const channel = supabase
-      .channel('live_sync_players')
-      .on('postgres_changes', { event: '*', table: 'rankings', schema: 'public' }, () => fetchPlayersFromDB(true))
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
-  // --- LOGIKA PROSES DATA ---
+  // --- MAPPING DATA ---
   const processedPlayers = useMemo(() => {
-    const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
-
     return dbPlayers.map((p) => {
-      const rawCategory = (p.category || "").toUpperCase();
-      
-      let mappedAge = 'Senior';
-      if (rawCategory.includes('MUDA') || rawCategory.includes('U-') || rawCategory.includes('TARUNA')) {
-        mappedAge = 'Muda';
-      } else {
-        mappedAge = 'Senior';
+      // Penentuan Kategori berdasarkan kolom 'category' di database
+      const dbCat = (p.category || "").toUpperCase();
+      let ageGroup = 'Senior';
+      if (dbCat.includes('MUDA') || dbCat.includes('U-') || dbCat.includes('TARUNA')) {
+        ageGroup = 'Muda';
       }
 
       return {
         ...p,
         id: p.id,
         name: p.player_name || "Tanpa Nama",
-        img: p.photo_url || p.foto_url,
-        bio: p.bio || `Atlet PB US 162 kategori ${p.category}.`,
-        totalPoints: Number(p.total_points) || 0,
-        isWinner: allWinners.some(w => w?.toLowerCase() === p.player_name?.toLowerCase()),
-        ageGroup: mappedAge,
-        categoryLabel: (p.seed || 'UNSEEDED').toUpperCase(),
+        // Menggunakan fallback jika photo_url tidak ada di tabel rankings
+        img: p.photo_url || p.foto_url || null, 
+        points: p.total_points || 0,
+        seed: p.seed || "UNSEEDED",
+        category: ageGroup
       };
-    }).sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [dbPlayers, dbWinners]);
+    });
+  }, [dbPlayers]);
 
   // --- FILTERING ---
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase().trim());
-      const matchesAge = currentAgeGroup === "Semua" || p.ageGroup === currentAgeGroup;
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesAge = currentAgeGroup === "Semua" || p.category === currentAgeGroup;
       return matchesSearch && matchesAge;
     });
   }, [searchTerm, currentAgeGroup, processedPlayers]);
 
   return (
-    <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
-      
-      {/* MODAL DETAIL */}
-      {selectedPlayer && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
-          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in fade-in zoom-in duration-300">
-            <div className="w-full md:w-1/2 bg-[#080808] flex items-center justify-center overflow-hidden h-[450px] md:h-auto relative">
-              {selectedPlayer.img ? (
-                <img src={selectedPlayer.img} className="w-full h-full object-cover object-[center_20%]" alt={selectedPlayer.name} />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={120} className="text-zinc-700" /></div>
-              )}
-              {selectedPlayer.isWinner && (
-                <div className="absolute bottom-10 left-10 bg-yellow-500 text-black px-6 py-3 rounded-2xl font-black text-[10px] flex items-center gap-3 shadow-2xl z-20 italic uppercase tracking-widest animate-pulse"><Award size={18} /> WINNER - PB US 162</div>
-              )}
-            </div>
-            <div className="p-10 md:p-16 flex-1 bg-zinc-900 relative">
-              <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-colors"><X size={28} /></button>
-              <div className="flex gap-3 mb-6">
-                <span className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-blue-500 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.ageGroup}</span>
-                <span className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-zinc-400 text-[10px] font-black tracking-widest uppercase">{selectedPlayer.categoryLabel}</span>
-              </div>
-              <h2 className="text-5xl md:text-6xl font-black uppercase mb-8 tracking-tighter leading-[0.9] italic">{selectedPlayer.name}</h2>
-              <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5 mb-8">
-                <div className="flex items-center gap-3 mb-4 text-blue-500"><Info size={20} /><span className="text-xs font-black uppercase tracking-widest">Profil Singkat</span></div>
-                <p className="text-zinc-400 text-lg leading-relaxed italic">"{selectedPlayer.bio}"</p>
-              </div>
-              <div className="grid grid-cols-2 gap-5">
-                <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
-                  <Zap className="text-blue-500 mb-2" size={20} /><p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Global Rank</p><p className="text-2xl font-black">#{processedPlayers.findIndex(p => p.id === selectedPlayer.id) + 1}</p>
-                </div>
-                <div className="bg-white/2 p-6 rounded-[2rem] border border-white/5">
-                  <Trophy className="text-yellow-500 mb-2" size={20} /><p className="text-[9px] text-zinc-600 uppercase font-black tracking-widest">Poin Klasemen</p><p className="text-2xl font-black">{Number(selectedPlayer.totalPoints).toLocaleString()} PTS</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 animate-in slide-in-from-bottom duration-700">
+    <section id="atlet" className="py-20 bg-black text-white min-h-screen">
+      <div className="max-w-7xl mx-auto px-6">
+        
+        {/* HEADER & SEARCH */}
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div>
-            <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">PROFIL <span className="text-blue-600">PEMAIN</span></h2>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-              <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">Data Sinkron Realtime</p>
-            </div>
+            <h2 className="text-5xl font-black italic uppercase">PROFIL <span className="text-blue-600">PEMAIN</span></h2>
+            <p className="text-zinc-500 font-bold tracking-widest text-sm mt-2">DATA TERUPDATE & REALTIME</p>
           </div>
-          <div className="relative w-full md:w-[320px]">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={20} />
             <input 
               type="text" 
               placeholder="Cari atlet..." 
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-5 focus:outline-none focus:border-blue-600 text-xs font-bold transition-all text-white placeholder:text-zinc-700 shadow-xl" 
-              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 focus:border-blue-600 outline-none transition-all"
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
 
-        {/* TAB FILTER */}
-        <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16 animate-in fade-in duration-1000">
-          <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
-            {[
-              { label: 'Semua', count: processedPlayers.length },
-              { label: 'Senior', count: processedPlayers.filter(p => p.ageGroup === 'Senior').length },
-              { label: 'Muda', count: processedPlayers.filter(p => p.ageGroup === 'Muda').length }
-            ].map((tab) => (
-              <button key={tab.label} onClick={() => setCurrentAgeGroup(tab.label)} className={`px-10 py-4 rounded-[2rem] text-[12px] font-black transition-all flex items-center gap-3 whitespace-nowrap ${currentAgeGroup === tab.label ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' : 'text-zinc-500 hover:text-white'}`}>
-                {tab.label.toUpperCase()} <span className="opacity-40 text-[10px]">{tab.count}</span>
+        {/* TAB FILTER - Sesuai angka di screenshot Anda (54, 44, 10) */}
+        <div className="flex bg-zinc-900/50 p-2 rounded-full border border-zinc-800 w-fit mb-12">
+          {['Semua', 'Senior', 'Muda'].map((tab) => {
+            const count = tab === 'Semua' ? processedPlayers.length : processedPlayers.filter(p => p.category === tab).length;
+            return (
+              <button 
+                key={tab}
+                onClick={() => setCurrentAgeGroup(tab)}
+                className={`px-8 py-3 rounded-full text-xs font-black transition-all flex items-center gap-3 ${currentAgeGroup === tab ? 'bg-blue-600' : 'text-zinc-500'}`}
+              >
+                {tab.toUpperCase()} <span className="opacity-50">{count}</span>
               </button>
-            ))}
-          </div>
+            )
+          })}
         </div>
 
+        {/* RENDER KONTEN */}
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 text-zinc-500">
-            <Loader2 className="animate-spin text-blue-600" size={40} />
-            <p className="font-black uppercase tracking-widest text-xs">Menyinkronkan Database...</p>
-          </div>
-        ) : (
-          <div className="relative group/slider">
-            {filteredPlayers.length > 0 ? (
-              <Swiper
-                modules={[Navigation, Pagination, Autoplay, Observer]}
-                onSwiper={(swiper) => (swiperInstanceRef.current = swiper)}
-                key={`swiper-${currentAgeGroup}-${filteredPlayers.length}`}
-                spaceBetween={25}
-                slidesPerView={1.2}
-                observer={true}
-                observeParents={true}
-                navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
-                onBeforeInit={(swiper) => {
-                    // @ts-ignore
-                    swiper.params.navigation.prevEl = prevRef.current;
-                    // @ts-ignore
-                    swiper.params.navigation.nextEl = nextRef.current;
-                }}
-                breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
-                className="!pb-20"
-              >
-                {filteredPlayers.map((player, idx) => (
-                  <SwiperSlide key={player.id}>
-                    <div 
-                      onClick={() => setSelectedPlayer(player)} 
-                      style={{ animationDelay: `${idx * 50}ms` }}
-                      className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl animate-in fade-in slide-in-from-bottom-10 fill-mode-both"
-                    >
-                      {player.img ? (
-                        <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000 object-[center_25%]" alt={player.name} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={60} className="text-zinc-700" /></div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
-                      <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
-                        {processedPlayers.findIndex(p => p.id === player.id) + 1}
-                      </div>
-                      {player.isWinner && (
-                        <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg z-10"><Trophy size={18} /></div>
-                      )}
-                      <div className="absolute bottom-10 left-10 right-10">
-                        <div className="flex items-center gap-2 mb-2">
-                           <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                           <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
-                        </div>
-                        <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1 italic">{player.name}</h3>
-                        <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
-                          <span>{player.categoryLabel}</span>
-                          <span className="text-white font-mono">{Number(player.totalPoints).toLocaleString()} PTS</span>
-                        </div>
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" size={40} /></div>
+        ) : filteredPlayers.length > 0 ? (
+          <div className="relative group">
+            <Swiper
+              modules={[Navigation, Pagination, Observer]}
+              spaceBetween={20}
+              slidesPerView={1.2}
+              observer={true}
+              observeParents={true}
+              navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
+              breakpoints={{ 768: { slidesPerView: 3 }, 1024: { slidesPerView: 4 } }}
+            >
+              {filteredPlayers.map((player) => (
+                <SwiperSlide key={player.id}>
+                  <div 
+                    onClick={() => setSelectedPlayer(player)}
+                    className="bg-zinc-900 rounded-[3rem] overflow-hidden border border-zinc-800 hover:border-blue-600 transition-all group/card cursor-pointer relative aspect-[3/4]"
+                  >
+                    {player.img ? (
+                      <img src={player.img} className="w-full h-full object-cover" alt={player.name} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={60} className="text-zinc-700" /></div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                    <div className="absolute bottom-8 left-8 right-8">
+                      <p className="text-blue-500 text-[10px] font-black tracking-widest uppercase mb-1">{player.category}</p>
+                      <h3 className="text-2xl font-black uppercase italic line-clamp-1">{player.name}</h3>
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/10">
+                        <span className="text-[10px] text-zinc-500 font-bold">{player.seed}</span>
+                        <span className="text-sm font-black">{player.points.toLocaleString()} PTS</span>
                       </div>
                     </div>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            ) : (
-              <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest italic animate-in fade-in">Data Belum Tersedia</div>
-            )}
-            <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all shadow-2xl"><ChevronLeft size={32} /></button>
-            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all shadow-2xl"><ChevronRight size={32} /></button>
+                  </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+            
+            {/* Tombol Navigasi Swiper */}
+            <button ref={prevRef} className="absolute -left-6 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-all"><ChevronLeft /></button>
+            <button ref={nextRef} className="absolute -right-6 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition-all"><ChevronRight /></button>
           </div>
+        ) : (
+          <div className="text-center py-20 text-zinc-700 font-black uppercase tracking-widest italic">Data Tidak Ditemukan</div>
         )}
       </div>
+
+      {/* MODAL SEDERHANA */}
+      {selectedPlayer && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setSelectedPlayer(null)} />
+          <div className="bg-zinc-900 border border-zinc-800 rounded-[3rem] max-w-lg w-full p-10 relative overflow-hidden">
+             <button onClick={() => setSelectedPlayer(null)} className="absolute top-6 right-6"><X /></button>
+             <h2 className="text-4xl font-black italic uppercase mb-4">{selectedPlayer.name}</h2>
+             <div className="space-y-4">
+                <div className="bg-white/5 p-4 rounded-2xl flex justify-between">
+                  <span className="text-zinc-500 font-bold uppercase text-xs">Poin</span>
+                  <span className="font-black text-blue-500">{selectedPlayer.points.toLocaleString()}</span>
+                </div>
+                <div className="bg-white/5 p-4 rounded-2xl flex justify-between">
+                  <span className="text-zinc-500 font-bold uppercase text-xs">Kategori</span>
+                  <span className="font-black">{selectedPlayer.category}</span>
+                </div>
+                <div className="bg-white/5 p-4 rounded-2xl flex justify-between">
+                  <span className="text-zinc-500 font-bold uppercase text-xs">Status</span>
+                  <span className="font-black">{selectedPlayer.seed}</span>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

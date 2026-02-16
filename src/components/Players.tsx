@@ -8,15 +8,11 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
 import { 
-  X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Info, Loader2, User 
+  X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Loader2, User 
 } from 'lucide-react';
 
-interface PlayersProps {
-  initialFilter?: string;
-}
-
-const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
-  const [currentAgeGroup, setCurrentAgeGroup] = useState(initialFilter); 
+const Players: React.FC = () => {
+  const [currentAgeGroup, setCurrentAgeGroup] = useState('Semua'); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
@@ -24,22 +20,22 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
-  const swiperInstanceRef = useRef<any>(null);
 
-  // --- FETCHING DATA DENGAN JOIN TABEL PENDAFTARAN ---
+  // --- FETCH DATA SESUAI STRUKTUR GAMBAR SUPABASE ANDA ---
   const fetchPlayersFromDB = async () => {
     try {
       setIsLoading(true);
       
-      // Melakukan Join ke tabel pendaftaran untuk ambil nama dan foto
+      // Ambil data dari atlet_stats dan join ke pendaftaran
+      // Berdasarkan image_7cf1c1.jpg, kolom di pendaftaran adalah 'nama' dan 'kategori'
       const { data, error } = await supabase
         .from('atlet_stats')
         .select(`
           *,
           pendaftaran (
-            nama_lengkap,
+            nama,
             foto_url,
-            kategori_lomba
+            kategori
           )
         `)
         .order('points', { ascending: false });
@@ -48,7 +44,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
       setDbPlayers(data || []);
       
     } catch (err) {
-      console.error("Gagal sinkronisasi database:", err);
+      console.error("Database Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +52,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
 
   useEffect(() => {
     fetchPlayersFromDB();
-    const channel = supabase.channel('atlet_realtime')
+    // Realtime subscription agar otomatis update saat poin diubah di admin
+    const channel = supabase.channel('atlet_changes')
       .on('postgres_changes', { event: '*', table: 'atlet_stats', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -64,15 +61,16 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
 
   const processedPlayers = useMemo(() => {
     return dbPlayers.map((p) => {
-      // Data diambil dari join 'pendaftaran'
       const info = p.pendaftaran || {};
-      const name = info.nama_lengkap || "Atlet PB US";
-      const photo = info.foto_url || p.foto_url;
-      const category = (info.kategori_lomba || p.seed || "").toUpperCase();
+      
+      // Mapping field berdasarkan image_7cf1c1.jpg dan image_7cf1a3.jpg
+      const name = info.nama || "Atlet PB US";
+      const photo = info.foto_url || null;
+      const categoryRaw = (info.kategori || p.seed || "SENIOR").toUpperCase();
 
-      // Logika Penentuan Kelompok Usia
+      // Penentuan Tab (Senior/Muda)
       let ageGroup = 'Senior';
-      if (category.includes('MUDA') || category.includes('U-') || category.includes('PEMULA')) {
+      if (categoryRaw.includes('MUDA')) {
         ageGroup = 'Muda';
       }
 
@@ -103,7 +101,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
       {selectedPlayer && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
-          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-4xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl">
+          <div className="relative bg-zinc-900 border border-white/10 w-full max-w-4xl rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in zoom-in duration-300">
             <div className="w-full md:w-1/2 bg-[#080808] h-[400px] md:h-auto">
               {selectedPlayer.img ? (
                 <img src={selectedPlayer.img} className="w-full h-full object-cover" alt={selectedPlayer.name} />
@@ -118,7 +116,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 <span className="px-3 py-1 bg-white/5 text-zinc-400 rounded-full text-[10px] font-black uppercase">{selectedPlayer.displaySeed}</span>
               </div>
               <h2 className="text-4xl font-black uppercase italic mb-6 leading-tight">{selectedPlayer.name}</h2>
-              <div className="bg-white/5 p-6 rounded-2xl mb-8">
+              <div className="bg-white/5 p-6 rounded-2xl mb-8 border border-white/5">
                 <p className="text-zinc-400 italic">"{selectedPlayer.bio}"</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -129,7 +127,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 </div>
                 <div className="bg-zinc-800/50 p-5 rounded-2xl border border-white/5">
                   <Trophy className="text-yellow-500 mb-1" size={18} />
-                  <p className="text-[10px] text-zinc-500 uppercase font-black">Global Rank</p>
+                  <p className="text-[10px] text-zinc-500 uppercase font-black">Rank</p>
                   <p className="text-xl font-black">#{processedPlayers.findIndex(x => x.id === selectedPlayer.id) + 1}</p>
                 </div>
               </div>
@@ -149,7 +147,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
             <input 
               type="text" 
               placeholder="Cari nama atlet..." 
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-xs"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-xs focus:border-blue-600 transition-colors"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
@@ -178,7 +176,6 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
             {filteredPlayers.length > 0 ? (
               <Swiper
                 modules={[Navigation, Pagination, Autoplay]}
-                onSwiper={(s) => (swiperInstanceRef.current = s)}
                 spaceBetween={20}
                 slidesPerView={1.2}
                 navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
@@ -189,7 +186,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                   <SwiperSlide key={player.id}>
                     <div 
                       onClick={() => setSelectedPlayer(player)}
-                      className="group cursor-pointer relative aspect-[3/4] rounded-[2.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-500"
+                      className="group cursor-pointer relative aspect-[3/4] rounded-[2.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600 transition-all duration-500"
                     >
                       {player.img ? (
                         <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-105 transition-transform duration-700" alt={player.name} />
@@ -210,7 +207,9 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 ))}
               </Swiper>
             ) : (
-              <div className="py-20 text-center text-zinc-600 font-black uppercase italic">Data Atlet Belum Tersedia</div>
+              <div className="py-20 text-center text-zinc-600 font-black uppercase italic">
+                Data Atlet "{searchTerm}" Tidak Ditemukan
+              </div>
             )}
             <button ref={prevRef} className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-zinc-900 border border-zinc-700 rounded-full flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all hover:bg-blue-600"><ChevronLeft /></button>
             <button ref={nextRef} className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-zinc-900 border border-zinc-700 rounded-full flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all hover:bg-blue-600"><ChevronRight /></button>

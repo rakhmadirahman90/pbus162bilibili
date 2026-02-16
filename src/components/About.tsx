@@ -49,24 +49,24 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   ];
 
   return (
-    <section id="tentang-kami" className="relative w-full bg-white pt-12 pb-16 flex flex-col items-center">
-      <div className="max-w-7xl mx-auto px-6 w-full flex flex-col">
+    <section id="tentang-kami" className="relative w-full bg-white py-12 md:py-16 flex flex-col items-center overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 w-full flex flex-col">
         
-        {/* Judul Utama - Sesuai Gambar: Hitam, Bold, Center */}
-        <div className="text-center mb-10">
-          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase">TENTANG KAMI</h2>
+        {/* HEADER: Fix posisi & Ukuran */}
+        <div className="text-center mb-8 shrink-0">
+          <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-3 tracking-tight uppercase">Tentang Kami</h2>
           <div className="w-16 h-1.5 bg-blue-600 mx-auto rounded-full"></div>
         </div>
 
-        {/* Tab Switcher - Sesuai Gambar: Rounded halus, Abu-abu muda untuk non-aktif */}
-        <div className="flex justify-center gap-3 mb-10">
+        {/* TAB SWITCHER: Kompak & Presisi */}
+        <div className="flex justify-center gap-2 md:gap-4 mb-10 shrink-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`px-8 py-3 rounded-2xl font-bold text-sm uppercase tracking-wider transition-all duration-300 ${
+              className={`px-6 md:px-10 py-2.5 md:py-3 rounded-2xl font-bold text-[10px] md:text-xs uppercase tracking-widest transition-all duration-300 ${
                 activeTab === tab.id 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105' 
                 : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
               }`}
             >
@@ -75,71 +75,59 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           ))}
         </div>
 
-        {/* Kotak Konten Utama - Sesuai Gambar: Rounded besar, Background sangat muda */}
-        <div className="bg-slate-50/50 rounded-[3rem] p-10 md:p-16 border border-slate-100 shadow-sm min-h-[500px]">
+        {/* CONTENT BOX: Mengunci Tinggi agar Pas */}
+        <div className="bg-slate-50/50 rounded-[2.5rem] md:rounded-[3rem] p-6 md:p-12 border border-slate-100 shadow-sm flex items-center min-h-[450px] md:h-[500px]">
           
-          {/* TAB: SEJARAH - Sesuai Gambar: Teks di Kanan, Logo di Kiri */}
+          {/* TAB 1: SEJARAH */}
           {activeTab === 'sejarah' && (
-            <div className="w-full animate-in fade-in duration-700">
-              <div className="grid lg:grid-cols-2 gap-16 items-center">
-                <div className="relative flex justify-center">
-                  {/* Gambar Logo/Hero Sejarah */}
-                  <img 
-                    src="photo_2026-02-03_00-32-07.jpg" 
-                    alt="Logo PB US 162" 
-                    className="w-full max-w-[500px] rounded-[2.5rem] shadow-xl"
-                  />
-                </div>
-
-                <div className="space-y-6">
-                  <h3 className="text-4xl font-black text-slate-900 leading-tight">
-                    MEMBINA <span className="text-blue-600">LEGENDA</span> MASA DEPAN
-                  </h3>
-                  <p className="text-slate-500 text-lg leading-relaxed font-medium">
-                    {dynamicContent.sejarah_desc || "PB US 162 Bilibili bukan sekadar klub, melainkan ekosistem pembinaan bulutangkis terpadu yang menggabungkan disiplin, teknik modern, dan semangat juang."}
-                  </p>
-                  
-                  {/* List Fitur Sejarah - Sesuai Gambar: Grid 2 Kolom */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 pt-4 border-t border-slate-200">
-                    {[
-                      { label: "Sport-science intensif", icon: <CheckCircle2 size={18}/> },
-                      { label: "GOR Standar BWF", icon: <CheckCircle2 size={18}/> },
-                      { label: "Karier Profesional", icon: <CheckCircle2 size={18}/> },
-                      { label: "Klasemen Digital", icon: <CheckCircle2 size={18}/> }
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center gap-3">
-                        <span className="text-blue-500">{item.icon}</span>
-                        <span className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.label}</span>
-                      </div>
-                    ))}
-                  </div>
+            <div className="w-full animate-in fade-in duration-500 grid md:grid-cols-2 gap-8 md:gap-16 items-center">
+              <div className="hidden md:flex justify-center">
+                <img 
+                  src="photo_2026-02-03_00-32-07.jpg" 
+                  alt="PB US 162" 
+                  className="w-full max-h-[350px] object-cover rounded-[2.5rem] shadow-2xl border-4 border-white"
+                />
+              </div>
+              <div className="space-y-4 md:space-y-6">
+                <h3 className="text-2xl md:text-4xl font-black text-slate-900 leading-tight uppercase">
+                  MEMBINA <span className="text-blue-600">LEGENDA</span> MASA DEPAN
+                </h3>
+                <p className="text-slate-500 text-sm md:text-base leading-relaxed font-medium">
+                  {dynamicContent.sejarah_desc || "PB US 162 Bilibili adalah ekosistem pembinaan bulutangkis terpadu yang menggabungkan disiplin, teknik modern, dan sport-science."}
+                </p>
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-200">
+                  {["Sport-Science", "GOR Standar BWF", "Karier Atlet", "Sistem Digital"].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-blue-500" />
+                      <span className="text-[10px] md:text-xs font-black text-slate-800 uppercase tracking-tighter">{item}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB: VISI & MISI - Sesuai Gambar: Dua Box Putih Bersih */}
+          {/* TAB 2: VISI MISI */}
           {activeTab === 'visi-misi' && (
-            <div className="w-full animate-in fade-in duration-700 grid lg:grid-cols-2 gap-8">
-              <div className="bg-white p-12 rounded-[2.5rem] border border-slate-100 flex flex-col justify-center relative">
-                <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center mb-6 shadow-md">
+            <div className="w-full animate-in fade-in duration-500 grid md:grid-cols-2 gap-4 md:gap-8 items-stretch h-full">
+              <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-100 flex flex-col justify-center">
+                <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center mb-6">
                   <Target size={24} />
                 </div>
-                <h4 className="text-blue-600 font-black text-xs uppercase tracking-widest mb-4">Visi Utama</h4>
-                <p className="text-slate-800 text-2xl font-bold italic leading-snug">
-                  "{dynamicContent.vision || "Menjadi klub bulutangkis rujukan nasional yang mencetak atlet berprestasi dunia."}"
+                <h4 className="text-blue-600 font-black text-[10px] uppercase tracking-[0.2em] mb-3">Visi Utama</h4>
+                <p className="text-slate-800 text-lg md:text-xl font-bold italic leading-snug">
+                  "{dynamicContent.vision || "Menjadi klub rujukan nasional yang mencetak atlet berprestasi dunia."}"
                 </p>
               </div>
-
-              <div className="bg-white p-12 rounded-[2.5rem] border border-slate-100 flex flex-col justify-center">
-                <div className="w-12 h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center mb-6 shadow-md">
+              <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-100 flex flex-col justify-center">
+                <div className="w-12 h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center mb-6">
                   <Rocket size={24} />
                 </div>
-                <h4 className="text-blue-600 font-black text-xs uppercase tracking-widest mb-4">Misi Kami</h4>
-                <ul className="space-y-3">
-                  {(dynamicContent.missions || ["Latihan terstruktur & disiplin", "Fasilitas berstandar internasional", "Kompetisi rutin berkala", "Pembentukan karakter juara"]).map((misi, i) => (
-                    <li key={i} className="flex items-center gap-3 text-slate-700 font-bold italic text-sm md:text-base">
-                      <CheckCircle2 size={18} className="text-blue-500 shrink-0" /> {misi}
+                <h4 className="text-blue-600 font-black text-[10px] uppercase tracking-[0.2em] mb-3">Misi Kami</h4>
+                <ul className="space-y-2 md:space-y-3">
+                  {["Latihan Terstruktur", "Fasilitas Standar Internasional", "Kompetisi Rutin", "Karakter Juara"].map((misi, i) => (
+                    <li key={i} className="flex items-center gap-3 text-slate-700 font-bold italic text-xs md:text-sm">
+                      <CheckCircle2 size={16} className="text-blue-500" /> {misi}
                     </li>
                   ))}
                 </ul>
@@ -147,34 +135,27 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* TAB: FASILITAS - Sesuai Gambar: List di Kiri, Collage di Kanan */}
+          {/* TAB 3: FASILITAS */}
           {activeTab === 'fasilitas' && (
-            <div className="w-full animate-in fade-in duration-700 grid lg:grid-cols-2 gap-12 items-center">
-              <div className="space-y-6">
-                <h3 className="text-3xl font-black text-slate-900 uppercase italic mb-8">FASILITAS STANDAR NASIONAL</h3>
-                <div className="space-y-4">
-                  {[
-                    'Lapangan karpet standar BWF', 
-                    'Pencahayaan LED anti-silau', 
-                    'Fitness & Conditioning center', 
-                    'Asrama atlet (Home base)'
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-slate-100 group hover:border-blue-500 transition-all">
-                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
-                        <Shield size={18} />
+            <div className="w-full animate-in fade-in duration-500 grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+              <div className="space-y-4 md:space-y-6">
+                <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase italic">Fasilitas Standar Nasional</h3>
+                <div className="grid gap-3">
+                  {['Lapangan Karpet BWF', 'LED Anti-Silau', 'Fitness Center', 'Asrama Atlet'].map((item, i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                      <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                        <Shield size={16} />
                       </div>
-                      <span className="text-sm font-bold text-slate-800 uppercase tracking-tight">{item}</span>
+                      <span className="text-[10px] md:text-xs font-bold text-slate-800 uppercase tracking-widest">{item}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Collage Foto sesuai Screenshot */}
-              <div className="grid grid-cols-2 gap-4 h-[450px]">
-                <img src="dpnkwabotttfihp7gf3r.jpg" className="w-full h-full object-cover rounded-[2rem]" alt="Fasilitas 1" />
-                <div className="grid grid-rows-2 gap-4">
-                  <img src="dpnkwabotttfihp7gf3r.jpg" className="w-full h-full object-cover rounded-[2rem]" alt="Fasilitas 2" />
-                  <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" className="w-full h-full object-cover rounded-[2rem]" alt="Fasilitas 3" />
+              <div className="grid grid-cols-2 gap-3 h-[300px] md:h-[380px]">
+                <img src="dpnkwabotttfihp7gf3r.jpg" className="w-full h-full object-cover rounded-[2rem] border-2 border-white shadow-md" alt="GOR 1" />
+                <div className="grid grid-rows-2 gap-3">
+                  <img src="dpnkwabotttfihp7gf3r.jpg" className="w-full h-full object-cover rounded-[2rem] border-2 border-white shadow-md" alt="GOR 2" />
+                  <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400" className="w-full h-full object-cover rounded-[2rem] border-2 border-white shadow-md" alt="GOR 3" />
                 </div>
               </div>
             </div>

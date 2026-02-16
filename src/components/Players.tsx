@@ -38,7 +38,6 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
-  // NEW: Ref untuk memegang instance Swiper secara manual
   const swiperInstanceRef = useRef<any>(null);
 
   useEffect(() => {
@@ -47,26 +46,33 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     }
   }, [initialFilter]);
 
-  // --- FETCHING DATA ---
+  // --- FETCHING DATA DISESUAIKAN DENGAN TABEL ATLET_STATS ---
   const fetchPlayersFromDB = async () => {
     try {
-      const { data: rankingsData, error: rError } = await supabase
-        .from('rankings')
-        .select('*')
-        .order('total_points', { ascending: false });
+      // Mengambil data dari 'atlet_stats' sesuai dengan tampilan di database Supabase Anda
+      const { data: atletData, error: aError } = await supabase
+        .from('atlet_stats')
+        .select(`
+          *,
+          pendaftaran:pendaftaran_id (
+            nama_lengkap,
+            kategori_lomba
+          )
+        `)
+        .order('points', { ascending: false });
 
       const { data: winnersData } = await supabase
         .from('hasil_turnamen')
         .select('nama_atlet');
 
-      if (rError) throw rError;
+      if (aError) throw aError;
 
-      setDbPlayers(rankingsData || []);
+      setDbPlayers(atletData || []);
       if (winnersData) {
         setDbWinners(winnersData.map(w => w.nama_atlet));
       }
     } catch (err) {
-      console.error("Gagal mengambil data atlet dari tabel rankings:", err);
+      console.error("Gagal mengambil data atlet:", err);
     } finally {
       setIsLoading(false);
     }
@@ -76,9 +82,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     fetchPlayersFromDB();
 
     const channel = supabase
-      .channel('db_realtime_players')
-      .on('postgres_changes', { event: '*', table: 'rankings', schema: 'public' }, () => fetchPlayersFromDB())
-      .on('postgres_changes', { event: '*', table: 'hasil_turnamen', schema: 'public' }, () => fetchPlayersFromDB())
+      .channel('db_realtime_atlet')
+      .on('postgres_changes', { event: '*', table: 'atlet_stats', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
 
     return () => {
@@ -90,35 +95,39 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   const processedPlayers = useMemo(() => {
     const ageMapping: Record<string, string> = {
       'SENIOR': 'Senior',
-      'VETERAN (35+ / 40+)': 'Senior',
+      'VETERAN': 'Senior',
       'DEWASA': 'Senior',
-      'DEWASA / UMUM': 'Senior',
-      'TARUNA (U-19)': 'Muda',
-      'REMAJA (U-17)': 'Muda',
-      'PEMULA (U-15)': 'Muda',
+      'MUDA': 'Muda',
+      'TARUNA': 'Muda',
+      'REMAJA': 'Muda',
+      'PEMULA': 'Muda',
     };
 
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
-      const rawCategory = (p.category || "").toUpperCase();
+      // Ambil nama dari relasi pendaftaran atau fallback ke database
+      const playerName = p.pendaftaran?.nama_lengkap || p.player_name || "Tanpa Nama";
+      const rawCategory = (p.pendaftaran?.kategori_lomba || p.category || "").toUpperCase();
+      
       let mappedAge = 'Senior';
-      if (rawCategory.includes('MUDA') || rawCategory.includes('U-')) {
+      if (rawCategory.includes('MUDA') || rawCategory.includes('U-') || rawCategory.includes('PEMULA')) {
         mappedAge = 'Muda';
       } else {
-        mappedAge = ageMapping[rawCategory] || 'Senior';
+        mappedAge = 'Senior';
       }
 
       return {
         ...p,
         id: p.id,
-        name: p.player_name,
-        img: p.photo_url || p.foto_url,
-        bio: p.bio || `Atlet PB US 162 kategori ${p.category}.`,
-        totalPoints: Number(p.total_points) || 0,
-        isWinner: allWinners.includes(p.player_name),
+        name: playerName,
+        img: p.foto_url || p.photo_url || p.img_url, // Menyesuaikan berbagai kemungkinan nama kolom foto
+        bio: p.bio || `Atlet profesional PB US 162.`,
+        totalPoints: Number(p.points) || Number(p.total_points) || 0,
+        isWinner: allWinners.includes(playerName),
         ageGroup: mappedAge,
         categoryLabel: p.seed || 'UNSEEDED',
+        rank: p.rank || 0
       };
     }).sort((a, b) => b.totalPoints - a.totalPoints);
   }, [dbPlayers, dbWinners]);
@@ -133,13 +142,12 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     });
   }, [searchTerm, currentAgeGroup, processedPlayers]);
 
-  // --- NEW: FIX UNTUK AUTO-SHOW DATA ---
-  // Memaksa Swiper update ketika loading selesai atau data terisi
+  // Memaksa Swiper update ketika data terisi
   useEffect(() => {
     if (swiperInstanceRef.current && !isLoading) {
       setTimeout(() => {
         swiperInstanceRef.current.update();
-      }, 300); // Memberi waktu sedikit untuk DOM render
+      }, 500);
     }
   }, [isLoading, filteredPlayers]);
 
@@ -201,7 +209,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
         <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
           <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
             {[
-              { label: 'Semua', count: dbPlayers.length },
+              { label: 'Semua', count: processedPlayers.length },
               { label: 'Senior', count: processedPlayers.filter(p => p.ageGroup === 'Senior').length },
               { label: 'Muda', count: processedPlayers.filter(p => p.ageGroup === 'Muda').length }
             ].map((tab) => (
@@ -221,7 +229,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
             {filteredPlayers.length > 0 ? (
               <Swiper
                 modules={[Navigation, Pagination, Autoplay]}
-                onSwiper={(swiper) => (swiperInstanceRef.current = swiper)} // Simpan instance
+                onSwiper={(swiper) => (swiperInstanceRef.current = swiper)}
                 key={`swiper-${currentAgeGroup}-${filteredPlayers.length}`}
                 spaceBetween={25}
                 slidesPerView={1.2}
@@ -237,8 +245,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
                 className="!pb-20"
               >
-                {filteredPlayers.map((player) => (
-                  <SwiperSlide key={player.id}>
+                {filteredPlayers.map((player, index) => (
+                  <SwiperSlide key={player.id || index}>
                     <div onClick={() => setSelectedPlayer(player)} className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl">
                       {player.img ? (
                         <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000 object-[center_25%]" alt={player.name} />
@@ -246,18 +254,21 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                         <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={60} className="text-zinc-700" /></div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
+                      
                       <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
                         {processedPlayers.findIndex(p => p.id === player.id) + 1}
                       </div>
+
                       {player.isWinner && (
                         <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg"><Trophy size={18} /></div>
                       )}
+
                       <div className="absolute bottom-10 left-10 right-10">
                         <div className="flex items-center gap-2 mb-2">
                            <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
                            <p className="text-zinc-400 text-[10px] font-black tracking-widest uppercase">{player.ageGroup}</p>
                         </div>
-                        <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-500 transition-colors mb-4 line-clamp-1 italic">{player.name}</h3>
+                        <h3 className="text-3xl font-black uppercase leading-none tracking-tighter group-hover:text-blue-600 transition-colors mb-4 line-clamp-1 italic">{player.name}</h3>
                         <div className="flex items-center justify-between text-white/30 text-[10px] font-black uppercase tracking-widest border-t border-white/10 pt-5">
                           <span>{player.categoryLabel}</span>
                           <span className="text-white font-mono">{Number(player.totalPoints).toLocaleString()} PTS</span>
@@ -279,4 +290,4 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   );
 };
 
-export default Players; 
+export default Players;

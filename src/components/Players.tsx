@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay, Observer } from 'swiper/modules';
+import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import { supabase } from "../supabase";
 
 import 'swiper/css';
@@ -38,7 +38,14 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
 
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
+  // NEW: Ref untuk memegang instance Swiper secara manual
   const swiperInstanceRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (initialFilter) {
+      setCurrentAgeGroup(initialFilter);
+    }
+  }, [initialFilter]);
 
   // --- FETCHING DATA ---
   const fetchPlayersFromDB = async () => {
@@ -59,7 +66,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
         setDbWinners(winnersData.map(w => w.nama_atlet));
       }
     } catch (err) {
-      console.error("Gagal mengambil data atlet:", err);
+      console.error("Gagal mengambil data atlet dari tabel rankings:", err);
     } finally {
       setIsLoading(false);
     }
@@ -67,26 +74,40 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
 
   useEffect(() => {
     fetchPlayersFromDB();
+
     const channel = supabase
       .channel('db_realtime_players')
       .on('postgres_changes', { event: '*', table: 'rankings', schema: 'public' }, () => fetchPlayersFromDB())
+      .on('postgres_changes', { event: '*', table: 'hasil_turnamen', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // --- LOGIKA PROSES DATA ---
+  // --- LOGIKA PROSES DATA ATLET ---
   const processedPlayers = useMemo(() => {
     const ageMapping: Record<string, string> = {
-      'SENIOR': 'Senior', 'VETERAN (35+ / 40+)': 'Senior', 'DEWASA': 'Senior', 
-      'DEWASA / UMUM': 'Senior', 'TARUNA (U-19)': 'Muda', 'REMAJA (U-17)': 'Muda', 'PEMULA (U-15)': 'Muda',
+      'SENIOR': 'Senior',
+      'VETERAN (35+ / 40+)': 'Senior',
+      'DEWASA': 'Senior',
+      'DEWASA / UMUM': 'Senior',
+      'TARUNA (U-19)': 'Muda',
+      'REMAJA (U-17)': 'Muda',
+      'PEMULA (U-15)': 'Muda',
     };
+
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
       const rawCategory = (p.category || "").toUpperCase();
       let mappedAge = 'Senior';
-      if (rawCategory.includes('MUDA') || rawCategory.includes('U-')) mappedAge = 'Muda';
-      else mappedAge = ageMapping[rawCategory] || 'Senior';
+      if (rawCategory.includes('MUDA') || rawCategory.includes('U-')) {
+        mappedAge = 'Muda';
+      } else {
+        mappedAge = ageMapping[rawCategory] || 'Senior';
+      }
 
       return {
         ...p,
@@ -102,26 +123,30 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     }).sort((a, b) => b.totalPoints - a.totalPoints);
   }, [dbPlayers, dbWinners]);
 
+  // --- FILTERING ---
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
-      const matchesSearch = (p.name || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const name = p.name || "";
+      const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesAge = currentAgeGroup === "Semua" || p.ageGroup === currentAgeGroup;
       return matchesSearch && matchesAge;
     });
   }, [searchTerm, currentAgeGroup, processedPlayers]);
 
-  // Sync Swiper
+  // --- NEW: FIX UNTUK AUTO-SHOW DATA ---
+  // Memaksa Swiper update ketika loading selesai atau data terisi
   useEffect(() => {
     if (swiperInstanceRef.current && !isLoading) {
-      swiperInstanceRef.current.update();
-      swiperInstanceRef.current.slideTo(0, 0);
+      setTimeout(() => {
+        swiperInstanceRef.current.update();
+      }, 300); // Memberi waktu sedikit untuk DOM render
     }
-  }, [isLoading, currentAgeGroup, filteredPlayers]);
+  }, [isLoading, filteredPlayers]);
 
   return (
     <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
       
-      {/* MODAL DETAIL (Tetap Sama) */}
+      {/* MODAL DETAIL */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={() => setSelectedPlayer(null)} />
@@ -162,7 +187,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
       )}
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12 animate-in slide-in-from-top duration-700">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
           <div>
             <h2 className="text-4xl md:text-5xl font-black italic mb-2 uppercase tracking-tighter">PROFIL <span className="text-blue-600">PEMAIN</span></h2>
             <p className="text-zinc-500 text-xs md:text-sm font-bold tracking-[0.2em] uppercase">Data Atlet Terupdate & Realtime</p>
@@ -173,8 +198,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
           </div>
         </div>
 
-        {/* TAB FILTER */}
-        <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16 animate-in fade-in duration-1000">
+        <div className="flex flex-col md:flex-row gap-8 items-center justify-between mb-16">
           <div className="flex bg-zinc-900/50 p-2 rounded-[2.5rem] border border-zinc-800 backdrop-blur-xl overflow-x-auto no-scrollbar max-w-full">
             {[
               { label: 'Semua', count: dbPlayers.length },
@@ -196,8 +220,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
           <div className="relative group/slider">
             {filteredPlayers.length > 0 ? (
               <Swiper
-                modules={[Navigation, Pagination, Autoplay, Observer]}
-                onSwiper={(swiper) => { swiperInstanceRef.current = swiper; }}
+                modules={[Navigation, Pagination, Autoplay]}
+                onSwiper={(swiper) => (swiperInstanceRef.current = swiper)} // Simpan instance
                 key={`swiper-${currentAgeGroup}-${filteredPlayers.length}`}
                 spaceBetween={25}
                 slidesPerView={1.2}
@@ -213,29 +237,21 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                 breakpoints={{ 640: { slidesPerView: 2.2 }, 1024: { slidesPerView: 4 } }}
                 className="!pb-20"
               >
-                {filteredPlayers.map((player, index) => (
+                {filteredPlayers.map((player) => (
                   <SwiperSlide key={player.id}>
-                    {/* EFEK ANIMASI DISINI: animate-in fade-in slide-in-from-bottom dengan delay staggered */}
-                    <div 
-                      onClick={() => setSelectedPlayer(player)} 
-                      style={{ animationDelay: `${index * 100}ms` }}
-                      className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl animate-in fade-in slide-in-from-bottom-10 fill-mode-both"
-                    >
+                    <div onClick={() => setSelectedPlayer(player)} className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl">
                       {player.img ? (
                         <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000 object-[center_25%]" alt={player.name} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-zinc-800"><User size={60} className="text-zinc-700" /></div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90" />
-                      
                       <div className="absolute top-8 left-8 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg border-4 border-zinc-900 shadow-xl group-hover:scale-110 transition-transform">
                         {processedPlayers.findIndex(p => p.id === player.id) + 1}
                       </div>
-
                       {player.isWinner && (
                         <div className="absolute top-8 right-8 bg-yellow-500 p-2.5 rounded-xl text-black animate-bounce shadow-lg"><Trophy size={18} /></div>
                       )}
-
                       <div className="absolute bottom-10 left-10 right-10">
                         <div className="flex items-center gap-2 mb-2">
                            <span className={`w-2 h-2 rounded-full ${player.ageGroup === 'Senior' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
@@ -254,9 +270,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
             ) : (
               <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest italic">Data Tidak Ditemukan</div>
             )}
-            
             <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>
-            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>
+            <button ref={nextRef} className="absolute right-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronRight size={32} /></button>
           </div>
         )}
       </div>

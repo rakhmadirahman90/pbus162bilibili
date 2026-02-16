@@ -45,36 +45,31 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     }
   }, [initialFilter]);
 
-  // --- PERBAIKAN FETCHING DATA ---
+  // --- PERBAIKAN FETCHING DATA: FOKUS KE TABEL RANKINGS ---
   const fetchPlayersFromDB = async () => {
     try {
-      // 1. Ambil data pendaftaran (atlet) beserta relasi ranking/stats
-      // Pastikan relasi 'rankings' sesuai dengan nama tabel di Supabase
-      const { data: players, error: pError } = await supabase
-        .from('pendaftaran')
-        .select(`
-          *,
-          rankings (
-            total_points,
-            seed,
-            category
-          )
-        `);
+      setIsLoading(true);
+      
+      // Mengambil data langsung dari tabel 'rankings' karena data poin & nama ada di sini
+      const { data: rankingsData, error: rError } = await supabase
+        .from('rankings')
+        .select('*')
+        .order('total_points', { ascending: false });
 
-      // 2. Ambil data pemenang turnamen
+      // Tetap mengambil data pemenang turnamen
       const { data: winnersData } = await supabase
         .from('hasil_turnamen')
         .select('nama_atlet');
 
-      if (pError) throw pError;
+      if (rError) throw rError;
 
-      setDbPlayers(players || []);
+      setDbPlayers(rankingsData || []);
       
       if (winnersData) {
         setDbWinners(winnersData.map(w => w.nama_atlet));
       }
     } catch (err) {
-      console.error("Gagal mengambil data atlet:", err);
+      console.error("Gagal mengambil data atlet dari tabel rankings:", err);
     } finally {
       setIsLoading(false);
     }
@@ -85,8 +80,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
 
     const channel = supabase
       .channel('db_realtime_players')
-      .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, () => fetchPlayersFromDB())
       .on('postgres_changes', { event: '*', table: 'rankings', schema: 'public' }, () => fetchPlayersFromDB())
+      .on('postgres_changes', { event: '*', table: 'hasil_turnamen', schema: 'public' }, () => fetchPlayersFromDB())
       .subscribe();
 
     return () => {
@@ -94,7 +89,7 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     };
   }, []);
 
-  // --- LOGIKA PROSES DATA ATLET ---
+  // --- LOGIKA PROSES DATA ATLET: PENYESUAIAN NAMA KOLOM ---
   const processedPlayers = useMemo(() => {
     const ageMapping: Record<string, string> = {
       'SENIOR': 'Senior',
@@ -109,28 +104,27 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
     const allWinners = [...new Set([...EVENT_LOG[0].winners, ...dbWinners])];
 
     return dbPlayers.map((p) => {
-      // Mengambil data ranking jika tersedia (join table)
-      const rankInfo = Array.isArray(p.rankings) ? p.rankings[0] : p.rankings;
+      // Sesuai screenshot database Anda, kolomnya adalah 'category' dan 'player_name'
+      const rawCategory = (p.category || "").toUpperCase();
       
-      const rawCategory = (p.kategori || "").toUpperCase();
-      const mappedAge = ageMapping[rawCategory] || 'Senior';
+      // Cek apakah kategorinya mengandung kata "MUDA" atau "U-" untuk memisahkan tab filter
+      let mappedAge = 'Senior';
+      if (rawCategory.includes('MUDA') || rawCategory.includes('U-')) {
+        mappedAge = 'Muda';
+      } else {
+        mappedAge = ageMapping[rawCategory] || 'Senior';
+      }
 
-      // Logika Penentuan Poin: Prioritaskan dari tabel rankings, lalu poin manual, lalu default
-      const totalPoints = rankInfo?.total_points || p.poin || 0;
-      
-      // Deteksi Pemenang
-      const isWinner = allWinners.includes(p.nama);
-      
       return {
         ...p,
-        name: p.nama,
-        img: p.foto_url,
-        bio: p.pengalaman || `Atlet PB US 162 kategori ${p.kategori}.`,
-        totalPoints,
-        isWinner,
+        id: p.id,
+        name: p.player_name, // Menggunakan kolom 'player_name' dari tabel rankings
+        img: p.photo_url || p.foto_url, // Mendukung kolom foto jika ada
+        bio: p.bio || `Atlet PB US 162 kategori ${p.category}.`,
+        totalPoints: Number(p.total_points) || 0,
+        isWinner: allWinners.includes(p.player_name),
         ageGroup: mappedAge,
-        categoryLabel: rankInfo?.seed || p.kategori || 'UNSEEDED',
-        // Global rank dihitung nanti setelah disortir
+        categoryLabel: p.seed || 'UNSEEDED',
       };
     })
     .sort((a, b) => b.totalPoints - a.totalPoints);
@@ -139,7 +133,8 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
   // --- FILTERING ---
   const filteredPlayers = useMemo(() => {
     return processedPlayers.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const name = p.name || "";
+      const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesAge = currentAgeGroup === "Semua" || p.ageGroup === currentAgeGroup;
       return matchesSearch && matchesAge;
     });
@@ -312,6 +307,12 @@ const Players: React.FC<PlayersProps> = ({ initialFilter = 'Semua' }) => {
                   </div>
                 </SwiperSlide>
               ))}
+              {/* Pesan Jika Kosong */}
+              {filteredPlayers.length === 0 && (
+                 <div className="w-full py-20 text-center text-zinc-500 uppercase font-black text-xs tracking-widest">
+                    Tidak ada data atlet ditemukan
+                 </div>
+              )}
             </Swiper>
             
             <button ref={prevRef} className="absolute left-[-25px] top-1/2 -translate-y-1/2 z-40 w-16 h-16 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center opacity-0 group-hover/slider:opacity-100 hover:bg-blue-600 text-white transition-all active:scale-90 shadow-2xl disabled:hidden"><ChevronLeft size={32} /></button>

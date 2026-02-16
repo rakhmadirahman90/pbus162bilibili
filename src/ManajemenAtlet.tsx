@@ -4,9 +4,136 @@ import { supabase } from "./supabase";
 import { 
   Search, User, X, Award, TrendingUp, Users, 
   MapPin, Phone, ShieldCheck, Star, Trophy, Save, Loader2, Edit3,
-  ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors
+  ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors,
+  UserPlus, Upload, CheckCircle2
 } from 'lucide-react';
 
+// --- KOMPONEN MODAL TAMBAH ATLET (KODE BARU) ---
+interface AddPlayerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const AddPlayerModal: React.FC<AddPlayerModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  const [formData, setFormData] = useState({
+    player_name: '',
+    category: 'SENIOR',
+    seed: 'SEED B',
+    total_points: 0,
+    photo_url: '',
+    bio: 'Atlet PB US 162 Bilibili'
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      // Input ke tabel rankings
+      const { error: rankError } = await supabase
+        .from('rankings')
+        .insert([{ 
+          player_name: formData.player_name,
+          category: formData.category,
+          seed: formData.seed,
+          total_points: formData.total_points,
+          photo_url: formData.photo_url || null,
+          bio: formData.bio
+        }]);
+
+      if (rankError) throw rankError;
+
+      // Juga buat entry di pendaftaran agar muncul di list manajemen atlet
+      const { error: pendaftaranError } = await supabase
+        .from('pendaftaran')
+        .insert([{
+          nama: formData.player_name,
+          kategori: formData.category,
+          foto_url: formData.photo_url || null,
+          whatsapp: '-',
+          domisili: 'Lokal'
+        }]);
+
+      if (pendaftaranError) throw pendaftaranError;
+
+      setStatus('success');
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+        setStatus('idle');
+        setFormData({ player_name: '', category: 'SENIOR', seed: 'SEED B', total_points: 0, photo_url: '', bio: 'Atlet PB US 162 Bilibili' });
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      setStatus('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="relative bg-white w-full max-w-xl rounded-[3rem] overflow-hidden shadow-2xl">
+        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+              <UserPlus size={20} className="text-white" />
+            </div>
+            <h3 className="text-xl font-black italic uppercase text-slate-900">Registrasi Atlet</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors"><X size={24} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-10 space-y-6">
+          {status === 'success' ? (
+            <div className="py-12 flex flex-col items-center text-center space-y-4 animate-in zoom-in">
+              <CheckCircle2 size={60} className="text-emerald-500" />
+              <h4 className="text-2xl font-black uppercase italic text-slate-900">Berhasil Disimpan</h4>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="col-span-2 space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                  <input required type="text" className="w-full bg-slate-100 border-none rounded-2xl py-4 px-6 font-bold" value={formData.player_name} onChange={e => setFormData({...formData, player_name: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</label>
+                  <select className="w-full bg-slate-100 border-none rounded-2xl py-4 px-6 font-bold" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                    <option value="SENIOR">SENIOR</option>
+                    <option value="MUDA">MUDA</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed</label>
+                  <select className="w-full bg-slate-100 border-none rounded-2xl py-4 px-6 font-bold" value={formData.seed} onChange={e => setFormData({...formData, seed: e.target.value})}>
+                    <option value="SEED A">SEED A</option>
+                    <option value="SEED B">SEED B</option>
+                    <option value="UNSEEDED">UNSEEDED</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL Foto Profil</label>
+                <input type="text" className="w-full bg-slate-100 border-none rounded-2xl py-4 px-6 font-bold" placeholder="https://..." value={formData.photo_url} onChange={e => setFormData({...formData, photo_url: e.target.value})} />
+              </div>
+              <button disabled={loading} type="submit" className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-3">
+                {loading ? <Loader2 className="animate-spin" /> : <Save size={20} />} SIMPAN DATA ATLET
+              </button>
+            </>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- KOMPONEN UTAMA (DENGAN INTEGRASI) ---
 interface Registrant {
   id: string;
   nama: string;
@@ -33,6 +160,9 @@ export default function ManajemenAtlet() {
   const itemsPerPage = 8;
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // TAMBAHAN STATE BARU
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false); 
+
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -72,7 +202,6 @@ export default function ManajemenAtlet() {
 
       if (pendaftaran) {
         const formatted = pendaftaran.map((atlet) => {
-          // Logika pencocokan nama yang lebih akurat (trim & lowercase)
           const rankPosisi = rankings?.findIndex(
             (r) => (r.player_name || r.nama)?.trim().toLowerCase() === atlet.nama?.trim().toLowerCase()
           );
@@ -105,7 +234,6 @@ export default function ManajemenAtlet() {
     
     setIsSaving(true);
     try {
-      // 1. Sync ke rankings
       const { error: rankError } = await supabase
         .from('rankings')
         .upsert({
@@ -134,7 +262,6 @@ export default function ManajemenAtlet() {
     a.nama?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredAtlets.slice(indexOfFirstItem, indexOfLastItem);
@@ -156,15 +283,26 @@ export default function ManajemenAtlet() {
                 Manajemen <span className="text-blue-600">Atlet</span>
               </h1>
             </div>
-            <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
-               <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
-                  <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
-               </div>
-               <div className="w-[1px] h-10 bg-slate-100"></div>
-               <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
-                  <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
+            
+            {/* PERBAIKAN: Tombol Tambah Atlet Diletakkan Disini */}
+            <div className="flex items-center gap-4">
+               <button 
+                 onClick={() => setIsAddModalOpen(true)}
+                 className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center gap-3"
+               >
+                 <UserPlus size={18} /> Tambah Atlet
+               </button>
+
+               <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
+                  <div className="text-center">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
+                     <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
+                  </div>
+                  <div className="w-[1px] h-10 bg-slate-100"></div>
+                  <div className="text-center">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
+                     <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
+                  </div>
                </div>
             </div>
           </div>
@@ -232,7 +370,7 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* FOOTER PAGINATION - DITAMBAHKAN */}
+      {/* FOOTER PAGINATION */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-slate-100 p-4 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:block">
@@ -363,6 +501,18 @@ export default function ManajemenAtlet() {
            </div>
         </div>
       )}
+
+      {/* --- MODAL TAMBAH ATLET (PEMANGGILAN) --- */}
+      <AddPlayerModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        onSuccess={() => {
+          fetchAtlets();
+          setNotifMessage("Atlet Baru Berhasil Ditambahkan!");
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 3000);
+        }} 
+      />
 
       {/* NOTIFICATION */}
       <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>

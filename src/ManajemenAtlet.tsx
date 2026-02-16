@@ -7,53 +7,6 @@ import {
   ChevronLeft, ChevronRight, Zap, Sparkles, RefreshCcw, Camera, Scissors, Plus, Upload
 } from 'lucide-react';
 
-// --- UTILS UNTUK CROPPING ---
-const createImage = (url: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = new Image();
-    image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', (error) => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous');
-    image.src = url;
-  });
-
-async function getCroppedImg(imageSrc: string, pixelCrop: any): Promise<Blob> {
-  const image = await createImage(imageSrc);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  if (!ctx) throw new Error("No 2d context");
-
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
-
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height
-  );
-
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      resolve(blob!);
-    }, 'image/jpeg');
-  });
-}
-
-// --- INITIAL POINTS MAPPING ---
-const SEED_POINTS: Record<string, number> = {
-  'TOP SEED': 2500,
-  'SEED A': 2000,
-  'SEED B': 1500,
-  'UNSEEDED': 500
-};
-
 interface Registrant {
   id: string;
   nama: string;
@@ -70,6 +23,16 @@ interface Registrant {
   status?: string;
 }
 
+// Helper untuk Cropping Image
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.src = url;
+  });
+
 export default function ManajemenAtlet() {
   const [atlets, setAtlets] = useState<Registrant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,24 +46,26 @@ export default function ManajemenAtlet() {
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- STATE BARU: TAMBAH ATLET ---
+  // --- State Baru: Tambah Atlet & Crop ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newAtlet, setNewAtlet] = useState({
     nama: '',
+    whatsapp: '',
     kategori: 'SENIOR',
+    domisili: '',
     seed: 'UNSEEDED',
-    points: 500,
+    points: 0,
     bio: 'Atlet PB US 162',
-    prestasi: 'Regular Player'
+    prestasi: 'Regular Player',
+    foto_url: ''
   });
 
-  // --- STATE BARU: CROPPER & UPLOAD ---
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [isCropping, setIsCropping] = useState(false);
-  const [tempFile, setTempFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [notifMessage, setNotifMessage] = useState('');
@@ -158,54 +123,96 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- LOGIKA UPLOAD FOTO ---
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const reader = new FileReader();
-      reader.addEventListener('load', () => setImageToCrop(reader.result as string));
-      reader.readAsDataURL(e.target.files[0]);
-      setIsCropping(true);
+  // --- Logika Baru: Auto-Points Berdasarkan Seed ---
+  const handleSeedChange = (seed: string, isEditing: boolean = false) => {
+    let initialPoints = 0;
+    switch (seed) {
+      case 'TOP SEED': initialPoints = 2500; break;
+      case 'SEED A': initialPoints = 2000; break;
+      case 'SEED B': initialPoints = 1500; break;
+      case 'SEED C': initialPoints = 1000; break;
+      default: initialPoints = 0;
+    }
+
+    if (isEditing) {
+      setEditingStats(prev => ({ ...prev, seed, points: initialPoints }));
+    } else {
+      setNewAtlet(prev => ({ ...prev, seed, points: initialPoints }));
     }
   };
 
-  const handleCropComplete = useCallback((_area: any, pixels: any) => {
-    setCroppedAreaPixels(pixels);
+  // --- Logika Baru: Image Upload & Crop ---
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        setImageToCrop(reader.result as string);
+        setIsCropping(true);
+      };
+    }
+  };
+
+  const onCropComplete = useCallback((_area: any, areaPixels: any) => {
+    setCroppedAreaPixels(areaPixels);
   }, []);
 
-  // --- LOGIKA TAMBAH ATLET LENGKAP ---
-  const handleAddAtlet = async (e: React.FormEvent) => {
+  const handleUploadCroppedImage = async () => {
+    if (!imageToCrop || !croppedAreaPixels) return;
+    setUploadingImage(true);
+    try {
+      const image = await createImage(imageToCrop);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = croppedAreaPixels.width;
+      canvas.height = croppedAreaPixels.height;
+
+      ctx?.drawImage(
+        image,
+        croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height,
+        0, 0, croppedAreaPixels.width, croppedAreaPixels.height
+      );
+
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9));
+      const fileName = `atlet-${Date.now()}.jpg`;
+
+      const { data, error } = await supabase.storage.from('atlet-photos').upload(fileName, blob);
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage.from('atlet-photos').getPublicUrl(fileName);
+      
+      setNewAtlet(prev => ({ ...prev, foto_url: publicUrl }));
+      setIsCropping(false);
+      setImageToCrop(null);
+    } catch (err: any) {
+      alert("Upload Gagal: " + err.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleAddNewAtlet = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      let finalImageUrl = "";
-
-      // 1. Upload Foto jika ada
-      if (imageToCrop && croppedAreaPixels) {
-        const croppedBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
-        const fileName = `atlet-${Date.now()}.jpg`;
-        const { data: upData, error: upError } = await supabase.storage
-          .from('atlet-photos')
-          .upload(fileName, croppedBlob);
-
-        if (upError) throw upError;
-        const { data: urlData } = supabase.storage.from('atlet-photos').getPublicUrl(fileName);
-        finalImageUrl = urlData.publicUrl;
-      }
-
-      // 2. Insert ke Pendaftaran
+      // 1. Masukkan ke tabel pendaftaran
       const { data: pData, error: pError } = await supabase
         .from('pendaftaran')
         .insert([{
           nama: newAtlet.nama,
+          whatsapp: newAtlet.whatsapp,
           kategori: newAtlet.kategori,
-          foto_url: finalImageUrl,
-          whatsapp: '-',
-          domisili: '-'
-        }]).select();
+          domisili: newAtlet.domisili,
+          foto_url: newAtlet.foto_url,
+          status: 'verified'
+        }])
+        .select();
 
       if (pError) throw pError;
 
-      // 3. Upsert ke Rankings (Sync)
+      // 2. Masukkan ke tabel rankings (Logic Sinkronisasi Anda)
       const { error: rError } = await supabase
         .from('rankings')
         .upsert({
@@ -213,7 +220,7 @@ export default function ManajemenAtlet() {
           category: newAtlet.kategori,
           seed: newAtlet.seed,
           total_points: newAtlet.points,
-          photo_url: finalImageUrl,
+          photo_url: newAtlet.foto_url,
           bio: newAtlet.bio,
           achievement: newAtlet.prestasi
         }, { onConflict: 'player_name' });
@@ -223,20 +230,13 @@ export default function ManajemenAtlet() {
       setNotifMessage("Atlet Berhasil Ditambahkan!");
       setShowSuccess(true);
       setIsAddModalOpen(false);
-      resetAddForm();
       fetchAtlets();
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
-      alert("Error: " + err.message);
+      alert(err.message);
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const resetAddForm = () => {
-    setNewAtlet({ nama: '', kategori: 'SENIOR', seed: 'UNSEEDED', points: 500, bio: 'Atlet PB US 162', prestasi: 'Regular Player' });
-    setImageToCrop(null);
-    setIsCropping(false);
   };
 
   const handleUpdateStats = async (e: React.FormEvent) => {
@@ -296,25 +296,26 @@ export default function ManajemenAtlet() {
             </div>
             
             <div className="flex items-center gap-4">
-               {/* TOMBOL TAMBAH ATLET BARU */}
+               {/* Tombol Tambah Baru */}
                <button 
                 onClick={() => setIsAddModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase flex items-center gap-3 transition-all shadow-xl shadow-blue-200"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-[1.5rem] shadow-xl shadow-blue-200 flex items-center gap-3 transition-all active:scale-95 group"
                >
-                 <Plus size={18} /> Tambah Atlet
+                 <Plus size={20} className="group-hover:rotate-90 transition-transform" />
+                 <span className="font-black uppercase text-xs tracking-widest">Tambah Atlet</span>
                </button>
 
-               <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
-                 <div className="text-center">
+              <div className="bg-white px-8 py-4 rounded-[2rem] shadow-xl shadow-blue-900/5 border border-slate-100 flex items-center gap-6">
+                <div className="text-center">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
                     <p className="text-2xl font-black text-slate-900 leading-none">{atlets.length}</p>
-                 </div>
-                 <div className="w-[1px] h-10 bg-slate-100"></div>
-                 <div className="text-center">
+                </div>
+                <div className="w-[1px] h-10 bg-slate-100"></div>
+                <div className="text-center">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Top Tier</p>
                     <p className="text-2xl font-black text-blue-600 leading-none">{atlets.filter(a => a.rank <= 10 && a.rank > 0).length}</p>
-                 </div>
-               </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -430,94 +431,105 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* MODAL TAMBAH ATLET BARU (LENGKAP DENGAN CROPPER) */}
+      {/* MODAL TAMBAH ATLET BARU (Lengkap dengan Crop) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-           <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden relative my-auto">
-              <button onClick={resetAddForm} className="absolute top-8 right-8 z-10 p-2 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
-              
-              <div className="flex flex-col md:flex-row">
-                 {/* KIRI: UPLOAD & CROP */}
-                 <div className="w-full md:w-[40%] bg-slate-50 p-10 flex flex-col items-center justify-center border-r border-slate-100">
-                    <div className="relative w-48 h-48 rounded-[2rem] overflow-hidden bg-slate-200 shadow-inner group mb-6">
-                        {imageToCrop ? (
-                          <div className="relative w-full h-full">
-                             <Cropper
-                               image={imageToCrop}
-                               crop={crop}
-                               zoom={zoom}
-                               aspect={1 / 1}
-                               onCropChange={setCrop}
-                               onCropComplete={handleCropComplete}
-                               onZoomChange={setZoom}
-                             />
-                          </div>
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
-                             <Camera size={40} />
-                             <p className="text-[8px] font-black uppercase">Upload Photo</p>
-                          </div>
-                        )}
-                        <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                           <Upload className="text-white" size={30} />
-                           <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
-                        </label>
-                    </div>
-                    <p className="text-[9px] text-slate-400 font-bold text-center uppercase tracking-widest leading-relaxed">
-                       Geser untuk menyesuaikan foto.<br/>Rasio otomatis 1:1
-                    </p>
-                 </div>
-
-                 {/* KANAN: FORM DATA */}
-                 <div className="flex-1 p-10 md:p-14">
-                    <h3 className="text-2xl font-black italic uppercase mb-8">Register <span className="text-blue-600">New Athlete</span></h3>
-                    <form onSubmit={handleAddAtlet} className="space-y-6">
-                       <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                          <input required type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black uppercase text-sm" placeholder="MASUKKAN NAMA..." value={newAtlet.nama} onChange={e => setNewAtlet({...newAtlet, nama: e.target.value})} />
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</label>
-                             <select className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.kategori} onChange={e => setNewAtlet({...newAtlet, kategori: e.target.value})}>
-                                <option value="SENIOR">SENIOR</option>
-                                <option value="MUDA">MUDA</option>
-                             </select>
-                          </div>
-                          <div className="space-y-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Level</label>
-                             <select className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.seed} onChange={e => {
-                               const selectedSeed = e.target.value;
-                               setNewAtlet({ ...newAtlet, seed: selectedSeed, points: SEED_POINTS[selectedSeed] });
-                             }}>
-                                <option value="UNSEEDED">UNSEEDED</option>
-                                <option value="SEED B">SEED B</option>
-                                <option value="SEED A">SEED A</option>
-                                <option value="TOP SEED">TOP SEED</option>
-                             </select>
-                          </div>
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Points</label>
-                             <input type="number" className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm text-blue-600" value={newAtlet.points} onChange={e => setNewAtlet({...newAtlet, points: parseInt(e.target.value)})} />
-                          </div>
-                          <div className="space-y-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prestasi</label>
-                             <input type="text" className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-black text-sm" placeholder="Contoh: Juara 1..." value={newAtlet.prestasi} onChange={e => setNewAtlet({...newAtlet, prestasi: e.target.value})} />
-                          </div>
-                       </div>
-
-                       <button disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 shadow-xl shadow-blue-200 mt-4 transition-all hover:bg-blue-700">
-                          {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                          Register Athlete
-                       </button>
-                    </form>
-                 </div>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-xl overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl relative flex flex-col md:flex-row overflow-hidden">
+            <button onClick={() => setIsAddModalOpen(false)} className="absolute top-6 right-6 z-10 p-3 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
+            
+            {/* Foto Upload Section */}
+            <div className="w-full md:w-[40%] bg-slate-50 p-10 border-r border-slate-100 flex flex-col items-center justify-center">
+              <div className="w-48 h-48 rounded-[2rem] overflow-hidden bg-slate-200 shadow-inner mb-6 relative group border-4 border-white">
+                {newAtlet.foto_url ? (
+                  <img src={newAtlet.foto_url} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-full h-full p-10 text-slate-300" />
+                )}
+                <label className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                  <Camera size={30} />
+                  <span className="text-[10px] font-black uppercase mt-2">Upload Photo</span>
+                  <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
+                </label>
               </div>
-           </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Rekomendasi: Portrait (4:5)<br/>Maksimal 2MB</p>
+            </div>
+
+            {/* Form Section */}
+            <form onSubmit={handleAddNewAtlet} className="w-full md:w-[60%] p-10 md:p-14 space-y-6">
+              <h3 className="text-3xl font-black italic uppercase italic">Register <span className="text-blue-600">New Player</span></h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
+                  <input required className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm uppercase" value={newAtlet.nama} onChange={e => setNewAtlet({...newAtlet, nama: e.target.value})} placeholder="Input Name..." />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">WhatsApp</label>
+                  <input required className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.whatsapp} onChange={e => setNewAtlet({...newAtlet, whatsapp: e.target.value})} placeholder="08..." />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Domisili</label>
+                  <input className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.domisili} onChange={e => setNewAtlet({...newAtlet, domisili: e.target.value})} placeholder="City..." />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kategori</label>
+                  <select className="w-full px-5 py-4 bg-slate-100 rounded-2xl font-black text-sm" value={newAtlet.kategori} onChange={e => setNewAtlet({...newAtlet, kategori: e.target.value})}>
+                    <option value="SENIOR">SENIOR</option>
+                    <option value="MUDA">MUDA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-blue-50 p-5 rounded-3xl border border-blue-100">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Skill Seed</label>
+                  <select className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl font-black text-xs" value={newAtlet.seed} onChange={e => handleSeedChange(e.target.value)}>
+                    <option value="UNSEEDED">UNSEEDED</option>
+                    <option value="SEED C">SEED C</option>
+                    <option value="SEED B">SEED B</option>
+                    <option value="SEED A">SEED A</option>
+                    <option value="TOP SEED">TOP SEED</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Auto-Points</label>
+                  <div className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-black text-sm flex items-center justify-between">
+                    <Zap size={14} /> {newAtlet.points.toLocaleString()} PTS
+                  </div>
+                </div>
+              </div>
+
+              <button disabled={isSaving} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 shadow-2xl hover:bg-blue-600 transition-all">
+                {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Confirm Registration
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CROPPER MODAL */}
+      {isCropping && imageToCrop && (
+        <div className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center p-4">
+          <div className="relative w-full max-w-lg aspect-[4/5] bg-zinc-900 rounded-3xl overflow-hidden">
+            <Cropper
+              image={imageToCrop}
+              crop={crop}
+              zoom={zoom}
+              aspect={4/5}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
+          </div>
+          <div className="mt-8 flex gap-4 w-full max-w-lg">
+            <button onClick={() => setIsCropping(false)} className="flex-1 py-4 bg-white/10 text-white rounded-2xl font-black uppercase text-xs">Batal</button>
+            <button onClick={handleUploadCroppedImage} disabled={uploadingImage} className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2">
+              {uploadingImage ? <Loader2 className="animate-spin"/> : <Scissors size={18}/>} Terapkan Foto
+            </button>
+          </div>
         </div>
       )}
 
@@ -573,7 +585,7 @@ export default function ManajemenAtlet() {
 
       {/* MODAL EDIT PERFORMANCE */}
       {isEditModalOpen && editingStats && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
            <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden relative">
               <button onClick={() => setIsEditModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
               <div className="p-10">
@@ -585,11 +597,12 @@ export default function ManajemenAtlet() {
                       <input type="number" className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={editingStats.points || 0} onChange={e => setEditingStats({...editingStats, points: parseInt(e.target.value)})} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed</label>
-                      <select className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.seed || 'UNSEEDED'} onChange={e => setEditingStats({...editingStats, seed: e.target.value})}>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Level</label>
+                      <select className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.seed || 'UNSEEDED'} onChange={e => handleSeedChange(e.target.value, true)}>
                         <option value="UNSEEDED">UNSEEDED</option>
-                        <option value="SEED A">SEED A</option>
+                        <option value="SEED C">SEED C</option>
                         <option value="SEED B">SEED B</option>
+                        <option value="SEED A">SEED A</option>
                         <option value="TOP SEED">TOP SEED</option>
                       </select>
                     </div>
@@ -605,7 +618,7 @@ export default function ManajemenAtlet() {
       )}
 
       {/* NOTIFICATION */}
-      <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[300] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+      <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
         <div className="bg-slate-900/90 backdrop-blur-2xl border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6">
           <div className="bg-blue-600 p-4 rounded-2xl animate-bounce"><Zap size={24} className="text-white fill-white" /></div>
           <div>
@@ -617,4 +630,4 @@ export default function ManajemenAtlet() {
 
     </div>
   );
-}
+} 

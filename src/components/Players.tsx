@@ -9,7 +9,7 @@ import 'swiper/css/pagination';
 
 import { 
   X, Search, Trophy, ChevronLeft, ChevronRight, Award, Zap, Loader2, User, 
-  Star, Target, ShieldCheck, TrendingUp
+  Star, ShieldCheck, TrendingUp, LayoutGrid
 } from 'lucide-react';
 
 const Players: React.FC = () => {
@@ -35,7 +35,7 @@ const Players: React.FC = () => {
     } catch (err) {
       console.error("Database Error:", err);
     } finally {
-      setIsLoading(false);
+      setTimeout(() => setIsLoading(false), 800); // Sedikit delay agar transisi mulus
     }
   };
 
@@ -50,21 +50,18 @@ const Players: React.FC = () => {
   const processedPlayers = useMemo(() => {
     return dbPlayers.map((p) => {
       const info = p.pendaftaran || {};
-      const name = info.nama || "Atlet PB US";
-      const photo = info.foto_url || null;
       const categoryRaw = (info.kategori || p.seed || "SENIOR").toUpperCase();
-
       let ageGroup = 'Senior';
       if (categoryRaw.includes('MUDA')) ageGroup = 'Muda';
 
       return {
         ...p,
-        name,
-        img: photo,
+        name: info.nama || "Atlet PB US",
+        img: info.foto_url || null,
         ageGroup,
         displayPoints: p.points || 0,
         displaySeed: p.seed || "UNSEEDED",
-        bio: p.bio || "Dedikasi dan semangat tinggi untuk membawa nama baik PB US 162 Bilibili di kancah nasional."
+        bio: p.bio || "Dedikasi tinggi untuk PB US 162 Bilibili."
       };
     });
   }, [dbPlayers]);
@@ -86,78 +83,58 @@ const Players: React.FC = () => {
   return (
     <section id="atlet" className="py-24 bg-[#050505] text-white min-h-screen relative overflow-hidden font-sans">
       
-      {/* BACKGROUND DECORATION */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[150px] rounded-full -z-10" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-600/10 blur-[150px] rounded-full -z-10" />
+      {/* LUXURY AMBIENT LIGHTS */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full" />
 
-      {/* MODAL DETAIL PROFESSIONAL */}
+      {/* MODAL DETAIL (Ditingkatkan) */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-8">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSelectedPlayer(null)} />
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setSelectedPlayer(null)} />
           
-          <div className="relative bg-[#0f0f0f] border border-white/10 w-full max-w-5xl rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-300">
-            <div className="flex flex-col md:flex-row h-full">
-              
-              {/* SISI KIRI: GAMBAR & BADGE */}
-              <div className="w-full md:w-[45%] relative bg-gradient-to-b from-zinc-800 to-black overflow-hidden group">
+          <div className="relative bg-[#0a0a0a] border border-white/10 w-full max-w-5xl rounded-[3rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-500">
+            <div className="flex flex-col md:flex-row">
+              <div className="w-full md:w-[45%] relative aspect-[3/4] md:aspect-auto bg-zinc-900">
                 {selectedPlayer.img ? (
-                  <img src={selectedPlayer.img} className="w-full h-full object-cover object-top scale-105" alt={selectedPlayer.name} />
+                  <img src={selectedPlayer.img} className="w-full h-full object-cover object-top" alt={selectedPlayer.name} />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-zinc-900"><User size={120} className="text-zinc-800" /></div>
+                  <div className="w-full h-full flex items-center justify-center"><User size={100} className="text-zinc-800" /></div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-transparent to-transparent" />
-                
-                {/* Ranking Floating Badge */}
-                <div className="absolute top-8 left-8 bg-blue-600 px-6 py-2 rounded-2xl border border-white/20 shadow-xl">
-                  <p className="text-[10px] font-black uppercase tracking-tighter text-blue-100">Global Rank</p>
-                  <p className="text-3xl font-black italic">#{processedPlayers.findIndex(x => x.id === selectedPlayer.id) + 1}</p>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
+                <div className="absolute top-10 left-10">
+                   <div className="bg-blue-600 p-4 rounded-3xl shadow-xl border border-white/20 -rotate-6">
+                      <p className="text-[10px] font-black uppercase text-blue-100">Rank</p>
+                      <p className="text-4xl font-black italic">#{processedPlayers.findIndex(x => x.id === selectedPlayer.id) + 1}</p>
+                   </div>
                 </div>
               </div>
 
-              {/* SISI KANAN: INFO & STATS */}
-              <div className="flex-1 p-8 md:p-14 flex flex-col justify-center relative">
-                <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white/5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-all">
-                  <X size={24} />
-                </button>
-
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                    <ShieldCheck size={14} /> {selectedPlayer.ageGroup}
-                  </span>
-                  <span className="px-4 py-1.5 bg-white/5 border border-white/10 text-zinc-400 rounded-full text-[10px] font-black uppercase tracking-widest">
-                    {selectedPlayer.displaySeed}
-                  </span>
+              <div className="flex-1 p-10 md:p-16 flex flex-col justify-center">
+                <button onClick={() => setSelectedPlayer(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-colors"><X size={32} /></button>
+                
+                <div className="flex gap-3 mb-8">
+                  <span className="px-5 py-2 bg-blue-600 rounded-full text-[10px] font-black tracking-[0.2em] flex items-center gap-2"><ShieldCheck size={14}/> {selectedPlayer.ageGroup}</span>
+                  <span className="px-5 py-2 bg-white/5 border border-white/10 rounded-full text-[10px] font-black tracking-[0.2em] text-zinc-400">{selectedPlayer.displaySeed}</span>
                 </div>
 
-                <h2 className="text-5xl md:text-6xl font-black uppercase italic mb-6 leading-none tracking-tighter">
-                  {selectedPlayer.name.split(' ')[0]} <br />
-                  <span className="text-blue-600">{selectedPlayer.name.split(' ').slice(1).join(' ')}</span>
+                <h2 className="text-5xl md:text-7xl font-black uppercase italic mb-8 tracking-tighter leading-none">
+                  {selectedPlayer.name}
                 </h2>
 
-                <div className="relative mb-10">
-                  <div className="absolute -left-4 top-0 bottom-0 w-1 bg-blue-600 rounded-full" />
-                  <p className="text-zinc-400 text-lg italic leading-relaxed pl-4">"{selectedPlayer.bio}"</p>
-                </div>
+                <p className="text-zinc-400 text-xl italic mb-12 border-l-4 border-blue-600 pl-6 leading-relaxed">"{selectedPlayer.bio}"</p>
 
-                {/* Grid Statistik */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] group hover:border-blue-500/50 transition-all">
-                    <Trophy className="text-yellow-500 mb-3" size={24} />
-                    <p className="text-[10px] text-zinc-500 uppercase font-black mb-1">Total Points</p>
-                    <p className="text-2xl font-black text-white">{selectedPlayer.displayPoints.toLocaleString()}</p>
-                  </div>
-                  
-                  <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] group hover:border-blue-500/50 transition-all">
-                    <Star className="text-blue-500 mb-3" size={24} />
-                    <p className="text-[10px] text-zinc-500 uppercase font-black mb-1">Win Rate</p>
-                    <p className="text-2xl font-black text-white">88%</p>
-                  </div>
-
-                  <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] group hover:border-blue-500/50 transition-all md:col-span-1 col-span-2">
-                    <TrendingUp className="text-green-500 mb-3" size={24} />
-                    <p className="text-[10px] text-zinc-500 uppercase font-black mb-1">Status</p>
-                    <p className="text-2xl font-black text-white uppercase italic">Active</p>
-                  </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { label: 'Points', val: selectedPlayer.displayPoints.toLocaleString(), icon: Trophy, color: 'text-yellow-500' },
+                    { label: 'Accuracy', val: '92%', icon: Target, color: 'text-blue-500' },
+                    { label: 'Status', val: 'Active', icon: Zap, color: 'text-green-500' }
+                  ].map((s, i) => (
+                    <div key={i} className="bg-white/5 p-6 rounded-[2rem] border border-white/5">
+                      <s.icon className={`${s.color} mb-2`} size={20} />
+                      <p className="text-[9px] text-zinc-500 font-black uppercase mb-1">{s.label}</p>
+                      <p className="text-xl font-black">{s.val}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -166,107 +143,104 @@ const Players: React.FC = () => {
       )}
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+        <header className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16 animate-in slide-in-from-top duration-700">
           <div>
-            <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">PROFIL <span className="text-blue-600">PEMAIN</span></h2>
-            <p className="text-zinc-500 text-xs font-bold tracking-[0.2em] uppercase">Data Sinkron dengan Manajemen Atlet</p>
+            <h2 className="text-5xl md:text-6xl font-black italic uppercase tracking-tighter mb-4">LEADERBOARD <span className="text-blue-600 underline decoration-blue-600/30">ELITE</span></h2>
+            <p className="text-zinc-500 text-sm font-medium tracking-[0.3em] uppercase flex items-center gap-2">
+               <LayoutGrid size={16} className="text-blue-600" /> Profil Atlet & Statistik Performa
+            </p>
           </div>
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
+          <div className="relative group">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input 
               type="text" 
-              placeholder="Cari nama atlet..." 
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-xs focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
+              placeholder="Cari Legenda..." 
+              className="w-full md:w-[350px] bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-14 pr-6 text-sm focus:border-blue-600 outline-none transition-all backdrop-blur-md focus:ring-4 focus:ring-blue-600/10"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-        </div>
+        </header>
 
-        {/* Tab Filter */}
-        <div className="flex bg-zinc-900/50 p-1.5 rounded-full border border-zinc-800 w-fit mb-16 backdrop-blur-sm">
+        {/* TAB FILTER LUX */}
+        <div className="flex bg-zinc-900/40 p-2 rounded-[2.5rem] border border-zinc-800 w-fit mb-20 backdrop-blur-md animate-in fade-in slide-in-from-left duration-1000">
           {[
-            { id: 'Semua', label: 'SEMUA', count: counts.all },
+            { id: 'Semua', label: 'ALL PROS', count: counts.all },
             { id: 'Senior', label: 'SENIOR', count: counts.senior },
             { id: 'Muda', label: 'MUDA', count: counts.muda }
           ].map((tab) => (
             <button 
               key={tab.id}
               onClick={() => setCurrentAgeGroup(tab.id)}
-              className={`px-8 py-3.5 rounded-full text-[11px] font-black transition-all flex items-center gap-3 ${
-                currentAgeGroup === tab.id ? 'bg-blue-600 text-white shadow-[0_4px_20px_rgba(37,99,235,0.4)]' : 'text-zinc-500 hover:text-white'
+              className={`px-10 py-4 rounded-full text-[11px] font-black transition-all flex items-center gap-4 ${
+                currentAgeGroup === tab.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-500 hover:text-white'
               }`}
             >
               {tab.label}
-              <span className={`text-[10px] px-2 py-0.5 rounded-lg ${
-                currentAgeGroup === tab.id ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-600'
+              <span className={`text-[10px] min-w-[24px] px-2 py-0.5 rounded-lg ${
+                currentAgeGroup === tab.id ? 'bg-white/20' : 'bg-zinc-800'
               }`}>{tab.count}</span>
             </button>
           ))}
         </div>
 
         {isLoading ? (
-          <div className="py-20 flex flex-col items-center gap-6">
-            <div className="relative">
-               <Loader2 className="animate-spin text-blue-600" size={50} />
-               <div className="absolute inset-0 bg-blue-600 blur-2xl opacity-20 animate-pulse" />
-            </div>
-            <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Menghubungkan Server...</p>
+          <div className="py-32 flex flex-col items-center gap-8 animate-pulse">
+            <div className="w-20 h-20 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-600">Syncing Athlete Database</p>
           </div>
         ) : (
           <div className="relative group/slider">
-            {filteredPlayers.length > 0 ? (
-              <Swiper
-                modules={[Navigation, Pagination, Autoplay]}
-                spaceBetween={25}
-                slidesPerView={1.2}
-                navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
-                breakpoints={{ 640: { slidesPerView: 2.5 }, 1024: { slidesPerView: 4 } }}
-                className="!pb-20"
-              >
-                {filteredPlayers.map((player) => (
-                  <SwiperSlide key={player.id}>
-                    <div 
-                      onClick={() => setSelectedPlayer(player)}
-                      className="group cursor-pointer relative aspect-[3/4.2] rounded-[3rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 shadow-2xl"
-                    >
+            <Swiper
+              modules={[Navigation, Pagination, Autoplay]}
+              spaceBetween={30}
+              slidesPerView={1.2}
+              navigation={{ prevEl: prevRef.current, nextEl: nextRef.current }}
+              breakpoints={{ 640: { slidesPerView: 2.5 }, 1024: { slidesPerView: 4 } }}
+              className="!pb-24"
+            >
+              {filteredPlayers.map((player, index) => (
+                <SwiperSlide key={player.id}>
+                  {/* STAGGERED ENTRANCE ANIMATION */}
+                  <div 
+                    onClick={() => setSelectedPlayer(player)}
+                    style={{ animationDelay: `${index * 100}ms` }}
+                    className="animate-in fade-in slide-in-from-bottom-12 duration-700 fill-mode-both"
+                  >
+                    <div className="group cursor-pointer relative aspect-[3/4.5] rounded-[3.5rem] overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-blue-600/50 transition-all duration-700 hover:-translate-y-4 shadow-2xl">
                       {player.img ? (
-                        <img src={player.img} className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
+                        <img src={player.img} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000" alt={player.name} />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-700"><User size={60} /></div>
+                        <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-700"><User size={80} /></div>
                       )}
                       
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-90 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-100" />
                       
-                      <div className="absolute bottom-8 left-8 right-8 transform group-hover:-translate-y-2 transition-transform duration-500">
-                        <div className="flex items-center gap-2 mb-2">
-                           <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                           <p className="text-blue-500 text-[9px] font-black uppercase tracking-widest">{player.ageGroup}</p>
+                      {/* GLASS OVERLAY CARD */}
+                      <div className="absolute bottom-6 left-6 right-6 p-8 rounded-[2.5rem] bg-white/5 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                        <div className="flex items-center gap-3 mb-3">
+                           <span className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_10px_#2563eb]" />
+                           <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{player.ageGroup}</p>
                         </div>
-                        <h3 className="text-2xl font-black uppercase italic mb-4 leading-tight group-hover:text-blue-500 transition-colors line-clamp-2">
+                        <h3 className="text-2xl font-black uppercase italic mb-4 leading-none group-hover:text-blue-500 transition-colors line-clamp-1">
                           {player.name}
                         </h3>
-                        <div className="flex justify-between items-center text-[10px] font-black pt-4 border-t border-white/10">
-                          <span className="text-white/30 uppercase tracking-tighter">{player.displaySeed}</span>
-                          <span className="bg-white/5 px-2 py-1 rounded-md">{player.displayPoints.toLocaleString()} PTS</span>
+                        <div className="flex justify-between items-center text-[11px] font-black opacity-60">
+                          <span className="tracking-tighter uppercase">{player.displaySeed}</span>
+                          <span className="text-white">{player.displayPoints.toLocaleString()} PTS</span>
                         </div>
                       </div>
                     </div>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            ) : (
-              <div className="py-32 text-center">
-                 <Search className="mx-auto text-zinc-800 mb-4" size={48} />
-                 <p className="text-zinc-600 font-black uppercase italic tracking-widest">Atlet "{searchTerm}" tidak ditemukan</p>
-              </div>
-            )}
-            
-            {/* Custom Navigation */}
-            <button ref={prevRef} className="absolute -left-6 top-1/2 -translate-y-1/2 z-20 w-14 h-14 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all hover:bg-blue-600 hover:scale-110 text-white shadow-xl">
-              <ChevronLeft size={28} />
+                  </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+
+            {/* CUSTOM NAV BUTTONS LUX */}
+            <button ref={prevRef} className="absolute -left-10 top-1/2 -translate-y-1/2 z-30 w-20 h-20 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-full flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all hover:bg-blue-600 hover:scale-110 text-white shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+              <ChevronLeft size={32} />
             </button>
-            <button ref={nextRef} className="absolute -right-6 top-1/2 -translate-y-1/2 z-20 w-14 h-14 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all hover:bg-blue-600 hover:scale-110 text-white shadow-xl">
-              <ChevronRight size={28} />
+            <button ref={nextRef} className="absolute -right-10 top-1/2 -translate-y-1/2 z-30 w-20 h-20 bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-full flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all hover:bg-blue-600 hover:scale-110 text-white shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+              <ChevronRight size={32} />
             </button>
           </div>
         )}

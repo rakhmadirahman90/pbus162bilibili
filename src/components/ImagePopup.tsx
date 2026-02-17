@@ -1,123 +1,79 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
+import { X, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const PROMO_IMAGES = [
-  "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000",
-  "https://images.unsplash.com/photo-1541339907198-e08756defeec?q=80&w=1000"
-];
 
 export default function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const hasSeenPopup = localStorage.getItem('lastSeenPopup');
-    const today = new Date().toDateString();
-
-    if (hasSeenPopup !== today) {
-      const timer = setTimeout(() => setIsOpen(true), 1500);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => setIsOpen(true), 1000);
+    return () => clearTimeout(timer);
   }, []);
 
-  const closePopup = () => {
-    setIsOpen(false);
-    localStorage.setItem('lastSeenPopup', new Date().toDateString());
-  };
-
-  const nextImage = () => {
-    setCurrentIndex((prev) => (prev === PROMO_IMAGES.length - 1 ? 0 : prev + 1));
-  };
-
-  const prevImage = () => {
-    setCurrentIndex((prev) => (prev === 0 ? PROMO_IMAGES.length - 1 : prev - 1));
-  };
+  const closePopup = () => setIsOpen(false);
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
-        {/* Overlay Background */}
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+        {/* Overlay */}
         <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={closePopup}
-          className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          className="absolute inset-0" 
+          onClick={closePopup} 
         />
 
-        {/* MODAL CONTAINER: Dibatasi pada 85vh agar tidak menabrak batas atas/bawah browser */}
+        {/* MODAL CONTAINER - Dibuat sengaja lebih kecil (max-w-[320px]) agar tampak seperti zoom 75% */}
         <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
+          initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full max-w-[340px] bg-white rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col max-h-[85vh] overflow-hidden"
+          className="relative w-full max-w-[320px] bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
+          style={{ maxHeight: '80vh' }} // Mengunci tinggi agar tidak pernah menyentuh batas browser
         >
           
-          {/* HEADER DENGAN TOMBOL TUTUP: Sekarang di dalam bingkai agar pasti terlihat */}
-          <div className="absolute top-0 right-0 left-0 z-50 flex justify-end p-4 pointer-events-none">
-            <button 
-              onClick={closePopup}
-              className="pointer-events-auto p-2 bg-red-600 text-white rounded-full shadow-xl hover:bg-red-700 transition-all border-2 border-white flex items-center justify-center"
-            >
-              <X size={16} strokeWidth={3} />
-            </button>
-          </div>
+          {/* TOMBOL TUTUP - Di dalam bingkai putih agar pasti terlihat */}
+          <button 
+            onClick={closePopup}
+            className="absolute top-3 right-3 z-[60] p-1.5 bg-red-600 text-white rounded-full border-2 border-white shadow-lg hover:bg-red-700 transition-all"
+          >
+            <X size={14} strokeWidth={4} />
+          </button>
 
-          {/* INTERNAL CONTENT WRAPPER */}
-          <div className="flex flex-col h-full overflow-hidden">
+          {/* INTERNAL WRAPPER DENGAN SCROLL */}
+          <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden">
             
-            {/* BOX GAMBAR: Menggunakan max-h-[40vh] agar teks di bawah memiliki ruang di layar 100% */}
-            <div className="relative w-full bg-slate-50 shrink-0 overflow-hidden" style={{ maxHeight: '40vh' }}>
-              <motion.img 
-                key={currentIndex}
-                src={PROMO_IMAGES[currentIndex]}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="w-full h-full object-contain mx-auto"
-                style={{ maxHeight: '40vh' }}
-                alt="Promo Content"
+            {/* GAMBAR - Dibatasi ketat agar tidak mendorong konten ke bawah */}
+            <div className="w-full shrink-0 bg-slate-100" style={{ height: '280px' }}>
+              <img 
+                src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000"
+                className="w-full h-full object-cover" 
+                alt="Promo"
               />
-
-              {/* Slider Navigasi Minimalis */}
-              {PROMO_IMAGES.length > 1 && (
-                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                  <button onClick={prevImage} className="pointer-events-auto p-1.5 bg-black/20 backdrop-blur-md text-white rounded-lg">
-                    <ChevronLeft size={16} />
-                  </button>
-                  <button onClick={nextImage} className="pointer-events-auto p-1.5 bg-black/20 backdrop-blur-md text-white rounded-lg">
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              )}
             </div>
 
-            {/* AREA INFORMASI: Dilengkapi scroll internal jika layar sangat pendek */}
-            <div className="p-5 text-center flex flex-col flex-grow overflow-y-auto">
-               <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-3 mx-auto">
-                  <Bell size={10} className="animate-bounce" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Update PB US 162</span>
-               </div>
+            {/* AREA TEKS - Dibuat lebih ringkas */}
+            <div className="p-5 text-center flex flex-col items-center">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full mb-2">
+                <Bell size={10} className="animate-bounce" />
+                <span className="text-[8px] font-black uppercase tracking-widest">Update</span>
+              </div>
               
-              <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-2">
+              <h3 className="text-base font-black uppercase italic tracking-tighter text-slate-900 leading-tight mb-1">
                 Marhaban Ya <span className="text-blue-600">Ramadhan</span>
               </h3>
               
-              <p className="text-slate-500 text-[10px] font-bold leading-relaxed mb-5 opacity-80 px-2">
-                Selamat berpuasa 1447 H. Mari jalin silaturahmi bersama kami di PB Bilibili 162.
+              <p className="text-slate-500 text-[9px] font-bold leading-snug mb-4 px-2">
+                Selamat berpuasa 1447 H. Mari jalin silaturahmi bersama PB US 162.
               </p>
               
-              {/* Tombol Aksi di bagian paling bawah modal */}
-              <div className="mt-auto">
-                <button 
-                  onClick={closePopup}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
-                >
-                  MENGERTI
-                </button>
-              </div>
+              <button 
+                onClick={closePopup}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-black uppercase text-[9px] tracking-widest shadow-md transition-all active:scale-95"
+              >
+                MENGERTI
+              </button>
             </div>
           </div>
         </motion.div>

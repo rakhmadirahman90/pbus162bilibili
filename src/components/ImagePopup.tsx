@@ -38,8 +38,8 @@ export default function ImagePopup() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6">
-        {/* Overlay Blur dengan Animasi Fade */}
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
+        {/* Overlay dengan Blur Mendalam */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -48,87 +48,76 @@ export default function ImagePopup() {
           className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
         />
 
-        {/* Modal Container Utama */}
+        {/* Modal Container dengan Shadow Luar Biasa */}
         <motion.div 
-          initial={{ scale: 0.5, opacity: 0, rotateX: 15 }}
-          animate={{ scale: 1, opacity: 1, rotateX: 0 }}
-          exit={{ scale: 0.5, opacity: 0, rotateX: -15 }}
-          transition={{ type: "spring", damping: 20, stiffness: 100 }}
-          className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] overflow-hidden"
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+          className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-visible"
         >
-          {/* Header Pop-up (Menghindari Tombol Tutup Tertutup Gambar) */}
-          <div className="absolute top-0 inset-x-0 z-30 p-5 flex justify-between items-center pointer-events-none">
-            <div className="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full shadow-sm flex items-center gap-2 border border-slate-100">
-               <Bell className="text-blue-600 animate-bounce" size={14} />
-               <span className="text-[10px] font-black uppercase tracking-widest text-slate-800">Hot News</span>
-            </div>
-            <button 
-              onClick={closePopup}
-              className="pointer-events-auto p-2.5 bg-slate-900 text-white rounded-full hover:bg-blue-600 hover:rotate-90 transition-all duration-300 shadow-xl"
-            >
-              <X size={20} />
-            </button>
-          </div>
+          {/* TOMBOL TUTUP (X) - Diperbaiki agar melayang di luar/atas gambar */}
+          <button 
+            onClick={closePopup}
+            className="absolute -top-4 -right-4 z-[10000] p-3 bg-rose-600 text-white rounded-full shadow-2xl hover:bg-rose-700 hover:scale-110 active:scale-90 transition-all duration-300 border-4 border-white"
+            aria-label="Close"
+          >
+            <X size={24} strokeWidth={3} />
+          </button>
 
-          {/* Area Konten dengan Jarak Bingkai (Rapi & Professional) */}
-          <div className="p-4 sm:p-5 flex-1 overflow-y-auto custom-scrollbar">
-            <div className="relative aspect-[4/5] rounded-[1.8rem] overflow-hidden bg-slate-100 group shadow-inner">
+          {/* Frame Dalam untuk Memberikan Jarak (Rapi) */}
+          <div className="p-4 sm:p-5">
+            {/* Image Slider Container */}
+            <div className="relative aspect-[4/5] rounded-[1.8rem] overflow-hidden bg-slate-100 group shadow-inner border border-slate-100">
               <motion.img 
                 key={currentIndex}
                 src={PROMO_IMAGES[currentIndex]}
-                initial={{ opacity: 0, scale: 1.1 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6 }}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4 }}
                 className="w-full h-full object-cover"
-                alt="Promo Content"
+                alt="Promo"
               />
 
-              {/* Navigation Controls */}
+              {/* Tombol Navigasi (Hanya muncul jika lebih dari 1 gambar) */}
               {PROMO_IMAGES.length > 1 && (
-                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <button onClick={prevImage} className="p-3 bg-white/20 backdrop-blur-lg text-white rounded-2xl hover:bg-white/40 transition-all">
+                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between z-10">
+                  <button onClick={prevImage} className="p-2 bg-white/30 backdrop-blur-md text-white rounded-xl hover:bg-white/50 transition-all">
                     <ChevronLeft size={24} />
                   </button>
-                  <button onClick={nextImage} className="p-3 bg-white/20 backdrop-blur-lg text-white rounded-2xl hover:bg-white/40 transition-all">
+                  <button onClick={nextImage} className="p-2 bg-white/30 backdrop-blur-md text-white rounded-xl hover:bg-white/50 transition-all">
                     <ChevronRight size={24} />
                   </button>
                 </div>
               )}
-
-              {/* Progress Indicator Dots */}
-              <div className="absolute bottom-4 inset-x-0 flex justify-center gap-1.5">
-                {PROMO_IMAGES.map((_, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-8 bg-white' : 'w-2 bg-white/40'}`} 
-                  />
+              
+              {/* Indikator Slide */}
+              <div className="absolute bottom-4 inset-x-0 flex justify-center gap-2 z-10">
+                {PROMO_IMAGES.map((_, i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all ${i === currentIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/50'}`} />
                 ))}
               </div>
             </div>
 
-            {/* Area Informasi Bawah */}
-            <div className="pt-6 pb-2 text-center">
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.3 }}
+            {/* Info Section */}
+            <div className="mt-6 px-2 text-center">
+               <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-3">
+                  <Bell size={12} className="animate-bounce" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Informasi Terbaru</span>
+               </div>
+              <h3 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-2">
+                Marhaban Ya <span className="text-blue-600">Ramadhan</span>
+              </h3>
+              <p className="text-slate-500 text-xs font-bold leading-relaxed mb-6">
+                Selamat menunaikan ibadah puasa 1447 H. Mari tingkatkan amal ibadah kita bersama PB Bilibili 162.
+              </p>
+              
+              <button 
+                onClick={closePopup}
+                className="w-full py-4 bg-slate-900 hover:bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all duration-300 shadow-xl active:scale-95"
               >
-                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 leading-tight">
-                  Edisi <span className="text-blue-600">Terbatas!</span>
-                </h3>
-                <div className="w-12 h-1 bg-blue-600 mx-auto my-3 rounded-full" />
-                <p className="text-slate-500 text-sm font-semibold px-4 mb-6">
-                  Nikmati penawaran spesial ini sebelum waktu berakhir. Kami tunggu kehadiran Anda!
-                </p>
-                
-                <button 
-                  onClick={closePopup}
-                  className="group relative w-full py-4 bg-slate-900 hover:bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.25em] transition-all duration-300 shadow-[0_15px_30px_-10px_rgba(37,99,235,0.3)] overflow-hidden"
-                >
-                  <span className="relative z-10">Dapatkan Sekarang</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                </button>
-              </motion.div>
+                Tutup Pengumuman
+              </button>
             </div>
           </div>
         </motion.div>

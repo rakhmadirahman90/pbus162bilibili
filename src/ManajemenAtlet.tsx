@@ -70,6 +70,9 @@ export default function ManajemenAtlet() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [notifMessage, setNotifMessage] = useState('');
 
+  // NAMA BUCKET YANG DIPERBAIKI
+  const BUCKET_NAME = 'atlet_photos';
+
   useEffect(() => {
     fetchAtlets();
   }, []);
@@ -123,7 +126,6 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- Logika Baru: Auto-Points Berdasarkan Seed ---
   const handleSeedChange = (seed: string, isEditing: boolean = false) => {
     let initialPoints = 0;
     switch (seed) {
@@ -141,7 +143,6 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // --- Logika Baru: Image Upload & Crop ---
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -178,14 +179,25 @@ export default function ManajemenAtlet() {
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9));
       const fileName = `atlet-${Date.now()}.jpg`;
 
-      const { data, error } = await supabase.storage.from('atlet-photos').upload(fileName, blob);
-      if (error) throw error;
+      // MENGGUNAKAN BUCKET_NAME: atlet_photos
+      const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(fileName, blob);
+      
+      if (error) {
+        if (error.message.includes("Bucket not found")) {
+           throw new Error(`Bucket "${BUCKET_NAME}" tidak ditemukan. Pastikan nama bucket di Supabase adalah atlet_photos (dengan underscore).`);
+        }
+        throw error;
+      }
 
-      const { data: { publicUrl } } = supabase.storage.from('atlet-photos').getPublicUrl(fileName);
+      const { data: { publicUrl } } = supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName);
       
       setNewAtlet(prev => ({ ...prev, foto_url: publicUrl }));
       setIsCropping(false);
       setImageToCrop(null);
+      
+      setNotifMessage("Foto Berhasil Diunggah!");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
       alert("Upload Gagal: " + err.message);
     } finally {
@@ -197,7 +209,6 @@ export default function ManajemenAtlet() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      // 1. Masukkan ke tabel pendaftaran
       const { data: pData, error: pError } = await supabase
         .from('pendaftaran')
         .insert([{
@@ -212,7 +223,6 @@ export default function ManajemenAtlet() {
 
       if (pError) throw pError;
 
-      // 2. Masukkan ke tabel rankings (Logic Sinkronisasi Anda)
       const { error: rError } = await supabase
         .from('rankings')
         .upsert({
@@ -230,6 +240,14 @@ export default function ManajemenAtlet() {
       setNotifMessage("Atlet Berhasil Ditambahkan!");
       setShowSuccess(true);
       setIsAddModalOpen(false);
+      
+      // Reset Form
+      setNewAtlet({
+        nama: '', whatsapp: '', kategori: 'SENIOR', domisili: '',
+        seed: 'UNSEEDED', points: 0, bio: 'Atlet PB US 162',
+        prestasi: 'Regular Player', foto_url: ''
+      });
+
       fetchAtlets();
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
@@ -296,7 +314,6 @@ export default function ManajemenAtlet() {
             </div>
             
             <div className="flex items-center gap-4">
-               {/* Tombol Tambah Baru */}
                <button 
                 onClick={() => setIsAddModalOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-[1.5rem] shadow-xl shadow-blue-200 flex items-center gap-3 transition-all active:scale-95 group"
@@ -431,7 +448,7 @@ export default function ManajemenAtlet() {
         </div>
       </div>
 
-      {/* MODAL TAMBAH ATLET BARU (Lengkap dengan Crop) */}
+      {/* MODAL TAMBAH ATLET BARU */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-xl overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl relative flex flex-col md:flex-row overflow-hidden">
@@ -456,7 +473,7 @@ export default function ManajemenAtlet() {
 
             {/* Form Section */}
             <form onSubmit={handleAddNewAtlet} className="w-full md:w-[60%] p-10 md:p-14 space-y-6">
-              <h3 className="text-3xl font-black italic uppercase italic">Register <span className="text-blue-600">New Player</span></h3>
+              <h3 className="text-3xl font-black italic uppercase">Register <span className="text-blue-600">New Player</span></h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -502,7 +519,7 @@ export default function ManajemenAtlet() {
                 </div>
               </div>
 
-              <button disabled={isSaving} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 shadow-2xl hover:bg-blue-600 transition-all">
+              <button type="submit" disabled={isSaving} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 shadow-2xl hover:bg-blue-600 transition-all">
                 {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Confirm Registration
               </button>
             </form>
@@ -607,7 +624,7 @@ export default function ManajemenAtlet() {
                       </select>
                     </div>
                   </div>
-                  <button disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
+                  <button type="submit" disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
                     {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
                     Save Performance
                   </button>
@@ -630,4 +647,4 @@ export default function ManajemenAtlet() {
 
     </div>
   );
-} 
+}

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { 
   Plus, Trash2, Image as ImageIcon, Save, 
-  Loader2, Power, PowerOff, Upload, X, Camera 
+  Loader2, Power, PowerOff, Upload, X, Camera, Edit3 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -21,6 +21,9 @@ export default function AdminPopup() {
   const [isUploading, setIsUploading] = useState(false);
   const [newPopup, setNewPopup] = useState({ url_gambar: '', judul: '', deskripsi: '' });
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  
+  // --- STATE BARU UNTUK EDIT ---
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const fetchPopups = async () => {
     setLoading(true);
@@ -35,12 +38,10 @@ export default function AdminPopup() {
 
   useEffect(() => { fetchPopups(); }, []);
 
-  // --- FUNGSI UPLOAD GAMBAR KE STORAGE ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Preview lokal
     setPreviewImage(URL.createObjectURL(file));
     setIsUploading(true);
 
@@ -50,7 +51,7 @@ export default function AdminPopup() {
       const filePath = `promosi/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('identitas-atlet') // Menggunakan bucket yang sudah ada atau sesuaikan
+        .from('identitas-atlet') 
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
@@ -77,29 +78,60 @@ export default function AdminPopup() {
     }
   };
 
-  const handleAdd = async (e: React.FormEvent) => {
+  // --- FUNGSI SIMPAN (BISA TAMBAH / UPDATE) ---
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPopup.url_gambar) {
       return Swal.fire('Opps!', 'Harap unggah gambar terlebih dahulu', 'warning');
     }
 
     setIsSaving(true);
-    const { error } = await supabase.from('konfigurasi_popup').insert([newPopup]);
-    
-    if (!error) {
-      setNewPopup({ url_gambar: '', judul: '', deskripsi: '' });
-      setPreviewImage(null);
-      fetchPopups();
-      Swal.fire({
-        title: 'Berhasil',
-        text: 'Pop-up promosi baru telah diaktifkan',
-        icon: 'success',
-        background: '#0F172A',
-        color: '#fff',
-        confirmButtonColor: '#2563eb'
-      });
+
+    if (editingId) {
+      // LOGIKA EDIT (UPDATE)
+      const { error } = await supabase
+        .from('konfigurasi_popup')
+        .update({
+          judul: newPopup.judul,
+          deskripsi: newPopup.deskripsi,
+          url_gambar: newPopup.url_gambar
+        })
+        .eq('id', editingId);
+
+      if (!error) {
+        Swal.fire({ title: 'Berhasil', text: 'Pop-up diperbarui', icon: 'success', background: '#0F172A', color: '#fff' });
+        setEditingId(null);
+      }
+    } else {
+      // LOGIKA TAMBAH BARU (INSERT)
+      const { error } = await supabase.from('konfigurasi_popup').insert([newPopup]);
+      if (!error) {
+        Swal.fire({ title: 'Berhasil', text: 'Pop-up baru diaktifkan', icon: 'success', background: '#0F172A', color: '#fff' });
+      }
     }
+
+    setNewPopup({ url_gambar: '', judul: '', deskripsi: '' });
+    setPreviewImage(null);
+    fetchPopups();
     setIsSaving(false);
+  };
+
+  // --- FUNGSI SET FORM KE MODE EDIT ---
+  const startEdit = (item: PopupConfig) => {
+    setEditingId(item.id);
+    setNewPopup({
+      judul: item.judul,
+      deskripsi: item.deskripsi,
+      url_gambar: item.url_gambar
+    });
+    setPreviewImage(item.url_gambar);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setNewPopup({ url_gambar: '', judul: '', deskripsi: '' });
+    setPreviewImage(null);
   };
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
@@ -132,23 +164,32 @@ export default function AdminPopup() {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto min-h-screen bg-[#050505]">
-      <header className="mb-10">
-        <h1 className="text-3xl md:text-4xl font-black text-white uppercase italic tracking-tighter">
-          Kelola <span className="text-blue-500">Pop-up Promo</span>
-        </h1>
-        <p className="text-white/40 font-bold text-xs uppercase tracking-[0.3em] mt-2">Atur tampilan informasi landing page</p>
+      <header className="mb-10 flex justify-between items-end">
+        <div>
+            <h1 className="text-3xl md:text-4xl font-black text-white uppercase italic tracking-tighter">
+            Kelola <span className="text-blue-500">Pop-up Promo</span>
+            </h1>
+            <p className="text-white/40 font-bold text-xs uppercase tracking-[0.3em] mt-2">Atur tampilan informasi landing page</p>
+        </div>
+        {editingId && (
+            <button onClick={cancelEdit} className="px-6 py-2 bg-rose-600/10 text-rose-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-600 hover:text-white transition-all">
+                Batal Edit
+            </button>
+        )}
       </header>
 
-      {/* FORM TAMBAH (CARD) */}
-      <div className="bg-[#0F172A] rounded-[2.5rem] border border-white/5 mb-12 overflow-hidden shadow-2xl">
+      {/* FORM INPUT (ADAPTIF TAMBAH/EDIT) */}
+      <div className={`bg-[#0F172A] rounded-[2.5rem] border transition-all duration-500 ${editingId ? 'border-blue-500/50 shadow-blue-500/10' : 'border-white/5 shadow-2xl'} mb-12 overflow-hidden`}>
         <div className="grid grid-cols-1 lg:grid-cols-5">
-          
-          {/* Sisi Kiri: Upload & Preview */}
           <div className="lg:col-span-2 p-8 bg-black/20 border-r border-white/5 flex flex-col items-center justify-center">
             <div className="relative group w-full aspect-[4/5] rounded-[2rem] border-2 border-dashed border-white/10 overflow-hidden flex flex-col items-center justify-center bg-black/40">
               {previewImage ? (
                 <>
                   <img src={previewImage} className="w-full h-full object-cover" alt="Preview" />
+                  <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                    <Camera className="text-white" size={32} />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
+                  </label>
                   <button 
                     onClick={() => {setPreviewImage(null); setNewPopup({...newPopup, url_gambar: ''})}}
                     className="absolute top-4 right-4 p-2 bg-rose-600 text-white rounded-full shadow-lg"
@@ -175,8 +216,7 @@ export default function AdminPopup() {
             </div>
           </div>
 
-          {/* Sisi Kanan: Detail Input */}
-          <form onSubmit={handleAdd} className="lg:col-span-3 p-8 space-y-6 flex flex-col justify-center">
+          <form onSubmit={handleSave} className="lg:col-span-3 p-8 space-y-6 flex flex-col justify-center">
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Judul Promosi</label>
@@ -198,37 +238,27 @@ export default function AdminPopup() {
                   onChange={e => setNewPopup({...newPopup, deskripsi: e.target.value})} 
                 />
               </div>
-
-              {/* URL Field (Read Only if Uploaded) */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest ml-1">Image URL System</label>
-                <input 
-                  readOnly
-                  className="w-full bg-black/20 border border-white/5 rounded-xl p-3 text-white/30 text-xs font-mono outline-none" 
-                  placeholder="Automated link after upload..." 
-                  value={newPopup.url_gambar} 
-                />
-              </div>
             </div>
 
             <button 
               disabled={isSaving || isUploading} 
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-3 active:scale-95"
+              className={`w-full ${editingId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:bg-slate-800 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl flex items-center justify-center gap-3 active:scale-95`}
             >
-              {isSaving ? <Loader2 className="animate-spin" /> : <><Save size={18}/> AKTIFKAN SEKARANG</>}
+              {isSaving ? <Loader2 className="animate-spin" /> : (
+                <>{editingId ? <Edit3 size={18}/> : <Save size={18}/>} {editingId ? 'PERBARUI POP-UP' : 'AKTIFKAN SEKARANG'}</>
+              )}
             </button>
           </form>
         </div>
       </div>
 
-      {/* HEADER LIST */}
+      {/* ARSIP LIST */}
       <div className="flex items-center gap-4 mb-6">
         <div className="h-[1px] flex-1 bg-white/10"></div>
         <h2 className="text-white/40 font-black text-[10px] uppercase tracking-[0.4em]">Arsip Pop-up Konten</h2>
         <div className="h-[1px] flex-1 bg-white/10"></div>
       </div>
 
-      {/* GRID LIST */}
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="animate-spin text-blue-500" size={40} />
@@ -237,13 +267,9 @@ export default function AdminPopup() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {popups.map(item => (
             <div key={item.id} className={`group relative bg-[#0F172A] rounded-[2.5rem] border-2 overflow-hidden transition-all duration-300 ${item.is_active ? 'border-blue-500/30' : 'border-white/5 opacity-50 grayscale hover:grayscale-0'}`}>
-              
-              {/* Gambar List */}
               <div className="aspect-[4/5] overflow-hidden relative">
                 <img src={item.url_gambar} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.judul} />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent opacity-80" />
-                
-                {/* Badge Status */}
                 <div className="absolute top-4 left-4">
                   <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${item.is_active ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-white/50'}`}>
                     {item.is_active ? 'LIVE' : 'OFF'}
@@ -251,17 +277,22 @@ export default function AdminPopup() {
                 </div>
               </div>
 
-              {/* Konten List */}
               <div className="p-6 relative">
                 <h4 className="text-white font-black uppercase text-sm mb-2 italic line-clamp-1">{item.judul || 'PENGUMUMAN'}</h4>
                 <p className="text-white/40 text-[11px] font-medium mb-6 line-clamp-2 leading-relaxed">{item.deskripsi}</p>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button 
                     onClick={() => toggleStatus(item.id, item.is_active)} 
-                    className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${item.is_active ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 'bg-white/5 text-white/40 hover:bg-blue-600 hover:text-white'}`}
+                    className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${item.is_active ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 'bg-white/5 text-white/40 hover:bg-blue-600 hover:text-white'}`}
                   >
-                    {item.is_active ? <><Power size={14}/> MATIKAN</> : <><PowerOff size={14}/> AKTIFKAN</>}
+                    {item.is_active ? <Power size={14}/> : <PowerOff size={14}/>}
+                  </button>
+                  <button 
+                    onClick={() => startEdit(item)} 
+                    className="flex-1 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  >
+                    <Edit3 size={14} /> EDIT
                   </button>
                   <button 
                     onClick={() => handleDelete(item.id)} 
@@ -273,13 +304,6 @@ export default function AdminPopup() {
               </div>
             </div>
           ))}
-
-          {popups.length === 0 && (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-[3rem]">
-              <ImageIcon className="mx-auto text-white/10 mb-4" size={48} />
-              <p className="text-white/20 font-black uppercase tracking-widest text-xs">Belum ada konten pop-up</p>
-            </div>
-          )}
         </div>
       )}
     </div>

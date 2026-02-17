@@ -41,7 +41,6 @@ export default function AdminPopup() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Gunakan FileReader untuk validasi dimensi jika diperlukan di masa depan
     setPreviewImage(URL.createObjectURL(file));
     setIsUploading(true);
 
@@ -174,74 +173,86 @@ export default function AdminPopup() {
         )}
       </header>
 
-      {/* FORM INPUT */}
+      {/* FORM INPUT - Perbaikan lekukan dan celah gambar */}
       <div className={`bg-[#0F172A] rounded-[2.5rem] border transition-all duration-500 ${editingId ? 'border-blue-500/50 shadow-blue-500/10' : 'border-white/5 shadow-2xl'} mb-12 overflow-hidden`}>
         <div className="grid grid-cols-1 lg:grid-cols-5">
-          <div className="lg:col-span-2 p-8 bg-black/20 border-r border-white/5 flex flex-col items-center justify-center">
-            {/* CONTAINER GAMBAR: Menambahkan bg-checkered atau dark pattern untuk presisi */}
-            <div className="relative group w-full aspect-[4/5] rounded-[2rem] border-2 border-dashed border-white/10 overflow-hidden flex flex-col items-center justify-center bg-[#080808]">
+          {/* Kolom Preview Gambar: Dibuat tanpa padding agar gambar bisa menyentuh tepi bingkai */}
+          <div className="lg:col-span-2 bg-black/40 flex items-center justify-center relative overflow-hidden">
+            <div className="w-full h-full min-h-[400px] lg:min-h-full relative flex items-center justify-center">
               {previewImage ? (
-                <>
-                  {/* Background Blur agar gambar yang tidak proporsional tetap terlihat penuh */}
-                  <img src={previewImage} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30" alt="blur-bg" />
+                <div className="w-full h-full absolute inset-0 group">
+                  {/* Background Blur untuk mengisi jika gambar tidak pas */}
+                  <img src={previewImage} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110" alt="" />
                   
-                  {/* Gambar Utama: Menggunakan object-contain agar tidak terpotong sama sekali */}
-                  <img src={previewImage} className="relative z-10 w-full h-full object-contain p-2" alt="Preview" />
-                  
-                  <label className="absolute inset-0 z-20 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-2">
-                        <Camera className="text-white" size={32} />
-                        <span className="text-white text-[10px] font-bold uppercase tracking-widest">Ganti Gambar</span>
-                    </div>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
-                  </label>
+                  {/* Gambar Utama: Menggunakan cover agar tidak ada celah, presisi mengikuti bingkai */}
+                  <img 
+                    src={previewImage} 
+                    className="relative z-10 w-full h-full object-cover transition-all duration-500" 
+                    alt="Preview" 
+                  />
+
+                  {/* Overlay untuk kontrol */}
+                  <div className="absolute inset-0 z-20 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <label className="cursor-pointer p-4 bg-white/10 backdrop-blur-md rounded-full border border-white/20 hover:bg-blue-600 transition-colors">
+                      <Camera className="text-white" size={24} />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
+                    </label>
+                  </div>
                   
                   <button 
                     onClick={() => {setPreviewImage(null); setNewPopup({...newPopup, url_gambar: ''})}}
-                    className="absolute top-4 right-4 z-30 p-2 bg-rose-600 text-white rounded-full shadow-lg hover:scale-110 transition-transform"
+                    className="absolute top-6 right-6 z-30 p-2 bg-rose-600 text-white rounded-full shadow-2xl hover:scale-110 transition-transform"
                   >
-                    <X size={16} />
+                    <X size={18} />
                   </button>
-                </>
+                </div>
               ) : (
-                <label className="cursor-pointer flex flex-col items-center group relative z-10">
-                  <div className="p-5 bg-blue-600/10 rounded-full text-blue-500 mb-4 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                    <Camera size={32} />
+                <label className="w-full h-full cursor-pointer flex flex-col items-center justify-center group gap-4 p-8">
+                  <div className="p-6 bg-blue-600/10 rounded-full text-blue-500 border border-blue-500/20 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500">
+                    <Upload size={32} />
                   </div>
-                  <span className="text-white/40 font-black text-[10px] uppercase tracking-widest text-center px-4">
-                    {isUploading ? 'Sedang Mengunggah...' : 'Unggah Poster (Saran 4:5)'}
-                  </span>
+                  <div className="text-center">
+                    <span className="block text-white font-black text-xs uppercase tracking-widest mb-1">
+                      {isUploading ? 'Sedang Mengunggah...' : 'Klik Untuk Unggah Poster'}
+                    </span>
+                    <span className="text-white/30 text-[9px] uppercase tracking-tighter italic">Disarankan aspek rasio 4:5 atau 1:1</span>
+                  </div>
                   <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
                 </label>
               )}
+              
               {isUploading && (
-                <div className="absolute inset-0 z-40 bg-black/60 flex items-center justify-center backdrop-blur-md">
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="animate-spin text-blue-500" size={40} />
-                    <span className="text-blue-500 font-bold text-[10px] tracking-widest">PROCESSING...</span>
-                  </div>
+                <div className="absolute inset-0 z-40 bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm">
+                  <Loader2 className="animate-spin text-blue-500 mb-2" size={40} />
+                  <span className="text-blue-500 font-bold text-[10px] tracking-[0.5em]">UPLOADING</span>
                 </div>
               )}
             </div>
           </div>
 
-          <form onSubmit={handleSave} className="lg:col-span-3 p-8 space-y-6 flex flex-col justify-center">
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Judul Promosi</label>
+          <form onSubmit={handleSave} className="lg:col-span-3 p-8 lg:p-12 space-y-8 flex flex-col justify-center border-l border-white/5">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                  Judul Promosi
+                </label>
                 <input 
                   required 
-                  className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-blue-500 transition-all placeholder:text-white/10" 
+                  className="w-full bg-black/30 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-white/10" 
                   placeholder="Contoh: MARHABAN YA RAMADHAN" 
                   value={newPopup.judul} 
                   onChange={e => setNewPopup({...newPopup, judul: e.target.value})} 
                 />
               </div>
               
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Deskripsi Informasi</label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                  Deskripsi Informasi
+                </label>
                 <textarea 
-                  className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-blue-500 h-28 resize-none transition-all placeholder:text-white/10" 
+                  className="w-full bg-black/30 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 h-32 resize-none transition-all placeholder:text-white/10" 
                   placeholder="Jelaskan detail promo atau informasi singkat di sini..." 
                   value={newPopup.deskripsi} 
                   onChange={e => setNewPopup({...newPopup, deskripsi: e.target.value})} 
@@ -251,21 +262,21 @@ export default function AdminPopup() {
 
             <button 
               disabled={isSaving || isUploading} 
-              className={`w-full ${editingId ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/20'} disabled:bg-slate-800 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.3em] transition-all shadow-xl flex items-center justify-center gap-3 active:scale-95`}
+              className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] transition-all shadow-2xl flex items-center justify-center gap-3 active:scale-95 ${editingId ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/40' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/40'} disabled:bg-slate-800 disabled:opacity-50`}
             >
               {isSaving ? <Loader2 className="animate-spin" /> : (
-                <>{editingId ? <Edit3 size={18}/> : <Save size={18}/>} {editingId ? 'PERBARUI POP-UP' : 'AKTIFKAN SEKARANG'}</>
+                <>{editingId ? <Edit3 size={18}/> : <Save size={18}/>} {editingId ? 'PERBARUI POP-UP' : 'AKTIFKAN POP-UP'} </>
               )}
             </button>
           </form>
         </div>
       </div>
 
-      {/* ARSIP LIST */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="h-[1px] flex-1 bg-white/10"></div>
-        <h2 className="text-white/40 font-black text-[10px] uppercase tracking-[0.4em]">Arsip Pop-up Konten</h2>
-        <div className="h-[1px] flex-1 bg-white/10"></div>
+      {/* ARSIP LIST - Perbaikan tampilan card agar seragam dan presisi */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-white/10"></div>
+        <h2 className="text-white/40 font-black text-[10px] uppercase tracking-[0.5em] whitespace-nowrap">Arsip Pop-up Konten</h2>
+        <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-white/10"></div>
       </div>
 
       {loading ? (
@@ -275,47 +286,46 @@ export default function AdminPopup() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {popups.map(item => (
-            <div key={item.id} className={`group relative bg-[#0F172A] rounded-[2.5rem] border-2 overflow-hidden transition-all duration-300 ${item.is_active ? 'border-blue-500/30' : 'border-white/5 opacity-50 grayscale hover:grayscale-0'}`}>
+            <div key={item.id} className={`group relative bg-[#0F172A] rounded-[2.5rem] border-2 overflow-hidden transition-all duration-500 ${item.is_active ? 'border-blue-500/30' : 'border-white/5 opacity-60 grayscale hover:grayscale-0'}`}>
               <div className="aspect-[4/5] overflow-hidden relative bg-black">
-                {/* Layer Blur di belakang arsip */}
-                <img src={item.url_gambar} className="absolute inset-0 w-full h-full object-cover blur-lg opacity-20" alt="" />
-                
-                {/* Gambar Utama di arsip menggunakan object-contain agar terlihat penuh */}
+                {/* Gambar di arsip juga dipastikan cover agar tidak ada celah putih/hitam */}
                 <img 
                     src={item.url_gambar} 
-                    className="relative z-10 w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-700" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                     alt={item.judul} 
                 />
                 
-                <div className="absolute inset-0 z-20 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent opacity-60" />
-                <div className="absolute top-4 left-4 z-30">
-                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${item.is_active ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-white/50'}`}>
-                    {item.is_active ? 'LIVE' : 'OFF'}
+                {/* Overlay gradien bawah untuk teks */}
+                <div className="absolute inset-0 z-20 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent opacity-80" />
+                
+                <div className="absolute top-5 left-5 z-30">
+                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md border ${item.is_active ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-900/50 text-white/50 border-white/10'}`}>
+                    {item.is_active ? '• SEDANG TAYANG' : 'NON-AKTIF'}
                   </span>
                 </div>
               </div>
 
-              <div className="p-6 relative">
-                <h4 className="text-white font-black uppercase text-sm mb-2 italic line-clamp-1">{item.judul || 'PENGUMUMAN'}</h4>
-                <p className="text-white/40 text-[11px] font-medium mb-6 line-clamp-2 leading-relaxed h-8">{item.deskripsi}</p>
+              <div className="p-7 relative z-30 -mt-20">
+                <h4 className="text-white font-black uppercase text-sm mb-2 italic line-clamp-1 tracking-tight">{item.judul || 'TANPA JUDUL'}</h4>
+                <p className="text-white/50 text-[11px] font-medium mb-6 line-clamp-2 leading-relaxed min-h-[2rem]">{item.deskripsi}</p>
                 
-                <div className="flex gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   <button 
                     onClick={() => toggleStatus(item.id, item.is_active)} 
-                    className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${item.is_active ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 'bg-white/5 text-white/40 hover:bg-blue-600 hover:text-white'}`}
+                    className={`col-span-1 py-3 rounded-xl flex items-center justify-center transition-all ${item.is_active ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 'bg-white/5 text-white/40 hover:bg-blue-600 hover:text-white'}`}
                     title={item.is_active ? "Nonaktifkan" : "Aktifkan"}
                   >
-                    {item.is_active ? <Power size={14}/> : <PowerOff size={14}/>}
+                    {item.is_active ? <Power size={16}/> : <PowerOff size={16}/>}
                   </button>
                   <button 
                     onClick={() => startEdit(item)} 
-                    className="flex-[2] py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                    className="col-span-2 py-3 bg-blue-600 text-white hover:bg-blue-500 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
                   >
                     <Edit3 size={14} /> EDIT
                   </button>
                   <button 
                     onClick={() => handleDelete(item.id)} 
-                    className="p-3 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl transition-all"
+                    className="col-span-1 py-3 bg-rose-600/10 text-rose-500 hover:bg-rose-600 hover:text-white rounded-xl transition-all flex items-center justify-center"
                   >
                     <Trash2 size={16} />
                   </button>

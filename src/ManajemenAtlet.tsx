@@ -14,6 +14,7 @@ interface Registrant {
   kategori: string;
   domisili: string;
   foto_url: string;
+  jenis_kelamin: string;
   rank: number;
   points: number;
   seed: string;
@@ -30,15 +31,6 @@ const createImage = (url: string): Promise<HTMLImageElement> =>
     image.setAttribute('crossOrigin', 'anonymous');
     image.src = url;
   });
-
-// KONFIGURASI SEED SESUAI PERMINTAAN
-const SEED_CONFIG: Record<string, { base: number, age: string, label: string }> = {
-  'A': { base: 10000, age: 'SENIOR', label: 'Seed A' },
-  'B+': { base: 8500, age: 'SENIOR', label: 'Seed B+' },
-  'B-': { base: 7000, age: 'SENIOR', label: 'Seed B-' },
-  'C': { base: 5500, age: 'MUDA', label: 'Seed C' },
-  'UNSEEDED': { base: 0, age: 'SENIOR', label: 'Unseeded' }
-};
 
 export default function ManajemenAtlet() {
   const [atlets, setAtlets] = useState<Registrant[]>([]);
@@ -82,6 +74,10 @@ export default function ManajemenAtlet() {
   useEffect(() => {
     fetchAtlets();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const fetchAtlets = async () => {
     setLoading(true);
@@ -128,9 +124,17 @@ export default function ManajemenAtlet() {
     }
   };
 
-  // HANDLER SEED BARU Sesuai Instruksi
+  // --- UPDATE LOGIKA SEED SESUAI INSTRUKSI BARU ---
   const handleSeedChange = (seed: string, isEditing: boolean = false) => {
-    const config = SEED_CONFIG[seed] || SEED_CONFIG['UNSEEDED'];
+    const seedConfig: Record<string, { base: number, age: string }> = {
+      'A': { base: 10000, age: 'SENIOR' },
+      'B+': { base: 8500, age: 'SENIOR' },
+      'B-': { base: 7000, age: 'SENIOR' },
+      'C': { base: 5500, age: 'MUDA' },
+      'UNSEEDED': { base: 0, age: 'SENIOR' }
+    };
+
+    const config = seedConfig[seed] || seedConfig['UNSEEDED'];
 
     if (isEditing) {
       setEditingStats(prev => ({ 
@@ -172,8 +176,10 @@ export default function ManajemenAtlet() {
       const image = await createImage(imageToCrop);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
+
       canvas.width = croppedAreaPixels.width;
       canvas.height = croppedAreaPixels.height;
+
       ctx?.drawImage(
         image,
         croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height,
@@ -181,26 +187,23 @@ export default function ManajemenAtlet() {
       );
 
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8));
-      const fileName = `atlet-${Date.now()}.jpg`;
+      const fileName = `atlet-${Date.now()}-${(newAtlet.nama || 'temp').replace(/\s+/g, '-').toLowerCase()}.jpg`;
 
       const { error } = await supabase.storage.from(BUCKET_NAME).upload(fileName, blob);
+      
       if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName);
       
-      if (isEditModalOpen) {
-          setEditingStats(prev => ({ ...prev, foto_url: publicUrl }));
-      } else {
-          setNewAtlet(prev => ({ ...prev, foto_url: publicUrl }));
-      }
-      
+      setNewAtlet(prev => ({ ...prev, foto_url: publicUrl }));
       setIsCropping(false);
       setImageToCrop(null);
+      
       setNotifMessage("Foto Berhasil Diunggah!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
-      alert("Upload Gagal: Pastikan bucket '" + BUCKET_NAME + "' sudah dibuat di Supabase Storage.");
+      alert("Upload Gagal! Pastikan Bucket '" + BUCKET_NAME + "' sudah dibuat di Supabase Storage.");
     } finally {
       setUploadingImage(false);
     }
@@ -209,13 +212,14 @@ export default function ManajemenAtlet() {
   const handleAddNewAtlet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
     setIsSaving(true);
     setIsSubmitting(true);
 
     try {
       const cleanName = newAtlet.nama.trim();
 
-      // 1. Upsert ke pendaftaran
+      // 1. Simpan ke pendaftaran
       const { error: pError } = await supabase
         .from('pendaftaran')
         .upsert({
@@ -229,7 +233,7 @@ export default function ManajemenAtlet() {
 
       if (pError) throw pError;
 
-      // 2. Upsert ke rankings
+      // 2. Simpan ke rankings
       const { error: rError } = await supabase
         .from('rankings')
         .upsert({
@@ -247,63 +251,59 @@ export default function ManajemenAtlet() {
       setNotifMessage("Atlet Berhasil Ditambahkan!");
       setShowSuccess(true);
       setIsAddModalOpen(false);
+      
       setNewAtlet({
         nama: '', whatsapp: '', kategori: 'SENIOR', domisili: '',
         seed: 'UNSEEDED', points: 0, bio: 'Atlet PB US 162',
         prestasi: 'Regular Player', foto_url: ''
       });
+
       await fetchAtlets();
+      setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
-      alert("Error Simpan: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setIsSaving(false);
       setIsSubmitting(false);
-      setTimeout(() => setShowSuccess(false), 3000);
     }
   };
 
   const handleUpdateStats = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStats || !editingStats.nama || isSubmitting) return;
+    
     setIsSaving(true);
     setIsSubmitting(true);
-
     try {
-      // Update Pendaftaran (untuk foto/whatsapp/domisili jika ada perubahan)
-      await supabase.from('pendaftaran').upsert({
-          nama: editingStats.nama,
-          whatsapp: editingStats.whatsapp,
-          domisili: editingStats.domisili,
-          kategori: editingStats.kategori,
-          foto_url: editingStats.foto_url
-      }, { onConflict: 'nama' });
+      // Update pendaftaran (kategori mungkin berubah berdasarkan seed)
+      await supabase
+        .from('pendaftaran')
+        .update({ kategori: editingStats.kategori })
+        .eq('nama', editingStats.nama);
 
-      // Update Rankings
+      // Update rankings
       const { error: rankError } = await supabase
         .from('rankings')
         .upsert({
           player_name: editingStats.nama,
           category: editingStats.kategori,
           seed: editingStats.seed,
-          total_points: editingStats.points,
-          bio: editingStats.bio,
-          achievement: editingStats.prestasi,
-          photo_url: editingStats.foto_url
+          total_points: editingStats.points
         }, { onConflict: 'player_name' });
 
       if (rankError) throw rankError;
 
-      setNotifMessage("Data Atlet Diperbarui!");
+      await fetchAtlets();
+      setNotifMessage("Data Performa Diperbarui!");
       setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
       setIsEditModalOpen(false);
       setSelectedAtlet(null);
-      await fetchAtlets();
     } catch (err: any) {
-      alert("Error Update: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setIsSaving(false);
       setIsSubmitting(false);
-      setTimeout(() => setShowSuccess(false), 3000);
     }
   };
 
@@ -471,7 +471,7 @@ export default function ManajemenAtlet() {
       {/* MODAL TAMBAH ATLET BARU */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-xl overflow-y-auto">
-          <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl relative flex flex-col md:flex-row overflow-hidden my-8">
+          <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl relative flex flex-col md:flex-row overflow-hidden">
             <button onClick={() => setIsAddModalOpen(false)} className="absolute top-6 right-6 z-10 p-3 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
             
             <div className="w-full md:w-[40%] bg-slate-50 p-10 border-r border-slate-100 flex flex-col items-center justify-center">
@@ -511,7 +511,7 @@ export default function ManajemenAtlet() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kategori</label>
-                  <select disabled className="w-full px-5 py-4 bg-slate-200 rounded-2xl font-black text-sm cursor-not-allowed" value={newAtlet.kategori}>
+                  <select disabled className="w-full px-5 py-4 bg-slate-200 rounded-2xl font-black text-sm opacity-70" value={newAtlet.kategori}>
                     <option value="SENIOR">SENIOR</option>
                     <option value="MUDA">MUDA</option>
                   </select>
@@ -523,15 +523,15 @@ export default function ManajemenAtlet() {
                   <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Skill Seed</label>
                   <select className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl font-black text-xs" value={newAtlet.seed} onChange={e => handleSeedChange(e.target.value)}>
                     <option value="UNSEEDED">PILIH SEED</option>
-                    <option value="A">SEED A (SR)</option>
-                    <option value="B+">SEED B+ (SR)</option>
-                    <option value="B-">SEED B- (SR)</option>
                     <option value="C">SEED C (MUDA)</option>
+                    <option value="B-">SEED B- (SR)</option>
+                    <option value="B+">SEED B+ (SR)</option>
+                    <option value="A">SEED A (SR)</option>
                   </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Auto-Points</label>
-                  <div className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-black text-sm flex items-center justify-between shadow-lg shadow-blue-200">
+                  <div className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-black text-sm flex items-center justify-between">
                     <Zap size={14} /> {newAtlet.points.toLocaleString()} PTS
                   </div>
                 </div>
@@ -592,7 +592,7 @@ export default function ManajemenAtlet() {
                   <span className="bg-white/5 text-white/40 text-[10px] font-black px-4 py-1.5 rounded-lg border border-white/10 uppercase italic">{selectedAtlet.seed}</span>
                 </div>
                 <button onClick={() => { setEditingStats(selectedAtlet); setIsEditModalOpen(true); }} className="flex items-center gap-2 text-white/30 hover:text-blue-400 text-[10px] font-black uppercase tracking-widest">
-                  <Edit3 size={14} /> UPDATE PLAYER
+                  <Edit3 size={14} /> UPDATE PERFORMANCE
                 </button>
               </div>
               <h2 className="text-5xl md:text-7xl font-black text-white italic uppercase tracking-tighter mb-10 leading-[0.85]">
@@ -618,30 +618,14 @@ export default function ManajemenAtlet() {
         </div>
       )}
 
-      {/* MODAL EDIT PERFORMANCE (Lengkap) */}
+      {/* MODAL EDIT PERFORMANCE */}
       {isEditModalOpen && editingStats && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-           <div className="bg-white w-full max-w-3xl rounded-[3rem] shadow-2xl overflow-hidden relative my-8">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden relative">
               <button onClick={() => setIsEditModalOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
-              <div className="p-10 md:p-14">
-                <h3 className="text-2xl font-black italic uppercase mb-8">Edit <span className="text-blue-600">Performance & Data</span></h3>
+              <div className="p-10">
+                <h3 className="text-2xl font-black italic uppercase mb-8">Edit <span className="text-blue-600">Performance</span></h3>
                 <form onSubmit={handleUpdateStats} className="space-y-5">
-                  
-                  {/* Bagian Foto di Edit */}
-                  <div className="flex items-center gap-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 mb-6">
-                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-200 relative group">
-                        <img src={editingStats.foto_url || ''} className="w-full h-full object-cover" />
-                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                            <Camera size={20} className="text-white"/>
-                            <input type="file" className="hidden" accept="image/*" onChange={onFileChange} />
-                        </label>
-                      </div>
-                      <div>
-                          <p className="text-xs font-black text-slate-900 uppercase">{editingStats.nama}</p>
-                          <p className="text-[10px] font-bold text-slate-400">ID: {editingStats.id?.slice(0,8)}...</p>
-                      </div>
-                  </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Points</label>
@@ -650,39 +634,17 @@ export default function ManajemenAtlet() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Seed Level</label>
                       <select className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.seed || 'UNSEEDED'} onChange={e => handleSeedChange(e.target.value, true)}>
-                        <option value="A">SEED A (SR)</option>
-                        <option value="B+">SEED B+ (SR)</option>
-                        <option value="B-">SEED B- (SR)</option>
-                        <option value="C">SEED C (MUDA)</option>
                         <option value="UNSEEDED">UNSEEDED</option>
+                        <option value="C">SEED C (MUDA)</option>
+                        <option value="B-">SEED B- (SR)</option>
+                        <option value="B+">SEED B+ (SR)</option>
+                        <option value="A">SEED A (SR)</option>
                       </select>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp</label>
-                        <input className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black" value={editingStats.whatsapp || ''} onChange={e => setEditingStats({...editingStats, whatsapp: e.target.value})} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Domisili</label>
-                        <input className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.domisili || ''} onChange={e => setEditingStats({...editingStats, domisili: e.target.value})} />
-                      </div>
-                  </div>
-
-                  <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Achievement / Prestasi</label>
-                      <input className="w-full px-5 py-3 bg-slate-100 rounded-xl font-black uppercase" value={editingStats.prestasi || ''} onChange={e => setEditingStats({...editingStats, prestasi: e.target.value})} />
-                  </div>
-
-                  <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Biography</label>
-                      <textarea rows={3} className="w-full px-5 py-3 bg-slate-100 rounded-xl font-medium text-sm italic" value={editingStats.bio || ''} onChange={e => setEditingStats({...editingStats, bio: e.target.value})} />
-                  </div>
-
-                  <button type="submit" disabled={isSaving || isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3 shadow-xl shadow-blue-100 hover:bg-slate-900 transition-all">
+                  <button type="submit" disabled={isSaving || isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
                     {(isSaving || isSubmitting) ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
-                    Save Player Updates
+                    Save Performance
                   </button>
                 </form>
               </div>
@@ -696,7 +658,7 @@ export default function ManajemenAtlet() {
           <div className="bg-blue-600 p-4 rounded-2xl animate-bounce"><Zap size={24} className="text-white fill-white" /></div>
           <div>
             <h4 className="text-white font-black uppercase tracking-tighter text-xl italic leading-none mb-1">{notifMessage}</h4>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Sync Complete</p>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Database Updated</p>
           </div>
         </div>
       </div>

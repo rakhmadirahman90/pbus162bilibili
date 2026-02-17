@@ -48,54 +48,56 @@ export default function ImagePopup() {
           className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm"
         />
 
-        {/* MODAL CONTAINER - Dibuat lebih ramping (max-w-[360px]) agar proporsional di 100% */}
+        {/* MODAL CONTAINER: Menggunakan h-auto dan max-h-[90vh] untuk mencegah terpotong */}
         <motion.div 
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full max-w-[360px] bg-white rounded-[2rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+          className="relative w-full max-w-[350px] bg-white rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20"
         >
           
-          {/* TOMBOL TUTUP - Sekarang berada DI DALAM container agar tidak pernah hilang/terpotong */}
-          <button 
-            onClick={closePopup}
-            className="absolute top-4 right-4 z-[100005] p-2 bg-black/50 hover:bg-red-600 text-white rounded-full backdrop-blur-md transition-all border border-white/20"
-          >
-            <X size={18} strokeWidth={3} />
-          </button>
+          {/* TOMBOL TUTUP: Sekarang menggunakan padding absolut di dalam header transparan */}
+          <div className="absolute top-0 right-0 left-0 z-[100010] flex justify-end p-4 pointer-events-none">
+            <button 
+              onClick={closePopup}
+              className="pointer-events-auto p-2 bg-black/40 hover:bg-red-600 text-white rounded-full backdrop-blur-xl transition-all border border-white/20 shadow-lg"
+            >
+              <X size={18} strokeWidth={3} />
+            </button>
+          </div>
 
-          {/* INTERNAL CONTENT */}
-          <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden">
+          {/* INTERNAL CONTENT WRAPPER */}
+          <div className="flex flex-col h-full overflow-hidden">
             
-            {/* BOX GAMBAR - Dibatasi tingginya agar teks di bawah tidak terdorong keluar layar */}
-            <div className="relative w-full aspect-[4/5] max-h-[40vh] min-h-[250px] overflow-hidden bg-slate-100">
+            {/* BOX GAMBAR: Menggunakan flex-shrink agar gambar mau mengalah pada tinggi layar */}
+            <div className="relative w-full bg-slate-100 flex-shrink min-h-0 overflow-hidden">
               <motion.img 
                 key={currentIndex}
                 src={PROMO_IMAGES[currentIndex]}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-contain max-h-[55vh]" 
                 alt="Promo"
               />
 
-              {/* Slider Nav */}
+              {/* Slider Navigasi */}
               {PROMO_IMAGES.length > 1 && (
-                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between">
-                  <button onClick={prevImage} className="p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40">
+                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                  <button onClick={prevImage} className="pointer-events-auto p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40">
                     <ChevronLeft size={16} />
                   </button>
-                  <button onClick={nextImage} className="p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40">
+                  <button onClick={nextImage} className="pointer-events-auto p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40">
                     <ChevronRight size={16} />
                   </button>
                 </div>
               )}
             </div>
 
-            {/* AREA INFORMASI - Ukuran teks dikecilkan sedikit agar muat 100% layar laptop */}
-            <div className="p-5 text-center flex flex-col items-center justify-center">
+            {/* AREA INFORMASI: Memastikan teks tetap terlihat dan memiliki scroll jika layar sangat pendek */}
+            <div className="p-6 text-center bg-white flex-grow overflow-y-auto">
                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-3">
                   <Bell size={10} className="animate-bounce" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Pemberitahuan</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">Informasi</span>
                </div>
               
               <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-2">
@@ -110,7 +112,7 @@ export default function ImagePopup() {
                 onClick={closePopup}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
               >
-                TUTUP & LANJUTKAN
+                MENGERTI
               </button>
             </div>
           </div>

@@ -38,80 +38,81 @@ export default function ImagePopup() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-6">
-        {/* Overlay Background */}
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6">
+        {/* Overlay dengan Backdrop Blur */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={closePopup}
-          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
         />
 
-        {/* Modal Wrapper - Menggunakan overflow-visible agar tombol X tidak terpotong */}
+        {/* Modal Container: Diatur agar maksimal tinggi 90% layar (90vh) */}
         <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
+          initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-          className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] overflow-visible"
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="relative w-full max-w-[400px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] overflow-visible"
         >
           
-          {/* TOMBOL TUTUP (X) - Ditempatkan di luar container utama dengan Z-index absolut */}
-          <div className="absolute -top-3 -right-3 z-[100000]">
+          {/* TOMBOL TUTUP (X): Menggunakan posisi Inset-0 agar tetap menempel pada container meski layar di-zoom */}
+          <div className="absolute -top-3 -right-3 z-[100001]">
              <button 
               onClick={closePopup}
-              className="p-3 bg-red-600 text-white rounded-full shadow-2xl hover:bg-red-700 hover:scale-110 active:scale-95 transition-all duration-200 border-4 border-white flex items-center justify-center"
-              style={{ pointerEvents: 'auto' }} // Memastikan area bisa diklik
+              className="p-2.5 bg-red-600 text-white rounded-full shadow-2xl hover:bg-red-700 hover:scale-110 active:scale-95 transition-all duration-200 border-[3px] border-white flex items-center justify-center"
             >
-              <X size={24} strokeWidth={3} />
+              <X size={20} strokeWidth={3} />
             </button>
           </div>
 
-          {/* Area Konten */}
-          <div className="p-4 sm:p-5">
-            {/* Image Box */}
-            <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden bg-slate-200 shadow-inner">
+          {/* Area Scrollable Content: Memastikan konten tidak "tenggelam" jika layar pendek */}
+          <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden p-4 sm:p-5 custom-scrollbar">
+            
+            {/* Box Gambar dengan Jarak Bingkai yang Pas */}
+            <div className="relative w-full aspect-[4/5] shrink-0 rounded-[1.5rem] overflow-hidden bg-slate-100 shadow-inner border border-slate-100">
               <motion.img 
                 key={currentIndex}
                 src={PROMO_IMAGES[currentIndex]}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
                 className="w-full h-full object-cover"
-                alt="Promo"
+                alt="Promo Content"
               />
 
-              {/* Slider Nav */}
+              {/* Slider Navigasi */}
               {PROMO_IMAGES.length > 1 && (
-                <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 flex justify-between">
-                  <button onClick={prevImage} className="p-2 bg-white/20 backdrop-blur-lg text-white rounded-2xl hover:bg-white/40">
-                    <ChevronLeft size={24} />
+                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between">
+                  <button onClick={prevImage} className="p-2 bg-white/20 backdrop-blur-md text-white rounded-xl hover:bg-white/40">
+                    <ChevronLeft size={20} />
                   </button>
-                  <button onClick={nextImage} className="p-2 bg-white/20 backdrop-blur-lg text-white rounded-2xl hover:bg-white/40">
-                    <ChevronRight size={24} />
+                  <button onClick={nextImage} className="p-2 bg-white/20 backdrop-blur-md text-white rounded-xl hover:bg-white/40">
+                    <ChevronRight size={20} />
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Teks Deskripsi */}
-            <div className="py-6 px-2 text-center">
+            {/* Area Teks: Margin disesuaikan agar pas 100% */}
+            <div className="mt-5 pb-2 text-center">
                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-3">
-                  <Bell size={12} className="animate-bounce" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Informasi Penting</span>
+                  <Bell size={10} className="animate-bounce" />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Update Terbaru</span>
                </div>
-              <h3 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-3">
+              
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-2">
                 Marhaban Ya <span className="text-blue-600">Ramadhan</span>
               </h3>
-              <p className="text-slate-500 text-xs font-bold leading-relaxed mb-6">
-                Selamat menjalankan ibadah puasa 1447 H / 2026 M. Semoga keberkahan menyertai kita semua.
+              
+              <p className="text-slate-500 text-[11px] font-bold leading-relaxed mb-5 px-2">
+                Selamat menjalankan ibadah puasa 1447 H. Mari jalin silaturahmi bersama kami.
               </p>
               
               <button 
                 onClick={closePopup}
-                className="w-full py-4 bg-slate-900 hover:bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.25em] transition-all duration-300"
+                className="w-full py-3.5 bg-slate-900 hover:bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] transition-all duration-300 shadow-lg active:scale-95"
               >
-                Cek Selengkapnya
+                Tutup & Lihat Web
               </button>
             </div>
           </div>

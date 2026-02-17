@@ -42,14 +42,14 @@ export default function ManajemenPendaftaran() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false); // Fitur Baru
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
   
-  // State untuk Tambah Baru
-  const [newItem, setNewItem] = useState<Partial<Registrant>>({
+  // State untuk Tambah Atlet Baru
+  const [newItem, setNewItem] = useState({
     nama: '',
     whatsapp: '',
-    kategori: 'Dewasa / Umum',
+    kategori: 'Anak-anak (U-13)',
     domisili: '',
     jenis_kelamin: 'Putra',
     foto_url: ''
@@ -69,7 +69,7 @@ export default function ManajemenPendaftaran() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
-  // --- FUNGSI KOMPRESI GAMBAR ---
+  // --- KODE ASLI PERTAHANKAN ---
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -93,7 +93,6 @@ export default function ManajemenPendaftaran() {
     });
   };
 
-  // --- EXPORT & IMPORT ---
   const exportToExcel = () => {
     if (filteredData.length === 0) return alert("Tidak ada data untuk diekspor");
     const dataToExport = filteredData.map((item, index) => ({
@@ -109,40 +108,6 @@ export default function ManajemenPendaftaran() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pendaftar");
     XLSX.writeFile(workbook, `Data_Atlet_${Date.now()}.xlsx`);
-  };
-
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-
-        if (data.length === 0) return alert("File kosong");
-
-        const formattedData = data.map((item: any) => ({
-          nama: (item.Nama || item.nama || '').toUpperCase(),
-          whatsapp: String(item.WhatsApp || item.whatsapp || ''),
-          kategori: item.Kategori || item.kategori || 'Dewasa / Umum',
-          domisili: (item.Domisili || item.domisili || '').toUpperCase(),
-          jenis_kelamin: item.Gender || item.jenis_kelamin || 'Putra',
-        }));
-
-        const { error } = await supabase.from('pendaftaran').insert(formattedData);
-        if (error) throw error;
-        alert(`Berhasil mengimpor ${formattedData.length} data!`);
-        fetchData();
-      } catch (err: any) {
-        alert("Gagal impor: " + err.message);
-      }
-    };
-    reader.readAsBinaryString(file);
   };
 
   const exportToPDF = () => {
@@ -172,7 +137,6 @@ export default function ManajemenPendaftaran() {
     doc.save(`Data_Atlet_${Date.now()}.pdf`);
   };
 
-  // --- DATA FETCHING ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -223,8 +187,44 @@ export default function ManajemenPendaftaran() {
     } catch (e) { console.error("Gagal hapus file lama", e); }
   };
 
-  // --- HANDLE FILE UPLOAD (FOR BOTH ADD & EDIT) ---
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'add' | 'edit') => {
+  // --- FITUR BARU: IMPORT EXCEL MASSAL ---
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) return alert("File kosong");
+
+        const formattedData = data.map((row: any) => ({
+          nama: (row.Nama || row.nama || '').toUpperCase(),
+          whatsapp: String(row.WhatsApp || row.whatsapp || ''),
+          kategori: row.Kategori || row.kategori || 'Umum',
+          domisili: (row.Domisili || row.domisili || '').toUpperCase(),
+          jenis_kelamin: row.Gender || row.jenis_kelamin || 'Putra',
+          created_at: new Date().toISOString()
+        }));
+
+        const { error } = await supabase.from('pendaftaran').insert(formattedData);
+        if (error) throw error;
+        alert(`Berhasil mengimpor ${formattedData.length} data atlet!`);
+        fetchData();
+      } catch (err: any) {
+        alert("Gagal impor: Pastikan kolom sesuai (Nama, WhatsApp, Kategori, Domisili, Gender)");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // --- FITUR UPLOAD FOTO (DIPAKAI EDIT & TAMBAH) ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'edit' | 'add') => {
     if (!e.target.files?.[0]) return;
     const file = e.target.files[0];
     setUploading(true);
@@ -259,49 +259,28 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  const handleAddAtlet = async (e: React.FormEvent) => {
+  // --- FITUR BARU: HANDLE ADD ATLET ---
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (uploading) return;
     setIsSaving(true);
+
     try {
-      const { error } = await supabase.from('pendaftaran').insert([
-        {
-          ...newItem,
-          nama: (newItem.nama || '').toUpperCase(),
-          domisili: (newItem.domisili || '').toUpperCase()
-        }
-      ]);
+      const { error } = await supabase.from('pendaftaran').insert([{
+        ...newItem,
+        nama: newItem.nama.toUpperCase(),
+        domisili: newItem.domisili.toUpperCase()
+      }]);
+
       if (error) throw error;
+      
       setIsAddModalOpen(false);
-      setNewItem({ nama: '', whatsapp: '', kategori: 'Dewasa / Umum', domisili: '', jenis_kelamin: 'Putra', foto_url: '' });
+      setNewItem({ nama: '', whatsapp: '', kategori: 'Anak-anak (U-13)', domisili: '', jenis_kelamin: 'Putra', foto_url: '' });
       fetchData();
     } catch (error: any) {
       alert("Gagal menambah: " + error.message);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingItem || uploading) return;
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('pendaftaran').update({
-        nama: (editingItem.nama || '').toUpperCase(),
-        whatsapp: editingItem.whatsapp,
-        domisili: (editingItem.domisili || '').toUpperCase(),
-        kategori: editingItem.kategori,
-        jenis_kelamin: editingItem.jenis_kelamin, 
-        foto_url: editingItem.foto_url
-      }).eq('id', editingItem.id);
-
-      if (error) throw error;
-      setIsEditModalOpen(false);
-      fetchData();
-    } catch (error: any) { 
-      alert("Gagal menyimpan: " + error.message); 
-    } finally { 
-      setIsSaving(false); 
     }
   };
 
@@ -312,6 +291,31 @@ export default function ManajemenPendaftaran() {
         const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
         if (error) throw error;
       } catch (error: any) { alert('Gagal menghapus: ' + error.message); }
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem || uploading) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.from('pendaftaran').update({
+        nama: (editingItem.nama || '').toUpperCase(),
+        whatsapp: editingItem.whatsapp,
+        domisili: editingItem.domisili,
+        kategori: editingItem.kategori,
+        jenis_kelamin: editingItem.jenis_kelamin, 
+        foto_url: editingItem.foto_url 
+      }).eq('id', editingItem.id);
+
+      if (error) throw error;
+      setIsEditModalOpen(false);
+      fetchData();
+    } catch (error: any) { 
+      alert("Gagal menyimpan: " + error.message); 
+    } finally { 
+      setIsSaving(false); 
     }
   };
 
@@ -334,24 +338,30 @@ export default function ManajemenPendaftaran() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-slate-900 transition-all active:scale-95 shadow-lg shadow-blue-100/50">
+            {/* Tombol Tambah & Import */}
+            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-100/50">
               <Plus size={14} /> TAMBAH ATLET
             </button>
-            <label className="flex items-center gap-2 bg-amber-500 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-100/50 cursor-pointer">
+            
+            <label className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100/50 cursor-pointer">
               <Upload size={14} /> IMPORT EXCEL
-              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
+              <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
             </label>
+
+            <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+
             <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100/50">
               <FileSpreadsheet size={14} /> EXCEL
             </button>
             <button onClick={exportToPDF} className="flex items-center gap-2 bg-rose-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100/50">
               <FileText size={14} /> PDF
             </button>
-            <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-            <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col items-center">
+            
+            <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col items-center min-w-[60px]">
               <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Total</span>
-              <span className="text-lg font-black text-blue-600 leading-none">{filteredData.length}</span>
+              <span className="text-lg font-black text-blue-600 leading-none">{registrants.length}</span>
             </div>
+            
             <button onClick={fetchData} className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-slate-200">
               <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} /> REFRESH
             </button>
@@ -364,7 +374,7 @@ export default function ManajemenPendaftaran() {
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
-              placeholder="Cari nama atau kota..."
+              placeholder="Cari nama, kota, atau kategori..."
               className="w-full pl-12 pr-6 py-3 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
@@ -485,31 +495,21 @@ export default function ManajemenPendaftaran() {
         </footer>
       </div>
 
-      {/* MODAL TAMBAH & EDIT (Reusable logic) */}
-      {(isEditModalOpen || isAddModalOpen) && (
+      {/* MODAL EDIT (KODE ASLI) */}
+      {isEditModalOpen && editingItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => { setIsEditModalOpen(false); setIsAddModalOpen(false); }} />
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
           <div className="relative bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h2 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">
-                {isAddModalOpen ? 'Tambah Atlet Baru' : 'Edit Atlet'}
-              </h2>
-              <button onClick={() => { setIsEditModalOpen(false); setIsAddModalOpen(false); }} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><X size={18}/></button>
+              <h2 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">Edit Atlet</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><X size={18}/></button>
             </div>
-            
-            <form onSubmit={isAddModalOpen ? handleAddAtlet : handleUpdate} className="p-6 space-y-4">
-              {/* Foto Section */}
+            <form onSubmit={handleUpdate} className="p-6 space-y-4">
               <div className="flex items-center gap-6 mb-2">
                 <div className="relative">
-                  <div 
-                    onClick={() => {
-                        const url = isAddModalOpen ? newItem.foto_url : editingItem?.foto_url;
-                        if(url) setPreviewImage(url);
-                    }}
-                    className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0 cursor-zoom-in"
-                  >
-                    {(isAddModalOpen ? newItem.foto_url : editingItem?.foto_url) ? (
-                      <img src={isAddModalOpen ? newItem.foto_url : editingItem?.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
+                  <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
+                    {editingItem.foto_url ? (
+                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
                     ) : (
                       <User size={30} className="m-auto mt-4 text-slate-200" />
                     )}
@@ -517,21 +517,15 @@ export default function ManajemenPendaftaran() {
                   </div>
                   <label className="absolute -bottom-1 -right-1 p-2 bg-blue-600 text-white rounded-lg shadow-lg cursor-pointer hover:bg-slate-900 transition-all">
                     <Camera size={14} />
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, isAddModalOpen ? 'add' : 'edit')} />
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'edit')} />
                   </label>
                 </div>
                 <div className="flex-1 space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</label>
-                  <input 
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" 
-                    value={isAddModalOpen ? newItem.nama : editingItem?.nama || ''} 
-                    onChange={e => isAddModalOpen ? setNewItem({...newItem, nama: e.target.value}) : setEditingItem(prev => prev ? {...prev, nama: e.target.value} : null)} 
-                    required 
-                  />
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" value={editingItem.nama || ''} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
                 </div>
               </div>
 
-              {/* Gender Section */}
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -539,12 +533,8 @@ export default function ManajemenPendaftaran() {
                     <button
                       key={g}
                       type="button"
-                      onClick={() => isAddModalOpen ? setNewItem({...newItem, jenis_kelamin: g}) : setEditingItem(prev => prev ? {...prev, jenis_kelamin: g} : null)}
-                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${
-                        (isAddModalOpen ? newItem.jenis_kelamin : editingItem?.jenis_kelamin) === g 
-                        ? 'bg-blue-600 border-blue-600 text-white' 
-                        : 'bg-slate-50 border-slate-100 text-slate-400'
-                      }`}
+                      onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})}
+                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${editingItem.jenis_kelamin === g ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
                     >
                       {g.toUpperCase()}
                     </button>
@@ -552,46 +542,100 @@ export default function ManajemenPendaftaran() {
                 </div>
               </div>
 
-              {/* Other Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
-                  <input 
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" 
-                    value={isAddModalOpen ? newItem.whatsapp : editingItem?.whatsapp || ''} 
-                    onChange={e => isAddModalOpen ? setNewItem({...newItem, whatsapp: e.target.value}) : setEditingItem(prev => prev ? {...prev, whatsapp: e.target.value} : null)} 
-                    required 
-                  />
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.whatsapp || ''} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
-                  <select 
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" 
-                    value={isAddModalOpen ? newItem.kategori : editingItem?.kategori || ''} 
-                    onChange={e => isAddModalOpen ? setNewItem({...newItem, kategori: e.target.value}) : setEditingItem(prev => prev ? {...prev, kategori: e.target.value} : null)}
-                  >
+                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={editingItem.kategori || ''} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
                     {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili (Kota/Kab)</label>
-                  <input 
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" 
-                    value={isAddModalOpen ? newItem.domisili : editingItem?.domisili || ''} 
-                    onChange={e => isAddModalOpen ? setNewItem({...newItem, domisili: e.target.value}) : setEditingItem(prev => prev ? {...prev, domisili: e.target.value} : null)} 
-                    required 
-                  />
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" value={editingItem.domisili || ''} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
+                </div>
+              </div>
+              <div className="pt-2">
+                <button type="submit" disabled={isSaving || uploading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2">
+                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH (FITUR BARU) */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-blue-600 text-white">
+              <h2 className="text-lg font-black uppercase italic tracking-tighter">Tambah Atlet Baru</h2>
+              <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors"><X size={18}/></button>
+            </div>
+            <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
+              <div className="flex items-center gap-6 mb-2">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
+                    {newItem.foto_url ? (
+                      <img src={newItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
+                    ) : (
+                      <User size={30} className="m-auto mt-4 text-slate-200" />
+                    )}
+                    {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={20} /></div>}
+                  </div>
+                  <label className="absolute -bottom-1 -right-1 p-2 bg-blue-600 text-white rounded-lg shadow-lg cursor-pointer hover:bg-slate-900 transition-all">
+                    <Camera size={14} />
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'add')} />
+                  </label>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" placeholder="NAMA ATLET..." value={newItem.nama} onChange={e => setNewItem({...newItem, nama: e.target.value})} required />
                 </div>
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Putra', 'Putri'].map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setNewItem({...newItem, jenis_kelamin: g})}
+                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${newItem.jenis_kelamin === g ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+                    >
+                      {g.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" placeholder="08..." value={newItem.whatsapp} onChange={e => setNewItem({...newItem, whatsapp: e.target.value})} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
+                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={newItem.kategori} onChange={e => setNewItem({...newItem, kategori: e.target.value})}>
+                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili</label>
+                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" placeholder="KOTA/KABUPATEN..." value={newItem.domisili} onChange={e => setNewItem({...newItem, domisili: e.target.value})} required />
+                </div>
+              </div>
               <div className="pt-2">
-                <button 
-                  type="submit" 
-                  disabled={isSaving || uploading} 
-                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2"
-                >
+                <button type="submit" disabled={isSaving || uploading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2">
                   {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                  {isAddModalOpen ? 'Tambahkan Atlet' : 'Simpan Perubahan'}
+                  Tambah Atlet
                 </button>
               </div>
             </form>
@@ -604,7 +648,6 @@ export default function ManajemenPendaftaran() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm" onClick={() => setPreviewImage(null)}>
           <div className="relative max-w-lg w-full">
             <img src={previewImage} className="w-full h-auto rounded-3xl border-4 border-white shadow-2xl" alt="preview-large" />
-            <button className="absolute -top-4 -right-4 bg-white text-slate-900 p-2 rounded-full shadow-xl"><X size={20}/></button>
           </div>
         </div>
       )}

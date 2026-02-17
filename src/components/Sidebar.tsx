@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Users, 
@@ -22,7 +22,8 @@ import {
   BarChart3,
   FileSearch,
   Layout,
-  Images // Import ikon Images untuk Kelola Hero
+  Images, // Ikon untuk Kelola Hero
+  Megaphone // KODE BARU: Ikon untuk Kelola Pop-up
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -90,7 +91,8 @@ export default function Sidebar({ email, isOpen, onClose }: SidebarProps) {
       section: 'Site Settings', 
       items: [
         { name: 'Kelola Tampilan', path: '/admin/tampilan', icon: Layout }, 
-        { name: 'Kelola Hero', path: '/admin/hero', icon: Images }, // KODE BARU: Menu Kelola Hero
+        { name: 'Kelola Hero', path: '/admin/hero', icon: Images },
+        { name: 'Kelola Pop-up', path: '/admin/popup', icon: Megaphone }, // KODE BARU: Menu Kelola Pop-up
         { name: 'Kelola Navbar', path: '/admin/navbar', icon: Menu }, 
         { name: 'Kelola Kontak', path: '/admin/kontak', icon: Phone },
       ]
@@ -147,10 +149,10 @@ export default function Sidebar({ email, isOpen, onClose }: SidebarProps) {
 
         {/* Database Status Info */}
         <div className="px-3 py-1.5 bg-slate-900/50 border border-slate-800 rounded-full w-fit mb-8 flex-shrink-0">
-           <div className="flex items-center gap-2">
-            <Circle size={6} className={`${dbStatus === 'online' ? 'text-emerald-500 fill-emerald-500' : 'text-red-500 fill-red-500'} animate-pulse`} />
-            <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">System {dbStatus}</span>
-           </div>
+            <div className="flex items-center gap-2">
+             <Circle size={6} className={`${dbStatus === 'online' ? 'text-emerald-500 fill-emerald-500' : 'text-red-500 fill-red-500'} animate-pulse`} />
+             <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">System {dbStatus}</span>
+            </div>
         </div>
 
         {/* Navigation Groups */}

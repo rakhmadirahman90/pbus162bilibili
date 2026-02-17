@@ -16,7 +16,7 @@ export default function ImagePopup() {
     const today = new Date().toDateString();
 
     if (hasSeenPopup !== today) {
-      const timer = setTimeout(() => setIsOpen(true), 1500);
+      const timer = setTimeout(() => setIsOpen(true), 1000);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -38,82 +38,84 @@ export default function ImagePopup() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-        {/* Overlay */}
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-2 sm:p-4">
+        {/* Overlay lebih gelap agar fokus */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={closePopup}
-          className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/90 backdrop-blur-sm"
         />
 
-        {/* MODAL CONTAINER: Menggunakan h-auto dan max-h-[90vh] untuk mencegah terpotong */}
+        {/* MODAL CONTAINER: Dibatasi pada 85vh agar tombol X tidak keluar dari layar browser */}
         <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full max-w-[350px] bg-white rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20"
+          initial={{ scale: 0.9, opacity: 0, y: 30 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 30 }}
+          className="relative w-full max-w-[340px] bg-white rounded-[2rem] shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col max-h-[85vh] overflow-hidden"
         >
           
-          {/* TOMBOL TUTUP: Sekarang menggunakan padding absolut di dalam header transparan */}
-          <div className="absolute top-0 right-0 left-0 z-[100010] flex justify-end p-4 pointer-events-none">
+          {/* HEADER: Tempat Tombol Tutup yang menyatu dengan UI (Anti Terpotong) */}
+          <div className="absolute top-3 right-3 z-[50]">
             <button 
               onClick={closePopup}
-              className="pointer-events-auto p-2 bg-black/40 hover:bg-red-600 text-white rounded-full backdrop-blur-xl transition-all border border-white/20 shadow-lg"
+              className="p-2 bg-black/60 hover:bg-red-600 text-white rounded-full backdrop-blur-md transition-all border border-white/30"
             >
-              <X size={18} strokeWidth={3} />
+              <X size={16} strokeWidth={3} />
             </button>
           </div>
 
-          {/* INTERNAL CONTENT WRAPPER */}
-          <div className="flex flex-col h-full overflow-hidden">
+          {/* WRAPPER KONTEN UTAMA */}
+          <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden">
             
-            {/* BOX GAMBAR: Menggunakan flex-shrink agar gambar mau mengalah pada tinggi layar */}
-            <div className="relative w-full bg-slate-100 flex-shrink min-h-0 overflow-hidden">
+            {/* BOX GAMBAR: Dibatasi hanya 45% dari tinggi layar */}
+            <div className="relative w-full bg-slate-200 shrink-0 overflow-hidden" style={{ maxHeight: '45vh' }}>
               <motion.img 
                 key={currentIndex}
                 src={PROMO_IMAGES[currentIndex]}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="w-full h-full object-contain max-h-[55vh]" 
+                className="w-full h-full object-cover" 
                 alt="Promo"
               />
 
-              {/* Slider Navigasi */}
+              {/* Slider Nav */}
               {PROMO_IMAGES.length > 1 && (
-                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                  <button onClick={prevImage} className="pointer-events-auto p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40">
+                <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between">
+                  <button onClick={prevImage} className="p-1.5 bg-black/20 text-white rounded-lg hover:bg-black/50 backdrop-blur-sm">
                     <ChevronLeft size={16} />
                   </button>
-                  <button onClick={nextImage} className="pointer-events-auto p-1.5 bg-white/20 backdrop-blur-md text-white rounded-lg hover:bg-white/40">
+                  <button onClick={nextImage} className="p-1.5 bg-black/20 text-white rounded-lg hover:bg-black/50 backdrop-blur-sm">
                     <ChevronRight size={16} />
                   </button>
                 </div>
               )}
             </div>
 
-            {/* AREA INFORMASI: Memastikan teks tetap terlihat dan memiliki scroll jika layar sangat pendek */}
-            <div className="p-6 text-center bg-white flex-grow overflow-y-auto">
-               <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-3">
+            {/* INFO SECTION: Padding diperkecil agar pas 100% */}
+            <div className="p-5 text-center flex flex-col flex-grow bg-white">
+               <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-3 mx-auto">
                   <Bell size={10} className="animate-bounce" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Informasi</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest">Update PB US 162</span>
                </div>
               
               <h3 className="text-lg font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-2">
                 Marhaban Ya <span className="text-blue-600">Ramadhan</span>
               </h3>
               
-              <p className="text-slate-500 text-[10px] font-bold leading-relaxed mb-5 opacity-80">
-                Selamat beribadah puasa 1447 H. Mari jalin silaturahmi bersama kami di PB US 162.
+              <p className="text-slate-500 text-[10px] font-bold leading-relaxed mb-4 opacity-80 line-clamp-2">
+                Selamat berpuasa. Semoga keberkahan menyertai kita semua di PB Bilibili 162.
               </p>
               
-              <button 
-                onClick={closePopup}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
-              >
-                MENGERTI
-              </button>
+              <div className="mt-auto">
+                <button 
+                  onClick={closePopup}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
+                >
+                  MENGERTI
+                </button>
+              </div>
             </div>
           </div>
         </motion.div>

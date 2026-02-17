@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from "./supabase";
 import { 
   Trash2, 
@@ -32,7 +32,7 @@ interface Registrant {
   whatsapp: string;
   kategori: string;
   domisili: string;
-  pengalaman?: string;
+  pengalaman: string;
   foto_url: string;
   jenis_kelamin: string;
 }
@@ -44,11 +44,21 @@ export default function ManajemenPendaftaran() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
+  
+  // State untuk Tambah Baru
+  const [newItem, setNewItem] = useState<Partial<Registrant>>({
+    nama: '',
+    whatsapp: '',
+    kategori: 'Pemula (U-15)',
+    domisili: '',
+    jenis_kelamin: 'Putra',
+    foto_url: ''
+  });
+
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const itemsPerPage = 8; 
 
@@ -57,15 +67,6 @@ export default function ManajemenPendaftaran() {
     "Pemula (U-15)", "Remaja (U-17)", "Taruna (U-19)", 
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
-
-  const [newItem, setNewItem] = useState({
-    nama: '',
-    whatsapp: '',
-    kategori: kategoriUmur[0],
-    domisili: '',
-    jenis_kelamin: 'Putra',
-    foto_url: ''
-  });
 
   // --- UTILS ---
   const compressImage = (file: File): Promise<Blob> => {
@@ -91,7 +92,7 @@ export default function ManajemenPendaftaran() {
     });
   };
 
-  // --- EXPORT FUNCTIONS ---
+  // --- EXPORT & IMPORT ---
   const exportToExcel = () => {
     if (filteredData.length === 0) return alert("Tidak ada data untuk diekspor");
     const dataToExport = filteredData.map((item, index) => ({
@@ -107,6 +108,41 @@ export default function ManajemenPendaftaran() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pendaftar");
     XLSX.writeFile(workbook, `Data_Atlet_${Date.now()}.xlsx`);
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        setLoading(true);
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const formattedData = data.map(row => ({
+          nama: (row.Nama || row.nama || '').toUpperCase(),
+          jenis_kelamin: row.Gender || row.jenis_kelamin || 'Putra',
+          kategori: row.Kategori || row.kategori || 'Umum',
+          whatsapp: String(row.WhatsApp || row.whatsapp || ''),
+          domisili: (row.Domisili || row.domisili || '').toUpperCase(),
+        }));
+
+        const { error } = await supabase.from('pendaftaran').insert(formattedData);
+        if (error) throw error;
+        alert(`${formattedData.length} Data berhasil diimport!`);
+        fetchData();
+      } catch (err: any) {
+        alert("Gagal import: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
   const exportToPDF = () => {
@@ -136,44 +172,7 @@ export default function ManajemenPendaftaran() {
     doc.save(`Data_Atlet_${Date.now()}.pdf`);
   };
 
-  // --- IMPORT EXCEL ---
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        setLoading(true);
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
-
-        const formattedData = data.map(row => ({
-          nama: (row.Nama || row.nama || '').toUpperCase(),
-          whatsapp: String(row.WhatsApp || row.whatsapp || ''),
-          kategori: row.Kategori || row.kategori || 'Dewasa / Umum',
-          domisili: (row.Domisili || row.domisili || '').toUpperCase(),
-          jenis_kelamin: row.Gender || row.jenis_kelamin || 'Putra',
-        }));
-
-        const { error } = await supabase.from('pendaftaran').insert(formattedData);
-        if (error) throw error;
-        alert(`Berhasil mengimpor ${formattedData.length} data atlet!`);
-        fetchData();
-      } catch (err: any) {
-        alert("Gagal Impor: " + err.message);
-      } finally {
-        setLoading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    };
-    reader.readAsBinaryString(file);
-  };
-
-  // --- CORE FUNCTIONS ---
+  // --- DATA FETCHING ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -213,6 +212,7 @@ export default function ManajemenPendaftaran() {
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  // --- STORAGE HELPERS ---
   const deleteOldFile = async (url: string) => {
     if (!url || !url.includes('identitas-atlet')) return;
     try {
@@ -224,14 +224,15 @@ export default function ManajemenPendaftaran() {
     } catch (e) { console.error("Gagal hapus file lama", e); }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean = false) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'edit' | 'add') => {
     if (!e.target.files?.[0]) return;
     const file = e.target.files[0];
     setUploading(true);
     
     try {
       const compressedBlob = await compressImage(file);
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      const fileExt = 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `identitas/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -245,10 +246,10 @@ export default function ManajemenPendaftaran() {
 
       const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
       
-      if (isNew) {
-        setNewItem(prev => ({ ...prev, foto_url: publicUrl }));
+      if (mode === 'edit' && editingItem) {
+        setEditingItem({ ...editingItem, foto_url: publicUrl });
       } else {
-        setEditingItem(prev => prev ? { ...prev, foto_url: publicUrl } : null);
+        setNewItem(prev => ({ ...prev, foto_url: publicUrl }));
       }
       
     } catch (error: any) { 
@@ -258,20 +259,24 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  const handleAddNew = async (e: React.FormEvent) => {
+  // --- ACTION HANDLERS ---
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('pendaftaran').insert([{
-        ...newItem,
-        nama: newItem.nama.toUpperCase()
-      }]);
+      const { error } = await supabase.from('pendaftaran').insert([
+        { 
+          ...newItem, 
+          nama: (newItem.nama || '').toUpperCase(),
+          domisili: (newItem.domisili || '').toUpperCase() 
+        }
+      ]);
       if (error) throw error;
       setIsAddModalOpen(false);
-      setNewItem({ nama: '', whatsapp: '', kategori: kategoriUmur[0], domisili: '', jenis_kelamin: 'Putra', foto_url: '' });
+      setNewItem({ nama: '', whatsapp: '', kategori: 'Pemula (U-15)', domisili: '', jenis_kelamin: 'Putra', foto_url: '' });
       fetchData();
-    } catch (error: any) {
-      alert("Gagal menambah: " + error.message);
+    } catch (err: any) {
+      alert("Gagal menambah: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -280,7 +285,6 @@ export default function ManajemenPendaftaran() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem || uploading) return;
-    
     setIsSaving(true);
     try {
       const { error } = await supabase.from('pendaftaran').update({
@@ -331,12 +335,12 @@ export default function ManajemenPendaftaran() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-100">
+            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-slate-900 transition-all active:scale-95 shadow-lg shadow-blue-100">
               <Plus size={14} /> TAMBAH ATLET
             </button>
-            <label className="flex items-center gap-2 bg-amber-500 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-100/50 cursor-pointer">
+            <label className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100 cursor-pointer">
               <Upload size={14} /> IMPORT EXCEL
-              <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
+              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
             </label>
             <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
             <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-100/50">
@@ -345,6 +349,10 @@ export default function ManajemenPendaftaran() {
             <button onClick={exportToPDF} className="flex items-center gap-2 bg-rose-600 text-white px-3 py-2.5 rounded-xl font-bold text-[9px] tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100/50">
               <FileText size={14} /> PDF
             </button>
+            <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col items-center">
+              <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Total</span>
+              <span className="text-lg font-black text-blue-600 leading-none">{filteredData.length}</span>
+            </div>
             <button onClick={fetchData} className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-lg shadow-slate-200">
               <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} /> REFRESH
             </button>
@@ -357,7 +365,7 @@ export default function ManajemenPendaftaran() {
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text"
-              placeholder="Cari nama, kategori, atau kota..."
+              placeholder="Cari nama atau kota..."
               className="w-full pl-12 pr-6 py-3 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
@@ -391,6 +399,7 @@ export default function ManajemenPendaftaran() {
                         {String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
                       </span>
                     </td>
+                    
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-3">
                         <div 
@@ -398,7 +407,12 @@ export default function ManajemenPendaftaran() {
                           className="w-10 h-10 rounded-lg bg-slate-200 border border-white shadow-sm overflow-hidden flex-shrink-0 cursor-zoom-in"
                         >
                           {item.foto_url ? (
-                            <img src={item.foto_url} className="w-full h-full object-cover object-top" alt={item.nama} />
+                            <img 
+                              src={item.foto_url} 
+                              className="w-full h-full object-cover object-top" 
+                              style={{ imageRendering: '-webkit-optimize-contrast' }} 
+                              alt={item.nama || 'atlet'} 
+                            />
                           ) : (
                             <User className="m-auto mt-1.5 text-slate-400" size={18} />
                           )}
@@ -409,26 +423,31 @@ export default function ManajemenPendaftaran() {
                         </div>
                       </div>
                     </td>
+
                     <td className="px-4 py-2">
                       <span className={`text-[10px] font-bold uppercase ${item.jenis_kelamin === 'Putra' ? 'text-blue-600' : 'text-rose-500'}`}>
                         {item.jenis_kelamin || '-'}
                       </span>
                     </td>
+
                     <td className="px-4 py-2">
                       <span className="inline-flex items-center bg-blue-600 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase italic shadow-sm">
                         {item.kategori || 'UMUM'}
                       </span>
                     </td>
+
                     <td className="px-4 py-2 text-center">
                       <a href={`https://wa.me/${(item.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-bold text-slate-700 hover:text-green-600 bg-white border border-slate-100 px-3 py-1 rounded-lg transition-all text-[11px]">
                         <Phone size={12} className="text-green-500" /> {item.whatsapp || '-'}
                       </a>
                     </td>
+
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-1.5 font-bold text-slate-600 uppercase text-[10px]">
                         <MapPin size={12} className="text-rose-500" /> {item.domisili || '-'}
                       </div>
                     </td>
+
                     <td className="px-4 py-2">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }} className="p-1.5 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-600 hover:text-white transition-all">
@@ -448,11 +467,18 @@ export default function ManajemenPendaftaran() {
 
         {/* PAGINATION */}
         <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl text-white shadow-lg">
-          <p className="text-[9px] font-bold uppercase tracking-widest opacity-60">Total: {filteredData.length} Atlet | Hal {currentPage} / {totalPages || 1}</p>
+          <p className="text-[9px] font-bold uppercase tracking-widest opacity-60">Halaman {currentPage} Dari {totalPages || 1}</p>
           <div className="flex items-center gap-3">
             <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors">
               <ChevronLeft size={16} />
             </button>
+            <div className="flex gap-1.5 flex-wrap justify-center">
+                {[...Array(totalPages || 0)].map((_, i) => (
+                 <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 hover:bg-white/10 text-white/60'}`}>
+                    {i + 1}
+                 </button>
+                ))}
+            </div>
             <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="p-1.5 bg-white/10 rounded-lg disabled:opacity-20 hover:bg-white/20 transition-colors">
               <ChevronRight size={16} />
             </button>
@@ -460,45 +486,48 @@ export default function ManajemenPendaftaran() {
         </footer>
       </div>
 
-      {/* MODAL TAMBAH & EDIT (Reusable Structure) */}
+      {/* MODAL ADD & EDIT (Reusable logic) */}
       {(isEditModalOpen || isAddModalOpen) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => { setIsEditModalOpen(false); setIsAddModalOpen(false); }} />
           <div className="relative bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h2 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">
-                {isAddModalOpen ? 'Tambah Atlet Baru' : 'Edit Data Atlet'}
+                {isEditModalOpen ? 'Edit Atlet' : 'Tambah Atlet Baru'}
               </h2>
               <button onClick={() => { setIsEditModalOpen(false); setIsAddModalOpen(false); }} className="p-2 hover:bg-slate-200 rounded-xl text-slate-400 transition-colors"><X size={18}/></button>
             </div>
             
-            <form onSubmit={isAddModalOpen ? handleAddNew : handleUpdate} className="p-6 space-y-4">
+            <form onSubmit={isEditModalOpen ? handleUpdate : handleAdd} className="p-6 space-y-4">
+              {/* Profile Image Section */}
               <div className="flex items-center gap-6 mb-2">
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0">
-                    {(isAddModalOpen ? newItem.foto_url : editingItem?.foto_url) ? (
-                      <img src={isAddModalOpen ? newItem.foto_url : editingItem?.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
+                  <div className="w-20 h-20 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {(isEditModalOpen ? editingItem?.foto_url : newItem.foto_url) ? (
+                      <img src={isEditModalOpen ? editingItem?.foto_url : newItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
                     ) : (
-                      <User size={30} className="m-auto mt-4 text-slate-200" />
+                      <User size={30} className="text-slate-200" />
                     )}
                     {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={20} /></div>}
                   </div>
                   <label className="absolute -bottom-1 -right-1 p-2 bg-blue-600 text-white rounded-lg shadow-lg cursor-pointer hover:bg-slate-900 transition-all">
                     <Camera size={14} />
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, isAddModalOpen)} />
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, isEditModalOpen ? 'edit' : 'add')} />
                   </label>
                 </div>
                 <div className="flex-1 space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</label>
                   <input 
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm focus:border-blue-600 outline-none" 
-                    value={isAddModalOpen ? newItem.nama : (editingItem?.nama || '')} 
-                    onChange={e => isAddModalOpen ? setNewItem({...newItem, nama: e.target.value}) : setEditingItem({...editingItem!, nama: e.target.value})} 
+                    value={isEditModalOpen ? editingItem?.nama : newItem.nama} 
+                    onChange={e => isEditModalOpen ? setEditingItem({...editingItem!, nama: e.target.value}) : setNewItem({...newItem, nama: e.target.value})} 
+                    placeholder="Contoh: BUDI SANTOSO"
                     required 
                   />
                 </div>
               </div>
 
+              {/* Gender selection */}
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -506,8 +535,8 @@ export default function ManajemenPendaftaran() {
                     <button
                       key={g}
                       type="button"
-                      onClick={() => isAddModalOpen ? setNewItem({...newItem, jenis_kelamin: g}) : setEditingItem({...editingItem!, jenis_kelamin: g})}
-                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${(isAddModalOpen ? newItem.jenis_kelamin : editingItem?.jenis_kelamin) === g ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+                      onClick={() => isEditModalOpen ? setEditingItem({...editingItem!, jenis_kelamin: g}) : setNewItem({...newItem, jenis_kelamin: g})}
+                      className={`py-2 rounded-xl font-bold text-xs border-2 transition-all ${(isEditModalOpen ? editingItem?.jenis_kelamin : newItem.jenis_kelamin) === g ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
                     >
                       {g.toUpperCase()}
                     </button>
@@ -515,27 +544,44 @@ export default function ManajemenPendaftaran() {
                 </div>
               </div>
 
+              {/* Form Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
-                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={isAddModalOpen ? newItem.whatsapp : (editingItem?.whatsapp || '')} onChange={e => isAddModalOpen ? setNewItem({...newItem, whatsapp: e.target.value}) : setEditingItem({...editingItem!, whatsapp: e.target.value})} required />
+                  <input 
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" 
+                    value={isEditModalOpen ? editingItem?.whatsapp : newItem.whatsapp} 
+                    onChange={e => isEditModalOpen ? setEditingItem({...editingItem!, whatsapp: e.target.value}) : setNewItem({...newItem, whatsapp: e.target.value})} 
+                    placeholder="0812..."
+                    required 
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
-                  <select className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" value={isAddModalOpen ? newItem.kategori : (editingItem?.kategori || '')} onChange={e => isAddModalOpen ? setNewItem({...newItem, kategori: e.target.value}) : setEditingItem({...editingItem!, kategori: e.target.value})}>
+                  <select 
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm" 
+                    value={isEditModalOpen ? editingItem?.kategori : newItem.kategori} 
+                    onChange={e => isEditModalOpen ? setEditingItem({...editingItem!, kategori: e.target.value}) : setNewItem({...newItem, kategori: e.target.value})}
+                  >
                     {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili</label>
-                  <input className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" value={isAddModalOpen ? newItem.domisili : (editingItem?.domisili || '')} onChange={e => isAddModalOpen ? setNewItem({...newItem, domisili: e.target.value}) : setEditingItem({...editingItem!, domisili: e.target.value})} required />
+                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Domisili (Kota)</label>
+                  <input 
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-sm" 
+                    value={isEditModalOpen ? editingItem?.domisili : newItem.domisili} 
+                    onChange={e => isEditModalOpen ? setEditingItem({...editingItem!, domisili: e.target.value}) : setNewItem({...newItem, domisili: e.target.value})} 
+                    placeholder="KOTA/KABUPATEN"
+                    required 
+                  />
                 </div>
               </div>
 
               <div className="pt-2">
                 <button type="submit" disabled={isSaving || uploading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-slate-900 transition-all flex items-center justify-center gap-2">
                   {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                  {isAddModalOpen ? 'SIMPAN ATLET BARU' : 'SIMPAN PERUBAHAN'}
+                  {isEditModalOpen ? 'Simpan Perubahan' : 'Daftarkan Atlet'}
                 </button>
               </div>
             </form>

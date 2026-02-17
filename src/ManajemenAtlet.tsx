@@ -23,7 +23,6 @@ interface Registrant {
   status?: string;
 }
 
-// Helper untuk Cropping Image
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const image = new Image();
@@ -45,8 +44,9 @@ export default function ManajemenAtlet() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStats, setEditingStats] = useState<Partial<Registrant> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // State baru untuk mencegah double submit
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- State Baru: Tambah Atlet & Crop ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newAtlet, setNewAtlet] = useState({
     nama: '',
@@ -70,7 +70,6 @@ export default function ManajemenAtlet() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [notifMessage, setNotifMessage] = useState('');
 
-  // NAMA BUCKET YANG DIPERBAIKI
   const BUCKET_NAME = 'atlet_photos';
 
   useEffect(() => {
@@ -176,18 +175,12 @@ export default function ManajemenAtlet() {
         0, 0, croppedAreaPixels.width, croppedAreaPixels.height
       );
 
-      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9));
-      const fileName = `atlet-${Date.now()}.jpg`;
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8));
+      const fileName = `atlet-${Date.now()}-${newAtlet.nama.replace(/\s+/g, '-').toLowerCase()}.jpg`;
 
-      // MENGGUNAKAN BUCKET_NAME: atlet_photos
-      const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(fileName, blob);
+      const { error } = await supabase.storage.from(BUCKET_NAME).upload(fileName, blob);
       
-      if (error) {
-        if (error.message.includes("Bucket not found")) {
-           throw new Error(`Bucket "${BUCKET_NAME}" tidak ditemukan. Pastikan nama bucket di Supabase adalah atlet_photos (dengan underscore).`);
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName);
       
@@ -205,28 +198,35 @@ export default function ManajemenAtlet() {
     }
   };
 
+  // --- PERBAIKAN UTAMA: HANDLE ADD ATLET DENGAN UPSERT & ANTI-DUPLICATE ---
   const handleAddNewAtlet = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     setIsSaving(true);
+    setIsSubmitting(true);
+
     try {
+      // 1. Simpan/Update ke tabel pendaftaran (Upsert berdasarkan nama)
       const { data: pData, error: pError } = await supabase
         .from('pendaftaran')
-        .insert([{
-          nama: newAtlet.nama,
+        .upsert({
+          nama: newAtlet.nama.trim(),
           whatsapp: newAtlet.whatsapp,
           kategori: newAtlet.kategori,
           domisili: newAtlet.domisili,
           foto_url: newAtlet.foto_url,
           status: 'verified'
-        }])
+        }, { onConflict: 'nama' })
         .select();
 
       if (pError) throw pError;
 
+      // 2. Simpan/Update ke tabel rankings (Upsert berdasarkan player_name)
       const { error: rError } = await supabase
         .from('rankings')
         .upsert({
-          player_name: newAtlet.nama,
+          player_name: newAtlet.nama.trim(),
           category: newAtlet.kategori,
           seed: newAtlet.seed,
           total_points: newAtlet.points,
@@ -237,31 +237,32 @@ export default function ManajemenAtlet() {
 
       if (rError) throw rError;
 
-      setNotifMessage("Atlet Berhasil Ditambahkan!");
+      setNotifMessage("Data Berhasil Disinkronkan!");
       setShowSuccess(true);
       setIsAddModalOpen(false);
       
-      // Reset Form
       setNewAtlet({
         nama: '', whatsapp: '', kategori: 'SENIOR', domisili: '',
         seed: 'UNSEEDED', points: 0, bio: 'Atlet PB US 162',
         prestasi: 'Regular Player', foto_url: ''
       });
 
-      fetchAtlets();
+      await fetchAtlets();
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
-      alert(err.message);
+      alert("Error Simpan: " + err.message);
     } finally {
       setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleUpdateStats = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingStats || !editingStats.id) return;
+    if (!editingStats || !editingStats.nama || isSubmitting) return;
     
     setIsSaving(true);
+    setIsSubmitting(true);
     try {
       const { error: rankError } = await supabase
         .from('rankings')
@@ -275,7 +276,7 @@ export default function ManajemenAtlet() {
       if (rankError) throw rankError;
 
       await fetchAtlets();
-      setNotifMessage("Data Sync Successfully!");
+      setNotifMessage("Ranking Updated!");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       setIsEditModalOpen(false);
@@ -284,6 +285,7 @@ export default function ManajemenAtlet() {
       alert("Error: " + err.message);
     } finally {
       setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -454,7 +456,6 @@ export default function ManajemenAtlet() {
           <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl relative flex flex-col md:flex-row overflow-hidden">
             <button onClick={() => setIsAddModalOpen(false)} className="absolute top-6 right-6 z-10 p-3 bg-slate-100 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={20}/></button>
             
-            {/* Foto Upload Section */}
             <div className="w-full md:w-[40%] bg-slate-50 p-10 border-r border-slate-100 flex flex-col items-center justify-center">
               <div className="w-48 h-48 rounded-[2rem] overflow-hidden bg-slate-200 shadow-inner mb-6 relative group border-4 border-white">
                 {newAtlet.foto_url ? (
@@ -471,7 +472,6 @@ export default function ManajemenAtlet() {
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Rekomendasi: Portrait (4:5)<br/>Maksimal 2MB</p>
             </div>
 
-            {/* Form Section */}
             <form onSubmit={handleAddNewAtlet} className="w-full md:w-[60%] p-10 md:p-14 space-y-6">
               <h3 className="text-3xl font-black italic uppercase">Register <span className="text-blue-600">New Player</span></h3>
               
@@ -519,8 +519,8 @@ export default function ManajemenAtlet() {
                 </div>
               </div>
 
-              <button type="submit" disabled={isSaving} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 shadow-2xl hover:bg-blue-600 transition-all">
-                {isSaving ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Confirm Registration
+              <button type="submit" disabled={isSaving || isSubmitting} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3 shadow-2xl hover:bg-blue-600 transition-all disabled:opacity-50">
+                {(isSaving || isSubmitting) ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Confirm Registration
               </button>
             </form>
           </div>
@@ -624,8 +624,8 @@ export default function ManajemenAtlet() {
                       </select>
                     </div>
                   </div>
-                  <button type="submit" disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
-                    {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                  <button type="submit" disabled={isSaving || isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] flex items-center justify-center gap-3">
+                    {(isSaving || isSubmitting) ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
                     Save Performance
                   </button>
                 </form>

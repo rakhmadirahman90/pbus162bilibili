@@ -191,13 +191,12 @@ export default function ManajemenAtlet() {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
-      alert("Upload Gagal: Pastikan Bucket 'atlet_photos' ada dan bersifat Public.");
+      alert("Upload Gagal: Periksa koneksi atau bucket.");
     } finally {
       setUploadingImage(false);
     }
   };
 
-  // --- LOGIKA BARU: CEK DULU BARU SIMPAN (MENGGANTIKAN UPSERT BERMASALAH) ---
   const handleAddNewAtlet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -208,61 +207,38 @@ export default function ManajemenAtlet() {
     try {
       const cleanName = newAtlet.nama.trim();
 
-      // 1. Proses Tabel Pendaftaran
-      const { data: existingP } = await supabase
-        .from('pendaftaran')
-        .select('id')
-        .eq('nama', cleanName)
-        .maybeSingle();
-
-      if (existingP) {
+      // 1. Sinkron ke Pendaftaran
+      const { data: existP } = await supabase.from('pendaftaran').select('id').eq('nama', cleanName).maybeSingle();
+      if (existP) {
         await supabase.from('pendaftaran').update({
-          whatsapp: newAtlet.whatsapp,
-          kategori: newAtlet.kategori,
-          domisili: newAtlet.domisili,
-          foto_url: newAtlet.foto_url,
-          status: 'verified'
-        }).eq('id', existingP.id);
+          whatsapp: newAtlet.whatsapp, kategori: newAtlet.kategori,
+          domisili: newAtlet.domisili, foto_url: newAtlet.foto_url, status: 'verified'
+        }).eq('id', existP.id);
       } else {
         await supabase.from('pendaftaran').insert([{
-          nama: cleanName,
-          whatsapp: newAtlet.whatsapp,
-          kategori: newAtlet.kategori,
-          domisili: newAtlet.domisili,
-          foto_url: newAtlet.foto_url,
-          status: 'verified'
+          nama: cleanName, whatsapp: newAtlet.whatsapp, kategori: newAtlet.kategori,
+          domisili: newAtlet.domisili, foto_url: newAtlet.foto_url, status: 'verified'
         }]);
       }
 
-      // 2. Proses Tabel Rankings
-      const { data: existingR } = await supabase
-        .from('rankings')
-        .select('id')
-        .eq('player_name', cleanName)
-        .maybeSingle();
-
-      if (existingR) {
+      // 2. Sinkron ke Rankings
+      const { data: existR } = await supabase.from('rankings').select('id').eq('player_name', cleanName).maybeSingle();
+      if (existR) {
         await supabase.from('rankings').update({
-          category: newAtlet.kategori,
-          seed: newAtlet.seed,
-          total_points: newAtlet.points,
-          photo_url: newAtlet.foto_url,
-          bio: newAtlet.bio,
-          achievement: newAtlet.prestasi
-        }).eq('id', existingR.id);
+          category: newAtlet.kategori, seed: newAtlet.seed,
+          total_points: newAtlet.points, photo_url: newAtlet.foto_url,
+          bio: newAtlet.bio, achievement: newAtlet.prestasi
+        }).eq('id', existR.id);
       } else {
         await supabase.from('rankings').insert([{
-          player_name: cleanName,
-          category: newAtlet.kategori,
-          seed: newAtlet.seed,
-          total_points: newAtlet.points,
-          photo_url: newAtlet.foto_url,
-          bio: newAtlet.bio,
-          achievement: newAtlet.prestasi
+          player_name: cleanName, category: newAtlet.kategori, seed: newAtlet.seed,
+          total_points: newAtlet.points, photo_url: newAtlet.foto_url,
+          bio: newAtlet.bio, achievement: newAtlet.prestasi
         }]);
       }
 
-      setNotifMessage("Data Atlet Tersinkron!");
+      // PERBAIKAN: Paksa Refresh & Tutup Modal
+      setNotifMessage("Data Atlet Ditambahkan!");
       setShowSuccess(true);
       setIsAddModalOpen(false);
       
@@ -272,10 +248,14 @@ export default function ManajemenAtlet() {
         prestasi: 'Regular Player', foto_url: ''
       });
 
-      await fetchAtlets();
-      setTimeout(() => setShowSuccess(false), 3000);
+      // Beri jeda 500ms agar database benar-benar selesai commit sebelum fetch
+      setTimeout(async () => {
+        await fetchAtlets();
+        setShowSuccess(false);
+      }, 500);
+
     } catch (err: any) {
-      alert("Gagal Sinkron: " + err.message);
+      alert("Gagal: " + err.message);
     } finally {
       setIsSaving(false);
       setIsSubmitting(false);
@@ -289,8 +269,7 @@ export default function ManajemenAtlet() {
     setIsSaving(true);
     setIsSubmitting(true);
     try {
-      // Update di tabel rankings berdasarkan nama (case sensitive)
-      const { error: rankError } = await supabase
+      const { error } = await supabase
         .from('rankings')
         .update({
           seed: editingStats.seed,
@@ -299,16 +278,21 @@ export default function ManajemenAtlet() {
         })
         .eq('player_name', editingStats.nama);
 
-      if (rankError) throw rankError;
+      if (error) throw error;
 
-      await fetchAtlets();
-      setNotifMessage("Ranking Berhasil Diupdate!");
+      setNotifMessage("Statistik Diperbarui!");
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
       setIsEditModalOpen(false);
       setSelectedAtlet(null);
+
+      // Refresh data list
+      setTimeout(async () => {
+        await fetchAtlets();
+        setShowSuccess(false);
+      }, 500);
+
     } catch (err: any) {
-      alert("Update Gagal: " + err.message);
+      alert("Gagal Update: " + err.message);
     } finally {
       setIsSaving(false);
       setIsSubmitting(false);

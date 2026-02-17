@@ -36,6 +36,82 @@ import AdminLogs from './components/AdminLogs';
 import AdminTampilan from './components/AdminTampilan'; // Menu Konfigurasi Umum
 import KelolaHero from './components/KelolaHero'; // KODE BARU: Import Kelola Hero
 
+// --- IMPORT BARU UNTUK POPUP ---
+import { X, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+
+/**
+ * KODE BARU: Komponen Pop-up Gambar Otomatis
+ */
+function ImagePopup() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Daftar Gambar Pop-up (Bisa lebih dari satu)
+  const promoImages = [
+    "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000",
+    "https://images.unsplash.com/photo-1541339907198-e08756defeec?q=80&w=1000"
+  ];
+
+  useEffect(() => {
+    const hasSeenPopup = localStorage.getItem('lastSeenPopup');
+    const today = new Date().toDateString();
+
+    // Muncul jika belum pernah melihat pop-up hari ini
+    if (hasSeenPopup !== today) {
+      const timer = setTimeout(() => setIsOpen(true), 2000); // Muncul setelah 2 detik
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const closePopup = () => {
+    setIsOpen(false);
+    localStorage.setItem('lastSeenPopup', new Date().toDateString());
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
+      <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+        
+        {/* Tombol Close */}
+        <button onClick={closePopup} className="absolute top-4 right-4 z-20 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition-all">
+          <X size={24} />
+        </button>
+
+        {/* Slider Gambar */}
+        <div className="relative aspect-[4/5] bg-slate-100">
+          <img 
+            src={promoImages[currentIndex]} 
+            className="w-full h-full object-cover" 
+            alt="Promo" 
+          />
+          
+          {promoImages.length > 1 && (
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-4">
+              <button onClick={() => setCurrentIndex(prev => prev === 0 ? promoImages.length - 1 : prev - 1)} className="p-2 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md">
+                <ChevronLeft size={20} />
+              </button>
+              <button onClick={() => setCurrentIndex(prev => prev === promoImages.length - 1 ? 0 : prev + 1)} className="p-2 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md">
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Konten Bawah */}
+        <div className="p-8 text-center bg-white">
+          <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">PENGUMUMAN <span className="text-blue-600">PENTING!</span></h3>
+          <p className="text-slate-500 font-bold text-sm mb-6 leading-relaxed">Jangan lewatkan update terbaru dan program latihan atlet minggu ini.</p>
+          <button onClick={closePopup} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-100 hover:bg-slate-900 transition-all">
+            LIHAT DETAIL
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +179,7 @@ export default function App() {
         {/* LANDING PAGE ROUTE */}
         <Route path="/" element={
           <div className="min-h-screen bg-white">
+            <ImagePopup /> {/* KODE BARU: Pop-up Muncul di Sini */}
             <Navbar onNavigate={handleNavigate} />
             <Hero />
             <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
@@ -225,5 +302,3 @@ function AdminLayout({ session }: { session: any }) {
     </div>
   );
 }
-
-import { Menu } from 'lucide-react';

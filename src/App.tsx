@@ -33,34 +33,43 @@ import AuditLogPoin from './components/AuditLogPoin';
 // --- IMPORT MENU BARU ---
 import AdminLaporan from './components/AdminLaporan'; 
 import AdminLogs from './components/AdminLogs'; 
-import AdminTampilan from './components/AdminTampilan'; // Menu Konfigurasi Umum
-import KelolaHero from './components/KelolaHero'; // KODE BARU: Import Kelola Hero
+import AdminTampilan from './components/AdminTampilan'; 
+import KelolaHero from './components/KelolaHero'; 
+import AdminPopup from './components/AdminPopup'; // KODE BARU: Import Halaman Kelola Pop-up
 
 // --- IMPORT BARU UNTUK POPUP ---
 import { X, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 
 /**
- * KODE BARU: Komponen Pop-up Gambar Otomatis
+ * KODE DIPERBAIKI: Komponen Pop-up Gambar Dinamis dari Database
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-
-  // Daftar Gambar Pop-up (Bisa lebih dari satu)
-  const promoImages = [
-    "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000",
-    "https://images.unsplash.com/photo-1541339907198-e08756defeec?q=80&w=1000"
-  ];
+  const [promoImages, setPromoImages] = useState<any[]>([]);
 
   useEffect(() => {
-    const hasSeenPopup = localStorage.getItem('lastSeenPopup');
-    const today = new Date().toDateString();
-
-    // Muncul jika belum pernah melihat pop-up hari ini
-    if (hasSeenPopup !== today) {
-      const timer = setTimeout(() => setIsOpen(true), 2000); // Muncul setelah 2 detik
-      return () => clearTimeout(timer);
-    }
+    // Fungsi mengambil data pop-up aktif dari Supabase
+    const fetchActivePopups = async () => {
+      const { data, error } = await supabase
+        .from('konfigurasi_popup')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (!error && data && data.length > 0) {
+        setPromoImages(data);
+        
+        // Cek LocalStorage agar tidak muncul berulang kali di hari yang sama
+        const hasSeenPopup = localStorage.getItem('lastSeenPopup');
+        const today = new Date().toDateString();
+        if (hasSeenPopup !== today) {
+          const timer = setTimeout(() => setIsOpen(true), 2000);
+          return () => clearTimeout(timer);
+        }
+      }
+    };
+    fetchActivePopups();
   }, []);
 
   const closePopup = () => {
@@ -68,7 +77,7 @@ function ImagePopup() {
     localStorage.setItem('lastSeenPopup', new Date().toDateString());
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || promoImages.length === 0) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
@@ -82,9 +91,9 @@ function ImagePopup() {
         {/* Slider Gambar */}
         <div className="relative aspect-[4/5] bg-slate-100">
           <img 
-            src={promoImages[currentIndex]} 
+            src={promoImages[currentIndex].url_gambar} 
             className="w-full h-full object-cover" 
-            alt="Promo" 
+            alt={promoImages[currentIndex].judul} 
           />
           
           {promoImages.length > 1 && (
@@ -101,10 +110,14 @@ function ImagePopup() {
 
         {/* Konten Bawah */}
         <div className="p-8 text-center bg-white">
-          <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">PENGUMUMAN <span className="text-blue-600">PENTING!</span></h3>
-          <p className="text-slate-500 font-bold text-sm mb-6 leading-relaxed">Jangan lewatkan update terbaru dan program latihan atlet minggu ini.</p>
+          <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">
+            {promoImages[currentIndex].judul || "PENGUMUMAN"}
+          </h3>
+          <p className="text-slate-500 font-bold text-sm mb-6 leading-relaxed">
+            {promoImages[currentIndex].deskripsi || "Jangan lewatkan update terbaru dari kami."}
+          </p>
           <button onClick={closePopup} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-100 hover:bg-slate-900 transition-all">
-            LIHAT DETAIL
+            MENGERTI
           </button>
         </div>
       </div>
@@ -179,7 +192,7 @@ export default function App() {
         {/* LANDING PAGE ROUTE */}
         <Route path="/" element={
           <div className="min-h-screen bg-white">
-            <ImagePopup /> {/* KODE BARU: Pop-up Muncul di Sini */}
+            <ImagePopup />
             <Navbar onNavigate={handleNavigate} />
             <Hero />
             <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
@@ -255,13 +268,13 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="kontak" element={<AdminContact />} />
             <Route path="navbar" element={<KelolaNavbar />} />
             
-            {/* RUTE BARU: LAPORAN, LOGS, TAMPILAN, & HERO */}
+            {/* RUTE BARU: LAPORAN, LOGS, TAMPILAN, HERO & POPUP */}
             <Route path="laporan" element={<AdminLaporan />} />
             <Route path="logs" element={<AdminLogs />} />
             <Route path="tampilan" element={<AdminTampilan />} />
-            <Route path="hero" element={<KelolaHero />} /> {/* KODE BARU: Menghubungkan Menu ke Komponen */}
+            <Route path="hero" element={<KelolaHero />} />
+            <Route path="popup" element={<AdminPopup />} /> {/* KODE BARU: Menghubungkan Rute Pop-up */}
             
-            {/* Fallback internal admin */}
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>
@@ -283,7 +296,6 @@ function AdminLayout({ session }: { session: any }) {
         </div>
       </main>
 
-      {/* CSS Khusus Scrollbar */}
       <style>{`
         ::-webkit-scrollbar {
           width: 5px;

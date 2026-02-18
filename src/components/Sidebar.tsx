@@ -23,7 +23,8 @@ import {
   FileSearch,
   Layout,
   Images, // Ikon untuk Kelola Hero
-  Megaphone // KODE BARU: Ikon untuk Kelola Pop-up
+  Megaphone, // KODE BARU: Ikon untuk Kelola Pop-up
+  LayoutGrid // KODE BARU: Ikon untuk Kelola Footer
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -92,8 +93,9 @@ export default function Sidebar({ email, isOpen, onClose }: SidebarProps) {
       items: [
         { name: 'Kelola Tampilan', path: '/admin/tampilan', icon: Layout }, 
         { name: 'Kelola Hero', path: '/admin/hero', icon: Images },
-        { name: 'Kelola Pop-up', path: '/admin/popup', icon: Megaphone }, // KODE BARU: Menu Kelola Pop-up
+        { name: 'Kelola Pop-up', path: '/admin/popup', icon: Megaphone },
         { name: 'Kelola Navbar', path: '/admin/navbar', icon: Menu }, 
+        { name: 'Kelola Footer', path: '/admin/footer', icon: LayoutGrid }, // KODE BARU: Menu Kelola Footer
         { name: 'Kelola Kontak', path: '/admin/kontak', icon: Phone },
       ]
     }

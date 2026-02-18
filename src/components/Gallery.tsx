@@ -41,6 +41,7 @@ export default function Gallery() {
 
   // --- KODE BARU: HELPER UNTUK EKSTRAK ID YOUTUBE ---
   const getYouTubeID = (url: string) => {
+    if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
@@ -56,19 +57,24 @@ export default function Gallery() {
     return url;
   };
 
-  // Helper untuk mendapatkan thumbnail
+  // --- PERBAIKAN LOGIKA THUMBNAIL ---
   const getThumbnail = (item: any) => {
+    if (!item.url) return '/placeholder-image.jpg'; // Jalur fallback jika URL kosong
     if (item.type === 'image') return item.url;
     
-    // Cek apakah video YouTube
+    // 1. Cek apakah video YouTube
     const videoId = getYouTubeID(item.url);
     if (videoId) {
-      // Menggunakan hqdefault atau maxresdefault untuk kualitas lebih baik
+      // Menggunakan hqdefault secara default karena selalu ada di setiap video YouTube
       return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
     }
     
-    // Jika video lokal, tampilkan placeholder atau item.url jika storage menyediakan thumbnail
-    return item.url; 
+    // 2. Jika video lokal (langsung upload), dan jika ada kolom thumbnail_url di DB
+    if (item.thumbnail_url) return item.thumbnail_url;
+
+    // 3. Fallback terakhir untuk video lokal (Menggunakan trik #t=0.1 agar browser merender frame pertama)
+    // Catatan: Ini bekerja jika item.url langsung mengarah ke file video (.mp4 dll)
+    return `${item.url}#t=0.1`; 
   };
   // ------------------------------------------------
 
@@ -138,17 +144,28 @@ export default function Gallery() {
                 className="group relative cursor-pointer overflow-hidden rounded-[2.5rem] shadow-md hover:shadow-2xl border border-slate-100 transition-all duration-500 animate-in fade-in"
               >
                 <div className="aspect-[4/3] relative bg-slate-200">
-                  <img
-                    src={getThumbnail(item)}
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    onError={(e: any) => {
-                      // Jika maxresdefault gagal (karena video kecil), fallback ke hqdefault
-                      if (e.target.src.includes('maxresdefault')) {
-                        e.target.src = e.target.src.replace('maxresdefault', 'hqdefault');
-                      }
-                    }}
-                  />
+                  {/* PERBAIKAN: Gunakan Tag Video untuk video lokal agar Thumbnail muncul otomatis dari frame pertama */}
+                  {item.type === 'video' && !getYouTubeID(item.url) ? (
+                    <video 
+                      src={`${item.url}#t=0.5`} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={getThumbnail(item)}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      onError={(e: any) => {
+                        // Jika URL gambar error, gunakan placeholder atau gambar YouTube kualitas menengah
+                        const videoId = getYouTubeID(item.url);
+                        if (videoId) {
+                          e.target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+                        }
+                      }}
+                    />
+                  )}
+                  
                   {item.type === 'video' && (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/30 group-hover:bg-slate-900/50 transition-all">
                       <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center text-blue-600 shadow-2xl group-hover:scale-110 transition-transform">
@@ -209,7 +226,7 @@ export default function Gallery() {
             >
               <div className="w-full aspect-video rounded-3xl overflow-hidden shadow-2xl bg-black border border-white/10 flex items-center justify-center">
                 {activeMedia.type === 'video' ? (
-                  activeMedia.is_local ? (
+                  !getYouTubeID(activeMedia.url) ? (
                     <video className="w-full h-full" controls autoPlay>
                       <source src={activeMedia.url} type="video/mp4" />
                       Browser Anda tidak mendukung tag video.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Link, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
 export default function AdminFooter() {
@@ -27,43 +27,52 @@ export default function AdminFooter() {
     }
   });
 
+  // Ambil data saat komponen dimuat
   useEffect(() => {
     async function getFooterData() {
-      // PERBAIKAN: Mengambil data dari site_settings dengan key 'footer_config' atau kolom footer_config
-      const { data } = await supabase
-        .from('site_settings')
-        .select('footer_config')
-        .eq('id', 1) // Memastikan mengambil ID 1 sesuai fungsi update
-        .single();
-        
-      if (data?.footer_config) {
-        // Sinkronisasi data dari database ke state
-        setFooterConfig({
-          ...footerConfig,
-          ...data.footer_config,
-          socials: { ...footerConfig.socials, ...(data.footer_config.socials || {}) },
-          navigation: data.footer_config.navigation || footerConfig.navigation
-        });
+      try {
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('footer_config')
+          .eq('id', 1)
+          .single();
+          
+        if (data?.footer_config) {
+          const config = data.footer_config;
+          setFooterConfig({
+            ...footerConfig,
+            ...config,
+            socials: { ...footerConfig.socials, ...(config.socials || {}) },
+            navigation: config.navigation || footerConfig.navigation
+          });
+        }
+      } catch (err) {
+        console.log("Memulai dengan data default...");
       }
     }
     getFooterData();
   }, []);
 
+  // Fungsi Simpan dengan Logika UPSERT (Update or Insert)
   const handleUpdate = async () => {
     setLoading(true);
-    // PERBAIKAN: Memastikan update ke key 'footer_config' pada baris ID 1
-    const { error } = await supabase
-      .from('site_settings')
-      .update({ footer_config: footerConfig })
-      .eq('id', 1);
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ 
+          id: 1, 
+          footer_config: footerConfig,
+          updated_at: new Date().toISOString()
+        });
 
-    if (!error) {
-      alert("Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
-    } else {
+      if (error) throw error;
+      alert("🚀 Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
+    } catch (error: any) {
       console.error("Error update footer:", error);
-      alert("Gagal menyimpan perubahan.");
+      alert("Gagal menyimpan: " + error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const updateNavigation = (index: number, newName: string) => {
@@ -92,9 +101,7 @@ export default function AdminFooter() {
   const moveNavigation = (index: number, direction: 'up' | 'down') => {
     const newNav = [...footerConfig.navigation];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
     if (targetIndex < 0 || targetIndex >= newNav.length) return;
-    
     [newNav[index], newNav[targetIndex]] = [newNav[targetIndex], newNav[index]];
     setFooterConfig({ ...footerConfig, navigation: newNav });
   };
@@ -113,26 +120,29 @@ export default function AdminFooter() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* SISI KIRI: INFORMASI UTAMA */}
           <div className="space-y-6">
             <div>
               <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Deskripsi Klub</label>
               <textarea 
-                className="w-full bg-[#0f111a] border border-white/10 rounded-2xl p-4 text-sm focus:border-blue-500 outline-none h-32 transition-all"
+                className="w-full bg-[#0f111a] border border-white/10 rounded-2xl p-4 text-sm focus:border-blue-500 outline-none h-32 transition-all focus:ring-2 focus:ring-blue-500/20"
                 value={footerConfig.description}
                 onChange={(e) => setFooterConfig({...footerConfig, description: e.target.value})}
-                placeholder="Contoh: Membina legenda masa depan..."
               />
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Alamat Lengkap</label>
-              <input 
-                className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none"
-                value={footerConfig.address}
-                onChange={(e) => setFooterConfig({...footerConfig, address: e.target.value})}
-              />
+              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Alamat Kantor Pusat</label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-4 text-blue-500" size={18} />
+                <input 
+                  className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-blue-500 outline-none"
+                  value={footerConfig.address}
+                  onChange={(e) => setFooterConfig({...footerConfig, address: e.target.value})}
+                />
+              </div>
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Teks Hak Cipta</label>
+              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Teks Hak Cipta (Copyright)</label>
               <input 
                 className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-mono text-[11px]"
                 value={footerConfig.copyright}
@@ -141,81 +151,71 @@ export default function AdminFooter() {
             </div>
           </div>
 
+          {/* SISI KANAN: NAVIGASI & KONTAK */}
           <div className="space-y-6">
-            <div className="p-5 bg-[#0f111a] rounded-3xl border border-white/5 space-y-4">
+            <div className="p-5 bg-[#0f111a] rounded-3xl border border-white/5 space-y-4 shadow-inner">
               <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                <label className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em]">List Menu Navigasi</label>
-                <button 
-                  onClick={addNavigation}
-                  className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold transition-all"
-                >
-                  <Plus size={12} /> TAMBAH MENU
+                <label className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em]">Susunan Menu</label>
+                <button onClick={addNavigation} className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold transition-all">
+                  <Plus size={12} /> TAMBAH
                 </button>
               </div>
               
-              <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                 {footerConfig.navigation.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 group animate-in fade-in slide-in-from-right-1">
+                  <div key={idx} className="flex items-center gap-2 group">
                     <div className="flex flex-col gap-1">
-                      <button onClick={() => moveNavigation(idx, 'up')} disabled={idx === 0} className="text-slate-600 hover:text-blue-500 disabled:opacity-20 transition-colors">
-                        <ArrowUp size={12} />
-                      </button>
-                      <button onClick={() => moveNavigation(idx, 'down')} disabled={idx === footerConfig.navigation.length - 1} className="text-slate-600 hover:text-blue-500 disabled:opacity-20 transition-colors">
-                        <ArrowDown size={12} />
-                      </button>
+                      <button onClick={() => moveNavigation(idx, 'up')} disabled={idx === 0} className="text-slate-600 hover:text-blue-500 disabled:opacity-10"><ArrowUp size={12} /></button>
+                      <button onClick={() => moveNavigation(idx, 'down')} disabled={idx === footerConfig.navigation.length - 1} className="text-slate-600 hover:text-blue-500 disabled:opacity-10"><ArrowDown size={12} /></button>
                     </div>
-
                     <div className="flex items-center gap-3 bg-[#161925] flex-1 p-2 rounded-xl border border-white/5 group-hover:border-blue-500/40 transition-all">
-                      <div className="w-6 h-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                        {idx + 1}
-                      </div>
                       <input 
                         className="bg-transparent flex-1 text-xs outline-none text-slate-200 focus:text-white" 
                         value={item.name} 
                         onChange={(e) => updateNavigation(idx, e.target.value)} 
-                        placeholder="Nama Menu..."
                       />
                     </div>
-                    <button 
-                      onClick={() => removeNavigation(idx)} 
-                      className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <button onClick={() => removeNavigation(idx)} className="p-2 text-slate-600 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* AREA HUBUNGI KAMI (Sesuai Landing Page) */}
+            {/* KONTAK & SOSMED */}
             <div className="grid grid-cols-2 gap-4">
                <div>
-                 <label className="text-[9px] font-black uppercase text-slate-500 mb-2 block">WhatsApp</label>
-                 <input placeholder="62812..." className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-blue-500" value={footerConfig.phone} onChange={(e) => setFooterConfig({...footerConfig, phone: e.target.value})} />
+                 <label className="text-[9px] font-black uppercase text-slate-500 mb-2 block">WhatsApp (Admin)</label>
+                 <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2 focus-within:border-blue-500 transition-all">
+                    <MessageCircle size={14} className="text-green-500" />
+                    <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.phone} onChange={(e) => setFooterConfig({...footerConfig, phone: e.target.value})} />
+                 </div>
                </div>
                <div>
-                 <label className="text-[9px] font-black uppercase text-slate-500 mb-2 block">Email Resmi</label>
-                 <input placeholder="info@..." className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-blue-500" value={footerConfig.email} onChange={(e) => setFooterConfig({...footerConfig, email: e.target.value})} />
+                 <label className="text-[9px] font-black uppercase text-slate-500 mb-2 block">Email Support</label>
+                 <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2 focus-within:border-blue-500 transition-all">
+                    <Mail size={14} className="text-blue-400" />
+                    <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.email} onChange={(e) => setFooterConfig({...footerConfig, email: e.target.value})} />
+                 </div>
                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 bg-[#0f111a] p-2 rounded-xl border border-white/5">
-                  <Instagram size={14} className="text-pink-500" />
-                  <input className="bg-transparent flex-1 text-[10px] outline-none" placeholder="Link Instagram" value={footerConfig.socials.instagram} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, instagram: e.target.value}})} />
+               {[
+                 { key: 'instagram', icon: Instagram, color: 'text-pink-500', label: 'Instagram' },
+                 { key: 'facebook', icon: Facebook, color: 'text-blue-500', label: 'Facebook' },
+                 { key: 'twitter', icon: Twitter, color: 'text-sky-400', label: 'Twitter/X' },
+                 { key: 'youtube', icon: Youtube, color: 'text-red-600', label: 'YouTube' }
+               ].map((soc) => (
+                <div key={soc.key} className="flex items-center gap-3 bg-[#0f111a] p-2 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+                  <soc.icon size={14} className={soc.color} />
+                  <input 
+                    className="bg-transparent flex-1 text-[10px] outline-none placeholder:text-slate-700" 
+                    placeholder={`Link ${soc.label}`} 
+                    value={(footerConfig.socials as any)[soc.key]} 
+                    onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, [soc.key]: e.target.value}})} 
+                  />
                 </div>
-                <div className="flex items-center gap-3 bg-[#0f111a] p-2 rounded-xl border border-white/5">
-                  <Facebook size={14} className="text-blue-500" />
-                  <input className="bg-transparent flex-1 text-[10px] outline-none" placeholder="Link Facebook" value={footerConfig.socials.facebook} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, facebook: e.target.value}})} />
-                </div>
-                <div className="flex items-center gap-3 bg-[#0f111a] p-2 rounded-xl border border-white/5">
-                  <Twitter size={14} className="text-sky-400" />
-                  <input className="bg-transparent flex-1 text-[10px] outline-none" placeholder="Link Twitter" value={footerConfig.socials.twitter} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, twitter: e.target.value}})} />
-                </div>
-                <div className="flex items-center gap-3 bg-[#0f111a] p-2 rounded-xl border border-white/5">
-                  <Youtube size={14} className="text-red-600" />
-                  <input className="bg-transparent flex-1 text-[10px] outline-none" placeholder="Link Youtube" value={footerConfig.socials.youtube} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, youtube: e.target.value}})} />
-                </div>
+               ))}
             </div>
           </div>
         </div>
@@ -223,32 +223,35 @@ export default function AdminFooter() {
         <button 
           onClick={handleUpdate}
           disabled={loading}
-          className="w-full mt-8 py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(37,99,235,0.3)] transition-all"
+          className="w-full mt-8 py-5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 text-white rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(37,99,235,0.3)] transition-all"
         >
-          {loading ? 'PROSES SINKRONISASI...' : <><Save size={18} /> SIMPAN PERUBAHAN FOOTER</>}
+          {loading ? 'MENYINKRONKAN DATA...' : <><Save size={18} /> SIMPAN SEMUA PERUBAHAN</>}
         </button>
       </div>
 
       {/* PREVIEW SECTION */}
       <div className="max-w-6xl mx-auto space-y-4 pb-20">
         <h3 className="flex items-center gap-2 text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] ml-4">
-          <Eye size={14} /> Tampilan Halaman Depan (Preview)
+          <Eye size={14} /> LIVE PREVIEW (Tampilan Akhir)
         </h3>
-        <div className="bg-[#0a0c14] rounded-[3rem] p-12 border border-white/10">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 text-left">
+        <div className="bg-[#0a0c14] rounded-[3rem] p-12 border border-white/10 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 text-left relative z-10">
             <div className="col-span-1">
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.4)]"></div>
                 <span className="font-black text-lg italic tracking-tighter uppercase">PB US 162 <span className="text-blue-500">Bilibili</span></span>
               </div>
-              <p className="text-slate-400 text-[11px] leading-relaxed">{footerConfig.description || 'Deskripsi belum diisi...'}</p>
+              <p className="text-slate-400 text-[11px] leading-relaxed italic">"{footerConfig.description}"</p>
             </div>
             
             <div>
-              <h4 className="text-[10px] font-black tracking-[0.3em] mb-6 text-blue-500 uppercase">Navigasi</h4>
+              <h4 className="text-[10px] font-black tracking-[0.3em] mb-6 text-blue-500 uppercase">Navigasi Utama</h4>
               <ul className="text-slate-400 text-[11px] space-y-3 font-medium">
                 {footerConfig.navigation.map((nav, idx) => (
-                  <li key={idx} className="hover:text-blue-500 transition-colors cursor-default">• {nav.name}</li>
+                  <li key={idx} className="hover:text-blue-500 transition-colors cursor-pointer flex items-center gap-2">
+                    <div className="w-1 h-1 bg-blue-600 rounded-full"></div> {nav.name}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -256,19 +259,25 @@ export default function AdminFooter() {
             <div>
               <h4 className="text-[10px] font-black tracking-[0.3em] mb-6 text-blue-500 uppercase">Hubungi Kami</h4>
               <div className="text-slate-400 text-[11px] space-y-4">
-                <p className="flex gap-3 items-start"><MapPin size={14} className="text-blue-600 shrink-0"/> {footerConfig.address}</p>
-                <p className="flex gap-3 items-center"><Phone size={14} className="text-blue-600 shrink-0"/> {footerConfig.phone}</p>
-                <p className="flex gap-3 items-center"><Mail size={14} className="text-blue-600 shrink-0"/> {footerConfig.email}</p>
+                <div className="flex gap-3 items-start"><MapPin size={14} className="text-blue-600 shrink-0"/> {footerConfig.address}</div>
+                <div className="flex gap-3 items-center"><Phone size={14} className="text-blue-600 shrink-0"/> {footerConfig.phone}</div>
+                <div className="flex gap-3 items-center"><Mail size={14} className="text-blue-600 shrink-0"/> {footerConfig.email}</div>
               </div>
             </div>
 
             <div>
               <h4 className="text-[10px] font-black tracking-[0.3em] mb-6 text-blue-500 uppercase">Ikuti Kami</h4>
               <div className="flex gap-3 flex-wrap">
-                <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5 hover:border-blue-500/50 transition-all"><Facebook size={12}/></div>
-                <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5 hover:border-pink-500/50 transition-all"><Instagram size={12}/></div>
-                <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5 hover:border-sky-400/50 transition-all"><Twitter size={12}/></div>
-                <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center border border-white/5 hover:border-red-600/50 transition-all"><Youtube size={12}/></div>
+                {Object.entries(footerConfig.socials).map(([key, val]) => (
+                  val && (
+                    <div key={key} className="w-9 h-9 bg-white/5 rounded-full flex items-center justify-center border border-white/5 hover:border-blue-500/50 hover:bg-blue-500/10 transition-all cursor-pointer">
+                      {key === 'instagram' && <Instagram size={14}/>}
+                      {key === 'facebook' && <Facebook size={14}/>}
+                      {key === 'twitter' && <Twitter size={14}/>}
+                      {key === 'youtube' && <Youtube size={14}/>}
+                    </div>
+                  )
+                ))}
               </div>
             </div>
           </div>

@@ -44,7 +44,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * FIXED: Komponen Pop-up Gambar Dinamis
- * Ukuran Ultra-Compact (60%): max-w-[320px]
+ * Ukuran Goldilocks (70%): max-w-[400px]
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -82,24 +82,24 @@ function ImagePopup() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-6 bg-black/85 backdrop-blur-sm">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.85 }}
-          // UKURAN 60%: Lebar dibatasi ke 320px
-          className="relative w-full max-w-[320px] bg-white rounded-[1.5rem] overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
+          initial={{ opacity: 0, scale: 0.9, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 15 }}
+          // UKURAN 70%: Lebar 400px adalah standar ideal untuk pop-up promosi
+          className="relative w-full max-w-[400px] bg-white rounded-[2rem] overflow-hidden shadow-[0_35px_70px_-15px_rgba(0,0,0,0.6)]"
         >
-          {/* Tombol Close Mini */}
+          {/* Tombol Close */}
           <button 
             onClick={closePopup} 
-            className="absolute top-3 right-3 z-50 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg transition-all active:scale-90 border-2 border-white"
+            className="absolute top-4 right-4 z-50 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl transition-all active:scale-90 border-2 border-white"
           >
-            <X size={14} strokeWidth={3} />
+            <X size={16} strokeWidth={3} />
           </button>
 
-          {/* Slider Gambar - Rasio 1:1 (Kotak) agar hemat ruang vertikal */}
-          <div className="relative aspect-square bg-slate-900 overflow-hidden">
+          {/* Slider Gambar - Rasio 3:4 (Portrait Modern) */}
+          <div className="relative aspect-[3/4] bg-slate-900 overflow-hidden">
             <img 
               src={current.url_gambar} 
               className="w-full h-full object-cover" 
@@ -107,52 +107,57 @@ function ImagePopup() {
             />
             
             {promoImages.length > 1 && (
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-2 z-20">
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20">
                 <button 
                   onClick={() => setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1))} 
-                  className="p-1.5 bg-black/40 text-white rounded-full backdrop-blur-sm"
+                  className="p-2 bg-black/40 hover:bg-blue-600 text-white rounded-full backdrop-blur-sm transition-all"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={18} />
                 </button>
                 <button 
                   onClick={() => setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1))} 
-                  className="p-1.5 bg-black/40 text-white rounded-full backdrop-blur-sm"
+                  className="p-2 bg-black/40 hover:bg-blue-600 text-white rounded-full backdrop-blur-sm transition-all"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={18} />
                 </button>
               </div>
             )}
+
+            <div className="absolute top-5 left-5 flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600/90 backdrop-blur-md rounded-full border border-white/20">
+              <Zap size={13} className="text-yellow-400 fill-yellow-400" />
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Headline</span>
+            </div>
             
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white via-white/40 to-transparent" />
           </div>
 
-          {/* Konten Teks Mini */}
-          <div className="px-6 pb-6 pt-1 text-center bg-white">
-            <h3 className="text-lg font-black italic uppercase tracking-tighter mb-1 text-slate-900">
-              {current.judul || "INFO"}
+          {/* Konten Teks */}
+          <div className="px-8 pb-8 pt-2 text-center bg-white">
+            <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2 text-slate-900 leading-tight">
+              {current.judul || "PENGUMUMAN"}
             </h3>
-            <div className="w-8 h-1 bg-blue-600 mx-auto mb-3 rounded-full" />
+            <div className="w-12 h-1.5 bg-blue-600 mx-auto mb-4 rounded-full" />
             
-            <p className="text-slate-500 font-bold text-[10px] mb-4 leading-tight line-clamp-2 uppercase tracking-wide">
-              {current.deskripsi || "Cek pembaruan sistem kami."}
+            <p className="text-slate-500 font-bold text-[12px] mb-6 leading-relaxed line-clamp-2 uppercase">
+              {current.deskripsi || "Jangan lewatkan update terbaru dari manajemen."}
             </p>
             
             <button 
               onClick={closePopup} 
-              className="w-full py-3 bg-blue-600 hover:bg-slate-900 text-white rounded-lg font-black uppercase text-[9px] tracking-[0.2em] transition-all"
+              className="w-full py-4 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.25em] shadow-lg shadow-blue-100 transition-all active:scale-95"
             >
-              TUTUP
+              KONFIRMASI
             </button>
           </div>
         </motion.div>
 
+        {/* Backdrop klik untuk tutup */}
         <div className="absolute inset-0 -z-10" onClick={closePopup} />
       </div>
     </AnimatePresence>
   );
 }
 
-// ... Sisanya tetap sama dengan kode App dan AdminLayout Anda ...
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);

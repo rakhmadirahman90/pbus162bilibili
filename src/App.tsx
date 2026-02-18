@@ -36,13 +36,15 @@ import AdminLogs from './components/AdminLogs';
 import AdminTampilan from './components/AdminTampilan'; 
 import KelolaHero from './components/KelolaHero'; 
 import AdminPopup from './components/AdminPopup'; 
-import AdminFooter from './components/AdminFooter'; // KODE BARU: Import Halaman Kelola Footer
+import AdminFooter from './components/AdminFooter'; 
 
-// --- IMPORT BARU UNTUK POPUP ---
-import { X, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+// --- IMPORT UNTUK POPUP & UI ---
+import { X, ChevronLeft, ChevronRight, Menu, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * KODE DIPERBAIKI: Komponen Pop-up Gambar Dinamis dari Database
+ * FIXED: Komponen Pop-up Gambar Dinamis
+ * Dikonfigurasi untuk muncul SETIAP KALI REFRESH
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,79 +52,110 @@ function ImagePopup() {
   const [promoImages, setPromoImages] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fungsi mengambil data pop-up aktif dari Supabase
     const fetchActivePopups = async () => {
-      const { data, error } = await supabase
-        .from('konfigurasi_popup')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      
-      if (!error && data && data.length > 0) {
-        setPromoImages(data);
+      try {
+        const { data, error } = await supabase
+          .from('konfigurasi_popup')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
         
-        // Cek LocalStorage agar tidak muncul berulang kali di hari yang sama
-        const hasSeenPopup = localStorage.getItem('lastSeenPopup');
-        const today = new Date().toDateString();
-        if (hasSeenPopup !== today) {
-          const timer = setTimeout(() => setIsOpen(true), 2000);
+        if (!error && data && data.length > 0) {
+          setPromoImages(data);
+          // Munculkan popup 1.5 detik setelah data termuat
+          const timer = setTimeout(() => setIsOpen(true), 1500);
           return () => clearTimeout(timer);
         }
+      } catch (err) {
+        console.error("Gagal memuat pop-up:", err);
       }
     };
+    
     fetchActivePopups();
+    // Menghapus item lama agar tidak ada bentrokan logika sesi pada refresh berikutnya
+    localStorage.removeItem('lastSeenPopup');
   }, []);
 
-  const closePopup = () => {
-    setIsOpen(false);
-    localStorage.setItem('lastSeenPopup', new Date().toDateString());
-  };
+  const closePopup = () => setIsOpen(false);
 
-  if (!isOpen || promoImages.length === 0) return null;
+  // Jika data kosong atau state tertutup, jangan render apapun
+  if (promoImages.length === 0 || !isOpen) return null;
+
+  const current = promoImages[currentIndex];
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
-      <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in duration-300">
-        
-        {/* Tombol Close */}
-        <button onClick={closePopup} className="absolute top-4 right-4 z-20 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition-all">
-          <X size={24} />
-        </button>
-
-        {/* Slider Gambar */}
-        <div className="relative aspect-[4/5] bg-slate-100">
-          <img 
-            src={promoImages[currentIndex].url_gambar} 
-            className="w-full h-full object-cover" 
-            alt={promoImages[currentIndex].judul} 
-          />
-          
-          {promoImages.length > 1 && (
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-4">
-              <button onClick={() => setCurrentIndex(prev => prev === 0 ? promoImages.length - 1 : prev - 1)} className="p-2 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md">
-                <ChevronLeft size={20} />
-              </button>
-              <button onClick={() => setCurrentIndex(prev => prev === promoImages.length - 1 ? 0 : prev + 1)} className="p-2 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md">
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Konten Bawah */}
-        <div className="p-8 text-center bg-white">
-          <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">
-            {promoImages[currentIndex].judul || "PENGUMUMAN"}
-          </h3>
-          <p className="text-slate-500 font-bold text-sm mb-6 leading-relaxed">
-            {promoImages[currentIndex].deskripsi || "Jangan lewatkan update terbaru dari kami."}
-          </p>
-          <button onClick={closePopup} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-100 hover:bg-slate-900 transition-all">
-            MENGERTI
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          className="relative w-full max-w-lg bg-white rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(59,130,246,0.3)]"
+        >
+          {/* Tombol Close */}
+          <button 
+            onClick={closePopup} 
+            className="absolute top-5 right-5 z-50 p-3 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl transition-all active:scale-90 border-4 border-white"
+          >
+            <X size={20} strokeWidth={3} />
           </button>
-        </div>
+
+          {/* Slider Gambar */}
+          <div className="relative aspect-[4/5] bg-slate-900 overflow-hidden">
+            <img 
+              src={current.url_gambar} 
+              className="w-full h-full object-cover" 
+              alt={current.judul} 
+            />
+            
+            {/* Navigasi Slide */}
+            {promoImages.length > 1 && (
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-4 z-20">
+                <button 
+                  onClick={() => setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1))} 
+                  className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button 
+                  onClick={() => setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1))} 
+                  className="p-3 bg-white/20 hover:bg-white/40 text-white rounded-full backdrop-blur-md transition-all"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </div>
+            )}
+
+            <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-blue-600/80 backdrop-blur-md rounded-full border border-white/20">
+              <Zap size={14} className="text-yellow-400 fill-yellow-400" />
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Update Terbaru</span>
+            </div>
+            
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white via-white/50 to-transparent" />
+          </div>
+
+          {/* Konten Teks */}
+          <div className="p-10 text-center bg-white">
+            <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-3 text-slate-900 leading-tight">
+              {current.judul || "PENGUMUMAN"}
+            </h3>
+            <div className="w-16 h-1.5 bg-blue-600 mx-auto mb-5 rounded-full" />
+            <p className="text-slate-500 font-bold text-sm mb-8 leading-relaxed line-clamp-3">
+              {current.deskripsi || "Informasi penting untuk seluruh atlet dan member."}
+            </p>
+            <button 
+              onClick={closePopup} 
+              className="w-full py-5 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] shadow-2xl transition-all active:scale-95"
+            >
+              MENGERTI
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Backdrop klik untuk tutup */}
+        <div className="absolute inset-0 -z-10" onClick={closePopup} />
       </div>
-    </div>
+    </AnimatePresence>
   );
 }
 
@@ -190,7 +223,6 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* LANDING PAGE ROUTE */}
         <Route path="/" element={
           <div className="min-h-screen bg-white">
             <ImagePopup />
@@ -214,7 +246,6 @@ export default function App() {
           element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} 
         />
 
-        {/* ADMIN PROTECTED ROUTES */}
         <Route 
           path="/admin/*" 
           element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} 
@@ -226,16 +257,11 @@ export default function App() {
   );
 }
 
-/**
- * FIXED ADMIN LAYOUT (Anti-Scroll Panjang)
- */
 function AdminLayout({ session }: { session: any }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen w-full bg-[#050505] overflow-hidden">
-      
-      {/* SIDEBAR */}
       <aside className={`h-full flex-shrink-0 z-[101] shadow-2xl border-r border-white/5 transition-transform md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} absolute md:relative`}>
         <Sidebar 
           email={session.user.email} 
@@ -244,10 +270,7 @@ function AdminLayout({ session }: { session: any }) {
         />
       </aside>
       
-      {/* AREA KONTEN UTAMA */}
       <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
-        
-        {/* Header Mobile Only */}
         <div className="md:hidden flex items-center bg-[#0F172A] p-4 border-b border-white/5">
           <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2">
             <Menu className="w-6 h-6" />
@@ -255,7 +278,6 @@ function AdminLayout({ session }: { session: any }) {
           <span className="ml-4 font-black italic text-white uppercase text-sm">Authority Panel</span>
         </div>
         
-        {/* SCROLL AREA */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth bg-[#050505]">
           <Routes>
             <Route path="dashboard" element={<ManajemenPendaftaran />} />
@@ -268,20 +290,16 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="galeri" element={<AdminGallery />} />
             <Route path="kontak" element={<AdminContact />} />
             <Route path="navbar" element={<KelolaNavbar />} />
-            
-            {/* RUTE BARU: LAPORAN, LOGS, TAMPILAN, HERO, POPUP & FOOTER */}
             <Route path="laporan" element={<AdminLaporan />} />
             <Route path="logs" element={<AdminLogs />} />
             <Route path="tampilan" element={<AdminTampilan />} />
             <Route path="hero" element={<KelolaHero />} />
             <Route path="popup" element={<AdminPopup />} /> 
-            <Route path="footer" element={<AdminFooter />} /> {/* KODE BARU: Menghubungkan Rute Kelola Footer */}
-            
+            <Route path="footer" element={<AdminFooter />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>
 
-        {/* Global Footer Admin */}
         <div className="h-8 bg-black/80 border-t border-white/5 flex items-center px-8 flex-shrink-0 backdrop-blur-md relative z-10">
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-1.5">
@@ -299,19 +317,10 @@ function AdminLayout({ session }: { session: any }) {
       </main>
 
       <style>{`
-        ::-webkit-scrollbar {
-          width: 5px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #050505;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #1e293b;
-          border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #2563eb;
-        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
       `}</style>
     </div>
   );

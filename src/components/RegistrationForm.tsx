@@ -36,6 +36,13 @@ export default function RegistrationForm() {
         throw new Error("Mohon lengkapi semua kolom yang wajib diisi.");
       }
 
+      // --- KODE BARU: Logika Penentuan kategori_atlet ---
+      const listMuda = [
+        "Pra Dini (U-9)", "Usia Dini (U-11)", "Anak-anak (U-13)", 
+        "Pemula (U-15)", "Remaja (U-17)", "Taruna (U-19)"
+      ];
+      const kategori_atlet = listMuda.includes(formData.kategori) ? 'MUDA' : 'SENIOR';
+
       let publicUrl = "";
       
       // 2. Proses Upload File jika ada
@@ -58,7 +65,7 @@ export default function RegistrationForm() {
       }
 
       // 3. Insert ke Database
-      // Pastikan kolom 'pengalaman' sudah dibuat di SQL Editor Supabase sebelumnya
+      // Menambahkan kolom kategori_atlet hasil logika di atas
       const { error: dbError } = await supabase
         .from('pendaftaran')
         .insert([{ 
@@ -66,13 +73,13 @@ export default function RegistrationForm() {
           whatsapp: formData.whatsapp.trim(), 
           jenis_kelamin: formData.jenis_kelamin,
           kategori: formData.kategori,
+          kategori_atlet: kategori_atlet, // DATA BARU DISINI
           domisili: formData.domisili.toUpperCase().trim(),
-          pengalaman: formData.pengalaman || "-", // Kirim "-" jika kosong agar tidak error di beberapa skema
+          pengalaman: formData.pengalaman || "-", 
           foto_url: publicUrl 
         }]);
 
       if (dbError) {
-        // Jika masih error kolom tidak ditemukan, berikan pesan instruksi SQL
         if (dbError.message.includes("pengalaman")) {
           throw new Error("Kolom 'pengalaman' belum ada di database. Silakan jalankan query: ALTER TABLE pendaftaran ADD COLUMN pengalaman TEXT;");
         }
@@ -86,6 +93,7 @@ export default function RegistrationForm() {
         `*Nama:* ${formData.nama.toUpperCase()}\n` +
         `*Gender:* ${formData.jenis_kelamin}\n` +
         `*Kategori:* ${formData.kategori}\n` +
+        `*Kelompok:* ${kategori_atlet}\n` + // Info tambahan di WA
         `*Domisili:* ${formData.domisili.toUpperCase()}\n` +
         `*Pengalaman:* ${formData.pengalaman || '-'}\n` +
         `*Link Foto:* ${publicUrl || 'Tidak ada foto'}`
@@ -125,7 +133,6 @@ export default function RegistrationForm() {
   return (
     <section className="py-12 px-4 bg-slate-50 min-h-screen flex items-center justify-center">
       <form onSubmit={handleSubmit} className="w-full max-w-md p-8 md:p-10 bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 relative overflow-hidden">
-        {/* Dekorasi Aksen */}
         <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
         
         <div className="mb-10 text-center">
@@ -135,13 +142,11 @@ export default function RegistrationForm() {
         </div>
         
         <div className="space-y-5">
-          {/* NAMA */}
           <div className="relative group">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input required value={formData.nama} className={inputClass} placeholder="NAMA LENGKAP ATLET" onChange={e => setFormData({...formData, nama: e.target.value})} />
           </div>
 
-          {/* GENDER */}
           <div className="space-y-3">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-[0.2em] italic">Jenis Kelamin</label>
             <div className="grid grid-cols-2 gap-3">
@@ -154,19 +159,16 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* WHATSAPP */}
           <div className="relative group">
             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input required type="tel" value={formData.whatsapp} className={inputClass} placeholder="NOMOR WHATSAPP (CONTOH: 628...)" onChange={e => setFormData({...formData, whatsapp: e.target.value})} />
           </div>
 
-          {/* DOMISILI */}
           <div className="relative group">
             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input required value={formData.domisili} className={inputClass} placeholder="KOTA DOMISILI SAAT INI" onChange={e => setFormData({...formData, domisili: e.target.value})} />
           </div>
 
-          {/* KATEGORI */}
           <div className="space-y-3">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-[0.2em] italic">Kategori Pertandingan</label>
             <div className="relative group">
@@ -178,7 +180,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* PENGALAMAN */}
           <div className="relative group">
             <Trophy className="absolute left-4 top-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <textarea 
@@ -189,7 +190,6 @@ export default function RegistrationForm() {
             />
           </div>
 
-          {/* UPLOAD */}
           <div className="space-y-3">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-2 tracking-[0.2em] italic">Berkas Identitas (KK/AKTE/KIA)</label>
             <div className="relative group">
@@ -206,7 +206,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* SUBMIT */}
           <div className="pt-4">
             <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-100 hover:shadow-slate-200 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:bg-slate-300 disabled:shadow-none">
               {loading ? (

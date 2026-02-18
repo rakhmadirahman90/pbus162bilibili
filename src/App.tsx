@@ -44,7 +44,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * FIXED: Komponen Pop-up Gambar Dinamis
- * Ukuran disesuaikan menjadi ~75% (max-w-[380px]) agar tidak terpotong
+ * Ukuran Ultra-Compact (60%): max-w-[320px]
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -62,7 +62,6 @@ function ImagePopup() {
         
         if (!error && data && data.length > 0) {
           setPromoImages(data);
-          // Munculkan popup sedikit lebih cepat
           const timer = setTimeout(() => setIsOpen(true), 1200);
           return () => clearTimeout(timer);
         }
@@ -72,7 +71,6 @@ function ImagePopup() {
     };
     
     fetchActivePopups();
-    // Reset pencegahan harian agar muncul setiap refresh
     localStorage.removeItem('lastSeenPopup');
   }, []);
 
@@ -84,24 +82,24 @@ function ImagePopup() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 10 }}
-          // UKURAN 75%: max-w-[380px] dan rounded diperkecil agar proporsional
-          className="relative w-full max-w-[380px] bg-white rounded-[2rem] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.85 }}
+          // UKURAN 60%: Lebar dibatasi ke 320px
+          className="relative w-full max-w-[320px] bg-white rounded-[1.5rem] overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
         >
-          {/* Tombol Close - Ukuran Proporsional */}
+          {/* Tombol Close Mini */}
           <button 
             onClick={closePopup} 
-            className="absolute top-4 right-4 z-50 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg transition-all active:scale-90 border-2 border-white"
+            className="absolute top-3 right-3 z-50 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg transition-all active:scale-90 border-2 border-white"
           >
-            <X size={18} strokeWidth={3} />
+            <X size={14} strokeWidth={3} />
           </button>
 
-          {/* Slider Gambar - Rasio 3:4 agar tidak terlalu panjang ke bawah */}
-          <div className="relative aspect-[3/4] bg-slate-900 overflow-hidden">
+          {/* Slider Gambar - Rasio 1:1 (Kotak) agar hemat ruang vertikal */}
+          <div className="relative aspect-square bg-slate-900 overflow-hidden">
             <img 
               src={current.url_gambar} 
               className="w-full h-full object-cover" 
@@ -112,54 +110,49 @@ function ImagePopup() {
               <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-2 z-20">
                 <button 
                   onClick={() => setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1))} 
-                  className="p-2 bg-black/30 hover:bg-blue-600 text-white rounded-full backdrop-blur-md transition-all"
+                  className="p-1.5 bg-black/40 text-white rounded-full backdrop-blur-sm"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={16} />
                 </button>
                 <button 
                   onClick={() => setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1))} 
-                  className="p-2 bg-black/30 hover:bg-blue-600 text-white rounded-full backdrop-blur-md transition-all"
+                  className="p-1.5 bg-black/40 text-white rounded-full backdrop-blur-sm"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
             )}
-
-            <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1 bg-blue-600/90 backdrop-blur-md rounded-full border border-white/20">
-              <Zap size={12} className="text-yellow-400 fill-yellow-400" />
-              <span className="text-[9px] font-black text-white uppercase tracking-wider">Update Terbaru</span>
-            </div>
             
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white via-white/40 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />
           </div>
 
-          {/* Konten Teks - Padding disesuaikan agar tidak terpotong */}
-          <div className="px-8 pb-8 pt-2 text-center bg-white relative">
-            <h3 className="text-xl font-black italic uppercase tracking-tighter mb-2 text-slate-900 leading-tight">
-              {current.judul || "PENGUMUMAN"}
+          {/* Konten Teks Mini */}
+          <div className="px-6 pb-6 pt-1 text-center bg-white">
+            <h3 className="text-lg font-black italic uppercase tracking-tighter mb-1 text-slate-900">
+              {current.judul || "INFO"}
             </h3>
-            <div className="w-12 h-1 bg-blue-600 mx-auto mb-3 rounded-full" />
+            <div className="w-8 h-1 bg-blue-600 mx-auto mb-3 rounded-full" />
             
-            <p className="text-slate-500 font-bold text-[11px] mb-6 leading-relaxed line-clamp-2">
-              {current.deskripsi || "Informasi terbaru dari PB US 162."}
+            <p className="text-slate-500 font-bold text-[10px] mb-4 leading-tight line-clamp-2 uppercase tracking-wide">
+              {current.deskripsi || "Cek pembaruan sistem kami."}
             </p>
             
             <button 
               onClick={closePopup} 
-              className="w-full py-4 bg-blue-600 hover:bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-blue-100 transition-all active:scale-[0.97]"
+              className="w-full py-3 bg-blue-600 hover:bg-slate-900 text-white rounded-lg font-black uppercase text-[9px] tracking-[0.2em] transition-all"
             >
-              MENGERTI
+              TUTUP
             </button>
           </div>
         </motion.div>
 
-        {/* Backdrop klik untuk tutup */}
         <div className="absolute inset-0 -z-10" onClick={closePopup} />
       </div>
     </AnimatePresence>
   );
 }
 
+// ... Sisanya tetap sama dengan kode App dan AdminLayout Anda ...
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);

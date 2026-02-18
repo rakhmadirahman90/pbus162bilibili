@@ -45,7 +45,7 @@ const WeeklySpotlight: React.FC = () => {
           .from('weekly_top_performers')
           .select('*')
           .limit(1)
-          .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika data kosong
+          .maybeSingle(); 
         
         if (error) throw error;
         if (data) setTopGainer(data);
@@ -145,7 +145,6 @@ const Rankings: React.FC = () => {
 
       if (rankingsError) throw rankingsError;
 
-      // Optimasi: Hanya ambil data audit 24 jam terakhir untuk indikator status (Bonus)
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data: auditData, error: auditError } = await supabase
         .from('audit_poin')
@@ -173,7 +172,6 @@ const Rankings: React.FC = () => {
   const fetchHistoryForPlayer = async (playerName: string) => {
     setLoadingHistory(true);
     try {
-      // Perbaikan: Menggunakan .ilike dan .trim untuk akurasi pencarian
       const { data, error } = await supabase
         .from('audit_poin')
         .select('id, created_at, perubahan, poin_sebelum, poin_sesudah, admin_email, tipe_kegiatan')
@@ -404,7 +402,11 @@ const Rankings: React.FC = () => {
                                             {log.perubahan > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                                           </div>
                                           <div>
-                                            <div className="text-[10px] font-mono text-slate-500 mb-1">{new Date(log.created_at).toLocaleString('id-ID')}</div>
+                                            <div className="text-[10px] font-mono text-slate-500 mb-1">
+                                              {new Date(log.created_at).toLocaleString('id-ID', { 
+                                                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                                              })}
+                                            </div>
                                             <div className="text-[11px] font-black uppercase tracking-tight text-white flex items-center gap-2">
                                               {log.tipe_kegiatan || "Aktivitas"}
                                             </div>

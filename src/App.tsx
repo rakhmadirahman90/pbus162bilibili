@@ -35,7 +35,8 @@ import AdminLaporan from './components/AdminLaporan';
 import AdminLogs from './components/AdminLogs'; 
 import AdminTampilan from './components/AdminTampilan'; 
 import KelolaHero from './components/KelolaHero'; 
-import AdminPopup from './components/AdminPopup'; // KODE BARU: Import Halaman Kelola Pop-up
+import AdminPopup from './components/AdminPopup'; 
+import AdminFooter from './components/AdminFooter'; // KODE BARU: Import Halaman Kelola Footer
 
 // --- IMPORT BARU UNTUK POPUP ---
 import { X, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
@@ -268,12 +269,13 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="kontak" element={<AdminContact />} />
             <Route path="navbar" element={<KelolaNavbar />} />
             
-            {/* RUTE BARU: LAPORAN, LOGS, TAMPILAN, HERO & POPUP */}
+            {/* RUTE BARU: LAPORAN, LOGS, TAMPILAN, HERO, POPUP & FOOTER */}
             <Route path="laporan" element={<AdminLaporan />} />
             <Route path="logs" element={<AdminLogs />} />
             <Route path="tampilan" element={<AdminTampilan />} />
             <Route path="hero" element={<KelolaHero />} />
-            <Route path="popup" element={<AdminPopup />} /> {/* KODE BARU: Menghubungkan Rute Pop-up */}
+            <Route path="popup" element={<AdminPopup />} /> 
+            <Route path="footer" element={<AdminFooter />} /> {/* KODE BARU: Menghubungkan Rute Kelola Footer */}
             
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>

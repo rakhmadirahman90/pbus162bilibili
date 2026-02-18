@@ -1,26 +1,41 @@
 import { useState, useEffect } from 'react';
 import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin, Loader2 } from 'lucide-react';
-import { supabase } from '../supabase'; // Pastikan path import sesuai dengan struktur project Anda
+import { supabase } from '../supabase'; 
 
 export default function Footer() {
-  // --- KODE BARU: State untuk Data Dinamis ---
+  // --- KODE BARU: State untuk Data Dinamis Sesuai AdminFooter ---
   const [config, setConfig] = useState({
     description: 'Membina legenda masa depan dengan fasilitas standar nasional dan sport-science.',
     address: 'Jl. Andi Makkasau No. 171, Parepare, Indonesia',
     copyright: `© ${new Date().getFullYear()} PB US 162 Bilibili. All rights reserved.`,
     phone: '+62 812 1902 7234',
-    email: 'info@pbus162bilibili.id'
+    email: 'info@pbus162bilibili.id',
+    navigation: [
+      { name: 'Beranda', id: 'home' },
+      { name: 'Berita', id: 'news' },
+      { name: 'Atlet', id: 'players' },
+      { name: 'Peringkat', id: 'rankings' },
+      { name: 'Galeri', id: 'gallery' },
+      { name: 'Tentang', id: 'about' }
+    ],
+    socials: {
+      facebook: '',
+      instagram: '',
+      twitter: '',
+      youtube: ''
+    }
   });
   const [loading, setLoading] = useState(true);
 
-  // --- KODE BARU: Fetching data dari site_settings ---
+  // --- KODE BARU: Fetching data berdasarkan SETTINGS_KEY 'footer_settings' ---
   useEffect(() => {
     async function loadFooterData() {
       try {
         const { data, error } = await supabase
           .from('site_settings')
           .select('footer_config')
-          .single();
+          .eq('key', 'footer_settings') // Sesuai dengan SETTINGS_KEY di AdminFooter
+          .maybeSingle();
 
         if (data?.footer_config) {
           const fc = data.footer_config;
@@ -29,7 +44,9 @@ export default function Footer() {
             address: fc.address || config.address,
             copyright: fc.copyright || config.copyright,
             phone: fc.phone || config.phone,
-            email: fc.email || config.email
+            email: fc.email || config.email,
+            navigation: fc.navigation || config.navigation,
+            socials: { ...config.socials, ...(fc.socials || {}) }
           });
         }
       } catch (err) {
@@ -41,7 +58,6 @@ export default function Footer() {
     loadFooterData();
   }, []);
 
-  // Fungsi scroll halus original (dipertahankan sesuai permintaan)
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
     const element = document.getElementById(id);
@@ -79,19 +95,12 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Navigasi Lengkap */}
+          {/* Navigasi Dinamis - Terhubung dengan Admin */}
           <div>
             <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest text-xs">Navigasi</h4>
             <ul className="space-y-3">
-              {[
-                { name: 'Beranda', id: 'home' },
-                { name: 'Berita', id: 'news' },
-                { name: 'Atlet', id: 'players' },      
-                { name: 'Peringkat', id: 'rankings' }, 
-                { name: 'Galeri', id: 'gallery' },   
-                { name: 'Tentang', id: 'about' }
-              ].map((item) => (
-                <li key={item.id}>
+              {config.navigation.map((item, idx) => (
+                <li key={idx}>
                   <a 
                     href={`#${item.id}`}
                     onClick={(e) => scrollToSection(e, item.id)}
@@ -104,7 +113,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Kontak - Terhubung dengan state dinamis */}
+          {/* Kontak Dinamis */}
           <div>
             <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest text-xs">Hubungi Kami</h4>
             <ul className="space-y-4">
@@ -129,21 +138,30 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Social Media */}
+          {/* Social Media Dinamis */}
           <div>
             <h4 className="text-lg font-bold mb-6 text-blue-400 uppercase tracking-widest text-xs">Ikuti Kami</h4>
-            <div className="flex space-x-4">
-              {[Facebook, Instagram, Twitter, Youtube].map((Icon, index) => (
-                <a
-                  key={index}
-                  href="#"
-                  className="bg-slate-800 hover:bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:-translate-y-1"
-                >
-                  <Icon size={18} />
-                </a>
+            <div className="flex flex-wrap gap-4">
+              {[
+                { Icon: Facebook, link: config.socials.facebook },
+                { Icon: Instagram, link: config.socials.instagram },
+                { Icon: Twitter, link: config.socials.twitter },
+                { Icon: Youtube, link: config.socials.youtube }
+              ].map((social, index) => (
+                social.link && (
+                  <a
+                    key={index}
+                    href={social.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-slate-800 hover:bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:-translate-y-1"
+                  >
+                    <social.Icon size={18} />
+                  </a>
+                )
               ))}
             </div>
-            {/* Status Indicator saat loading data dari server */}
+            
             {loading && (
               <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                 <Loader2 size={10} className="animate-spin" /> Syncing Data...
@@ -153,7 +171,7 @@ export default function Footer() {
 
         </div>
 
-        {/* Bottom Footer */}
+        {/* Bottom Footer Dinamis */}
         <div className="border-t border-slate-800 pt-8 text-center">
           <p className="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em]">
             {config.copyright}

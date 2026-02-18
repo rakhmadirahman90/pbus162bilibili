@@ -3,10 +3,11 @@ import { supabase } from "../supabase";
 import { 
   TrendingUp, TrendingDown, Minus, Trophy, Search, 
   ChevronLeft, ChevronRight, Loader2, AlertCircle, 
-  RefreshCw, History, Calendar, User, Activity, Info,
-  ShieldCheck
+  RefreshCw, History, Calendar, Info, ShieldCheck,
+  Activity
 } from 'lucide-react';
 
+// Interfaces
 interface PlayerRanking {
   id: string;
   player_name: string;
@@ -16,7 +17,6 @@ interface PlayerRanking {
   bonus?: number;
 }
 
-// Interface untuk data history yang diselaraskan dengan sistem Admin baru
 interface PointHistory {
   id: string;
   created_at: string;
@@ -24,10 +24,11 @@ interface PointHistory {
   poin_sebelum: number;
   poin_sesudah: number;
   admin_email: string;
-  tipe_kegiatan: string; // Menampilkan kategori aktivitas (Harian, Sparing, dll)
+  tipe_kegiatan: string;
 }
 
 const Rankings: React.FC = () => {
+  // State Management
   const [dbRankings, setDbRankings] = useState<PlayerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,10 +41,11 @@ const Rankings: React.FC = () => {
   const [playerHistory, setPlayerHistory] = useState<PointHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Realtime Subscription
   useEffect(() => {
     fetchRankings();
 
-    const subscription = supabase
+    const channel = supabase
       .channel('rankings_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
         fetchRankings();
@@ -54,10 +56,11 @@ const Rankings: React.FC = () => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
   }, []);
 
+  // Fetch Data Logic
   const fetchRankings = async () => {
     setLoading(true);
     setFetchError(null);
@@ -89,15 +92,12 @@ const Rankings: React.FC = () => {
       setDbRankings(mergedData);
     } catch (error: any) {
       console.error("Fetch error:", error);
-      setFetchError(error.message);
+      setFetchError(error.message || "Gagal mengambil data peringkat");
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * PERBAIKAN: Mengambil kolom 'tipe_kegiatan' untuk detail transparansi
-   */
   const fetchHistoryForPlayer = async (playerName: string) => {
     setLoadingHistory(true);
     try {
@@ -117,6 +117,7 @@ const Rankings: React.FC = () => {
     }
   };
 
+  // Helper Functions
   const toggleExpand = (player: PlayerRanking) => {
     if (expandedPlayer === player.id) {
       setExpandedPlayer(null);
@@ -135,6 +136,7 @@ const Rankings: React.FC = () => {
     return { bg: 'bg-slate-500/10', text: 'text-slate-500', border: 'border-slate-500/20' };
   };
 
+  // Memoized Filters
   const filteredData = useMemo(() => {
     return dbRankings.filter(p => {
       const name = p.player_name?.toLowerCase() || "";
@@ -150,46 +152,46 @@ const Rankings: React.FC = () => {
 
   return (
     <section id="rankings" className="min-h-screen py-20 bg-slate-950 text-white font-sans relative overflow-hidden">
+      {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_50%_-20%,#1e3a8a33,transparent_50%)] pointer-events-none" />
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
         
-        {/* Header Section */}
+        {/* Header & Matrix Section */}
         <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full mb-4">
-                    <Trophy className="text-blue-400" size={14} />
-                    <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">Official Points System</span>
-                </div>
-                <h1 className="text-4xl md:text-5xl font-black mb-3 italic tracking-tighter uppercase">
-                    PB US 162 <span className="text-blue-500">RANKINGS</span>
-                </h1>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">Transparansi Perolehan Poin Atlet</p>
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full mb-4">
+              <Trophy className="text-blue-400" size={14} />
+              <span className="text-blue-400 text-[10px] font-black uppercase tracking-widest">Official Points System</span>
             </div>
+            <h1 className="text-4xl md:text-5xl font-black mb-3 italic tracking-tighter uppercase">
+              PB US 162 <span className="text-blue-500">RANKINGS</span>
+            </h1>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">Transparansi Perolehan Poin Atlet</p>
+          </div>
 
-            {/* Matrix Poin UI - Berdasarkan Gambar Referensi */}
-            <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
-                    <Activity size={16} className="text-blue-500" />
-                    <span className="text-xs font-black uppercase tracking-widest text-slate-300">Matrix Poin</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    {[
-                        { label: 'Latihan Harian', val: '20/10/5' },
-                        { label: 'Sparing Partner', val: '100/50/25' },
-                        { label: 'Turnamen Internal', val: '300/--/50' },
-                        { label: 'Turnamen Eksternal', val: '500/--/100' }
-                    ].map((item, idx) => (
-                        <div key={idx} className="flex flex-col">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase">{item.label}</span>
-                            <span className="text-xs font-mono font-black text-blue-400">{item.val}</span>
-                        </div>
-                    ))}
-                </div>
+          <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] backdrop-blur-sm">
+            <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+              <Activity size={16} className="text-blue-500" />
+              <span className="text-xs font-black uppercase tracking-widest text-slate-300">Matrix Poin</span>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Latihan Harian', val: '20/10/5' },
+                { label: 'Sparing Partner', val: '100/50/25' },
+                { label: 'Turnamen Internal', val: '300/--/50' },
+                { label: 'Turnamen Eksternal', val: '500/--/100' }
+              ].map((item, idx) => (
+                <div key={idx} className="flex flex-col">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase">{item.label}</span>
+                  <span className="text-xs font-mono font-black text-blue-400">{item.val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Filter Section */}
+        {/* Filter Controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
@@ -197,6 +199,7 @@ const Rankings: React.FC = () => {
               type="text"
               placeholder="Cari nama atlet..."
               className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:border-blue-500 outline-none font-bold text-sm"
+              value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
@@ -205,7 +208,7 @@ const Rankings: React.FC = () => {
               <button
                 key={cat}
                 onClick={() => {setActiveCategory(cat); setCurrentPage(1);}}
-                className={`px-5 py-2 rounded-xl text-[10px] font-black border transition-all ${
+                className={`px-5 py-2 rounded-xl text-[10px] font-black border whitespace-nowrap transition-all ${
                   activeCategory === cat ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-600'
                 }`}
               >
@@ -215,7 +218,15 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabel Utama */}
+        {/* Error Alert */}
+        {fetchError && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500">
+            <AlertCircle size={18} />
+            <span className="text-xs font-bold uppercase">{fetchError}</span>
+          </div>
+        )}
+
+        {/* Main Table */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px]">
@@ -225,7 +236,7 @@ const Rankings: React.FC = () => {
                   <th className="px-6 py-6">Atlet</th>
                   <th className="px-6 py-6 w-40">Kategori / Seed</th>
                   <th className="px-6 py-6 text-right w-40">Total Poin</th>
-                  <th className="px-8 py-6 text-center w-32">Status Poin</th>
+                  <th className="px-8 py-6 text-center w-32">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
@@ -236,10 +247,13 @@ const Rankings: React.FC = () => {
                       <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Sinkronisasi Database...</p>
                     </td>
                   </tr>
-                ) : filteredData.length === 0 ? (
+                ) : currentPlayers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-24 text-center text-slate-600 font-bold uppercase text-xs">
-                      Tidak ada atlet ditemukan.
+                    <td colSpan={5} className="py-24 text-center">
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                        <Search size={40} />
+                        <p className="font-black text-xs uppercase tracking-widest">Atlet tidak ditemukan</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -252,7 +266,7 @@ const Rankings: React.FC = () => {
                       <React.Fragment key={player.id}>
                         <tr 
                           onClick={() => toggleExpand(player)}
-                          className={`cursor-pointer transition-all group ${isExpanded ? 'bg-blue-500/5' : 'hover:bg-white/[0.02]'}`}
+                          className={`cursor-pointer transition-all group ${isExpanded ? 'bg-blue-500/10' : 'hover:bg-white/[0.02]'}`}
                         >
                           <td className="px-8 py-6 text-center">
                             <span className={`text-xl font-black italic ${globalRank <= 3 ? 'text-blue-400' : 'text-slate-700'}`}>
@@ -266,7 +280,7 @@ const Rankings: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-1 mt-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Info size={10} className="text-blue-500" />
-                                <span className="text-[8px] text-blue-500 font-black uppercase tracking-widest">Klik untuk Detail Riwayat</span>
+                                <span className="text-[8px] text-blue-500 font-black uppercase tracking-widest">Detail Riwayat</span>
                             </div>
                           </td>
                           <td className="px-6 py-6">
@@ -285,37 +299,35 @@ const Rankings: React.FC = () => {
                           <td className="px-8 py-6 text-center">
                             {player.bonus !== undefined && player.bonus !== 0 ? (
                               <div className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold ${player.bonus > 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}`}>
-                                <div className="flex items-center">
-                                    {player.bonus > 0 ? <TrendingUp size={12} className="mr-1" /> : <TrendingDown size={12} className="mr-1" />}
-                                    {player.bonus > 0 ? `+${player.bonus}` : player.bonus}
-                                </div>
+                                {player.bonus > 0 ? <TrendingUp size={12} className="mr-1" /> : <TrendingDown size={12} className="mr-1" />}
+                                {player.bonus > 0 ? `+${player.bonus}` : player.bonus}
                               </div>
                             ) : <Minus size={14} className="mx-auto text-slate-800" />}
                           </td>
                         </tr>
 
-                        {/* Section Transparansi Riwayat yang Diperbaiki */}
+                        {/* Expandable History Detail */}
                         {isExpanded && (
                           <tr>
-                            <td colSpan={5} className="px-8 py-0 border-none">
-                              <div className="bg-slate-950/50 border-x border-b border-blue-500/20 rounded-b-3xl p-6 mb-4 animate-in slide-in-from-top-2 duration-300">
+                            <td colSpan={5} className="px-8 py-0 border-none bg-blue-500/[0.02]">
+                              <div className="border-x border-b border-blue-500/20 rounded-b-[2rem] p-6 mb-4 animate-in slide-in-from-top-2 duration-300">
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
                                         <History size={14} className="text-blue-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Log Aktivitas Terakhir: {player.player_name}</span>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Activity Log: {player.player_name}</span>
                                     </div>
                                     <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/5 border border-blue-500/20 rounded-lg">
                                         <ShieldCheck size={10} className="text-blue-500" />
-                                        <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Verified by Admin</span>
+                                        <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Verified System</span>
                                     </div>
                                 </div>
 
                                 {loadingHistory ? (
-                                  <div className="flex justify-center py-4"><Loader2 className="animate-spin text-slate-700" size={20} /></div>
+                                  <div className="flex justify-center py-8"><Loader2 className="animate-spin text-blue-500" size={24} /></div>
                                 ) : playerHistory.length > 0 ? (
                                   <div className="space-y-2">
                                     {playerHistory.map((log) => (
-                                      <div key={log.id} className="flex items-center justify-between bg-slate-900/80 p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                                      <div key={log.id} className="flex items-center justify-between bg-slate-950/80 p-4 rounded-xl border border-white/5 hover:border-blue-500/20 transition-all">
                                         <div className="flex items-center gap-4">
                                           <div className={`p-2 rounded-lg ${log.perubahan > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                                             {log.perubahan > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -323,17 +335,16 @@ const Rankings: React.FC = () => {
                                           <div>
                                             <div className="text-[10px] font-mono text-slate-500 mb-1">{new Date(log.created_at).toLocaleString('id-ID')}</div>
                                             <div className="text-[11px] font-black uppercase tracking-tight text-white flex items-center gap-2">
-                                              {/* MENAMPILKAN TIPE KEGIATAN SEBENARNYA */}
                                               {log.tipe_kegiatan || "Aktivitas Sistem"}
-                                              {log.perubahan < 0 && <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded">REDUCTION</span>}
+                                              {log.perubahan < 0 && <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded">DECREASE</span>}
                                             </div>
                                           </div>
                                         </div>
                                         <div className="text-right">
                                           <div className={`text-sm font-black ${log.perubahan > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                            {log.perubahan > 0 ? '+' : ''}{log.perubahan} PTS
+                                            {log.perubahan > 0 ? '+' : ''}{log.perubahan}
                                           </div>
-                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Saldo Akhir: {log.poin_sesudah}</div>
+                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Balance: {log.poin_sesudah}</div>
                                         </div>
                                       </div>
                                     ))}
@@ -341,7 +352,7 @@ const Rankings: React.FC = () => {
                                 ) : (
                                   <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl">
                                       <Calendar className="mx-auto mb-2 text-slate-800" size={24} />
-                                      <div className="text-slate-700 text-[10px] font-bold uppercase tracking-widest italic">Belum ada riwayat aktivitas tercatat.</div>
+                                      <div className="text-slate-700 text-[10px] font-bold uppercase tracking-widest italic">Belum ada riwayat aktivitas.</div>
                                   </div>
                                 )}
                               </div>
@@ -356,22 +367,46 @@ const Rankings: React.FC = () => {
             </table>
           </div>
 
+          {/* Footer / Pagination */}
           <div className="p-6 flex items-center justify-between border-t border-slate-800 bg-slate-900/50">
-            <button onClick={fetchRankings} className="p-2 hover:bg-slate-800 rounded-lg text-slate-600 hover:text-blue-400 transition-colors">
+            <button 
+              onClick={fetchRankings} 
+              disabled={loading}
+              className="p-2 hover:bg-slate-800 rounded-lg text-slate-600 hover:text-blue-400 transition-colors disabled:opacity-50"
+            >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
-            <div className="flex gap-2">
-              <button disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors">
-                <ChevronLeft size={18}/>
-              </button>
-              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(c => c + 1)} className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors">
-                <ChevronRight size={18}/>
-              </button>
+
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                Page {currentPage} of {totalPages || 1}
+              </span>
+              <div className="flex gap-2">
+                <button 
+                  disabled={currentPage === 1 || loading} 
+                  onClick={() => setCurrentPage(c => c - 1)} 
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors"
+                >
+                  <ChevronLeft size={18}/>
+                </button>
+                <button 
+                  disabled={currentPage === totalPages || totalPages === 0 || loading} 
+                  onClick={() => setCurrentPage(c => c + 1)} 
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors"
+                >
+                  <ChevronRight size={18}/>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <style>{`.no-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+
+      {/* Global CSS for hidescroll */}
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </section>
   );
 };

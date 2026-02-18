@@ -1,76 +1,108 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../supabase';
 
 export default function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
+  const [content, setContent] = useState<{
+    url_gambar: string;
+    judul: string;
+  } | null>(null);
 
+  // FUNGSI PENGAMBILAN DATA (FORCE REFRESH SETIAP MOUNT)
   useEffect(() => {
-    const timer = setTimeout(() => setIsOpen(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchActivePopup = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('konfigurasi_popup')
+          .select('url_gambar, judul')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data && !error) {
+          setContent(data);
+          // Memicu pop-up muncul 1 detik setelah landing page dimuat
+          setTimeout(() => setIsOpen(true), 1000);
+        }
+      } catch (err) {
+        console.error("Popup Error:", err);
+      }
+    };
+
+    fetchActivePopup();
+  }, []); // Array kosong memastikan eksekusi setiap kali halaman di-refresh
 
   const closePopup = () => setIsOpen(false);
 
-  if (!isOpen) return null;
+  if (!content || !isOpen) return null;
 
   return (
     <AnimatePresence>
-      {/* Overlay tetap penuh */}
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         
-        {/* MODAL CONTAINER - Dibuat sangat kecil dan dikunci ukurannya */}
+        {/* CONTAINER UTAMA - Skala proporsional agar tidak memenuhi layar berlebihan */}
         <motion.div 
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 0.85 }} // Mengunci skala di 0.85 agar terlihat mungil (sekitar 75%-50% dari aslinya)
-          className="relative bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col shadow-blue-500/20"
-          style={{ 
-            width: '300px', // Mengunci lebar sangat kecil
-            maxHeight: '80vh', // Mengunci tinggi agar tidak menabrak browser
-            border: '4px solid white'
-          }}
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          className="relative flex flex-col items-center max-w-full max-h-full pointer-events-none"
         >
           
-          {/* TOMBOL TUTUP - Sekarang diletakkan di dalam bingkai putih agar PASTI terlihat */}
-          <button 
-            onClick={closePopup}
-            className="absolute top-3 right-3 z-[100] p-1.5 bg-red-600 text-white rounded-full shadow-lg border-2 border-white hover:bg-red-700 transition-all active:scale-90"
-          >
-            <X size={16} strokeWidth={4} />
-          </button>
-
-          {/* INTERNAL WRAPPER */}
-          <div className="flex flex-col h-full overflow-y-auto">
+          {/* WRAPPER KARTU MINIMALIS */}
+          <div className="relative pointer-events-auto flex flex-col items-center">
             
-            {/* GAMBAR - Dipaksa mengecil mengikuti kotak (Fixed Height) */}
-            <div className="w-full shrink-0 bg-slate-100" style={{ height: '250px' }}>
+            {/* TOMBOL TUTUP - Posisi menggantung di pojok kanan atas gambar */}
+            <button 
+              onClick={closePopup}
+              className="absolute -top-12 right-0 p-2.5 bg-red-600 text-white rounded-full shadow-2xl border-2 border-white transition-all hover:bg-red-700 active:scale-90 z-[110]"
+            >
+              <X size={20} strokeWidth={3} />
+            </button>
+
+            {/* BINGKAI GAMBAR - Menyesuaikan tinggi layar (Anti-Terpotong) */}
+            <div className="relative bg-white p-1.5 rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20 overflow-hidden">
               <img 
-                src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1000"
-                className="w-full h-full object-cover" 
-                alt="Promo"
+                src={content.url_gambar} 
+                alt={content.judul}
+                // max-h dikunci agar poster panjang tidak terpotong navigasi browser
+                className="w-auto h-auto max-w-[85vw] max-h-[70vh] md:max-h-[80vh] rounded-xl object-contain block"
               />
             </div>
 
-            {/* AREA TEKS - Sangat ringkas */}
-            <div className="p-4 text-center bg-white">
-              <h3 className="text-sm font-black uppercase italic tracking-tighter text-slate-900 leading-tight mb-1">
-                Marhaban Ya <span className="text-blue-600">Ramadhan</span>
-              </h3>
-              
-              <p className="text-slate-500 text-[9px] font-bold leading-relaxed mb-4 opacity-80 px-2">
-                Selamat berpuasa 1447 H. Update terbaru PB US 162.
-              </p>
+            {/* AREA TEKS & ACTION (MINIMALIS) */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.5 }}
+              className="mt-4 flex flex-col items-center gap-3"
+            >
+              <div className="bg-white/10 backdrop-blur-md border border-white/10 px-4 py-1.5 rounded-full">
+                <p className="text-white text-[10px] font-black uppercase tracking-[0.3em]">
+                  {content.judul || 'Informasi Terbaru'}
+                </p>
+              </div>
               
               <button 
                 onClick={closePopup}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-[9px] tracking-widest shadow-lg"
+                className="text-white/40 hover:text-white text-[9px] font-bold uppercase tracking-widest transition-colors flex flex-col items-center gap-1"
               >
-                MENGERTI
+                <span>Klik dimana saja untuk tutup</span>
+                <div className="w-8 h-[1px] bg-white/20"></div>
               </button>
-            </div>
+            </motion.div>
           </div>
+
         </motion.div>
+
+        {/* OVERLAY KLIK UNTUK TUTUP (AREA GELAP) */}
+        <div 
+          className="absolute inset-0 -z-10 cursor-pointer" 
+          onClick={closePopup} 
+        />
       </div>
     </AnimatePresence>
   );
-} 
+}

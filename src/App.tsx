@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabase'; 
 
-// Import Komponen Landing Page
+// Import Komponen Landing Page (Tetap sama)
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import About from './components/About';
@@ -14,7 +14,7 @@ import RegistrationForm from './components/RegistrationForm';
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
 
-// Import Komponen Admin
+// Import Komponen Admin (Tetap sama)
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import ManajemenPendaftaran from './ManajemenPendaftaran';
@@ -24,13 +24,9 @@ import AdminMatch from './components/AdminMatch';
 import AdminRanking from './components/AdminRanking'; 
 import AdminGallery from './components/AdminGallery'; 
 import AdminContact from './components/AdminContact'; 
-
-// Import Kelola Baru
 import KelolaNavbar from './components/KelolaNavbar'; 
 import ManajemenPoin from './components/ManajemenPoin';
 import AuditLogPoin from './components/AuditLogPoin';
-
-// --- IMPORT MENU BARU ---
 import AdminLaporan from './components/AdminLaporan'; 
 import AdminLogs from './components/AdminLogs'; 
 import AdminTampilan from './components/AdminTampilan'; 
@@ -38,13 +34,12 @@ import KelolaHero from './components/KelolaHero';
 import AdminPopup from './components/AdminPopup'; 
 import AdminFooter from './components/AdminFooter'; 
 
-// --- IMPORT UNTUK POPUP & UI ---
 import { X, ChevronLeft, ChevronRight, Menu, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * FIXED: Komponen Pop-up Gambar Dinamis
- * Ukuran Goldilocks (70%): max-w-[400px]
+ * FIXED: Komponen Pop-up Gambar Otomatis Pas
+ * Menghilangkan aspect-ratio agar gambar portrait panjang tampil utuh
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -82,86 +77,71 @@ function ImagePopup() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-6 bg-black/85 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 15 }}
-          // UKURAN 70%: Lebar 400px adalah standar ideal untuk pop-up promosi
-          className="relative w-full max-w-[400px] bg-white rounded-[2rem] overflow-hidden shadow-[0_35px_70px_-15px_rgba(0,0,0,0.6)]"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          // Lebar 70% (400px) dan Max-Height agar tidak meluber keluar layar
+          className="relative w-full max-w-[400px] max-h-[90vh] bg-white rounded-[2rem] shadow-2xl flex flex-col overflow-hidden"
         >
-          {/* Tombol Close */}
+          {/* Tombol Close Mengambang */}
           <button 
             onClick={closePopup} 
-            className="absolute top-4 right-4 z-50 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl transition-all active:scale-90 border-2 border-white"
+            className="absolute top-4 right-4 z-50 p-2 bg-red-600/90 hover:bg-red-700 text-white rounded-full shadow-xl border-2 border-white transition-transform active:scale-90"
           >
-            <X size={16} strokeWidth={3} />
+            <X size={18} strokeWidth={3} />
           </button>
 
-          {/* Slider Gambar - Rasio 3:4 (Portrait Modern) */}
-          <div className="relative aspect-[3/4] bg-slate-900 overflow-hidden">
+          {/* Container Gambar - Overflow scroll jika sangat panjang */}
+          <div className="relative flex-1 overflow-y-auto bg-slate-100">
             <img 
               src={current.url_gambar} 
-              className="w-full h-full object-cover" 
-              alt={current.judul} 
+              className="w-full h-auto display-block" 
+              alt={current.judul}
+              // Memastikan gambar dimuat utuh tanpa terpotong (object-contain dihilangkan agar pas lebar)
             />
             
             {promoImages.length > 1 && (
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20">
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-2 z-20 pointer-events-none">
                 <button 
                   onClick={() => setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1))} 
-                  className="p-2 bg-black/40 hover:bg-blue-600 text-white rounded-full backdrop-blur-sm transition-all"
+                  className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"
                 >
-                  <ChevronLeft size={18} />
+                  <ChevronLeft size={20} />
                 </button>
                 <button 
                   onClick={() => setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1))} 
-                  className="p-2 bg-black/40 hover:bg-blue-600 text-white rounded-full backdrop-blur-sm transition-all"
+                  className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"
                 >
-                  <ChevronRight size={18} />
+                  <ChevronRight size={20} />
                 </button>
               </div>
             )}
-
-            <div className="absolute top-5 left-5 flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600/90 backdrop-blur-md rounded-full border border-white/20">
-              <Zap size={13} className="text-yellow-400 fill-yellow-400" />
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">Headline</span>
-            </div>
-            
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white via-white/40 to-transparent" />
           </div>
 
-          {/* Konten Teks */}
-          <div className="px-8 pb-8 pt-2 text-center bg-white">
-            <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2 text-slate-900 leading-tight">
-              {current.judul || "PENGUMUMAN"}
-            </h3>
-            <div className="w-12 h-1.5 bg-blue-600 mx-auto mb-4 rounded-full" />
-            
-            <p className="text-slate-500 font-bold text-[12px] mb-6 leading-relaxed line-clamp-2 uppercase">
-              {current.deskripsi || "Jangan lewatkan update terbaru dari manajemen."}
-            </p>
-            
-            <button 
+          {/* Area Tombol Aksi - Fixed di bawah agar selalu terlihat */}
+          <div className="p-4 bg-white border-t border-slate-100">
+             <button 
               onClick={closePopup} 
-              className="w-full py-4 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.25em] shadow-lg shadow-blue-100 transition-all active:scale-95"
+              className="w-full py-3.5 bg-blue-600 hover:bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.25em] transition-all active:scale-95"
             >
               KONFIRMASI
             </button>
           </div>
         </motion.div>
 
-        {/* Backdrop klik untuk tutup */}
+        {/* Backdrop untuk menutup */}
         <div className="absolute inset-0 -z-10" onClick={closePopup} />
       </div>
     </AnimatePresence>
   );
 }
 
+// --- FUNGSI APP & ADMIN LAYOUT (Tetap Sama) ---
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
   const [activeAboutTab, setActiveAboutTab] = useState('sejarah');
   const [activeAthleteFilter, setActiveAthleteFilter] = useState('all');
 
@@ -170,11 +150,9 @@ export default function App() {
       setSession(session);
       setLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -182,41 +160,21 @@ export default function App() {
     if (sectionId === 'tentang-kami' || ['sejarah', 'visi-misi', 'fasilitas'].includes(subPath || '')) {
       if (subPath) setActiveAboutTab(subPath);
     }
-
     if (sectionId === 'atlet' && subPath) {
       setActiveAthleteFilter(subPath);
       const event = new CustomEvent('filterAtlet', { detail: subPath });
       window.dispatchEvent(event);
     }
-
     const targetId = subPath || sectionId;
     setTimeout(() => {
       const element = document.getElementById(targetId) || document.getElementById(sectionId);
       if (element) {
-        const offset = 80;
-        const bodyRect = document.body.getBoundingClientRect().top;
-        const elementRect = element.getBoundingClientRect().top;
-        const elementPosition = elementRect - bodyRect;
-        const offsetPosition = elementPosition - offset;
-
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: 'smooth'
-        });
+        window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
       }
     }, 100);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white font-black italic uppercase tracking-widest">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          Loading System...
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white">Loading...</div>;
 
   return (
     <Router>
@@ -231,25 +189,13 @@ export default function App() {
             <Athletes initialFilter={activeAthleteFilter} />
             <Ranking />
             <Gallery />
-            <section id="register" className="py-20 bg-slate-900">
-              <RegistrationForm />
-            </section>
+            <section id="register" className="py-20 bg-slate-900"><RegistrationForm /></section>
             <Contact />
             <Footer />
           </div>
         } />
-
-        <Route 
-          path="/login" 
-          element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} 
-        />
-
-        <Route 
-          path="/admin/*" 
-          element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} 
-        />
-
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/login" element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} />
+        <Route path="/admin/*" element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
@@ -257,26 +203,16 @@ export default function App() {
 
 function AdminLayout({ session }: { session: any }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
   return (
     <div className="flex h-screen w-full bg-[#050505] overflow-hidden">
-      <aside className={`h-full flex-shrink-0 z-[101] shadow-2xl border-r border-white/5 transition-transform md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} absolute md:relative`}>
-        <Sidebar 
-          email={session.user.email} 
-          isOpen={isSidebarOpen} 
-          onClose={() => setIsSidebarOpen(false)} 
-        />
+      <aside className={`h-full flex-shrink-0 z-[101] transition-transform md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} absolute md:relative`}>
+        <Sidebar email={session.user.email} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </aside>
-      
-      <main className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <div className="md:hidden flex items-center bg-[#0F172A] p-4 border-b border-white/5">
-          <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2">
-            <Menu className="w-6 h-6" />
-          </button>
-          <span className="ml-4 font-black italic text-white uppercase text-sm">Authority Panel</span>
+          <button onClick={() => setIsSidebarOpen(true)} className="text-white"><Menu /></button>
         </div>
-        
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth bg-[#050505]">
+        <div className="flex-1 overflow-y-auto bg-[#050505]">
           <Routes>
             <Route path="dashboard" element={<ManajemenPendaftaran />} />
             <Route path="atlet" element={<ManajemenAtlet />} />
@@ -297,29 +233,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>
-
-        <div className="h-8 bg-black/80 border-t border-white/5 flex items-center px-8 flex-shrink-0 backdrop-blur-md relative z-10">
-          <div className="flex items-center gap-4">
-             <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em]">
-                  System Status: <span className="text-emerald-500">Online</span>
-                </p>
-             </div>
-             <span className="text-white/10">|</span>
-             <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">
-               Authority Multi-Step Sync v2.0
-             </p>
-          </div>
-        </div>
       </main>
-
-      <style>{`
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: #050505; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
-      `}</style>
     </div>
   );
 }

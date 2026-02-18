@@ -14,6 +14,7 @@ export default function ManajemenPoin() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastAmount, setLastAmount] = useState(0);
 
+  // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -39,11 +40,9 @@ export default function ManajemenPoin() {
     finally { setLoading(false); }
   };
 
-  // --- FUNGSI NUKLIR: PAKSA FIX ARWAN ---
   const forceFixArwan = async () => {
     setIsSyncing(true);
     try {
-      // 1. Cari data Arwan di tabel pendaftaran
       const { data: arwanProfile } = await supabase
         .from('pendaftaran')
         .select('id')
@@ -51,30 +50,18 @@ export default function ManajemenPoin() {
         .single();
 
       if (arwanProfile) {
-        // 2. Hapus semua data statistik lama yang mungkin korup/ID salah untuk pendaftaran_id ini
         await supabase.from('atlet_stats').delete().eq('pendaftaran_id', arwanProfile.id);
-
-        // 3. Masukkan data baru yang bersih dengan poin yang seharusnya (8040)
         const { error: insertError } = await supabase
           .from('atlet_stats')
-          .insert([{ 
-            pendaftaran_id: arwanProfile.id, 
-            points: 8040, 
-            rank: 0 
-          }]);
+          .insert([{ pendaftaran_id: arwanProfile.id, points: 8040, rank: 0 }]);
 
         if (!insertError) {
-          alert("BOOM! Data Arwan berhasil dipaksa ke 8040 PTS. Me-refresh...");
+          alert("Data Arwan Berhasil Diperbaiki!");
           await fetchAtlets();
         }
-      } else {
-        alert("Nama Arwan tidak ditemukan di tabel pendaftaran.");
       }
-    } catch (err) {
-      alert("Gagal melakukan Force Fix.");
-    } finally {
-      setIsSyncing(false);
-    }
+    } catch (err) { alert("Gagal Force Fix"); }
+    finally { setIsSyncing(false); }
   };
 
   const handleUpdatePoin = async (atlet: any, currentPoints: number, amount: number) => {
@@ -95,7 +82,9 @@ export default function ManajemenPoin() {
     setUpdatingId(null);
   };
 
+  // Logic Pagination & Search
   const filteredAtlets = atlets.filter(a => a.nama?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const totalPages = Math.ceil(filteredAtlets.length / itemsPerPage);
   const currentItems = filteredAtlets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
@@ -104,74 +93,36 @@ export default function ManajemenPoin() {
         <div>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter">Manajemen <span className="text-blue-600">Poin</span></h1>
           <div className="flex gap-2 mt-4">
-            <button 
-              onClick={fetchAtlets}
-              className="flex items-center gap-2 text-[10px] bg-zinc-900 text-zinc-400 px-4 py-2 rounded-xl font-black border border-zinc-800 hover:text-white"
-            >
-              <RefreshCcw size={12} /> REFRESH
-            </button>
-            <button 
-              onClick={forceFixArwan}
-              disabled={isSyncing}
-              className="flex items-center gap-2 text-[10px] bg-red-600/10 text-red-500 px-4 py-2 rounded-xl font-black border border-red-600/30 hover:bg-red-600 hover:text-white transition-all"
-            >
-              <AlertTriangle size={12} /> {isSyncing ? 'FIXING...' : 'FORCE FIX ARWAN (8040)'}
-            </button>
+            <button onClick={fetchAtlets} className="flex items-center gap-2 text-[10px] bg-zinc-900 text-zinc-400 px-4 py-2 rounded-xl font-black border border-zinc-800"><RefreshCcw size={12} /> REFRESH</button>
+            <button onClick={forceFixArwan} disabled={isSyncing} className="flex items-center gap-2 text-[10px] bg-red-600/10 text-red-500 px-4 py-2 rounded-xl font-black border border-red-600/30 hover:bg-red-600 hover:text-white"><AlertTriangle size={12} /> FIX ARWAN</button>
           </div>
         </div>
 
         <div className="relative w-full md:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-          <input 
-            type="text" 
-            placeholder="Cari nama..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white font-bold"
-            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-          />
+          <input type="text" placeholder="Cari nama..." className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white font-bold outline-none" onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
         </div>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 mb-8">
         {loading ? <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-blue-600" /></div> : (
           currentItems.map((atlet) => (
             <div key={atlet.id} className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between group">
               <div className="flex items-center gap-5">
-                <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-500 group-hover:text-blue-500 transition-all shadow-lg border border-white/5">
-                  <User size={28} />
-                </div>
+                <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-500 border border-white/5"><User size={28} /></div>
                 <div>
                   <h3 className="font-black text-xl uppercase tracking-tighter group-hover:text-blue-400 transition-colors">{atlet.nama}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-blue-500 text-[9px] font-black uppercase tracking-widest">{atlet.kategori_atlet || 'ATLET'}</span>
-                    <span className="w-1 h-1 bg-zinc-800 rounded-full" />
-                    <span className="text-zinc-600 text-[8px] font-bold italic">ID: {atlet.id.slice(0,12)}...</span>
-                  </div>
+                  <p className="text-zinc-600 text-[9px] font-bold italic">ID: {atlet.id.slice(0,12)}...</p>
                 </div>
               </div>
-
               <div className="flex items-center gap-10 mt-6 md:mt-0">
                 <div className="text-right">
-                  <p className="text-[9px] text-zinc-600 font-black mb-1">CURRENT POINTS</p>
-                  <p className="text-4xl font-black text-white leading-none">
-                    {atlet.display_points.toLocaleString()} <span className="text-blue-600 text-sm">PTS</span>
-                  </p>
+                  <p className="text-[9px] text-zinc-600 font-black mb-1">BALANCE</p>
+                  <p className="text-4xl font-black text-white">{atlet.display_points.toLocaleString()} <span className="text-blue-600 text-sm">PTS</span></p>
                 </div>
-
                 <div className="flex gap-2 bg-black/40 p-2 rounded-2xl border border-white/5">
-                  <button 
-                    disabled={updatingId === atlet.id}
-                    onClick={() => handleUpdatePoin(atlet, atlet.display_points, -100)}
-                    className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-red-600 flex items-center justify-center transition-all disabled:opacity-20"
-                  >
-                    {updatingId === atlet.id ? <Loader2 size={18} className="animate-spin" /> : <Minus size={20} />}
-                  </button>
-                  <button 
-                    disabled={updatingId === atlet.id}
-                    onClick={() => handleUpdatePoin(atlet, atlet.display_points, 100)}
-                    className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-green-600 flex items-center justify-center transition-all disabled:opacity-20"
-                  >
-                    {updatingId === atlet.id ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
-                  </button>
+                  <button disabled={updatingId === atlet.id} onClick={() => handleUpdatePoin(atlet, atlet.display_points, -100)} className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-red-600 flex items-center justify-center disabled:opacity-20 transition-all"><Minus size={20} /></button>
+                  <button disabled={updatingId === atlet.id} onClick={() => handleUpdatePoin(atlet, atlet.display_points, 100)} className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-green-600 flex items-center justify-center disabled:opacity-20 transition-all"><Plus size={20} /></button>
                 </div>
               </div>
             </div>
@@ -179,12 +130,42 @@ export default function ManajemenPoin() {
         )}
       </div>
 
-      {/* MODAL SUCCESS (Glow Effect) */}
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
-        <div className="bg-blue-600 px-10 py-6 rounded-full shadow-[0_0_50px_rgba(37,99,235,0.6)] flex items-center gap-4">
-          <CheckCircle2 size={24} className="text-white" />
-          <h4 className="text-white font-black uppercase text-lg italic">POIN BERHASIL DIUPDATE!</h4>
+      {/* --- PAGINATION CONTROLS (KEMBALI DITAMBAHKAN) --- */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-8 pb-10">
+          <button 
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-20 transition-all"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          
+          <div className="flex gap-2">
+            {[...Array(totalPages)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentPage(i + 1)}
+                className={`w-12 h-12 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-zinc-900 text-zinc-600 hover:text-zinc-400'}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+
+          <button 
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-20 transition-all"
+          >
+            <ChevronRight size={20} />
+          </button>
         </div>
+      )}
+
+      {/* Toast Notif */}
+      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+        <div className="bg-blue-600 px-10 py-6 rounded-full shadow-2xl flex items-center gap-4 border border-white/20"><CheckCircle2 size={24} className="text-white" /><h4 className="text-white font-black uppercase text-lg italic tracking-widest">SUCCESS!</h4></div>
       </div>
     </div>
   );

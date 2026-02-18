@@ -96,15 +96,18 @@ const AdminMatch: React.FC = () => {
   };
 
   /**
-   * Log Audit yang lebih lengkap
+   * KODE BARU: Log Audit yang lebih lengkap dengan atlet_id
+   * Ini memastikan riwayat muncul di halaman User
    */
-  const createAuditLog = async (atletNama: string, perubahan: number, sebelum: number, sesudah: number, kat: string, res: string) => {
+  const createAuditLog = async (atletId: string, atletNama: string, perubahan: number, sebelum: number, sesudah: number, kat: string, res: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const labelTipe = res === "Rollback" ? `Rollback: ${kat}` : `${kat} (${res})`;
+      // Penyesuaian label agar informatif di sisi user
+      const labelTipe = res === "Rollback" ? `Pembatalan Poin: ${kat}` : `${kat} (${res})`;
 
-      await supabase.from('audit_poin').insert([{
+      const { error: auditError } = await supabase.from('audit_poin').insert([{
+        atlet_id: atletId, // Menghubungkan ID ke riwayat
         atlet_nama: atletNama,
         perubahan: perubahan,
         poin_sebelum: sebelum,
@@ -113,6 +116,8 @@ const AdminMatch: React.FC = () => {
         tipe_kegiatan: labelTipe,
         created_at: new Date().toISOString()
       }]);
+
+      if (auditError) throw auditError;
     } catch (err) {
       console.error("Gagal mencatat audit log:", err);
     }
@@ -136,7 +141,7 @@ const AdminMatch: React.FC = () => {
       const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
       
       const playerInfo = players.find(p => p.id === playerId);
-      if (!playerInfo) throw new Error("Data atlet tidak ditemukan");
+      if (!playerInfo) throw new Error("Data atlet tidak ditemukan dalam state lokal");
 
       // 2. Update atlet_stats
       const statsPayload: any = {
@@ -144,7 +149,7 @@ const AdminMatch: React.FC = () => {
         player_name: playerInfo.nama,
         last_match_at: new Date().toISOString(),
         points: newTotalPoints,
-        poin: newTotalPoints // Dual mapping untuk keamanan skema
+        poin: newTotalPoints // Dual mapping untuk kompatibilitas skema
       };
 
       const { error: upsertStatsError } = await supabase
@@ -158,9 +163,11 @@ const AdminMatch: React.FC = () => {
         player_name: playerInfo.nama,
         category: playerInfo.kategori || 'Senior',
         total_points: newTotalPoints,
-        seed: currentStats?.seed || 'UNSEEDED',
         updated_at: new Date().toISOString()
       };
+
+      // Pastikan kolom seed tetap ada jika sebelumnya sudah ada
+      if (currentStats?.seed) rankingPayload.seed = currentStats.seed;
 
       const { error: rankingError } = await supabase
         .from('rankings')
@@ -168,8 +175,8 @@ const AdminMatch: React.FC = () => {
 
       if (rankingError) console.warn("Update ranking non-kritikal:", rankingError.message);
 
-      // 4. Catat Audit Log
-      await createAuditLog(playerInfo.nama, pointsToAdd, existingPoints, newTotalPoints, currentKategori, currentHasil);
+      // 4. KODE BARU: Catat Audit Log dengan menyertakan playerId
+      await createAuditLog(playerId, playerInfo.nama, pointsToAdd, existingPoints, newTotalPoints, currentKategori, currentHasil);
 
       return true;
     } catch (err: any) {
@@ -208,7 +215,7 @@ const AdminMatch: React.FC = () => {
         fetchRecentMatches();
         setTimeout(() => setShowSuccess(false), 4000);
       } else {
-         throw new Error("Poin gagal disinkronkan ke stats.");
+         throw new Error("Sistem gagal menyinkronkan poin ke tabel statistik.");
       }
 
     } catch (err: any) {

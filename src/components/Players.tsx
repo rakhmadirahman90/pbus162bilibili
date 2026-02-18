@@ -25,9 +25,18 @@ const Players: React.FC = () => {
   const fetchPlayersFromDB = async () => {
     try {
       setIsLoading(true);
+      // --- PERBAIKAN KODE: Menambahkan kategori_atlet dalam select ---
       const { data, error } = await supabase
         .from('atlet_stats')
-        .select(`*, pendaftaran ( nama, foto_url, kategori )`)
+        .select(`
+          *, 
+          pendaftaran ( 
+            nama, 
+            foto_url, 
+            kategori,
+            kategori_atlet 
+          )
+        `)
         .order('points', { ascending: false });
 
       if (error) throw error;
@@ -52,10 +61,23 @@ const Players: React.FC = () => {
       const info = p.pendaftaran || {};
       const name = info.nama || "Atlet PB US";
       const photo = info.foto_url || null;
-      const categoryRaw = (info.kategori || p.seed || "SENIOR").toUpperCase();
-
+      
+      // --- KODE BARU: Mengambil kategori dari kolom kategori_atlet database ---
+      // Kita memprioritaskan kolom database, jika kosong baru fallback ke logika string
+      const dbCategory = info.kategori_atlet; 
       let ageGroup = 'Senior';
-      if (categoryRaw.includes('MUDA')) ageGroup = 'Muda';
+
+      if (dbCategory) {
+        // Mengubah 'MUDA' menjadi 'Muda' dan 'SENIOR' menjadi 'Senior' untuk sinkronisasi UI
+        ageGroup = dbCategory.charAt(0).toUpperCase() + dbCategory.slice(1).toLowerCase();
+      } else {
+        // Fallback jika kolom kategori_atlet di DB masih kosong
+        const categoryRaw = (info.kategori || "").toUpperCase();
+        if (categoryRaw.includes('MUDA') || 
+            ['U-9', 'U-11', 'U-13', 'U-15', 'U-17', 'U-19'].some(u => categoryRaw.includes(u))) {
+          ageGroup = 'Muda';
+        }
+      }
 
       return {
         ...p,
@@ -122,7 +144,7 @@ const Players: React.FC = () => {
 
                 <div className="flex items-center gap-3 mb-6">
                   <span className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                    <ShieldCheck size={14} /> {selectedPlayer.ageGroup}
+                    <ShieldCheck size={14} /> {selectedPlayer.ageGroup.toUpperCase()}
                   </span>
                   <span className="px-4 py-1.5 bg-white/5 border border-white/10 text-zinc-400 rounded-full text-[10px] font-black uppercase tracking-widest">
                     {selectedPlayer.displaySeed}
@@ -240,7 +262,7 @@ const Players: React.FC = () => {
                       <div className="absolute bottom-8 left-8 right-8 transform group-hover:-translate-y-2 transition-transform duration-500">
                         <div className="flex items-center gap-2 mb-2">
                            <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                           <p className="text-blue-500 text-[9px] font-black uppercase tracking-widest">{player.ageGroup}</p>
+                           <p className="text-blue-500 text-[9px] font-black uppercase tracking-widest">{player.ageGroup.toUpperCase()}</p>
                         </div>
                         <h3 className="text-2xl font-black uppercase italic mb-4 leading-tight group-hover:text-blue-500 transition-colors line-clamp-2">
                           {player.name}
@@ -275,4 +297,4 @@ const Players: React.FC = () => {
   );
 };
 
-export default Players; 
+export default Players;

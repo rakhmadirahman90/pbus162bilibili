@@ -116,40 +116,37 @@ export default function News() {
         )}
       </div>
 
-      {/* MODAL DETAIL BERITA - FULL PRECISION IMAGE */}
+      {/* MODAL DETAIL BERITA - NO VISIBLE SCROLLBAR */}
       {selectedNews && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white rounded-[2rem] max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl relative flex flex-col scale-in-center">
             
-            {/* Tombol Close Elegan (Kanan Atas Luar Area Gambar) */}
+            {/* Tombol Close Elegan */}
             <button 
               onClick={() => setSelectedNews(null)} 
-              className="absolute top-5 right-5 p-2 bg-white/10 hover:bg-red-600 text-white rounded-full transition-all z-[120] backdrop-blur-md border border-white/20"
+              className="absolute top-5 right-5 p-2 bg-black/20 hover:bg-red-600 text-white rounded-full transition-all z-[120] backdrop-blur-md border border-white/20"
             >
               <X size={24} />
             </button>
             
-            {/* Kontainer Scroll dengan Smooth Scroll */}
-            <div className="overflow-y-auto custom-scrollbar-smooth flex-grow">
+            {/* Kontainer Scroll dengan "Hidden Scrollbar" agar terlihat menyatu */}
+            <div className="overflow-y-auto hide-scrollbar flex-grow scroll-smooth">
               
-              {/* AREA GAMBAR: Tanpa Crop, Menyesuaikan Tinggi Asli Foto */}
+              {/* AREA GAMBAR: object-top memastikan wajah/kepala diprioritaskan */}
               <div className="relative w-full bg-slate-900">
                 <div className="flex items-center justify-center w-full">
                    <img 
                     src={selectedNews.gambar_url} 
                     alt={selectedNews.judul} 
-                    className="w-full h-auto block max-h-[70vh] object-contain bg-slate-900" 
-                    onLoad={(e) => {
-                      // Trigger sedikit scroll atau refresh layout jika diperlukan
-                    }}
+                    className="w-full h-auto block max-h-[75vh] object-contain object-top bg-slate-900" 
                   />
                 </div>
-                {/* Overlay Gradien Halus di Bawah Gambar */}
-                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent"></div>
+                {/* Overlay Gradien Halus di Bawah Gambar untuk transisi ke teks */}
+                <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white via-white/40 to-transparent"></div>
               </div>
               
               {/* AREA KONTEN */}
-              <div className="p-8 md:p-14 bg-white relative">
+              <div className="p-8 md:p-14 bg-white relative -mt-6 rounded-t-[2.5rem]">
                 <div className="flex flex-wrap items-center gap-4 mb-8">
                   <span className="bg-blue-600 text-white px-5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-200">
                     {selectedNews.kategori}
@@ -164,7 +161,6 @@ export default function News() {
                 </h2>
                 
                 <div className="space-y-10">
-                  {/* Highlight Ringkasan */}
                   <div className="relative pl-8 py-2">
                     <div className="absolute left-0 top-0 bottom-0 w-2 bg-blue-600 rounded-full"></div>
                     <p className="text-xl md:text-2xl italic text-gray-600 leading-relaxed">
@@ -172,7 +168,6 @@ export default function News() {
                     </p>
                   </div>
                   
-                  {/* Konten Utama */}
                   <div className="text-gray-800 text-lg leading-[1.9] whitespace-pre-wrap font-medium">
                     {selectedNews.konten}
                   </div>
@@ -192,22 +187,14 @@ export default function News() {
         </div>
       )}
 
-      {/* Global CSS for Smooth Experience */}
+      {/* CSS untuk Menghilangkan Scrollbar secara Visual */}
       <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar-smooth {
-          scrollbar-width: thin;
-          scrollbar-color: #2563eb #f1f5f9;
-          scroll-behavior: smooth;
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none; /* Chrome, Safari, Opera */
         }
-        .custom-scrollbar-smooth::-webkit-scrollbar {
-          width: 7px;
-        }
-        .custom-scrollbar-smooth::-webkit-scrollbar-track {
-          background: #f1f5f9;
-        }
-        .custom-scrollbar-smooth::-webkit-scrollbar-thumb {
-          background-color: #2563eb;
-          border-radius: 20px;
+        .hide-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
         }
         .scale-in-center {
           animation: scale-in-center 0.4s cubic-bezier(0.175, 0.885, 0.320, 1.275) both;

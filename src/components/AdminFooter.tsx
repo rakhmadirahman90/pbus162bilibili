@@ -4,7 +4,7 @@ import { supabase } from '../supabase';
 
 // KONFIGURASI IDENTITAS DATABASE (UUID & KEY)
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
-const SETTINGS_KEY = "footer_settings"; // Menghindari error: violates not-null constraint on column "key"
+const SETTINGS_KEY = "footer_settings"; 
 
 export default function AdminFooter() {
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export default function AdminFooter() {
         const { data, error } = await supabase
           .from('site_settings')
           .select('footer_config')
-          .eq('key', SETTINGS_KEY) // Mencari berdasarkan key yang unik
+          .eq('key', SETTINGS_KEY) 
           .maybeSingle();
           
         if (data?.footer_config) {
@@ -57,7 +57,7 @@ export default function AdminFooter() {
     getFooterData();
   }, []);
 
-  // Fungsi Simpan dengan Logika UPSERT & Key Constraint Fix
+  // Fungsi Simpan dengan Logika UPSERT & Perbaikan Not-Null 'Value'
   const handleUpdate = async () => {
     setLoading(true);
     try {
@@ -65,16 +65,16 @@ export default function AdminFooter() {
         .from('site_settings')
         .upsert({ 
           id: SETTINGS_ID, 
-          key: SETTINGS_KEY, // MENAMBAHKAN KEY AGAR TIDAK ERROR NOT-NULL
+          key: SETTINGS_KEY, 
           footer_config: footerConfig,
+          value: "active", // PENAMBAHAN: Mengisi kolom 'value' agar tidak error not-null constraint
           updated_at: new Date().toISOString()
-        }, { onConflict: 'key' }); // Menggunakan 'key' sebagai acuan konflik
+        }, { onConflict: 'key' }); 
 
       if (error) throw error;
       alert("🚀 Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
     } catch (error: any) {
       console.error("Error update footer:", error);
-      // Penanganan error schema cache yang umum di Supabase
       if (error.message?.includes('footer_config')) {
         alert("Gagal: Kolom database belum sinkron. Jalankan 'NOTIFY pgrst, reload schema;' di SQL Editor Supabase.");
       } else {
@@ -130,7 +130,6 @@ export default function AdminFooter() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* SISI KIRI: INFORMASI UTAMA */}
           <div className="space-y-6">
             <div>
               <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Deskripsi Klub</label>
@@ -161,7 +160,6 @@ export default function AdminFooter() {
             </div>
           </div>
 
-          {/* SISI KANAN: NAVIGASI & KONTAK */}
           <div className="space-y-6">
             <div className="p-5 bg-[#0f111a] rounded-3xl border border-white/5 space-y-4 shadow-inner">
               <div className="flex justify-between items-center border-b border-white/5 pb-3">
@@ -191,7 +189,6 @@ export default function AdminFooter() {
               </div>
             </div>
 
-            {/* KONTAK & SOSMED */}
             <div className="grid grid-cols-2 gap-4">
                <div>
                  <label className="text-[9px] font-black uppercase text-slate-500 mb-2 block">WhatsApp (Admin)</label>

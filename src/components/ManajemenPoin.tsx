@@ -11,11 +11,9 @@ export default function ManajemenPoin() {
   const [searchTerm, setSearchTerm] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  // --- STATE BARU: UNTUK NOTIFIKASI ---
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastAmount, setLastAmount] = useState(0);
 
-  // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -25,15 +23,14 @@ export default function ManajemenPoin() {
 
   const fetchAtlets = async () => {
     setLoading(true);
-    // --- PERBAIKAN: Query ditingkatkan untuk mengambil kategori_atlet terbaru ---
+    // PERBAIKAN: Query disesuaikan untuk mengambil poin dari tabel atlet_stats yang berisi data
     const { data, error } = await supabase
       .from('pendaftaran')
       .select(`
         id, 
         nama, 
         kategori,
-        kategori_atlet,
-        atlet_stats (
+        atlet_stats!atlet_stats_pendaftaran_id_fkey (
           points, 
           id
         )
@@ -50,7 +47,6 @@ export default function ManajemenPoin() {
     setUpdatingId(atlet.id);
     const newPoints = Math.max(0, currentPoints + amount);
 
-    // Update ke database
     const { error: updateError } = await supabase
       .from('atlet_stats')
       .update({ points: newPoints })
@@ -60,7 +56,6 @@ export default function ManajemenPoin() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         
-        // Catat Audit Log
         await supabase.from('audit_poin').insert([{
           admin_email: user?.email || 'Unknown Admin',
           atlet_nama: atlet.nama,
@@ -69,22 +64,18 @@ export default function ManajemenPoin() {
           perubahan: amount
         }]);
       } catch (logError) {
-        console.error("Gagal mencatat log:", logError);
+        console.error("Log error:", logError);
       }
 
-      // Sync state lokal tanpa refresh page
       setAtlets(atlets.map(a => 
         a.id === atlet.id 
         ? { ...a, atlet_stats: [{ ...a.atlet_stats[0], points: newPoints }] } 
         : a
       ));
 
-      // --- TRIGGER NOTIFIKASI ---
       setLastAmount(amount);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    } else {
-      console.error("Update Error:", updateError);
     }
     setUpdatingId(null);
   };
@@ -93,14 +84,13 @@ export default function ManajemenPoin() {
     a.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredAtlets.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredAtlets.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredAtlets.length / itemsPerPage);
 
   return (
     <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
-      {/* Background Ornaments */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full -z-10" />
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 relative z-10">
@@ -112,7 +102,6 @@ export default function ManajemenPoin() {
             <span className="flex items-center gap-1 text-[10px] bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full font-black uppercase tracking-widest border border-blue-600/30">
               <Zap size={10} className="animate-pulse" /> Auto-Sync Active
             </span>
-            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest italic">Manual Adjustment Mode</p>
           </div>
         </div>
 
@@ -132,18 +121,13 @@ export default function ManajemenPoin() {
 
       <div className="grid gap-4 mb-8 relative z-10">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="animate-spin text-blue-600" size={40} />
-            <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">Memuat Data Atlet...</p>
-          </div>
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" size={40} /></div>
         ) : currentItems.map((atlet) => {
-          // --- KODE BARU: Penyesuaian Pengambilan Poin ---
-          const stats = atlet.atlet_stats?.[0] || { points: 0 };
-          const categoryDisplay = atlet.kategori_atlet || atlet.kategori;
-
+          // Sinkronisasi Poin: Mengambil data points dari array atlet_stats
+          const stats = (atlet.atlet_stats && atlet.atlet_stats[0]) ? atlet.atlet_stats[0] : { points: 0 };
+          
           return (
             <div key={atlet.id} className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between hover:bg-zinc-900/60 transition-all group relative overflow-hidden">
-               {/* Accent Line on Hover */}
                <div className="absolute left-0 top-0 w-[2px] h-full bg-blue-600 opacity-0 group-hover:opacity-100 transition-all" />
                
               <div className="flex items-center gap-5 mb-6 md:mb-0">
@@ -153,11 +137,9 @@ export default function ManajemenPoin() {
                 <div>
                   <h3 className="font-black text-xl uppercase tracking-tighter group-hover:text-blue-400 transition-colors">{atlet.nama}</h3>
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${atlet.kategori_atlet === 'SENIOR' ? 'text-purple-500' : 'text-blue-500'}`}>
-                      {categoryDisplay}
-                    </span>
+                    <span className="text-blue-500/60 text-[10px] font-black uppercase tracking-[0.2em]">{atlet.kategori}</span>
                     <span className="w-1 h-1 bg-zinc-700 rounded-full" />
-                    <span className="text-zinc-600 text-[9px] font-bold uppercase tracking-widest italic">ID: {atlet.id.split('-')[0]}</span>
+                    <span className="text-zinc-600 text-[9px] font-bold uppercase tracking-widest italic">ID: {atlet.id.slice(0, 8)}</span>
                   </div>
                 </div>
               </div>
@@ -166,7 +148,7 @@ export default function ManajemenPoin() {
                 <div className="text-right">
                   <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest mb-1">Current Balance</p>
                   <p className="text-3xl font-black text-white leading-none">
-                    {stats.points.toLocaleString()} <span className="text-blue-600 text-sm">PTS</span>
+                    {Number(stats.points).toLocaleString()} <span className="text-blue-600 text-sm">PTS</span>
                   </p>
                 </div>
 
@@ -175,17 +157,15 @@ export default function ManajemenPoin() {
                     disabled={updatingId === atlet.id}
                     onClick={() => handleUpdatePoin(atlet, stats.points, -100)}
                     className="w-12 h-12 rounded-xl bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all disabled:opacity-30 active:scale-90"
-                    title="Kurangi 100 Poin"
                   >
-                    {updatingId === atlet.id ? <Loader2 className="animate-spin" size={18} /> : <Minus size={20} />}
+                    <Minus size={20} />
                   </button>
                   <button 
                     disabled={updatingId === atlet.id}
                     onClick={() => handleUpdatePoin(atlet, stats.points, 100)}
                     className="w-12 h-12 rounded-xl bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-green-600 hover:text-white transition-all disabled:opacity-30 active:scale-90"
-                    title="Tambah 100 Poin"
                   >
-                    {updatingId === atlet.id ? <Loader2 className="animate-spin" size={18} /> : <Plus size={20} />}
+                    <Plus size={20} />
                   </button>
                 </div>
               </div>
@@ -194,44 +174,31 @@ export default function ManajemenPoin() {
         })}
       </div>
 
-      {/* Pagination Controls */}
+      {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 pt-4">
           <button 
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-20 transition-all active:scale-95"
+            className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 disabled:opacity-20"
           >
             <ChevronLeft size={20} />
           </button>
-          
-          <div className="flex gap-2">
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`w-12 h-12 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'bg-zinc-900 text-zinc-600 hover:text-zinc-400'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-
           <button 
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-20 transition-all active:scale-95"
+            className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 disabled:opacity-20"
           >
             <ChevronRight size={20} />
           </button>
         </div>
       )}
 
-      {/* --- MODAL NOTIFIKASI SUKSES (Glow Effect) --- */}
+      {/* Notifikasi */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
         <div className="bg-zinc-950/90 backdrop-blur-3xl border border-blue-500/50 px-10 py-6 rounded-[3rem] shadow-[0_0_50px_rgba(37,99,235,0.3)] flex items-center gap-6">
-          <div className={`p-4 rounded-2xl rotate-12 shadow-lg ${lastAmount > 0 ? 'bg-green-600 shadow-green-900/40' : 'bg-red-600 shadow-red-900/40'}`}>
+          <div className={`p-4 rounded-2xl rotate-12 shadow-lg ${lastAmount > 0 ? 'bg-green-600' : 'bg-red-600'}`}>
             <CheckCircle2 size={28} className="text-white" />
           </div>
           <div>
@@ -239,16 +206,11 @@ export default function ManajemenPoin() {
               {lastAmount > 0 ? 'POINTS ADDED!' : 'POINTS REDUCED!'}
             </h4>
             <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <Sparkles size={12} /> Audit Log & Stats Synchronized
+              <Sparkles size={12} /> Database Synchronized
             </p>
           </div>
         </div>
       </div>
-
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 }

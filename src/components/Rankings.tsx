@@ -3,7 +3,8 @@ import { supabase } from "../supabase";
 import { 
   TrendingUp, TrendingDown, Minus, Trophy, Search, 
   ChevronLeft, ChevronRight, Loader2, AlertCircle, 
-  RefreshCw, History, Calendar, User, Activity, Info
+  RefreshCw, History, Calendar, User, Activity, Info,
+  ShieldCheck
 } from 'lucide-react';
 
 interface PlayerRanking {
@@ -15,7 +16,7 @@ interface PlayerRanking {
   bonus?: number;
 }
 
-// Interface untuk data history
+// Interface untuk data history (Disesuaikan dengan struktur Admin baru)
 interface PointHistory {
   id: string;
   created_at: string;
@@ -23,6 +24,7 @@ interface PointHistory {
   poin_sebelum: number;
   poin_sesudah: number;
   admin_email: string;
+  tipe_kegiatan: string; // Kolom baru untuk detail riwayat
 }
 
 const Rankings: React.FC = () => {
@@ -94,13 +96,15 @@ const Rankings: React.FC = () => {
     }
   };
 
-  // Fungsi untuk mengambil riwayat spesifik atlet (Transparansi)
+  /**
+   * PERBAIKAN: Mengambil kolom 'tipe_kegiatan' agar riwayat tampil detail
+   */
   const fetchHistoryForPlayer = async (playerName: string) => {
     setLoadingHistory(true);
     try {
       const { data, error } = await supabase
         .from('audit_poin')
-        .select('*')
+        .select('id, created_at, perubahan, poin_sebelum, poin_sesudah, admin_email, tipe_kegiatan')
         .eq('atlet_nama', playerName)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -151,7 +155,7 @@ const Rankings: React.FC = () => {
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
         
-        {/* INFO MATRIX POIN (SESUAI GAMBAR ATURAN) */}
+        {/* HEADER & MATRIX POIN */}
         <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
             <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full mb-4">
@@ -164,7 +168,6 @@ const Rankings: React.FC = () => {
                 <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">Transparansi Perolehan Poin Atlet</p>
             </div>
 
-            {/* MATRIX POIN VISUAL */}
             <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] backdrop-blur-sm">
                 <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
                     <Activity size={16} className="text-blue-500" />
@@ -186,6 +189,7 @@ const Rankings: React.FC = () => {
             </div>
         </div>
 
+        {/* SEARCH & FILTER */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
@@ -211,6 +215,7 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
+        {/* TABLE RANKING */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px]">
@@ -228,7 +233,7 @@ const Rankings: React.FC = () => {
                   <tr>
                     <td colSpan={5} className="py-24 text-center">
                       <Loader2 className="animate-spin mx-auto text-blue-500 mb-4" size={40} />
-                      <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Memuat Data...</p>
+                      <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Memuat Data Database...</p>
                     </td>
                   </tr>
                 ) : dbRankings.length === 0 ? (
@@ -266,9 +271,9 @@ const Rankings: React.FC = () => {
                               <span className="group-hover:text-blue-400 transition-colors">{player.player_name}</span>
                               {globalRank === 1 && <Trophy size={16} className="text-amber-400 animate-bounce" />}
                             </div>
-                            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1 mt-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Info size={10} className="text-blue-500" />
-                                <span className="text-[8px] text-blue-500 font-black uppercase tracking-widest">Klik untuk riwayat</span>
+                                <span className="text-[8px] text-blue-500 font-black uppercase tracking-widest">Klik untuk Transparansi Poin</span>
                             </div>
                           </td>
                           <td className="px-6 py-6">
@@ -296,14 +301,20 @@ const Rankings: React.FC = () => {
                           </td>
                         </tr>
 
-                        {/* ROW DETAIL RIWAYAT (TRANSPARANSI PUBLIK) */}
+                        {/* ROW DETAIL RIWAYAT (DIPERBAIKI UNTUK TIPE_KEGIATAN) */}
                         {isExpanded && (
                           <tr>
                             <td colSpan={5} className="px-8 py-0 border-none">
-                              <div className="bg-slate-950/50 border-x border-b border-blue-500/20 rounded-b-3xl p-6 mb-4 animate-in slide-in-from-top-2 duration-300 overflow-hidden">
-                                <div className="flex items-center gap-2 mb-4">
-                                  <History size={14} className="text-blue-500" />
-                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Log Aktivitas Terakhir: {player.player_name}</span>
+                              <div className="bg-slate-950/50 border-x border-b border-blue-500/20 rounded-b-3xl p-6 mb-4 animate-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <History size={14} className="text-blue-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Log Aktivitas: {player.player_name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                                        <ShieldCheck size={10} className="text-blue-500" />
+                                        <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Verified by Admin</span>
+                                    </div>
                                 </div>
 
                                 {loadingHistory ? (
@@ -311,15 +322,16 @@ const Rankings: React.FC = () => {
                                 ) : playerHistory.length > 0 ? (
                                   <div className="space-y-2">
                                     {playerHistory.map((log) => (
-                                      <div key={log.id} className="flex items-center justify-between bg-slate-900/80 p-3 rounded-xl border border-white/5">
+                                      <div key={log.id} className="flex items-center justify-between bg-slate-900/80 p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
                                         <div className="flex items-center gap-4">
                                           <div className={`p-2 rounded-lg ${log.perubahan > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
                                             {log.perubahan > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                                           </div>
                                           <div>
-                                            <div className="text-[10px] font-mono text-slate-500">{new Date(log.created_at).toLocaleString('id-ID')}</div>
-                                            <div className="text-[11px] font-black uppercase tracking-tight">
-                                              {log.perubahan > 0 ? 'Penambahan' : 'Pengurangan'} Poin Berhasil
+                                            <div className="text-[10px] font-mono text-slate-500 mb-1">{new Date(log.created_at).toLocaleString('id-ID')}</div>
+                                            <div className="text-[11px] font-black uppercase tracking-tight text-white flex items-center gap-2">
+                                              {log.tipe_kegiatan || (log.perubahan > 0 ? 'Penambahan Manual' : 'Pengurangan Manual')}
+                                              {log.perubahan < 0 && <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded">ROLLBACK</span>}
                                             </div>
                                           </div>
                                         </div>
@@ -327,13 +339,16 @@ const Rankings: React.FC = () => {
                                           <div className={`text-sm font-black ${log.perubahan > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                             {log.perubahan > 0 ? '+' : ''}{log.perubahan} PTS
                                           </div>
-                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Balance: {log.poin_sesudah}</div>
+                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Sisa Poin: {log.poin_sesudah}</div>
                                         </div>
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  <div className="text-center py-6 text-slate-700 text-[10px] font-bold uppercase tracking-widest italic">Belum ada riwayat aktivitas yang tercatat.</div>
+                                  <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl">
+                                      <Calendar className="mx-auto mb-2 text-slate-800" size={24} />
+                                      <div className="text-slate-700 text-[10px] font-bold uppercase tracking-widest italic">Belum ada riwayat aktivitas tercatat.</div>
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -348,14 +363,14 @@ const Rankings: React.FC = () => {
           </div>
 
           <div className="p-6 flex items-center justify-between border-t border-slate-800 bg-slate-900/50">
-            <button onClick={fetchRankings} className="p-2 hover:bg-slate-800 rounded-lg text-slate-600 hover:text-blue-400">
+            <button onClick={fetchRankings} className="p-2 hover:bg-slate-800 rounded-lg text-slate-600 hover:text-blue-400 transition-colors">
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
             <div className="flex gap-2">
-              <button disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="p-2 bg-slate-800 rounded-xl disabled:opacity-10">
+              <button disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)} className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors">
                 <ChevronLeft size={18}/>
               </button>
-              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(c => c + 1)} className="p-2 bg-slate-800 rounded-xl disabled:opacity-10">
+              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(c => c + 1)} className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors">
                 <ChevronRight size={18}/>
               </button>
             </div>

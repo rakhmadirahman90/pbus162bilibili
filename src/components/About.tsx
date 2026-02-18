@@ -54,7 +54,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     <section id="tentang-kami" className="relative w-full h-auto bg-white pt-16 pb-12 flex flex-col items-center overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 w-full flex flex-col">
         
-        {/* Header Section: Judul Utama Profesional */}
+        {/* Header Section */}
         <div className="text-center mb-8 shrink-0">
           <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase">
             Tentang <span className="text-blue-600">Kami</span>
@@ -62,7 +62,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           <div className="w-20 h-1.5 bg-blue-600 mx-auto rounded-full shadow-sm"></div>
         </div>
 
-        {/* Tab Switcher: Navigasi yang Pas & Rapi */}
+        {/* Tab Switcher */}
         <div className="flex flex-wrap justify-center gap-2 md:gap-4 mb-10 shrink-0">
           {tabs.map((tab) => (
             <button
@@ -79,17 +79,17 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           ))}
         </div>
 
-        {/* Tab Content Box: Background Soft dengan Padding Luas */}
+        {/* Tab Content Box */}
         <div className="bg-slate-50/50 rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-16 border border-slate-100 shadow-sm min-h-[500px] flex items-center transition-all duration-500">
           
-          {/* 1. SEJARAH: Layout Grid Seimbang */}
+          {/* 1. SEJARAH */}
           {activeTab === 'sejarah' && (
             <div id="sejarah" className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="grid lg:grid-cols-2 gap-12 items-center">
                 <div className="relative group hidden md:block">
                   <div className="absolute -inset-4 bg-blue-100/50 rounded-[3rem] blur-2xl group-hover:bg-blue-200/50 transition-colors"></div>
                   <img 
-                    src="photo_2026-02-03_00-32-07.jpg" 
+                    src={dynamicContent.sejarah_img || "photo_2026-02-03_00-32-07.jpg"} 
                     alt="Latihan PB US 162" 
                     className="relative w-full h-[400px] object-cover rounded-[2.5rem] shadow-2xl border-4 border-white transition-transform duration-700 group-hover:scale-[1.02]"
                   />
@@ -119,7 +119,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* 2. VISI MISI: Layout Card Profesional */}
+          {/* 2. VISI MISI */}
           {activeTab === 'visi-misi' && (
             <div id="visi-misi" className="w-full animate-in fade-in slide-in-from-right-8 duration-700 grid lg:grid-cols-2 gap-8 items-stretch">
               {/* Visi Card */}
@@ -146,7 +146,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
                 <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Misi Strategis</span>
                 <ul className="space-y-4 relative z-10">
-                  {/* PERBAIKAN: Memastikan mapping misi dari array yang diinput di admin */}
                   {(Array.isArray(dynamicContent.missions) && dynamicContent.missions.length > 0 
                     ? dynamicContent.missions 
                     : ["Latihan terstruktur & disiplin", "Fasilitas internasional", "Kompetisi rutin", "Karakter juara"]
@@ -161,7 +160,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* 3. FASILITAS: Layout Collage yang Rapi */}
+          {/* 3. FASILITAS */}
           {activeTab === 'fasilitas' && (
             <div id="fasilitas" className="w-full animate-in fade-in zoom-in-95 duration-500 grid lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-8">
@@ -188,11 +187,11 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
               </div>
 
-              {/* Fasilitas Gallery Collage */}
+              {/* Fasilitas Gallery Collage (Menggunakan Data Dinamis) */}
               <div className="grid grid-cols-2 gap-4 h-[400px] md:h-[500px]">
                 <div className="relative overflow-hidden rounded-[2.5rem] shadow-lg group">
                    <img 
-                    src="dpnkwabotttfihp7gf3r.jpg" 
+                    src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} 
                     alt="Main Court" 
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
@@ -202,12 +201,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
                 <div className="grid grid-rows-2 gap-4">
                   <img 
-                    src="dpnkwabotttfihp7gf3r.jpg" 
+                    src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} 
                     alt="Side View" 
                     className="w-full h-full object-cover rounded-[2.5rem] shadow-md border-2 border-white transition-transform duration-700 hover:scale-105"
                   />
                   <img 
-                    src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" 
+                    src={dynamicContent.fasilitas_img3 || "https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80"} 
                     alt="Equipment" 
                     className="w-full h-full object-cover rounded-[2.5rem] shadow-md border-2 border-white transition-transform duration-700 hover:scale-105"
                   />

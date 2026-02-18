@@ -51,10 +51,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   ];
 
   return (
-    /* DETAIL PERBAIKAN: 
-       - h-auto untuk fleksibilitas konten
-       - bg-white bersih dengan transisi halus
-    */
     <section id="tentang-kami" className="relative w-full h-auto bg-white pt-16 pb-12 flex flex-col items-center overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 w-full flex flex-col">
         
@@ -150,7 +146,11 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
                 <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Misi Strategis</span>
                 <ul className="space-y-4 relative z-10">
-                  {(dynamicContent.missions || ["Latihan terstruktur & disiplin", "Fasilitas internasional", "Kompetisi rutin", "Karakter juara"]).map((misi, i) => (
+                  {/* PERBAIKAN: Memastikan mapping misi dari array yang diinput di admin */}
+                  {(Array.isArray(dynamicContent.missions) && dynamicContent.missions.length > 0 
+                    ? dynamicContent.missions 
+                    : ["Latihan terstruktur & disiplin", "Fasilitas internasional", "Kompetisi rutin", "Karakter juara"]
+                  ).map((misi, i) => (
                     <li key={i} className="flex items-center gap-4 text-slate-700 font-bold text-sm md:text-base italic group/item">
                       <div className="w-2 h-2 bg-blue-500 rounded-full group-hover/item:scale-150 transition-transform"></div>
                       {misi}
@@ -166,7 +166,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             <div id="fasilitas" className="w-full animate-in fade-in zoom-in-95 duration-500 grid lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-8">
                 <div>
-                  <h3 className="text-3xl font-black text-slate-900 uppercase mb-2">Fasilitas Unggulan</h3>
+                  <h3 className="text-3xl font-black text-slate-900 uppercase mb-2">
+                    {dynamicContent.fasilitas_title || "Fasilitas Unggulan"}
+                  </h3>
                   <p className="text-slate-500 font-medium italic">Standardisasi Nasional & Internasional (BWF)</p>
                 </div>
                 <div className="grid grid-cols-1 gap-4">

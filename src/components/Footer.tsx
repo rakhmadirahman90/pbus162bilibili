@@ -72,7 +72,7 @@ export default function Footer() {
                 alt="Logo PB US 162"
                 className="w-12 h-12 rounded-full object-cover border-2 border-slate-700"
               />
-              <h3 className="text-xl font-bold italic tracking-tighter">PB US 162 <span className="text-blue-500">BILIBILI</span></h3>
+              <h3 className="text-xl font-bold italic tracking-tighter">PB BILIBILI <span className="text-blue-500">162</span></h3>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">
               {config.description}

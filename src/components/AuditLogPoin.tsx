@@ -20,7 +20,7 @@ export default function AuditLogPoin() {
       const { data, error: fetchError } = await supabase
         .from('audit_poin')
         .select('*')
-        .order('created_at', { ascending: false }) // Menggunakan created_at agar standar
+        .order('waktu', { ascending: false }) // DISESUAIKAN: Kembali menggunakan 'waktu'
         .limit(100);
 
       if (fetchError) throw fetchError;
@@ -37,13 +37,12 @@ export default function AuditLogPoin() {
   useEffect(() => {
     fetchLogs();
 
-    // Subscribe ke perubahan tabel audit_poin secara realtime
     const channel = supabase
       .channel('audit_realtime')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'audit_poin' }, 
         () => {
-          fetchLogs(); // Otomatis refresh jika ada admin lain input poin
+          fetchLogs(); 
         }
       )
       .subscribe();
@@ -53,13 +52,11 @@ export default function AuditLogPoin() {
     };
   }, []);
 
-  // --- Manual Refresh Handler ---
   const handleManualRefresh = () => {
     setIsRefreshing(true);
     fetchLogs();
   };
 
-  // --- Search Filter Logic ---
   const filteredLogs = useMemo(() => {
     return logs.filter(log => 
       log.atlet_nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -70,7 +67,6 @@ export default function AuditLogPoin() {
 
   return (
     <div className="p-4 md:p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
-      {/* Background Decorative Glow */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] pointer-events-none" />
       
       <div className="max-w-6xl mx-auto relative z-10">
@@ -107,7 +103,7 @@ export default function AuditLogPoin() {
           </div>
         </div>
 
-        {/* Error State */}
+        {/* Error Alert */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 animate-in fade-in zoom-in duration-300">
             <AlertCircle size={20} />
@@ -115,7 +111,7 @@ export default function AuditLogPoin() {
           </div>
         )}
 
-        {/* Main Log Table */}
+        {/* Table Log */}
         <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[2.5rem] overflow-hidden backdrop-blur-sm shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[800px]">
@@ -155,10 +151,10 @@ export default function AuditLogPoin() {
                           </div>
                           <div>
                             <p className="text-[11px] font-mono text-zinc-400">
-                              {new Date(log.created_at || log.waktu).toLocaleDateString('id-ID')}
+                              {new Date(log.waktu).toLocaleDateString('id-ID')}
                             </p>
                             <p className="text-[10px] font-mono text-zinc-600">
-                              {new Date(log.created_at || log.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                              {new Date(log.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
@@ -191,9 +187,7 @@ export default function AuditLogPoin() {
                             <p className="text-[9px] font-bold text-zinc-600 uppercase">Before</p>
                             <p className="text-xs font-mono text-zinc-400">{log.poin_sebelum}</p>
                           </div>
-                          
                           <ArrowRight size={16} className="text-zinc-800" />
-                          
                           <div className="bg-zinc-800/30 p-2 rounded-xl border border-white/[0.03] min-w-[100px] text-center">
                             <p className={`text-sm font-black ${log.perubahan > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                               {log.poin_sesudah} 
@@ -211,7 +205,6 @@ export default function AuditLogPoin() {
             </table>
           </div>
           
-          {/* Footer Info */}
           <div className="p-6 bg-zinc-900/50 border-t border-zinc-800/50 flex justify-between items-center">
             <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">
               Menampilkan {filteredLogs.length} entri terakhir

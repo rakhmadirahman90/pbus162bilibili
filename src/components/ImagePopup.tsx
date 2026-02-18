@@ -11,90 +11,74 @@ export default function ImagePopup() {
   } | null>(null);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-
     const fetchActivePopup = async () => {
       try {
+        // PERIKSA: Pastikan nama tabel di Supabase adalah 'konfigurasi_popup'
         const { data, error } = await supabase
-          .from('konfigurasi_popup')
+          .from('konfigurasi_popup') 
           .select('url_gambar, judul')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika data kosong
+          .maybeSingle();
 
-        if (data && !error) {
+        if (error) {
+          console.error("Supabase Error:", error.message);
+          return;
+        }
+
+        if (data) {
           setContent(data);
-          // Trigger muncul setelah data berhasil diambil
-          timer = setTimeout(() => {
-            setIsOpen(true);
-          }, 1000);
+          // Paksa muncul setelah 1 detik
+          setTimeout(() => setIsOpen(true), 1000);
+        } else {
+          console.warn("Tidak ada pop-up yang statusnya 'LIVE' atau 'is_active: true'");
         }
       } catch (err) {
-        console.error("Popup fetch error:", err);
+        console.error("Koneksi gagal:", err);
       }
     };
 
     fetchActivePopup();
-
-    // Cleanup timer saat komponen unmount
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, []); // Dependensi kosong menjamin eksekusi ulang setiap hard refresh
+  }, []); // Berjalan setiap kali halaman di-load/refresh
 
   if (!content || !isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-8">
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
         
         <motion.div 
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ type: "spring", duration: 0.5 }}
-          className="relative flex flex-col items-center w-full h-full justify-center pointer-events-none"
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="relative flex flex-col items-center justify-center max-w-full max-h-full"
         >
-          
-          {/* Container Gambar dengan batasan yang ketat agar tidak terpotong */}
-          <div className="relative flex flex-col items-center pointer-events-auto max-w-full max-h-full">
-            
-            {/* Tombol Tutup - Posisi Responsif */}
-            <button 
-              onClick={() => setIsOpen(false)}
-              className="absolute -top-12 right-0 md:-right-12 p-2 text-white/70 hover:text-white transition-all bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-xl border border-white/20"
-            >
-              <X size={24} strokeWidth={2.5} />
-            </button>
+          {/* Tombol Close di pojok kanan atas gambar */}
+          <button 
+            onClick={() => setIsOpen(false)}
+            className="absolute -top-12 right-0 p-2 bg-red-600 text-white rounded-full shadow-xl z-50 hover:bg-red-700 transition-colors"
+          >
+            <X size={24} strokeWidth={3} />
+          </button>
 
-            {/* Wrapper Gambar */}
-            <div className="relative shadow-2xl rounded-2xl overflow-hidden flex items-center justify-center border border-white/10">
-              <img 
-                src={content.url_gambar} 
-                alt={content.judul}
-                // Menyesuaikan ukuran secara otomatis berdasarkan layar
-                className="w-auto h-auto max-w-[90vw] max-h-[70vh] md:max-h-[80vh] object-contain"
-                style={{ display: 'block' }}
-              />
-            </div>
-
-            {/* Label Petunjuk */}
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1.5 }}
-              className="mt-6 text-white/30 text-[9px] uppercase tracking-[0.4em] font-bold text-center"
-            >
-              Klik di luar gambar untuk menutup
-            </motion.p>
+          {/* Container Gambar: Menyesuaikan Tinggi Layar agar TIDAK TERPOTONG */}
+          <div className="relative bg-white p-1 rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+            <img 
+              src={content.url_gambar} 
+              alt={content.judul}
+              className="w-auto h-auto max-w-[90vw] max-h-[75vh] md:max-h-[85vh] object-contain rounded-xl"
+            />
           </div>
 
+          <p className="mt-4 text-white/50 text-[10px] tracking-[0.3em] uppercase font-bold">
+            Klik di luar gambar untuk menutup
+          </p>
         </motion.div>
 
-        {/* Overlay Klik untuk Menutup */}
+        {/* Overlay Background agar bisa di-klik untuk tutup */}
         <div 
-          className="absolute inset-0 -z-10 cursor-pointer" 
+          className="absolute inset-0 -z-10 cursor-default" 
           onClick={() => setIsOpen(false)} 
         />
       </div>

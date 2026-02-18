@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
-// PERBAIKAN: Gunakan Fixed UUID untuk menghindari error "invalid input syntax for type uuid"
+// KONFIGURASI IDENTITAS DATABASE (UUID & KEY)
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
+const SETTINGS_KEY = "footer_settings"; // Menghindari error: violates not-null constraint on column "key"
 
 export default function AdminFooter() {
   const [loading, setLoading] = useState(false);
@@ -37,7 +38,7 @@ export default function AdminFooter() {
         const { data, error } = await supabase
           .from('site_settings')
           .select('footer_config')
-          .eq('id', SETTINGS_ID) // Menggunakan SETTINGS_ID (UUID)
+          .eq('key', SETTINGS_KEY) // Mencari berdasarkan key yang unik
           .maybeSingle();
           
         if (data?.footer_config) {
@@ -56,25 +57,26 @@ export default function AdminFooter() {
     getFooterData();
   }, []);
 
-  // Fungsi Simpan dengan Logika UPSERT (Update or Insert)
+  // Fungsi Simpan dengan Logika UPSERT & Key Constraint Fix
   const handleUpdate = async () => {
     setLoading(true);
     try {
       const { error } = await supabase
         .from('site_settings')
         .upsert({ 
-          id: SETTINGS_ID, // MENGGUNAKAN UUID, BUKAN ANGKA 1
+          id: SETTINGS_ID, 
+          key: SETTINGS_KEY, // MENAMBAHKAN KEY AGAR TIDAK ERROR NOT-NULL
           footer_config: footerConfig,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
+        }, { onConflict: 'key' }); // Menggunakan 'key' sebagai acuan konflik
 
       if (error) throw error;
       alert("🚀 Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
     } catch (error: any) {
       console.error("Error update footer:", error);
-      // Memberikan pesan edukatif jika kolom belum di-refresh di schema cache
+      // Penanganan error schema cache yang umum di Supabase
       if (error.message?.includes('footer_config')) {
-        alert("Gagal: Kolom 'footer_config' belum dikenali. Jalankan 'NOTIFY pgrst, reload schema;' di SQL Editor Supabase.");
+        alert("Gagal: Kolom database belum sinkron. Jalankan 'NOTIFY pgrst, reload schema;' di SQL Editor Supabase.");
       } else {
         alert("Gagal menyimpan: " + error.message);
       }

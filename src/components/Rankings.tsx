@@ -16,7 +16,7 @@ interface PlayerRanking {
   bonus?: number;
 }
 
-// Interface untuk data history (Disesuaikan dengan struktur Admin baru)
+// Interface untuk data history yang diselaraskan dengan sistem Admin baru
 interface PointHistory {
   id: string;
   created_at: string;
@@ -24,7 +24,7 @@ interface PointHistory {
   poin_sebelum: number;
   poin_sesudah: number;
   admin_email: string;
-  tipe_kegiatan: string; // Kolom baru untuk detail riwayat
+  tipe_kegiatan: string; // Menampilkan kategori aktivitas (Harian, Sparing, dll)
 }
 
 const Rankings: React.FC = () => {
@@ -36,7 +36,6 @@ const Rankings: React.FC = () => {
   const itemsPerPage = 10;
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // State baru untuk transparansi riwayat
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
   const [playerHistory, setPlayerHistory] = useState<PointHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -97,7 +96,7 @@ const Rankings: React.FC = () => {
   };
 
   /**
-   * PERBAIKAN: Mengambil kolom 'tipe_kegiatan' agar riwayat tampil detail
+   * PERBAIKAN: Mengambil kolom 'tipe_kegiatan' untuk detail transparansi
    */
   const fetchHistoryForPlayer = async (playerName: string) => {
     setLoadingHistory(true);
@@ -155,7 +154,7 @@ const Rankings: React.FC = () => {
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
         
-        {/* HEADER & MATRIX POIN */}
+        {/* Header Section */}
         <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
             <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full mb-4">
@@ -168,6 +167,7 @@ const Rankings: React.FC = () => {
                 <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">Transparansi Perolehan Poin Atlet</p>
             </div>
 
+            {/* Matrix Poin UI - Berdasarkan Gambar Referensi */}
             <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] backdrop-blur-sm">
                 <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
                     <Activity size={16} className="text-blue-500" />
@@ -189,7 +189,7 @@ const Rankings: React.FC = () => {
             </div>
         </div>
 
-        {/* SEARCH & FILTER */}
+        {/* Filter Section */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
@@ -215,7 +215,7 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
-        {/* TABLE RANKING */}
+        {/* Tabel Utama */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px]">
@@ -233,20 +233,13 @@ const Rankings: React.FC = () => {
                   <tr>
                     <td colSpan={5} className="py-24 text-center">
                       <Loader2 className="animate-spin mx-auto text-blue-500 mb-4" size={40} />
-                      <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Memuat Data Database...</p>
-                    </td>
-                  </tr>
-                ) : dbRankings.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-24 text-center text-slate-500 italic">
-                      <AlertCircle className="mx-auto mb-2 opacity-20" size={40} />
-                      Database kosong atau koneksi bermasalah.
+                      <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Sinkronisasi Database...</p>
                     </td>
                   </tr>
                 ) : filteredData.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-24 text-center text-slate-600 font-bold uppercase text-xs">
-                      Tidak ada atlet di kategori ini.
+                      Tidak ada atlet ditemukan.
                     </td>
                   </tr>
                 ) : (
@@ -273,13 +266,13 @@ const Rankings: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-1 mt-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Info size={10} className="text-blue-500" />
-                                <span className="text-[8px] text-blue-500 font-black uppercase tracking-widest">Klik untuk Transparansi Poin</span>
+                                <span className="text-[8px] text-blue-500 font-black uppercase tracking-widest">Klik untuk Detail Riwayat</span>
                             </div>
                           </td>
                           <td className="px-6 py-6">
                               <div className="flex flex-col gap-1">
                                 <span className={`text-[9px] font-black px-2 py-1 rounded-md border text-center uppercase ${style.bg} ${style.text} ${style.border}`}>
-                                  {player.seed || 'NON-SEED'}
+                                  {player.seed || 'UNSEEDED'}
                                 </span>
                                 <span className="text-[8px] text-slate-600 font-bold text-center uppercase tracking-tighter">
                                   {player.category}
@@ -291,7 +284,7 @@ const Rankings: React.FC = () => {
                           </td>
                           <td className="px-8 py-6 text-center">
                             {player.bonus !== undefined && player.bonus !== 0 ? (
-                              <div className={`inline-flex flex-col items-center px-2 py-1 rounded-md text-[10px] font-bold ${player.bonus > 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}`}>
+                              <div className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold ${player.bonus > 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}`}>
                                 <div className="flex items-center">
                                     {player.bonus > 0 ? <TrendingUp size={12} className="mr-1" /> : <TrendingDown size={12} className="mr-1" />}
                                     {player.bonus > 0 ? `+${player.bonus}` : player.bonus}
@@ -301,7 +294,7 @@ const Rankings: React.FC = () => {
                           </td>
                         </tr>
 
-                        {/* ROW DETAIL RIWAYAT (DIPERBAIKI UNTUK TIPE_KEGIATAN) */}
+                        {/* Section Transparansi Riwayat yang Diperbaiki */}
                         {isExpanded && (
                           <tr>
                             <td colSpan={5} className="px-8 py-0 border-none">
@@ -309,7 +302,7 @@ const Rankings: React.FC = () => {
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
                                         <History size={14} className="text-blue-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Log Aktivitas: {player.player_name}</span>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Log Aktivitas Terakhir: {player.player_name}</span>
                                     </div>
                                     <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/5 border border-blue-500/20 rounded-lg">
                                         <ShieldCheck size={10} className="text-blue-500" />
@@ -330,8 +323,9 @@ const Rankings: React.FC = () => {
                                           <div>
                                             <div className="text-[10px] font-mono text-slate-500 mb-1">{new Date(log.created_at).toLocaleString('id-ID')}</div>
                                             <div className="text-[11px] font-black uppercase tracking-tight text-white flex items-center gap-2">
-                                              {log.tipe_kegiatan || (log.perubahan > 0 ? 'Penambahan Manual' : 'Pengurangan Manual')}
-                                              {log.perubahan < 0 && <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded">ROLLBACK</span>}
+                                              {/* MENAMPILKAN TIPE KEGIATAN SEBENARNYA */}
+                                              {log.tipe_kegiatan || "Aktivitas Sistem"}
+                                              {log.perubahan < 0 && <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded">REDUCTION</span>}
                                             </div>
                                           </div>
                                         </div>
@@ -339,7 +333,7 @@ const Rankings: React.FC = () => {
                                           <div className={`text-sm font-black ${log.perubahan > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                             {log.perubahan > 0 ? '+' : ''}{log.perubahan} PTS
                                           </div>
-                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Sisa Poin: {log.poin_sesudah}</div>
+                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Saldo Akhir: {log.poin_sesudah}</div>
                                         </div>
                                       </div>
                                     ))}

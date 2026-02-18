@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye } from 'lucide-react';
-import { supabase } from '../supabase'; //
+import { supabase } from '../supabase'; 
 
 export default function AdminFooter() {
   const [loading, setLoading] = useState(false);
@@ -13,14 +13,24 @@ export default function AdminFooter() {
       facebook: '',
       instagram: '',
       twitter: '',
-      youtube: ''
+      youtube: '' // KODE BARU: Pastikan youtube masuk dalam state awal
     }
   });
 
   useEffect(() => {
     async function getFooterData() {
       const { data } = await supabase.from('site_settings').select('footer_config').single();
-      if (data?.footer_config) setFooterConfig(data.footer_config);
+      if (data?.footer_config) {
+        // Gabungkan data dari DB dengan struktur default agar tidak error jika ada field baru
+        setFooterConfig({
+          ...footerConfig,
+          ...data.footer_config,
+          socials: {
+            ...footerConfig.socials,
+            ...data.footer_config.socials
+          }
+        });
+      }
     }
     getFooterData();
   }, []);
@@ -79,13 +89,31 @@ export default function AdminFooter() {
 
             <div className="p-4 bg-[#0f111a] rounded-2xl border border-white/5 space-y-4">
               <label className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em] block">Tautan Media Sosial</label>
-              <div className="flex items-center gap-3 bg-[#161925] p-2 rounded-xl border border-white/5">
-                <Instagram size={16} className="text-pink-500" />
-                <input className="bg-transparent flex-1 text-xs outline-none" placeholder="Instagram URL" value={footerConfig.socials.instagram} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, instagram: e.target.value}})} />
-              </div>
-              <div className="flex items-center gap-3 bg-[#161925] p-2 rounded-xl border border-white/5">
-                <Facebook size={16} className="text-blue-500" />
-                <input className="bg-transparent flex-1 text-xs outline-none" placeholder="Facebook URL" value={footerConfig.socials.facebook} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, facebook: e.target.value}})} />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Instagram */}
+                <div className="flex items-center gap-3 bg-[#161925] p-2 rounded-xl border border-white/5">
+                  <Instagram size={16} className="text-pink-500" />
+                  <input className="bg-transparent flex-1 text-xs outline-none" placeholder="Instagram URL" value={footerConfig.socials.instagram} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, instagram: e.target.value}})} />
+                </div>
+                
+                {/* Facebook */}
+                <div className="flex items-center gap-3 bg-[#161925] p-2 rounded-xl border border-white/5">
+                  <Facebook size={16} className="text-blue-500" />
+                  <input className="bg-transparent flex-1 text-xs outline-none" placeholder="Facebook URL" value={footerConfig.socials.facebook} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, facebook: e.target.value}})} />
+                </div>
+
+                {/* Twitter / X (KODE BARU) */}
+                <div className="flex items-center gap-3 bg-[#161925] p-2 rounded-xl border border-white/5">
+                  <Twitter size={16} className="text-sky-400" />
+                  <input className="bg-transparent flex-1 text-xs outline-none" placeholder="Twitter URL" value={footerConfig.socials.twitter} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, twitter: e.target.value}})} />
+                </div>
+
+                {/* Youtube (KODE BARU) */}
+                <div className="flex items-center gap-3 bg-[#161925] p-2 rounded-xl border border-white/5">
+                  <Youtube size={16} className="text-red-600" />
+                  <input className="bg-transparent flex-1 text-xs outline-none" placeholder="Youtube URL" value={footerConfig.socials.youtube} onChange={(e) => setFooterConfig({...footerConfig, socials: {...footerConfig.socials, youtube: e.target.value}})} />
+                </div>
               </div>
             </div>
           </div>
@@ -136,9 +164,10 @@ export default function AdminFooter() {
             <div>
               <h4 className="text-[10px] font-black tracking-[0.3em] mb-6 text-white/40 uppercase">Ikuti Kami</h4>
               <div className="flex gap-3">
-                <div className="p-3 bg-white/5 rounded-full border border-white/5"><Facebook size={14}/></div>
-                <div className="p-3 bg-white/5 rounded-full border border-white/5"><Instagram size={14}/></div>
-                <div className="p-3 bg-white/5 rounded-full border border-white/5"><Twitter size={14}/></div>
+                <div className={`p-3 rounded-full border border-white/5 ${footerConfig.socials.facebook ? 'bg-blue-600/20' : 'bg-white/5'}`}><Facebook size={14}/></div>
+                <div className={`p-3 rounded-full border border-white/5 ${footerConfig.socials.instagram ? 'bg-pink-600/20' : 'bg-white/5'}`}><Instagram size={14}/></div>
+                <div className={`p-3 rounded-full border border-white/5 ${footerConfig.socials.twitter ? 'bg-sky-600/20' : 'bg-white/5'}`}><Twitter size={14}/></div>
+                <div className={`p-3 rounded-full border border-white/5 ${footerConfig.socials.youtube ? 'bg-red-600/20' : 'bg-white/5'}`}><Youtube size={14}/></div>
               </div>
             </div>
           </div>

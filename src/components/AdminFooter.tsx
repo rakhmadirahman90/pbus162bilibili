@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle } from 'lucide-react';
 import { supabase } from '../supabase'; 
+import Swal from 'sweetalert2'; // Import SweetAlert2 untuk notifikasi modern
 
 // KONFIGURASI IDENTITAS DATABASE (UUID & KEY)
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
@@ -31,7 +32,21 @@ export default function AdminFooter() {
     }
   });
 
-  // Ambil data saat komponen dimuat
+  // Tema Notifikasi Kustom (Dark Mode Style)
+  const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    background: '#161925',
+    color: '#ffffff',
+    didOpen: (toast) => {
+      toast.addEventListener('mouseenter', Swal.stopTimer)
+      toast.addEventListener('mouseleave', Swal.resumeTimer)
+    }
+  });
+
   useEffect(() => {
     async function getFooterData() {
       try {
@@ -57,7 +72,6 @@ export default function AdminFooter() {
     getFooterData();
   }, []);
 
-  // Fungsi Simpan dengan Logika UPSERT & Perbaikan Not-Null 'Value'
   const handleUpdate = async () => {
     setLoading(true);
     try {
@@ -67,19 +81,32 @@ export default function AdminFooter() {
           id: SETTINGS_ID, 
           key: SETTINGS_KEY, 
           footer_config: footerConfig,
-          value: "active", // PENAMBAHAN: Mengisi kolom 'value' agar tidak error not-null constraint
+          value: "active_footer", // Solusi Not-Null Constraint
           updated_at: new Date().toISOString()
         }, { onConflict: 'key' }); 
 
       if (error) throw error;
-      alert("🚀 Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
+
+      // NOTIFIKASI BERHASIL MODERN
+      Toast.fire({
+        icon: 'success',
+        title: 'Sinkronisasi Berhasil',
+        text: 'Footer telah diperbarui secara real-time.',
+        iconColor: '#2563eb'
+      });
+
     } catch (error: any) {
       console.error("Error update footer:", error);
-      if (error.message?.includes('footer_config')) {
-        alert("Gagal: Kolom database belum sinkron. Jalankan 'NOTIFY pgrst, reload schema;' di SQL Editor Supabase.");
-      } else {
-        alert("Gagal menyimpan: " + error.message);
-      }
+      
+      // NOTIFIKASI GAGAL MODERN
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menyimpan',
+        text: error.message,
+        background: '#161925',
+        color: '#ffffff',
+        confirmButtonColor: '#2563eb'
+      });
     } finally {
       setLoading(false);
     }

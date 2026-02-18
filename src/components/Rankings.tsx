@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from "../supabase"; // PASTIKAN FILE INI ADA DI FOLDER LUAR (SESUAIKAN PATHNYA)
-import { TrendingUp, Minus, Trophy, Search, ChevronLeft, ChevronRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { supabase } from "../supabase"; 
+import { TrendingUp, TrendingDown, Minus, Trophy, Search, ChevronLeft, ChevronRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface PlayerRanking {
   id: string;
@@ -8,7 +8,7 @@ interface PlayerRanking {
   category: string;
   seed: string;
   total_points: number;
-  bonus?: number;
+  bonus?: number; // Kita akan gunakan ini untuk menyimpan akumulasi perubahan dari audit_poin
 }
 
 const Rankings: React.FC = () => {
@@ -28,6 +28,9 @@ const Rankings: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
         fetchRankings();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_poin' }, () => {
+        fetchRankings();
+      })
       .subscribe();
 
     return () => {
@@ -39,14 +42,34 @@ const Rankings: React.FC = () => {
     setLoading(true);
     setFetchError(null);
     try {
-      // Menarik data dari tabel 'rankings' sesuai screenshot database Anda
-      const { data, error } = await supabase
+      // 1. Ambil data rankings
+      const { data: rankingsData, error: rankingsError } = await supabase
         .from('rankings')
         .select('*')
         .order('total_points', { ascending: false });
 
-      if (error) throw error;
-      setDbRankings(data || []);
+      if (rankingsError) throw rankingsError;
+
+      // 2. Ambil data dari audit_poin untuk menghitung "bonus" (riwayat perubahan terakhir/total)
+      const { data: auditData, error: auditError } = await supabase
+        .from('audit_poin')
+        .select('atlet_nama, perubahan');
+
+      if (auditError) throw auditError;
+
+      // 3. Gabungkan data: Hitung total 'perubahan' per atlet dari audit_poin
+      const mergedData = (rankingsData || []).map(player => {
+        const totalChanges = (auditData || [])
+          .filter(audit => audit.atlet_nama === player.player_name)
+          .reduce((sum, current) => sum + (current.perubahan || 0), 0);
+
+        return {
+          ...player,
+          bonus: totalChanges // Memasukkan hasil kalkulasi audit ke kolom bonus
+        };
+      });
+
+      setDbRankings(mergedData);
     } catch (error: any) {
       console.error("Fetch error:", error);
       setFetchError(error.message);
@@ -64,18 +87,12 @@ const Rankings: React.FC = () => {
     return { bg: 'bg-slate-500/10', text: 'text-slate-500', border: 'border-slate-500/20' };
   };
 
-  // LOGIKA FILTER YANG DIPERBAIKI BERDASARKAN DATA REAL ANDA
   const filteredData = useMemo(() => {
     return dbRankings.filter(p => {
       const name = p.player_name?.toLowerCase() || "";
       const seedRaw = p.seed?.toUpperCase() || "";
-      
       const matchesSearch = name.includes(searchTerm.toLowerCase());
-      
-      // Jika "All", tampilkan semua. Jika pilih kategori (A, B+, dsb), cari yang mengandung huruf tersebut.
-      const matchesCategory = activeCategory === "All" || 
-                              seedRaw.includes(activeCategory.toUpperCase());
-      
+      const matchesCategory = activeCategory === "All" || seedRaw.includes(activeCategory.toUpperCase());
       return matchesSearch && matchesCategory;
     });
   }, [searchTerm, activeCategory, dbRankings]);
@@ -98,7 +115,6 @@ const Rankings: React.FC = () => {
           </h1>
         </div>
 
-        {/* Filter Kategori */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
@@ -133,7 +149,7 @@ const Rankings: React.FC = () => {
                   <th className="px-6 py-6">Atlet</th>
                   <th className="px-6 py-6 w-40">Kategori / Seed</th>
                   <th className="px-6 py-6 text-right w-40">Total Poin</th>
-                  <th className="px-8 py-6 text-center w-32">Bonus</th>
+                  <th className="px-8 py-6 text-center w-32">Status Poin</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
@@ -176,22 +192,23 @@ const Rankings: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-6">
-                           <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1">
                               <span className={`text-[9px] font-black px-2 py-1 rounded-md border text-center uppercase ${style.bg} ${style.text} ${style.border}`}>
                                 {player.seed || 'NON-SEED'}
                               </span>
                               <span className="text-[8px] text-slate-600 font-bold text-center uppercase tracking-tighter">
                                 {player.category}
                               </span>
-                           </div>
+                            </div>
                         </td>
                         <td className="px-6 py-6 text-right font-mono font-black text-white text-xl">
                           {Number(player.total_points || 0).toLocaleString()}
                         </td>
                         <td className="px-8 py-6 text-center">
-                          {player.bonus ? (
-                            <div className="inline-flex items-center text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md text-[10px] font-bold">
-                              <TrendingUp size={12} className="mr-1" /> +{player.bonus}
+                          {player.bonus && player.bonus !== 0 ? (
+                            <div className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold ${player.bonus > 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}`}>
+                              {player.bonus > 0 ? <TrendingUp size={12} className="mr-1" /> : <TrendingDown size={12} className="mr-1" />}
+                              {player.bonus > 0 ? `+${player.bonus}` : player.bonus}
                             </div>
                           ) : <Minus size={14} className="mx-auto text-slate-800" />}
                         </td>
@@ -223,4 +240,4 @@ const Rankings: React.FC = () => {
   );
 };
 
-export default Rankings; 
+export default Rankings;

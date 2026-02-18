@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from "../supabase";
 import { 
   Trophy, User, Activity, CheckCircle2, 
-  Plus, Loader2, Trash2, Send, Clock, AlertCircle, Sparkles, RefreshCcw, Search, X, RotateCcw
+  Plus, Loader2, Trash2, Send, Clock, AlertCircle, Sparkles, RefreshCcw, Search, X, RotateCcw,
+  ShieldCheck, ArrowRightLeft
 } from 'lucide-react';
 
 const AdminMatch: React.FC = () => {
@@ -13,7 +14,7 @@ const AdminMatch: React.FC = () => {
   
   // State Baru: UI Notification & Search
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showRollbackSuccess, setShowRollbackSuccess] = useState(false); // State baru untuk notifikasi hapus
+  const [showRollbackSuccess, setShowRollbackSuccess] = useState(false); 
   const [searchTerm, setSearchTerm] = useState('');
 
   // State Form
@@ -94,6 +95,23 @@ const AdminMatch: React.FC = () => {
     }
   };
 
+  // --- KODE BARU: FUNGSI LOG AUDIT OTOMATIS ---
+  const createAuditLog = async (atletNama: string, perubahan: number, sebelum: number, sesudah: number) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      await supabase.from('audit_poin').insert([{
+        atlet_nama: atletNama,
+        perubahan: perubahan,
+        poin_sebelum: sebelum,
+        poin_sesudah: sesudah,
+        admin_email: userData.user?.email || 'System Master Admin'
+      }]);
+    } catch (err) {
+      console.error("Gagal mencatat audit log:", err);
+    }
+  };
+  // ------------------------------------------
+
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
       const { data: currentStats, error: statsError } = await supabase
@@ -145,6 +163,10 @@ const AdminMatch: React.FC = () => {
         delete rankingPayload.poin;
         await supabase.from('rankings').upsert(rankingPayload, { onConflict: 'player_name' });
       }
+
+      // --- KODE BARU: EKSEKUSI LOG ---
+      await createAuditLog(playerInfo.nama, pointsToAdd, existingPoints, newTotalPoints);
+      // -------------------------------
 
       return true;
     } catch (err: any) {
@@ -211,7 +233,6 @@ const AdminMatch: React.FC = () => {
 
       if (error) throw error;
 
-      // TRIGGER NOTIFIKASI ROLLBACK BERHASIL
       setShowRollbackSuccess(true);
       fetchRecentMatches();
       setTimeout(() => setShowRollbackSuccess(false), 4000);
@@ -255,11 +276,20 @@ const AdminMatch: React.FC = () => {
 
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-8">
-            {/* FORM INPUT SECTION */}
             <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
               
               <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
+                {/* --- KODE BARU: UI INDIKATOR STATUS --- */}
+                <div className="flex items-center gap-4 p-4 bg-blue-600/5 border border-blue-500/10 rounded-2xl">
+                    <ShieldCheck className="text-blue-500" size={24} />
+                    <div>
+                        <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Automatic Audit Log</p>
+                        <p className="text-[10px] text-zinc-500 font-bold">Setiap submit akan tercatat di riwayat transparansi atlet.</p>
+                    </div>
+                </div>
+                {/* ------------------------------------- */}
+
                 <div>
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-3">
                     <User size={14} /> Cari & Pilih Atlet
@@ -312,6 +342,18 @@ const AdminMatch: React.FC = () => {
                   </div>
                 </div>
 
+                {/* --- KODE BARU: PREVIEW POIN --- */}
+                <div className="p-5 bg-zinc-950/80 border border-zinc-800 rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <ArrowRightLeft className="text-zinc-600" size={18} />
+                        <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Estimasi Poin:</span>
+                    </div>
+                    <span className="text-xl font-black italic text-blue-500">
+                        +{POINT_MAP[kategori][hasil]} PTS
+                    </span>
+                </div>
+                {/* ------------------------------ */}
+
                 <button type="submit" disabled={isSubmitting || !selectedPlayer}
                   className="w-full group relative overflow-hidden bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-2xl shadow-blue-600/30">
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
@@ -320,7 +362,6 @@ const AdminMatch: React.FC = () => {
               </form>
             </div>
 
-            {/* RIWAYAT SECTION */}
             <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
               <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-6">
                 <Clock size={14} /> Riwayat Update Terbaru
@@ -351,7 +392,6 @@ const AdminMatch: React.FC = () => {
             </div>
           </div>
 
-          {/* SIDEBAR INFO */}
           <div className="space-y-6">
             <div className="bg-blue-600/5 border border-blue-600/20 p-8 rounded-[2.5rem]">
               <h3 className="text-[10px] font-black tracking-widest uppercase text-blue-500 mb-6 flex items-center gap-2">
@@ -408,7 +448,7 @@ const AdminMatch: React.FC = () => {
             <p className="text-red-400 font-bold tracking-[0.3em] text-[10px] uppercase mt-2">Poin Telah Di-Rollback</p>
           </div>
           <div className="mt-2 px-6 py-2 bg-white/5 rounded-full border border-white/5">
-             <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest italic">System Integrity Verified</span>
+              <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest italic">System Integrity Verified</span>
           </div>
         </div>
       </div>

@@ -33,7 +33,7 @@ interface WeeklyTop {
   total_aktivitas: number;
 }
 
-// --- Komponen: Weekly Spotlight ---
+// --- Komponen Baru: Weekly Spotlight ---
 const WeeklySpotlight: React.FC = () => {
   const [topGainer, setTopGainer] = useState<WeeklyTop | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,11 +41,12 @@ const WeeklySpotlight: React.FC = () => {
   useEffect(() => {
     const fetchWeeklyTop = async () => {
       try {
+        // Memanggil view yang sudah dibuat di SQL Editor
         const { data, error } = await supabase
           .from('weekly_top_performers')
           .select('*')
           .limit(1)
-          .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika data kosong
+          .single();
         
         if (error) throw error;
         if (data) setTopGainer(data);
@@ -85,7 +86,7 @@ const WeeklySpotlight: React.FC = () => {
         </div>
 
         <div className="flex gap-4">
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl min-w-[120px] text-center">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl min-w-[120px] text-center transition-transform hover:scale-105">
             <p className="text-[9px] font-bold text-slate-500 uppercase mb-1 tracking-widest">Poin Didapat</p>
             <div className="flex items-center justify-center gap-2 text-emerald-400 font-black text-xl">
               <TrendingUp size={16} />
@@ -93,7 +94,7 @@ const WeeklySpotlight: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl min-w-[120px] text-center">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl min-w-[120px] text-center transition-transform hover:scale-105">
             <p className="text-[9px] font-bold text-slate-500 uppercase mb-1 tracking-widest">Aktivitas</p>
             <div className="text-orange-400 font-black text-xl flex items-center justify-center gap-2">
               <Flame size={16} />
@@ -124,7 +125,7 @@ const Rankings: React.FC = () => {
     fetchRankings();
 
     const channel = supabase
-      .channel('rankings_realtime_v2')
+      .channel('rankings_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => fetchRankings())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_poin' }, () => fetchRankings())
       .subscribe();
@@ -138,7 +139,6 @@ const Rankings: React.FC = () => {
     setLoading(true);
     setFetchError(null);
     try {
-      // 1. Ambil data rankings
       const { data: rankingsData, error: rankingsError } = await supabase
         .from('rankings')
         .select('*')
@@ -146,11 +146,9 @@ const Rankings: React.FC = () => {
 
       if (rankingsError) throw rankingsError;
 
-      // 2. Ambil akumulasi perubahan poin 24 jam terakhir untuk indikator status
       const { data: auditData, error: auditError } = await supabase
         .from('audit_poin')
-        .select('atlet_nama, perubahan')
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+        .select('atlet_nama, perubahan');
 
       if (auditError) throw auditError;
 
@@ -164,7 +162,7 @@ const Rankings: React.FC = () => {
 
       setDbRankings(mergedData);
     } catch (error: any) {
-      setFetchError(error.message || "Gagal sinkronisasi data");
+      setFetchError(error.message || "Gagal mengambil data peringkat");
     } finally {
       setLoading(false);
     }
@@ -222,12 +220,11 @@ const Rankings: React.FC = () => {
 
   return (
     <section id="rankings" className="min-h-screen py-20 bg-slate-950 text-white font-sans relative overflow-hidden">
-      {/* Background Decor */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_50%_-20%,#1e3a8a33,transparent_50%)] pointer-events-none" />
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
         
-        {/* Header Section */}
+        {/* Header & Matrix Section */}
         <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full mb-4">
@@ -240,7 +237,6 @@ const Rankings: React.FC = () => {
             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">Transparansi Perolehan Poin Atlet</p>
           </div>
 
-          {/* Matrix Poin UI */}
           <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2rem] backdrop-blur-sm">
             <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
               <Activity size={16} className="text-blue-500" />
@@ -262,10 +258,10 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
-        {/* Feature: Weekly Spotlight */}
+        {/* --- PENEMPATAN WEEKLY SPOTLIGHT --- */}
         <WeeklySpotlight />
 
-        {/* Controls */}
+        {/* Filter Controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
@@ -299,7 +295,7 @@ const Rankings: React.FC = () => {
           </div>
         )}
 
-        {/* Ranking Table */}
+        {/* Main Table Container */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px]">
@@ -318,6 +314,15 @@ const Rankings: React.FC = () => {
                     <td colSpan={5} className="py-24 text-center">
                       <Loader2 className="animate-spin mx-auto text-blue-500 mb-4" size={40} />
                       <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Sinkronisasi Database...</p>
+                    </td>
+                  </tr>
+                ) : currentPlayers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-24 text-center">
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                        <Search size={40} />
+                        <p className="font-black text-xs uppercase tracking-widest">Atlet tidak ditemukan</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -397,8 +402,8 @@ const Rankings: React.FC = () => {
                                           </div>
                                           <div>
                                             <div className="text-[10px] font-mono text-slate-500 mb-1">{new Date(log.created_at).toLocaleString('id-ID')}</div>
-                                            <div className="text-[11px] font-black uppercase tracking-tight text-white">
-                                              {log.tipe_kegiatan || "Aktivitas"}
+                                            <div className="text-[11px] font-black uppercase tracking-tight text-white flex items-center gap-2">
+                                              {log.tipe_kegiatan || "Aktivitas Sistem"}
                                             </div>
                                           </div>
                                         </div>
@@ -406,14 +411,15 @@ const Rankings: React.FC = () => {
                                           <div className={`text-sm font-black ${log.perubahan > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                             {log.perubahan > 0 ? '+' : ''}{log.perubahan}
                                           </div>
-                                          <div className="text-[9px] text-slate-600 font-bold uppercase">Balance: {log.poin_sesudah}</div>
+                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Balance: {log.poin_sesudah}</div>
                                         </div>
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl italic text-slate-700 text-[10px] uppercase font-bold tracking-widest">
-                                    Belum ada riwayat aktivitas.
+                                  <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl">
+                                    <Calendar className="mx-auto mb-2 text-slate-800" size={24} />
+                                    <div className="text-slate-700 text-[10px] font-bold uppercase tracking-widest italic">Belum ada riwayat aktivitas.</div>
                                   </div>
                                 )}
                               </div>
@@ -428,16 +434,35 @@ const Rankings: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination */}
+          {/* Footer / Pagination */}
           <div className="p-6 flex items-center justify-between border-t border-slate-800 bg-slate-900/50">
-            <button onClick={fetchRankings} disabled={loading} className="p-2 hover:bg-slate-800 rounded-lg text-slate-600 transition-colors">
+            <button 
+              onClick={fetchRankings} 
+              disabled={loading}
+              className="p-2 hover:bg-slate-800 rounded-lg text-slate-600 hover:text-blue-400 transition-colors disabled:opacity-50"
+            >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
+
             <div className="flex items-center gap-4">
-              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Page {currentPage} of {totalPages || 1}</span>
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                Page {currentPage} of {totalPages || 1}
+              </span>
               <div className="flex gap-2">
-                <button disabled={currentPage === 1 || loading} onClick={() => setCurrentPage(c => c - 1)} className="p-2 bg-slate-800 rounded-xl disabled:opacity-10"><ChevronLeft size={18}/></button>
-                <button disabled={currentPage === totalPages || totalPages === 0 || loading} onClick={() => setCurrentPage(c => c + 1)} className="p-2 bg-slate-800 rounded-xl disabled:opacity-10"><ChevronRight size={18}/></button>
+                <button 
+                  disabled={currentPage === 1 || loading} 
+                  onClick={() => setCurrentPage(c => c - 1)} 
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors"
+                >
+                  <ChevronLeft size={18}/>
+                </button>
+                <button 
+                  disabled={currentPage === totalPages || totalPages === 0 || loading} 
+                  onClick={() => setCurrentPage(c => c + 1)} 
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-10 transition-colors"
+                >
+                  <ChevronRight size={18}/>
+                </button>
               </div>
             </div>
           </div>
@@ -452,4 +477,4 @@ const Rankings: React.FC = () => {
   );
 };
 
-export default Rankings;
+export default Rankings; 

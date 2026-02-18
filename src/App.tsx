@@ -71,7 +71,6 @@ function ImagePopup() {
   useEffect(() => {
     let scrollInterval: any;
     if (isOpen && scrollRef.current) {
-      // Tunggu sebentar sebelum mulai scroll otomatis
       const startTimeout = setTimeout(() => {
         scrollInterval = setInterval(() => {
           if (scrollRef.current) {
@@ -80,11 +79,12 @@ function ImagePopup() {
             if (scrollTop + clientHeight >= scrollHeight - 2) {
               clearInterval(scrollInterval);
             } else {
+              // Menggunakan scrollBy untuk pergerakan halus
               scrollRef.current.scrollBy({ top: 1, behavior: 'auto' });
             }
           }
-        }, 30); // Kecepatan scroll (semakin kecil angka, semakin cepat)
-      }, 2000);
+        }, 35); // Kecepatan scroll (ms per pixel)
+      }, 2000); // Jeda awal sebelum mulai scroll
 
       return () => {
         clearInterval(scrollInterval);
@@ -115,10 +115,11 @@ function ImagePopup() {
             <X size={18} strokeWidth={3} />
           </button>
 
-          {/* AREA SCROLL (Scrollbar Disembunyikan via CSS di bawah) */}
+          {/* AREA SCROLL - Visual scrollbar disembunyikan via CSS khusus */}
           <div 
             ref={scrollRef}
             className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* Gambar Pas */}
             <div className="relative bg-slate-900">
@@ -131,8 +132,24 @@ function ImagePopup() {
               {/* Navigasi Slide */}
               {promoImages.length > 1 && (
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20 pointer-events-none">
-                  <button onClick={() => { setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1)); scrollRef.current?.scrollTo(0,0); }} className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"><ChevronLeft size={20} /></button>
-                  <button onClick={() => { setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1)); scrollRef.current?.scrollTo(0,0); }} className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"><ChevronRight size={20} /></button>
+                  <button 
+                    onClick={() => { 
+                      setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1)); 
+                      scrollRef.current?.scrollTo(0,0); 
+                    }} 
+                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button 
+                    onClick={() => { 
+                      setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1)); 
+                      scrollRef.current?.scrollTo(0,0); 
+                    }} 
+                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
                 </div>
               )}
             </div>
@@ -166,11 +183,24 @@ function ImagePopup() {
 
         <div className="absolute inset-0 -z-10" onClick={closePopup} />
       </div>
+
+      {/* CSS KHUSUS UNTUK HILANGKAN VISUAL SCROLLBAR */}
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          background: transparent !important;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none !important;
+          scrollbar-width: none !important;
+        }
+      `}</style>
     </AnimatePresence>
   );
 }
 
-// --- APP & ADMIN LAYOUT (KODE ASLI ANDA) ---
+// --- APP & ADMIN LAYOUT ---
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -268,15 +298,6 @@ function AdminLayout({ session }: { session: any }) {
       </main>
 
       <style>{`
-        /* SEMBUNYIKAN SCROLLBAR SECARA TOTAL */
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: #050505; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }

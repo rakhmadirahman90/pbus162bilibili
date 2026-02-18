@@ -12,6 +12,7 @@ export default function ImagePopup() {
 
   useEffect(() => {
     const fetchActivePopup = async () => {
+      // Mengambil data terbaru yang aktif setiap kali halaman dimuat (refresh)
       const { data, error } = await supabase
         .from('konfigurasi_popup')
         .select('url_gambar, judul')
@@ -22,64 +23,71 @@ export default function ImagePopup() {
 
       if (data && !error) {
         setContent(data);
-        // Delay muncul agar transisi lebih smooth
-        setTimeout(() => setIsOpen(true), 1000);
+        // Memberikan jeda 1 detik setelah refresh agar landing page termuat sempurna sebelum pop-up muncul
+        const timer = setTimeout(() => setIsOpen(true), 1000);
+        return () => clearTimeout(timer);
       }
     };
+
     fetchActivePopup();
-  }, []);
+  }, []); // Array kosong memastikan ini berjalan setiap kali komponen mount (setiap refresh)
 
   if (!content || !isOpen) return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-8">
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-8">
         
         {/* Kontainer Utama Minimalis */}
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.8, y: 20 }}
+          transition={{ type: "spring", duration: 0.7, bounce: 0.4 }}
           className="relative flex flex-col items-center max-w-full max-h-full"
         >
           
-          {/* Tombol Tutup Modern di luar gambar */}
+          {/* Tombol Tutup Modern */}
           <button 
             onClick={() => setIsOpen(false)}
-            className="absolute -top-12 right-0 md:-right-12 p-2 text-white/70 hover:text-white transition-colors bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md border border-white/20"
+            className="absolute -top-14 right-0 md:-right-12 p-2.5 text-white/70 hover:text-white transition-all bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-xl border border-white/20 hover:scale-110 active:scale-90"
             title="Tutup"
           >
             <X size={24} strokeWidth={2.5} />
           </button>
 
-          {/* Wrapper Gambar Responsif */}
-          <div className="relative shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden bg-transparent flex items-center justify-center">
+          {/* Wrapper Gambar Responsif (Anti-Terpotong) */}
+          <div className="relative shadow-[0_0_80px_rgba(0,0,0,0.6)] rounded-2xl overflow-hidden bg-transparent flex items-center justify-center">
             <img 
               src={content.url_gambar} 
               alt={content.judul}
-              className="object-contain w-auto h-auto max-w-[90vw] max-h-[80vh] md:max-h-[85vh] rounded-lg border border-white/10"
+              // max-h dipastikan agar tidak melebihi layar di HP maupun Desktop
+              className="object-contain w-auto h-auto max-w-[92vw] max-h-[75vh] md:max-h-[85vh] rounded-xl border border-white/10"
               style={{ display: 'block' }}
             />
             
-            {/* Overlay Halus pada Gambar agar terlihat lebih premium */}
-            <div className="absolute inset-0 pointer-events-none ring-1 ring-inset ring-white/20 rounded-lg"></div>
+            {/* Overlay Ring Premium */}
+            <div className="absolute inset-0 pointer-events-none ring-1 ring-inset ring-white/30 rounded-xl"></div>
           </div>
 
-          {/* Label Minimalis (Opsional, di bawah gambar) */}
-          <motion.p 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="mt-4 text-white/40 text-[10px] uppercase tracking-[0.4em] font-medium"
+          {/* Panduan Tutup Minimalis */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.5 }}
+            className="mt-6 flex flex-col items-center gap-2"
           >
-            Klik di luar atau tombol X untuk menutup
-          </motion.p>
+            <p className="text-white/30 text-[9px] uppercase tracking-[0.5em] font-bold">
+              Klik dimana saja untuk menutup
+            </p>
+            <div className="w-12 h-[1px] bg-white/10"></div>
+          </motion.div>
 
         </motion.div>
 
-        {/* Klik Overlay untuk Menutup */}
+        {/* Klik Overlay Background untuk Menutup */}
         <div 
-          className="absolute inset-0 -z-10" 
+          className="absolute inset-0 -z-10 cursor-pointer" 
           onClick={() => setIsOpen(false)} 
         />
       </div>

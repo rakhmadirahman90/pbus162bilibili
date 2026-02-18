@@ -13,15 +13,14 @@ export default function ImagePopup() {
 
   useEffect(() => {
     const fetchActivePopup = async () => {
-      // --- LOGIKA CEK SESI (PENGUNJUNG HARIAN) ---
-      const lastShown = localStorage.getItem('popup_last_shown');
-      const now = new Date().getTime();
-      const oneDay = 24 * 60 * 60 * 1000; // 24 Jam dalam milidetik
-
-      // Jika sudah pernah muncul dalam kurang dari 24 jam, batalkan fetch
-      if (lastShown && now - parseInt(lastShown) < oneDay) {
-        return;
-      }
+      // --- LOGIKA SESI (DINONAKTIFKAN AGAR SELALU MUNCUL SAAT REFRESH) ---
+      /* Catatan: Bagian ini sengaja dikomentari agar pop-up 
+         muncul setiap kali link web diakses atau direfresh.
+      */
+      // const lastShown = localStorage.getItem('popup_last_shown');
+      // const now = new Date().getTime();
+      // const oneDay = 24 * 60 * 60 * 1000;
+      // if (lastShown && now - parseInt(lastShown) < oneDay) { return; }
 
       try {
         const { data, error } = await supabase
@@ -34,6 +33,7 @@ export default function ImagePopup() {
 
         if (data && !error) {
           setContent(data);
+          // Muncul otomatis 1 detik setelah refresh/load
           const timer = setTimeout(() => setIsOpen(true), 1000);
           return () => clearTimeout(timer);
         }
@@ -43,12 +43,11 @@ export default function ImagePopup() {
     };
 
     fetchActivePopup();
-  }, []);
+  }, []); // Dependensi kosong memastikan ini jalan setiap kali komponen mount (refresh)
 
-  // --- FUNGSI TUTUP DENGAN SIMPAN SESSION ---
   const handleClose = () => {
     setIsOpen(false);
-    // Simpan timestamp saat ini ke localStorage
+    // Kita tetap simpan log-nya, tapi tidak kita gunakan untuk memblokir di useEffect atas
     const now = new Date().getTime();
     localStorage.setItem('popup_last_shown', now.toString());
   };
@@ -66,7 +65,6 @@ export default function ImagePopup() {
           className="relative w-full max-w-[380px] md:max-w-[420px]"
         >
           
-          {/* TOMBOL TUTUP MODERN - Menggunakan handleClose */}
           <button 
             onClick={handleClose}
             className="absolute -top-16 right-0 md:-right-4 p-3 bg-red-600 text-white rounded-full shadow-2xl hover:bg-red-700 transition-all active:scale-90 z-[100] border-4 border-black"
@@ -124,7 +122,6 @@ export default function ImagePopup() {
 
         </motion.div>
 
-        {/* CLICK OUTSIDE TO CLOSE - Menggunakan handleClose */}
         <div 
           className="absolute inset-0 -z-10" 
           onClick={handleClose} 

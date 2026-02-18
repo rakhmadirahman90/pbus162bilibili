@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bell, Zap } from 'lucide-react';
+import { X, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
 
@@ -14,7 +14,8 @@ export default function ImagePopup() {
   useEffect(() => {
     const fetchActivePopup = async () => {
       try {
-        // Logika langsung mengambil data tanpa pengecekan localStorage/durasi waktu
+        console.log("Memulai pengambilan data pop-up..."); // Debugging
+        
         const { data, error } = await supabase
           .from('konfigurasi_popup')
           .select('url_gambar, judul, deskripsi')
@@ -23,36 +24,41 @@ export default function ImagePopup() {
           .limit(1)
           .maybeSingle();
 
-        if (data && !error) {
+        if (error) {
+          console.error("Supabase Error:", error.message);
+          return;
+        }
+
+        if (data) {
+          console.log("Data pop-up ditemukan:", data); // Debugging
           setContent(data);
           
-          // Memastikan state dimulai dari tertutup lalu terbuka (memicu animasi refresh)
-          setIsOpen(false); 
-          
-          // Delay kecil 800ms agar efek transisi setelah loading halaman terasa halus
+          // Pastikan isOpen diset true setelah konten tersedia
+          // Menggunakan delay kecil agar animasi Framer Motion terpancing sempurna
           const timer = setTimeout(() => {
             setIsOpen(true);
-          }, 800);
+          }, 500);
           
           return () => clearTimeout(timer);
+        } else {
+          console.log("Tidak ada pop-up aktif di database (is_active = false).");
         }
       } catch (err) {
-        console.error("Gagal memuat pop-up:", err);
+        console.error("Error sistem:", err);
       }
     };
 
     fetchActivePopup();
     
-    // Dependency array kosong [] memastikan kode ini berjalan 
-    // tepat satu kali setiap kali halaman web dimuat ulang (refresh)
-  }, []); 
+    // Membersihkan localStorage setiap refresh agar tidak ada pencekalan sesi
+    localStorage.removeItem('popup_last_shown');
+  }, []);
 
   const handleClose = () => {
     setIsOpen(false);
-    // Kita hapus pencatatan waktu agar tidak ada konflik logika 'sudah pernah muncul'
-    localStorage.removeItem('popup_last_shown');
   };
 
+  // Render null jika konten belum ada
   if (!content) return null;
 
   return (
@@ -68,7 +74,7 @@ export default function ImagePopup() {
             className="relative w-full max-w-[380px] md:max-w-[420px]"
           >
             
-            {/* TOMBOL TUTUP */}
+            {/* BUTTON CLOSE */}
             <button 
               onClick={handleClose}
               className="absolute -top-16 right-0 md:-right-4 p-3 bg-red-600 text-white rounded-full shadow-2xl hover:bg-red-700 transition-all active:scale-90 z-[100] border-4 border-black"
@@ -78,7 +84,6 @@ export default function ImagePopup() {
 
             <div className="bg-[#0F172A] rounded-[3rem] overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(59,130,246,0.25)] flex flex-col">
               
-              {/* BAGIAN GAMBAR */}
               <div className="relative w-full aspect-[4/5] overflow-hidden bg-slate-900">
                 <img 
                   src={content.url_gambar} 
@@ -88,22 +93,15 @@ export default function ImagePopup() {
                 
                 <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-black/40 backdrop-blur-xl border border-white/20 rounded-full">
                   <Zap size={14} className="text-yellow-400 fill-yellow-400" />
-                  <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">New Promo</span>
+                  <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">PENGUMUMAN</span>
                 </div>
 
                 <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/80 to-transparent" />
               </div>
 
-              {/* KONTEN TEKS */}
               <div className="px-8 pb-10 pt-2 text-center -mt-6 relative z-10">
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-3 leading-none">
-                  {content.judul.split(' ').length > 1 ? (
-                    <>
-                      {content.judul.split(' ').slice(0, -1).join(' ')} <span className="text-blue-500">{content.judul.split(' ').pop()}</span>
-                    </>
-                  ) : (
-                    <span className="text-blue-500">{content.judul}</span>
-                  )}
+                  {content.judul}
                 </h3>
                 
                 <div className="w-12 h-1 bg-blue-500 mx-auto mb-4 rounded-full" />
@@ -123,12 +121,12 @@ export default function ImagePopup() {
             </div>
 
             <p className="text-center mt-6 text-white/20 text-[9px] font-bold uppercase tracking-[0.5em] animate-pulse">
-              Sistem Informasi Otomatis
+              Informasi PB US 162
             </p>
 
           </motion.div>
 
-          {/* BACKDROP CLICK TO CLOSE */}
+          {/* CLICK OUTSIDE TO CLOSE */}
           <div 
             className="absolute inset-0 -z-10" 
             onClick={handleClose} 

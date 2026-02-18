@@ -33,6 +33,7 @@ import AdminTampilan from './components/AdminTampilan';
 import KelolaHero from './components/KelolaHero'; 
 import AdminPopup from './components/AdminPopup'; 
 import AdminFooter from './components/AdminFooter'; 
+import AdminAbout from './components/AdminAbout'; // KODE BARU: Import AdminAbout
 
 import { X, ChevronLeft, ChevronRight, Menu, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -75,16 +76,14 @@ function ImagePopup() {
         scrollInterval = setInterval(() => {
           if (scrollRef.current) {
             const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-            // Jika sudah sampai bawah, berhenti scroll
             if (scrollTop + clientHeight >= scrollHeight - 2) {
               clearInterval(scrollInterval);
             } else {
-              // Menggunakan scrollBy untuk pergerakan halus
               scrollRef.current.scrollBy({ top: 1, behavior: 'auto' });
             }
           }
-        }, 35); // Kecepatan scroll (ms per pixel)
-      }, 2000); // Jeda awal sebelum mulai scroll
+        }, 35);
+      }, 2000);
 
       return () => {
         clearInterval(scrollInterval);
@@ -107,7 +106,6 @@ function ImagePopup() {
           exit={{ opacity: 0, scale: 0.9 }}
           className="relative w-full max-w-[400px] max-h-[85vh] bg-white rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/20"
         >
-          {/* Tombol Close */}
           <button 
             onClick={closePopup} 
             className="absolute top-4 right-4 z-50 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl border-2 border-white transition-transform active:scale-90"
@@ -115,13 +113,11 @@ function ImagePopup() {
             <X size={18} strokeWidth={3} />
           </button>
 
-          {/* AREA SCROLL - Visual scrollbar disembunyikan via CSS khusus */}
           <div 
             ref={scrollRef}
             className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            {/* Gambar Pas */}
             <div className="relative bg-slate-900">
               <img 
                 src={current.url_gambar} 
@@ -129,7 +125,6 @@ function ImagePopup() {
                 alt={current.judul} 
               />
               
-              {/* Navigasi Slide */}
               {promoImages.length > 1 && (
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20 pointer-events-none">
                   <button 
@@ -154,7 +149,6 @@ function ImagePopup() {
               )}
             </div>
 
-            {/* Konten Bawah */}
             <div className="px-8 pb-10 pt-8 text-center bg-white">
               <div className="flex justify-center mb-4">
                 <div className="px-4 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
@@ -184,7 +178,6 @@ function ImagePopup() {
         <div className="absolute inset-0 -z-10" onClick={closePopup} />
       </div>
 
-      {/* CSS KHUSUS UNTUK HILANGKAN VISUAL SCROLLBAR */}
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none !important;
@@ -292,6 +285,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="hero" element={<KelolaHero />} />
             <Route path="popup" element={<AdminPopup />} /> 
             <Route path="footer" element={<AdminFooter />} />
+            <Route path="about" element={<AdminAbout />} /> {/* KODE BARU: Route untuk Kelola Tentang */}
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>

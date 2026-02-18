@@ -26,7 +26,7 @@ export default function ManajemenPoin() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
-      // 1. Ambil data dasar atlet
+      // 1. Ambil data profil dari tabel pendaftaran
       const { data: pendaftaran, error: pError } = await supabase
         .from('pendaftaran')
         .select('id, nama, kategori, kategori_atlet')
@@ -34,20 +34,23 @@ export default function ManajemenPoin() {
 
       if (pError) throw pError;
 
-      // 2. Ambil data poin dari tabel stats
+      // 2. Ambil data poin secara terpisah dari tabel atlet_stats
+      // Ini memastikan nilai seperti 8040 milik A. Arwan pasti terbaca
       const { data: stats, error: sError } = await supabase
         .from('atlet_stats')
         .select('pendaftaran_id, points');
 
       if (sError) throw sError;
 
-      // 3. Gabungkan data (Manual Mapping) untuk memastikan poin tidak 0
-      const combinedData = pendaftaran.map(atlet => {
-        const stat = stats.find(s => s.pendaftaran_id === atlet.id);
+      // 3. Gabungkan data secara manual (Manual Mapping)
+      const combinedData = pendaftaran.map((atlet: any) => {
+        const statEntry = stats?.find(s => s.pendaftaran_id === atlet.id);
         return {
           ...atlet,
-          // Simpan di dalam array agar tidak merusak struktur render yang sudah ada
-          atlet_stats: [{ points: stat ? stat.points : 0 }]
+          // Format tetap dipertahankan agar tidak merusak logika render di bawah
+          atlet_stats: [{ 
+            points: statEntry ? statEntry.points : 0 
+          }]
         };
       });
 
@@ -63,7 +66,7 @@ export default function ManajemenPoin() {
     setUpdatingId(atlet.id);
     const newPoints = Math.max(0, currentPoints + amount);
 
-    // Update ke database
+    // Update ke database pada tabel atlet_stats
     const { error: updateError } = await supabase
       .from('atlet_stats')
       .update({ points: newPoints })
@@ -150,12 +153,13 @@ export default function ManajemenPoin() {
             <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">Memuat Data Atlet...</p>
           </div>
         ) : currentItems.map((atlet) => {
-          // Mengambil poin dari hasil mapping manual
+          // --- PENYESUAIAN PENGAMBILAN POIN ---
           const stats = atlet.atlet_stats?.[0] || { points: 0 };
           const categoryDisplay = atlet.kategori_atlet || atlet.kategori;
 
           return (
             <div key={atlet.id} className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between hover:bg-zinc-900/60 transition-all group relative overflow-hidden">
+               {/* Accent Line on Hover */}
                <div className="absolute left-0 top-0 w-[2px] h-full bg-blue-600 opacity-0 group-hover:opacity-100 transition-all" />
                
               <div className="flex items-center gap-5 mb-6 md:mb-0">
@@ -239,7 +243,7 @@ export default function ManajemenPoin() {
         </div>
       )}
 
-      {/* MODAL NOTIFIKASI */}
+      {/* MODAL NOTIFIKASI SUKSES */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
         <div className="bg-zinc-950/90 backdrop-blur-3xl border border-blue-500/50 px-10 py-6 rounded-[3rem] shadow-[0_0_50px_rgba(37,99,235,0.3)] flex items-center gap-6">
@@ -251,7 +255,7 @@ export default function ManajemenPoin() {
               {lastAmount > 0 ? 'POINTS ADDED!' : 'POINTS REDUCED!'}
             </h4>
             <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <Sparkles size={12} /> Audit Log & Stats Synchronized
+              <span className="animate-pulse">●</span> Audit Log & Stats Synchronized
             </p>
           </div>
         </div>

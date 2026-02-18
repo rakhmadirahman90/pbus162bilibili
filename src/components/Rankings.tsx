@@ -4,10 +4,10 @@ import {
   TrendingUp, TrendingDown, Minus, Trophy, Search, 
   ChevronLeft, ChevronRight, Loader2, AlertCircle, 
   RefreshCw, History, Calendar, Info, ShieldCheck,
-  Activity
+  Activity, Flame, Award
 } from 'lucide-react';
 
-// Interfaces
+// --- Interfaces ---
 interface PlayerRanking {
   id: string;
   player_name: string;
@@ -27,8 +27,88 @@ interface PointHistory {
   tipe_kegiatan: string;
 }
 
+interface WeeklyTop {
+  atlet_nama: string;
+  total_gain: number;
+  total_aktivitas: number;
+}
+
+// --- Komponen Baru: Weekly Spotlight ---
+const WeeklySpotlight: React.FC = () => {
+  const [topGainer, setTopGainer] = useState<WeeklyTop | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWeeklyTop = async () => {
+      try {
+        // Memanggil view yang sudah dibuat di SQL Editor
+        const { data, error } = await supabase
+          .from('weekly_top_performers')
+          .select('*')
+          .limit(1)
+          .single();
+        
+        if (error) throw error;
+        if (data) setTopGainer(data);
+      } catch (err) {
+        console.error("Weekly Spotlight Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchWeeklyTop();
+  }, []);
+
+  if (loading || !topGainer) return null;
+
+  return (
+    <div className="relative group overflow-hidden bg-gradient-to-br from-orange-600/20 via-slate-900 to-slate-900 border border-orange-500/30 p-6 rounded-[2.5rem] mb-10 shadow-[0_0_50px_-12px_rgba(249,115,22,0.15)] animate-in fade-in zoom-in duration-700">
+      <Flame className="absolute -right-4 -bottom-4 w-32 h-32 text-orange-600/10 -rotate-12 group-hover:scale-110 transition-transform duration-700" />
+      
+      <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-5">
+          <div className="relative">
+            <div className="absolute inset-0 bg-orange-500 blur-xl opacity-20 animate-pulse" />
+            <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center rotate-3 border-2 border-orange-400 shadow-lg shadow-orange-500/20">
+              <Award className="text-white w-8 h-8" />
+            </div>
+          </div>
+          
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500">Weekly Performance Hero</span>
+              <div className="h-[1px] w-8 bg-orange-500/30 rounded-full" />
+            </div>
+            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">
+              {topGainer.atlet_nama}
+            </h2>
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl min-w-[120px] text-center transition-transform hover:scale-105">
+            <p className="text-[9px] font-bold text-slate-500 uppercase mb-1 tracking-widest">Poin Didapat</p>
+            <div className="flex items-center justify-center gap-2 text-emerald-400 font-black text-xl">
+              <TrendingUp size={16} />
+              +{topGainer.total_gain}
+            </div>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl min-w-[120px] text-center transition-transform hover:scale-105">
+            <p className="text-[9px] font-bold text-slate-500 uppercase mb-1 tracking-widest">Aktivitas</p>
+            <div className="text-orange-400 font-black text-xl flex items-center justify-center gap-2">
+              <Flame size={16} />
+              {topGainer.total_aktivitas}x
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Komponen Utama: Rankings ---
 const Rankings: React.FC = () => {
-  // State Management
   const [dbRankings, setDbRankings] = useState<PlayerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,18 +121,13 @@ const Rankings: React.FC = () => {
   const [playerHistory, setPlayerHistory] = useState<PointHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Realtime Subscription
   useEffect(() => {
     fetchRankings();
 
     const channel = supabase
       .channel('rankings_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => {
-        fetchRankings();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_poin' }, () => {
-        fetchRankings();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rankings' }, () => fetchRankings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_poin' }, () => fetchRankings())
       .subscribe();
 
     return () => {
@@ -60,7 +135,6 @@ const Rankings: React.FC = () => {
     };
   }, []);
 
-  // Fetch Data Logic
   const fetchRankings = async () => {
     setLoading(true);
     setFetchError(null);
@@ -83,15 +157,11 @@ const Rankings: React.FC = () => {
           .filter(audit => audit.atlet_nama === player.player_name)
           .reduce((sum, current) => sum + (current.perubahan || 0), 0);
 
-        return {
-          ...player,
-          bonus: totalChanges
-        };
+        return { ...player, bonus: totalChanges };
       });
 
       setDbRankings(mergedData);
     } catch (error: any) {
-      console.error("Fetch error:", error);
       setFetchError(error.message || "Gagal mengambil data peringkat");
     } finally {
       setLoading(false);
@@ -117,7 +187,6 @@ const Rankings: React.FC = () => {
     }
   };
 
-  // Helper Functions
   const toggleExpand = (player: PlayerRanking) => {
     if (expandedPlayer === player.id) {
       setExpandedPlayer(null);
@@ -136,7 +205,6 @@ const Rankings: React.FC = () => {
     return { bg: 'bg-slate-500/10', text: 'text-slate-500', border: 'border-slate-500/20' };
   };
 
-  // Memoized Filters
   const filteredData = useMemo(() => {
     return dbRankings.filter(p => {
       const name = p.player_name?.toLowerCase() || "";
@@ -152,7 +220,6 @@ const Rankings: React.FC = () => {
 
   return (
     <section id="rankings" className="min-h-screen py-20 bg-slate-950 text-white font-sans relative overflow-hidden">
-      {/* Background Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_50%_-20%,#1e3a8a33,transparent_50%)] pointer-events-none" />
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
@@ -191,6 +258,9 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
+        {/* --- PENEMPATAN WEEKLY SPOTLIGHT --- */}
+        <WeeklySpotlight />
+
         {/* Filter Controls */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1">
@@ -218,7 +288,6 @@ const Rankings: React.FC = () => {
           </div>
         </div>
 
-        {/* Error Alert */}
         {fetchError && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500">
             <AlertCircle size={18} />
@@ -226,7 +295,7 @@ const Rankings: React.FC = () => {
           </div>
         )}
 
-        {/* Main Table */}
+        {/* Main Table Container */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px]">
@@ -306,7 +375,6 @@ const Rankings: React.FC = () => {
                           </td>
                         </tr>
 
-                        {/* Expandable History Detail */}
                         {isExpanded && (
                           <tr>
                             <td colSpan={5} className="px-8 py-0 border-none bg-blue-500/[0.02]">
@@ -336,7 +404,6 @@ const Rankings: React.FC = () => {
                                             <div className="text-[10px] font-mono text-slate-500 mb-1">{new Date(log.created_at).toLocaleString('id-ID')}</div>
                                             <div className="text-[11px] font-black uppercase tracking-tight text-white flex items-center gap-2">
                                               {log.tipe_kegiatan || "Aktivitas Sistem"}
-                                              {log.perubahan < 0 && <span className="text-[8px] bg-red-500/20 text-red-500 px-1 rounded">DECREASE</span>}
                                             </div>
                                           </div>
                                         </div>
@@ -351,8 +418,8 @@ const Rankings: React.FC = () => {
                                   </div>
                                 ) : (
                                   <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl">
-                                      <Calendar className="mx-auto mb-2 text-slate-800" size={24} />
-                                      <div className="text-slate-700 text-[10px] font-bold uppercase tracking-widest italic">Belum ada riwayat aktivitas.</div>
+                                    <Calendar className="mx-auto mb-2 text-slate-800" size={24} />
+                                    <div className="text-slate-700 text-[10px] font-bold uppercase tracking-widest italic">Belum ada riwayat aktivitas.</div>
                                   </div>
                                 )}
                               </div>
@@ -402,7 +469,6 @@ const Rankings: React.FC = () => {
         </div>
       </div>
 
-      {/* Global CSS for hidescroll */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

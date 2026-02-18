@@ -5,10 +5,10 @@ import { supabase } from '../supabase';
 export default function AdminFooter() {
   const [loading, setLoading] = useState(false);
   const [footerConfig, setFooterConfig] = useState({
-    description: '',
-    address: '',
-    phone: '',
-    email: '',
+    description: 'Membina legenda masa depan dengan fasilitas standar nasional dan sport-science.',
+    address: 'Jl. Andi Makkasau No. 171, Parepare, Indonesia',
+    phone: '+62 812 1902 7234',
+    email: 'info@pbus162bilibili.id',
     copyright: '© 2026 PB US 162 BILIBILI. ALL RIGHTS RESERVED.',
     navigation: [
       { name: 'Beranda', id: 'home' },
@@ -29,12 +29,19 @@ export default function AdminFooter() {
 
   useEffect(() => {
     async function getFooterData() {
-      const { data } = await supabase.from('site_settings').select('footer_config').single();
+      // PERBAIKAN: Mengambil data dari site_settings dengan key 'footer_config' atau kolom footer_config
+      const { data } = await supabase
+        .from('site_settings')
+        .select('footer_config')
+        .eq('id', 1) // Memastikan mengambil ID 1 sesuai fungsi update
+        .single();
+        
       if (data?.footer_config) {
+        // Sinkronisasi data dari database ke state
         setFooterConfig({
           ...footerConfig,
           ...data.footer_config,
-          socials: { ...footerConfig.socials, ...data.footer_config.socials },
+          socials: { ...footerConfig.socials, ...(data.footer_config.socials || {}) },
           navigation: data.footer_config.navigation || footerConfig.navigation
         });
       }
@@ -44,12 +51,18 @@ export default function AdminFooter() {
 
   const handleUpdate = async () => {
     setLoading(true);
+    // PERBAIKAN: Memastikan update ke key 'footer_config' pada baris ID 1
     const { error } = await supabase
       .from('site_settings')
       .update({ footer_config: footerConfig })
       .eq('id', 1);
 
-    if (!error) alert("Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
+    if (!error) {
+      alert("Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
+    } else {
+      console.error("Error update footer:", error);
+      alert("Gagal menyimpan perubahan.");
+    }
     setLoading(false);
   };
 
@@ -76,14 +89,12 @@ export default function AdminFooter() {
     setFooterConfig({ ...footerConfig, navigation: newNav });
   };
 
-  // --- FITUR BARU: PENGURUTAN MENU (MOVE UP/DOWN) ---
   const moveNavigation = (index: number, direction: 'up' | 'down') => {
     const newNav = [...footerConfig.navigation];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     
     if (targetIndex < 0 || targetIndex >= newNav.length) return;
     
-    // Swap positions
     [newNav[index], newNav[targetIndex]] = [newNav[targetIndex], newNav[index]];
     setFooterConfig({ ...footerConfig, navigation: newNav });
   };
@@ -109,6 +120,7 @@ export default function AdminFooter() {
                 className="w-full bg-[#0f111a] border border-white/10 rounded-2xl p-4 text-sm focus:border-blue-500 outline-none h-32 transition-all"
                 value={footerConfig.description}
                 onChange={(e) => setFooterConfig({...footerConfig, description: e.target.value})}
+                placeholder="Contoh: Membina legenda masa depan..."
               />
             </div>
             <div>
@@ -144,7 +156,6 @@ export default function AdminFooter() {
               <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
                 {footerConfig.navigation.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-2 group animate-in fade-in slide-in-from-right-1">
-                    {/* Control Up/Down */}
                     <div className="flex flex-col gap-1">
                       <button onClick={() => moveNavigation(idx, 'up')} disabled={idx === 0} className="text-slate-600 hover:text-blue-500 disabled:opacity-20 transition-colors">
                         <ArrowUp size={12} />
@@ -168,7 +179,6 @@ export default function AdminFooter() {
                     <button 
                       onClick={() => removeNavigation(idx)} 
                       className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                      title="Hapus Menu"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -177,12 +187,18 @@ export default function AdminFooter() {
               </div>
             </div>
 
+            {/* AREA HUBUNGI KAMI (Sesuai Landing Page) */}
             <div className="grid grid-cols-2 gap-4">
-               <input placeholder="WhatsApp (62...)" className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-blue-500" value={footerConfig.phone} onChange={(e) => setFooterConfig({...footerConfig, phone: e.target.value})} />
-               <input placeholder="Email Resmi" className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-blue-500" value={footerConfig.email} onChange={(e) => setFooterConfig({...footerConfig, email: e.target.value})} />
+               <div>
+                 <label className="text-[9px] font-black uppercase text-slate-500 mb-2 block">WhatsApp</label>
+                 <input placeholder="62812..." className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-blue-500" value={footerConfig.phone} onChange={(e) => setFooterConfig({...footerConfig, phone: e.target.value})} />
+               </div>
+               <div>
+                 <label className="text-[9px] font-black uppercase text-slate-500 mb-2 block">Email Resmi</label>
+                 <input placeholder="info@..." className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-blue-500" value={footerConfig.email} onChange={(e) => setFooterConfig({...footerConfig, email: e.target.value})} />
+               </div>
             </div>
 
-            {/* AREA MEDIA SOSIAL LENGKAP */}
             <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-3 bg-[#0f111a] p-2 rounded-xl border border-white/5">
                   <Instagram size={14} className="text-pink-500" />
@@ -213,6 +229,7 @@ export default function AdminFooter() {
         </button>
       </div>
 
+      {/* PREVIEW SECTION */}
       <div className="max-w-6xl mx-auto space-y-4 pb-20">
         <h3 className="flex items-center gap-2 text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] ml-4">
           <Eye size={14} /> Tampilan Halaman Depan (Preview)
@@ -239,9 +256,9 @@ export default function AdminFooter() {
             <div>
               <h4 className="text-[10px] font-black tracking-[0.3em] mb-6 text-blue-500 uppercase">Hubungi Kami</h4>
               <div className="text-slate-400 text-[11px] space-y-4">
-                <p className="flex gap-3 items-start"><MapPin size={14} className="text-blue-600 shrink-0"/> {footerConfig.address || 'Alamat...'}</p>
-                <p className="flex gap-3 items-center"><Phone size={14} className="text-blue-600 shrink-0"/> {footerConfig.phone || 'Nomor HP...'}</p>
-                <p className="flex gap-3 items-center"><Mail size={14} className="text-blue-600 shrink-0"/> {footerConfig.email || 'Email...'}</p>
+                <p className="flex gap-3 items-start"><MapPin size={14} className="text-blue-600 shrink-0"/> {footerConfig.address}</p>
+                <p className="flex gap-3 items-center"><Phone size={14} className="text-blue-600 shrink-0"/> {footerConfig.phone}</p>
+                <p className="flex gap-3 items-center"><Mail size={14} className="text-blue-600 shrink-0"/> {footerConfig.email}</p>
               </div>
             </div>
 

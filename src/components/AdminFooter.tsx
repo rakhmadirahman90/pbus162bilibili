@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
+// PERBAIKAN: Gunakan Fixed UUID untuk menghindari error "invalid input syntax for type uuid"
+const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
+
 export default function AdminFooter() {
   const [loading, setLoading] = useState(false);
   const [footerConfig, setFooterConfig] = useState({
@@ -34,17 +37,17 @@ export default function AdminFooter() {
         const { data, error } = await supabase
           .from('site_settings')
           .select('footer_config')
-          .eq('id', 1)
-          .single();
+          .eq('id', SETTINGS_ID) // Menggunakan SETTINGS_ID (UUID)
+          .maybeSingle();
           
         if (data?.footer_config) {
           const config = data.footer_config;
-          setFooterConfig({
-            ...footerConfig,
+          setFooterConfig(prev => ({
+            ...prev,
             ...config,
-            socials: { ...footerConfig.socials, ...(config.socials || {}) },
-            navigation: config.navigation || footerConfig.navigation
-          });
+            socials: { ...prev.socials, ...(config.socials || {}) },
+            navigation: config.navigation || prev.navigation
+          }));
         }
       } catch (err) {
         console.log("Memulai dengan data default...");
@@ -60,16 +63,21 @@ export default function AdminFooter() {
       const { error } = await supabase
         .from('site_settings')
         .upsert({ 
-          id: 1, 
+          id: SETTINGS_ID, // MENGGUNAKAN UUID, BUKAN ANGKA 1
           footer_config: footerConfig,
           updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'id' });
 
       if (error) throw error;
       alert("🚀 Perubahan Berhasil Disimpan & Disinkronkan ke Landing Page!");
     } catch (error: any) {
       console.error("Error update footer:", error);
-      alert("Gagal menyimpan: " + error.message);
+      // Memberikan pesan edukatif jika kolom belum di-refresh di schema cache
+      if (error.message?.includes('footer_config')) {
+        alert("Gagal: Kolom 'footer_config' belum dikenali. Jalankan 'NOTIFY pgrst, reload schema;' di SQL Editor Supabase.");
+      } else {
+        alert("Gagal menyimpan: " + error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -110,7 +118,7 @@ export default function AdminFooter() {
     <div className="p-6 bg-[#0f111a] min-h-screen text-white space-y-10 font-sans">
       <div className="max-w-5xl mx-auto bg-[#161925] rounded-[2.5rem] border border-white/5 p-8 shadow-2xl">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold flex items-center gap-3">
+          <h2 className="text-2xl font-bold flex items-center gap-3 italic">
             <div className="w-1.5 h-8 bg-blue-600 rounded-full"></div>
             PENGATURAN FOOTER DINAMIS
           </h2>

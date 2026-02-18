@@ -13,19 +13,27 @@ export default function ImagePopup() {
 
   useEffect(() => {
     const fetchActivePopup = async () => {
+      // --- LOGIKA CEK SESI (PENGUNJUNG HARIAN) ---
+      const lastShown = localStorage.getItem('popup_last_shown');
+      const now = new Date().getTime();
+      const oneDay = 24 * 60 * 60 * 1000; // 24 Jam dalam milidetik
+
+      // Jika sudah pernah muncul dalam kurang dari 24 jam, batalkan fetch
+      if (lastShown && now - parseInt(lastShown) < oneDay) {
+        return;
+      }
+
       try {
-        // PERBAIKAN LOGIKA: Ambil data berdasarkan urutan yang diatur di Admin
         const { data, error } = await supabase
           .from('konfigurasi_popup')
           .select('url_gambar, judul, deskripsi')
           .eq('is_active', true)
-          .order('urutan', { ascending: true }) // Sesuai dengan fitur drag & drop admin
+          .order('urutan', { ascending: true })
           .limit(1)
           .maybeSingle();
 
         if (data && !error) {
           setContent(data);
-          // Muncul otomatis 1 detik setelah landing page termuat
           const timer = setTimeout(() => setIsOpen(true), 1000);
           return () => clearTimeout(timer);
         }
@@ -35,7 +43,15 @@ export default function ImagePopup() {
     };
 
     fetchActivePopup();
-  }, []); // Berjalan setiap kali refresh
+  }, []);
+
+  // --- FUNGSI TUTUP DENGAN SIMPAN SESSION ---
+  const handleClose = () => {
+    setIsOpen(false);
+    // Simpan timestamp saat ini ke localStorage
+    const now = new Date().getTime();
+    localStorage.setItem('popup_last_shown', now.toString());
+  };
 
   if (!content || !isOpen) return null;
 
@@ -43,7 +59,6 @@ export default function ImagePopup() {
     <AnimatePresence>
       <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
         
-        {/* CONTAINER UTAMA */}
         <motion.div 
           initial={{ opacity: 0, scale: 0.8, y: 40 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -51,18 +66,16 @@ export default function ImagePopup() {
           className="relative w-full max-w-[380px] md:max-w-[420px]"
         >
           
-          {/* TOMBOL TUTUP MODERN */}
+          {/* TOMBOL TUTUP MODERN - Menggunakan handleClose */}
           <button 
-            onClick={() => setIsOpen(false)}
+            onClick={handleClose}
             className="absolute -top-16 right-0 md:-right-4 p-3 bg-red-600 text-white rounded-full shadow-2xl hover:bg-red-700 transition-all active:scale-90 z-[100] border-4 border-black"
           >
             <X size={24} strokeWidth={3} />
           </button>
 
-          {/* KARTU POP-UP ELEGAN */}
           <div className="bg-[#0F172A] rounded-[3rem] overflow-hidden border border-white/10 shadow-[0_0_80px_rgba(59,130,246,0.25)] flex flex-col">
             
-            {/* BAGIAN GAMBAR (PORTRAIT OPTIMIZED) */}
             <div className="relative w-full aspect-[4/5] overflow-hidden bg-slate-900">
               <img 
                 src={content.url_gambar} 
@@ -70,20 +83,16 @@ export default function ImagePopup() {
                 className="w-full h-full object-cover"
               />
               
-              {/* BADGE FLOATING */}
               <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-black/40 backdrop-blur-xl border border-white/20 rounded-full">
                 <Zap size={14} className="text-yellow-400 fill-yellow-400" />
                 <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">New Promo</span>
               </div>
 
-              {/* GRADIENT OVERLAY AGAR TEKS TERBACA */}
               <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/80 to-transparent" />
             </div>
 
-            {/* BAGIAN KONTEN TEKS */}
             <div className="px-8 pb-10 pt-2 text-center -mt-6 relative z-10">
               <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-3 leading-none">
-                {/* Memberi aksen biru pada kata terakhir secara otomatis */}
                 {content.judul.split(' ').length > 1 ? (
                   <>
                     {content.judul.split(' ').slice(0, -1).join(' ')} <span className="text-blue-500">{content.judul.split(' ').pop()}</span>
@@ -100,7 +109,7 @@ export default function ImagePopup() {
               </p>
               
               <button 
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="group relative w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.4em] transition-all shadow-xl shadow-blue-900/40 active:scale-95 overflow-hidden"
               >
                 <span className="relative z-10">MENGERTI</span>
@@ -109,17 +118,16 @@ export default function ImagePopup() {
             </div>
           </div>
 
-          {/* TEKS PEMANIS DI BAWAH KARTU */}
           <p className="text-center mt-6 text-white/20 text-[9px] font-bold uppercase tracking-[0.5em] animate-pulse">
             Sistem Informasi Otomatis
           </p>
 
         </motion.div>
 
-        {/* CLIK OUTSIDE TO CLOSE */}
+        {/* CLICK OUTSIDE TO CLOSE - Menggunakan handleClose */}
         <div 
           className="absolute inset-0 -z-10" 
-          onClick={() => setIsOpen(false)} 
+          onClick={handleClose} 
         />
       </div>
     </AnimatePresence>

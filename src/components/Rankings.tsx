@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Minus, Trophy, Search, 
   ChevronLeft, ChevronRight, Loader2, AlertCircle, 
   RefreshCw, History, Calendar, Info, ShieldCheck,
-  Activity, Flame, Award
+  Activity, Flame, Award, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 
 // --- Interfaces ---
@@ -395,31 +395,38 @@ const Rankings: React.FC = () => {
                                   <div className="flex justify-center py-8"><Loader2 className="animate-spin text-blue-500" size={24} /></div>
                                 ) : playerHistory.length > 0 ? (
                                   <div className="space-y-2">
-                                    {playerHistory.map((log) => (
-                                      <div key={log.id} className="flex items-center justify-between bg-slate-950/80 p-4 rounded-xl border border-white/5 hover:border-blue-500/20 transition-all">
-                                        <div className="flex items-center gap-4">
-                                          <div className={`p-2 rounded-lg ${log.perubahan > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                            {log.perubahan > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                                          </div>
-                                          <div>
-                                            <div className="text-[10px] font-mono text-slate-500 mb-1">
-                                              {new Date(log.created_at).toLocaleString('id-ID', { 
-                                                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-                                              })}
+                                    {playerHistory.map((log) => {
+                                      const isGain = log.perubahan > 0;
+                                      return (
+                                        <div key={log.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${isGain ? 'bg-emerald-500/[0.03] border-emerald-500/10 hover:border-emerald-500/30' : 'bg-red-500/[0.03] border-red-500/10 hover:border-red-500/30'}`}>
+                                          <div className="flex items-center gap-4">
+                                            <div className={`p-2.5 rounded-xl ${isGain ? 'bg-emerald-500/10 text-emerald-500 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]' : 'bg-red-500/10 text-red-500 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]'}`}>
+                                              {isGain ? <ArrowUpRight size={14} strokeWidth={3} /> : <ArrowDownRight size={14} strokeWidth={3} />}
                                             </div>
-                                            <div className="text-[11px] font-black uppercase tracking-tight text-white flex items-center gap-2">
-                                              {log.tipe_kegiatan || "Aktivitas"}
+                                            <div>
+                                              <div className="text-[10px] font-mono text-slate-500 mb-0.5">{new Date(log.created_at).toLocaleString('id-ID')}</div>
+                                              <div className="flex items-center gap-2">
+                                                <span className={`text-[11px] font-black uppercase tracking-tight ${isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                  {isGain ? 'PENAMBAHAN POIN' : 'PENGURANGAN POIN'}
+                                                </span>
+                                                <span className="text-slate-600 text-[10px]">•</span>
+                                                <span className="text-[11px] font-bold text-slate-300 uppercase italic">
+                                                  {log.tipe_kegiatan || "Aktivitas"}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <div className={`text-base font-black font-mono ${isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                                              {isGain ? '+' : ''}{log.perubahan}
+                                            </div>
+                                            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">
+                                              Saldo: <span className="text-slate-300">{log.poin_sesudah}</span>
                                             </div>
                                           </div>
                                         </div>
-                                        <div className="text-right">
-                                          <div className={`text-sm font-black ${log.perubahan > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                            {log.perubahan > 0 ? '+' : ''}{log.perubahan}
-                                          </div>
-                                          <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Balance: {log.poin_sesudah}</div>
-                                        </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 ) : (
                                   <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl italic text-slate-700 text-[10px] uppercase font-bold tracking-widest">

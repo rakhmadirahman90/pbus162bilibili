@@ -22,7 +22,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     default_lang: 'ID'
   });
 
-  // Fungsi Fetching (Dibungkus useCallback agar stabil)
+  // Fungsi Fetching
   const fetchNavSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -65,7 +65,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     fetchNavSettings();
     fetchBrandingSettings();
     
-    // Realtime Subscription untuk perubahan Navbar
     const navSubscription = supabase
       .channel('navbar_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'navbar_settings' }, () => {
@@ -73,7 +72,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
       })
       .subscribe();
 
-    // Realtime Subscription untuk perubahan Branding
     const brandSubscription = supabase
       .channel('brand_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, () => {
@@ -91,10 +89,20 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     return navData.filter(item => item.parent_id === parentId);
   };
 
-  // --- LOGIKA NAVIGASI TOTAL (IMPROVED) ---
+  // --- LOGIKA NAVIGASI TOTAL (FIXED UNTUK LOGO & BERANDA) ---
   const handleNavClick = (path: string, subPath?: string) => {
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
+
+    // Jika path adalah 'home' atau 'beranda', langsung scroll ke paling atas
+    if (path === 'home' || path === 'beranda') {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+      onNavigate('home');
+      return;
+    }
 
     const targetId = subPath || path;
     
@@ -111,12 +119,14 @@ export default function Navbar({ onNavigate }: NavbarProps) {
           top: offsetPosition,
           behavior: 'smooth'
         });
+      } else {
+        // Fallback jika ID tidak ditemukan (kembali ke atas)
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 100);
 
     onNavigate(path, subPath);
 
-    // Trigger filter untuk komponen Atlet jika diperlukan
     if (path === 'atlet' && subPath) {
       const event = new CustomEvent('filterAtlet', { detail: subPath });
       window.dispatchEvent(event);
@@ -127,7 +137,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/10 shadow-2xl">
       <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
         
-        {/* LOGO SECTION */}
+        {/* LOGO SECTION - Mengarah ke Home/Top */}
         <div 
           className="flex items-center gap-4 cursor-pointer group" 
           onClick={() => handleNavClick('home')}
@@ -203,7 +213,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             )
           ))}
 
-          {/* ACTION BUTTONS (Kontak & Pendaftaran) */}
           <div 
             className="relative h-20 flex items-center"
             onMouseEnter={() => setActiveDropdown('contact-action')}
@@ -229,7 +238,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
             )}
           </div>
 
-          {/* LANG PICKER */}
           <div className="relative h-20 flex items-center">
              <button className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
                 <Globe size={14} className="text-blue-400" />
@@ -238,13 +246,12 @@ export default function Navbar({ onNavigate }: NavbarProps) {
           </div>
         </div>
 
-        {/* MOBILE TOGGLE */}
         <button className="md:hidden p-2 text-slate-300 hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </div>
 
-      {/* --- MOBILE MENU (OVERLAY) --- */}
+      {/* --- MOBILE MENU --- */}
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 animate-in slide-in-from-top duration-300 overflow-y-auto max-h-[calc(100vh-80px)] shadow-2xl">
           <div className="flex flex-col p-6 gap-4">
@@ -274,7 +281,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
               </React.Fragment>
             ))}
             
-            {/* Mobile Contact & Action */}
             <div className="flex flex-col gap-4 mt-2">
               <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-left text-blue-400">Hubungi Kami</button>
               <button 
@@ -288,70 +294,19 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         </div>
       )}
 
-      {/* STYLES */}
       <style>{`
-        .nav-link { 
-          font-size: 11px; 
-          font-weight: 700; 
-          text-transform: uppercase; 
-          letter-spacing: 0.15em; 
-          color: #cbd5e1; 
-          background: none; 
-          border: none; 
-          cursor: pointer; 
-          position: relative;
-        }
+        .nav-link { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #cbd5e1; background: none; border: none; cursor: pointer; position: relative; }
         .nav-link:hover { color: #3b82f6; }
-        .nav-link::after {
-          content: '';
-          position: absolute;
-          bottom: -4px;
-          left: 0;
-          width: 0;
-          height: 2px;
-          background: #3b82f6;
-          transition: width 0.3s;
-        }
+        .nav-link::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: #3b82f6; transition: width 0.3s; }
         .nav-link:hover::after { width: 100%; }
-
-        .dropdown-container { 
-          position: absolute; 
-          top: 80%; 
-          width: 14rem; 
-          padding-top: 1rem; 
-          animation: dropdownFade 0.2s ease-out; 
-          z-index: 110; 
-        }
-        .dropdown-content { 
-          background: #1e293b; 
-          border: 1px solid #334155; 
-          border-radius: 1rem; 
-          overflow: hidden; 
-          box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); 
-        }
-        .dropdown-item { 
-          width: 100%; 
-          text-align: left; 
-          padding: 1rem 1.5rem; 
-          font-size: 10px; 
-          font-weight: 700; 
-          text-transform: uppercase; 
-          color: #e2e8f0; 
-          border-bottom: 1px solid rgba(51, 65, 85, 0.2); 
-          background: none; 
-          transition: 0.2s; 
-          cursor: pointer; 
-        }
+        .dropdown-container { position: absolute; top: 80%; width: 14rem; padding-top: 1rem; animation: dropdownFade 0.2s ease-out; z-index: 110; }
+        .dropdown-content { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); }
+        .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #e2e8f0; border-bottom: 1px solid rgba(51, 65, 85, 0.2); background: none; transition: 0.2s; cursor: pointer; }
         .dropdown-item:last-child { border-bottom: none; }
         .dropdown-item:hover { background: #2563eb; color: white; padding-left: 1.75rem; }
-
         .mobile-nav-link { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #f8fafc; letter-spacing: 0.05em; }
         .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
-        
-        @keyframes dropdownFade { 
-          from { opacity: 0; transform: translateY(8px); } 
-          to { opacity: 1; transform: translateY(0); } 
-        }
+        @keyframes dropdownFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </nav>
   );

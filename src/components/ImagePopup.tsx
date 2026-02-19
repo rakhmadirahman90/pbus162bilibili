@@ -9,7 +9,7 @@ export default function ImagePopup() {
     url_gambar: string;
     judul: string;
     deskripsi: string;
-    file_url?: string | null; // Menambahkan null untuk kompatibilitas database
+    file_url?: string | null; 
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -30,7 +30,7 @@ export default function ImagePopup() {
         }
 
         if (data) {
-          // DEBUG: Cek di console browser (F12)
+          // Log ini untuk memastikan di console browser apakah file_url terbaca atau null
           console.log("Data Popup Diterima:", data); 
           setContent(data);
           
@@ -89,7 +89,7 @@ export default function ImagePopup() {
               onClick={handleClose}
               className="absolute -top-12 right-0 flex items-center gap-2 group transition-all"
             >
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">Tutup</span>
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em] group-hover:text-white transition-colors">Tutup</span>
               <div className="p-2 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition-all">
                 <X size={18} />
               </div>
@@ -118,23 +118,23 @@ export default function ImagePopup() {
                     </div>
                   </div>
                   
-                  <h3 className="text-2xl font-black italic uppercase text-white mb-3">
+                  <h3 className="text-2xl font-black italic uppercase text-white mb-3 tracking-tighter leading-tight">
                     {content.judul}
                   </h3>
                   
-                  <p className="text-slate-400 text-xs mb-10 leading-relaxed uppercase tracking-wide">
+                  <p className="text-slate-400 text-[11px] mb-10 leading-relaxed uppercase tracking-wide">
                     {content.deskripsi}
                   </p>
                   
-                  {/* TOMBOL DOWNLOAD PERBAIKAN: Menggunakan pengecekan string yang lebih kuat */}
-                  {content.file_url && content.file_url !== "NULL" && content.file_url.trim().length > 0 && (
+                  {/* --- PERBAIKAN LOGIKA TOMBOL DOWNLOAD --- */}
+                  {content.file_url && content.file_url.length > 5 && (
                     <motion.a 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       href={content.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
+                      className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95 border border-blue-400/20"
                     >
                       <Download size={16} /> DOWNLOAD LAMPIRAN
                     </motion.a>
@@ -142,13 +142,17 @@ export default function ImagePopup() {
 
                   <button 
                     onClick={handleClose} 
-                    className="w-full py-4.5 bg-white hover:bg-slate-200 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all"
+                    className="w-full py-4.5 bg-white hover:bg-slate-200 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-[0.98]"
                   >
                     SAYA MENGERTI
                   </button>
                 </div>
               </div>
             </div>
+
+            <p className="text-center mt-6 text-white/10 text-[8px] font-bold uppercase tracking-[0.5em]">
+              PB US 162 OFFICIAL SYSTEM
+            </p>
           </motion.div>
 
           <div className="absolute inset-0 -z-10" onClick={handleClose} />

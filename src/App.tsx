@@ -33,13 +33,13 @@ import AdminTampilan from './components/AdminTampilan';
 import KelolaHero from './components/KelolaHero'; 
 import AdminPopup from './components/AdminPopup'; 
 import AdminFooter from './components/AdminFooter'; 
-import AdminAbout from './components/AdminAbout'; // KODE BARU: Import AdminAbout
+import AdminAbout from './components/AdminAbout';
 
-import { X, ChevronLeft, ChevronRight, Menu, Zap } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Menu, Zap, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * FIXED: Komponen Pop-up dengan Smooth Auto-Scroll & Hidden Scrollbar
+ * FIXED: Komponen Pop-up dengan Lampiran & Smooth Auto-Scroll
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -68,7 +68,6 @@ function ImagePopup() {
     localStorage.removeItem('lastSeenPopup');
   }, []);
 
-  // --- LOGIKA AUTO SCROLL HALUS ---
   useEffect(() => {
     let scrollInterval: any;
     if (isOpen && scrollRef.current) {
@@ -101,11 +100,13 @@ function ImagePopup() {
     <AnimatePresence>
       <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
+          key={currentIndex}
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9 }}
           className="relative w-full max-w-[400px] max-h-[85vh] bg-white rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/20"
         >
+          {/* Tombol Close */}
           <button 
             onClick={closePopup} 
             className="absolute top-4 right-4 z-50 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl border-2 border-white transition-transform active:scale-90"
@@ -116,8 +117,8 @@ function ImagePopup() {
           <div 
             ref={scrollRef}
             className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
+            {/* Bagian Gambar */}
             <div className="relative bg-slate-900">
               <img 
                 src={current.url_gambar} 
@@ -132,7 +133,7 @@ function ImagePopup() {
                       setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1)); 
                       scrollRef.current?.scrollTo(0,0); 
                     }} 
-                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"
+                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600 transition-colors"
                   >
                     <ChevronLeft size={20} />
                   </button>
@@ -141,7 +142,7 @@ function ImagePopup() {
                       setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1)); 
                       scrollRef.current?.scrollTo(0,0); 
                     }} 
-                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600"
+                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600 transition-colors"
                   >
                     <ChevronRight size={20} />
                   </button>
@@ -149,9 +150,10 @@ function ImagePopup() {
               )}
             </div>
 
+            {/* Bagian Konten Teks */}
             <div className="px-8 pb-10 pt-8 text-center bg-white">
               <div className="flex justify-center mb-4">
-                <div className="px-4 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                <div className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
                   <Zap size={12} className="fill-blue-600" /> Pengumuman Resmi
                 </div>
               </div>
@@ -165,9 +167,23 @@ function ImagePopup() {
                 {current.deskripsi}
               </p>
               
+              {/* TOMBOL LAMPIRAN - MUNCUL OTOMATIS JIKA file_url TERSEDIA */}
+              {current.file_url && current.file_url.length > 5 && (
+                <motion.a 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  href={current.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95 border border-white/10"
+                >
+                  <Download size={16} /> DOWNLOAD LAMPIRAN
+                </motion.a>
+              )}
+
               <button 
                 onClick={closePopup} 
-                className="w-full py-4 bg-blue-600 hover:bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-95 shadow-xl shadow-blue-100"
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-95 shadow-xl shadow-blue-100"
               >
                 MENGERTI
               </button>
@@ -241,6 +257,7 @@ export default function App() {
             <Hero />
             <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
             <News />
+            <News />
             <Athletes initialFilter={activeAthleteFilter} />
             <Ranking />
             <Gallery />
@@ -285,7 +302,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="hero" element={<KelolaHero />} />
             <Route path="popup" element={<AdminPopup />} /> 
             <Route path="footer" element={<AdminFooter />} />
-            <Route path="about" element={<AdminAbout />} /> {/* KODE BARU: Route untuk Kelola Tentang */}
+            <Route path="about" element={<AdminAbout />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>

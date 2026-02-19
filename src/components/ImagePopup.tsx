@@ -82,6 +82,7 @@ export default function ImagePopup() {
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             className="relative w-full max-w-[400px] max-h-[85vh]"
           >
+            {/* TOMBOL CLOSE ELEGAN: Dark Glassmorphism Effect */}
             <button 
               onClick={handleClose}
               className="absolute -top-12 right-0 flex items-center gap-2 group transition-all active:scale-90"
@@ -93,20 +94,24 @@ export default function ImagePopup() {
             </button>
 
             <div className="bg-[#0F172A] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.5)] flex flex-col h-full ring-1 ring-white/5">
+              
+              {/* Scrollable Container dengan Hidden Scrollbar */}
               <div 
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
+                {/* Image Section */}
                 <div className="relative w-full bg-slate-900">
                   <img 
-                    src={content.url_gambar} // Perbaikan dari 'current' ke 'content'
+                    src={content.url_gambar} 
                     className="w-full h-auto block" 
                     alt={content.judul} 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
                 </div>
 
+                {/* Content Section */}
                 <div className="px-10 pb-12 pt-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
@@ -124,16 +129,19 @@ export default function ImagePopup() {
                     {content.deskripsi}
                   </p>
                   
-                  {/* TOMBOL DOWNLOAD (Hanya muncul jika ada file_url) */}
-                  {content.file_url && (
-                    <a 
+                  {/* TOMBOL DOWNLOAD (Hanya muncul jika ada file_url yang tidak kosong) */}
+                  {content.file_url && content.file_url.trim() !== "" && (
+                    <motion.a 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
                       href={content.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
+                      download
+                      className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
                     >
-                      <Download size={14} /> DOWNLOAD LAMPIRAN
-                    </a>
+                      <Download size={16} /> DOWNLOAD LAMPIRAN
+                    </motion.a>
                   )}
 
                   <button 
@@ -151,6 +159,7 @@ export default function ImagePopup() {
             </p>
           </motion.div>
 
+          {/* Overlay klik untuk menutup */}
           <div className="absolute inset-0 -z-10" onClick={handleClose} />
 
           <style dangerouslySetInnerHTML={{ __html: `

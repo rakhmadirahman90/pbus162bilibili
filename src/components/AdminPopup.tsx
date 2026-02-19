@@ -32,7 +32,7 @@ interface PopupConfig {
   deskripsi: string;
   is_active: boolean;
   urutan: number;
-  file_url?: string; // Tambahkan field file_url
+  file_url?: string; 
 }
 
 // --- KOMPONEN: SORTABLE ITEM ---
@@ -192,7 +192,10 @@ export default function AdminPopup() {
       const { error: uploadError } = await supabase.storage.from('identitas-atlet').upload(filePath, file);
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
-      setNewPopup({ ...newPopup, file_url: publicUrl });
+      
+      // PERBAIKAN: Pastikan state diperbarui dengan link file baru
+      setNewPopup(prev => ({ ...prev, file_url: publicUrl }));
+      
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'File lampiran diunggah', showConfirmButton: false, timer: 2000 });
     } catch (err: any) {
       Swal.fire('Gagal upload file', err.message, 'error');
@@ -206,33 +209,57 @@ export default function AdminPopup() {
     if (!newPopup.url_gambar) return Swal.fire('Opps!', 'Harap unggah gambar terlebih dahulu', 'warning');
 
     setIsSaving(true);
-    if (editingId) {
-      const { error } = await supabase.from('konfigurasi_popup').update({
-          judul: newPopup.judul,
-          deskripsi: newPopup.deskripsi,
-          url_gambar: newPopup.url_gambar,
-          file_url: newPopup.file_url
-        }).eq('id', editingId);
-      if (!error) {
+    
+    // PERBAIKAN: Destrukturisasi data untuk memastikan semua field terkirim
+    const payload = {
+      judul: newPopup.judul,
+      deskripsi: newPopup.deskripsi,
+      url_gambar: newPopup.url_gambar,
+      file_url: newPopup.file_url || null, // Pastikan NULL jika kosong agar database bersih
+      is_active: true
+    };
+
+    try {
+      if (editingId) {
+        const { error } = await supabase
+          .from('konfigurasi_popup')
+          .update(payload)
+          .eq('id', editingId);
+          
+        if (error) throw error;
         Swal.fire({ title: 'Berhasil', text: 'Pop-up diperbarui', icon: 'success', background: '#0F172A', color: '#fff' });
         setEditingId(null);
+      } else {
+        const { error } = await supabase
+          .from('konfigurasi_popup')
+          .insert([{
+            ...payload,
+            urutan: popups.length
+          }]);
+          
+        if (error) throw error;
+        Swal.fire({ title: 'Berhasil', text: 'Pop-up baru diaktifkan', icon: 'success', background: '#0F172A', color: '#fff' });
       }
-    } else {
-      const { error } = await supabase.from('konfigurasi_popup').insert([{
-        ...newPopup,
-        urutan: popups.length
-      }]);
-      if (!error) Swal.fire({ title: 'Berhasil', text: 'Pop-up baru diaktifkan', icon: 'success', background: '#0F172A', color: '#fff' });
+
+      // Reset form setelah berhasil
+      setNewPopup({ url_gambar: '', judul: '', deskripsi: '', file_url: '' });
+      setPreviewImage(null);
+      fetchPopups();
+    } catch (err: any) {
+      Swal.fire('Error saat menyimpan', err.message, 'error');
+    } finally {
+      setIsSaving(false);
     }
-    setNewPopup({ url_gambar: '', judul: '', deskripsi: '', file_url: '' });
-    setPreviewImage(null);
-    fetchPopups();
-    setIsSaving(false);
   };
 
   const startEdit = (item: PopupConfig) => {
     setEditingId(item.id);
-    setNewPopup({ judul: item.judul, deskripsi: item.deskripsi, url_gambar: item.url_gambar, file_url: item.file_url || '' });
+    setNewPopup({ 
+      judul: item.judul, 
+      deskripsi: item.deskripsi, 
+      url_gambar: item.url_gambar, 
+      file_url: item.file_url || '' 
+    });
     setPreviewImage(item.url_gambar);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -345,7 +372,7 @@ export default function AdminPopup() {
               </div>
             </div>
 
-            <button disabled={isSaving || isUploading || isFileUploading} className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] transition-all shadow-2xl flex items-center justify-center gap-3 ${editingId ? 'bg-emerald-600' : 'bg-blue-600'}`}>
+            <button type="submit" disabled={isSaving || isUploading || isFileUploading} className={`w-full py-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] transition-all shadow-2xl flex items-center justify-center gap-3 text-white ${editingId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
               {isSaving ? <Loader2 className="animate-spin" /> : editingId ? 'PERBARUI POP-UP' : 'AKTIFKAN POP-UP'}
             </button>
           </form>

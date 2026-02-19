@@ -18,21 +18,23 @@ export default function ImagePopup() {
       try {
         const { data, error } = await supabase
           .from('konfigurasi_popup')
-          .select('url_gambar, judul, deskripsi, file_url') 
+          .select('url_gambar, judul, deskripsi, file_url, is_active, urutan') 
           .eq('is_active', true)
-          .order('urutan', { ascending: true })
-          .limit(1)
-          .maybeSingle();
+          .order('urutan', { ascending: true });
 
         if (error) {
           console.error("Supabase Error:", error.message);
           return;
         }
 
-        if (data) {
-          // Log ini untuk memastikan di console browser apakah file_url terbaca atau null
-          console.log("Data Popup Diterima:", data); 
-          setContent(data);
+        if (data && data.length > 0) {
+          // Cari data yang benar-benar punya file_url jika ada beberapa yang aktif
+          const priorityContent = data.find(item => item.file_url && item.file_url !== "") || data[0];
+          
+          console.log("LOG SISTEM - Data Terpilih:", priorityContent);
+          console.log("LOG SISTEM - URL File:", priorityContent.file_url);
+
+          setContent(priorityContent);
           
           const timer = setTimeout(() => {
             setIsOpen(true);
@@ -126,8 +128,8 @@ export default function ImagePopup() {
                     {content.deskripsi}
                   </p>
                   
-                  {/* --- PERBAIKAN LOGIKA TOMBOL DOWNLOAD --- */}
-                  {content.file_url && content.file_url.length > 5 && (
+                  {/* TOMBOL DOWNLOAD OTOMATIS */}
+                  {content.file_url && content.file_url !== "NULL" && (
                     <motion.a 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}

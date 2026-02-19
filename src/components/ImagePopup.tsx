@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Zap } from 'lucide-react';
+import { X, Zap, Download, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
 
@@ -9,6 +9,7 @@ export default function ImagePopup() {
     url_gambar: string;
     judul: string;
     deskripsi: string;
+    file_url?: string; // Menambahkan field file_url
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -17,7 +18,7 @@ export default function ImagePopup() {
       try {
         const { data, error } = await supabase
           .from('konfigurasi_popup')
-          .select('url_gambar, judul, deskripsi')
+          .select('url_gambar, judul, deskripsi, file_url') // Mengambil file_url dari database
           .eq('is_active', true)
           .order('urutan', { ascending: true })
           .limit(1)
@@ -41,10 +42,11 @@ export default function ImagePopup() {
     };
 
     fetchActivePopup();
+    // Opsional: Hapus baris ini jika ingin popup muncul hanya sekali per sesi
     localStorage.removeItem('popup_last_shown');
   }, []);
 
-  // Fitur Auto-Scroll Halus Tanpa Bar Scroll Visual
+  // Fitur Auto-Scroll Halus
   useEffect(() => {
     let scrollInterval: any;
     if (isOpen && scrollRef.current) {
@@ -84,7 +86,7 @@ export default function ImagePopup() {
             className="relative w-full max-w-[400px] max-h-[85vh]"
           >
             
-            {/* TOMBOL CLOSE ELEGAN: Dark Glassmorphism Effect */}
+            {/* TOMBOL CLOSE ELEGAN */}
             <button 
               onClick={handleClose}
               className="absolute -top-12 right-0 flex items-center gap-2 group transition-all active:scale-90"
@@ -97,7 +99,6 @@ export default function ImagePopup() {
 
             <div className="bg-[#0F172A] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.5)] flex flex-col h-full ring-1 ring-white/5">
               
-              {/* Scrollable Container dengan Hidden Scrollbar */}
               <div 
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
@@ -106,9 +107,9 @@ export default function ImagePopup() {
                 {/* Image Section */}
                 <div className="relative w-full bg-slate-900">
                   <img 
-                    src={current.url_gambar} 
+                    src={content.url_gambar} 
                     className="w-full h-auto block" 
-                    alt={current.judul} 
+                    alt={content.judul} 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
                 </div>
@@ -127,16 +128,32 @@ export default function ImagePopup() {
                   
                   <div className="w-10 h-1 bg-blue-600 mx-auto mb-6 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)]" />
                   
-                  <p className="text-slate-400 font-medium text-xs mb-10 leading-relaxed uppercase tracking-wide">
+                  <p className="text-slate-400 font-medium text-[11px] mb-8 leading-relaxed uppercase tracking-wide">
                     {content.deskripsi}
                   </p>
-                  
-                  <button 
-                    onClick={handleClose} 
-                    className="w-full py-4.5 bg-white hover:bg-blue-600 hover:text-white text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-[0.97] shadow-2xl"
-                  >
-                    SAYA MENGERTI
-                  </button>
+
+                  <div className="flex flex-col gap-3">
+                    {/* TOMBOL DOWNLOAD: Muncul jika file_url ada */}
+                    {content.file_url && (
+                      <a 
+                        href={content.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="w-full py-4 bg-blue-600/10 border-2 border-dashed border-blue-500/40 hover:bg-blue-600 hover:border-blue-600 text-blue-400 hover:text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg"
+                      >
+                        <Download size={16} />
+                        Download Lampiran
+                      </a>
+                    )}
+                    
+                    <button 
+                      onClick={handleClose} 
+                      className="w-full py-4.5 bg-white hover:bg-slate-200 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-[0.97] shadow-xl"
+                    >
+                      SAYA MENGERTI
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -146,6 +163,7 @@ export default function ImagePopup() {
             </p>
           </motion.div>
 
+          {/* Overlay Click to Close */}
           <div className="absolute inset-0 -z-10" onClick={handleClose} />
 
           <style dangerouslySetInnerHTML={{ __html: `

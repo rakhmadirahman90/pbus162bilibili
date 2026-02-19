@@ -11,7 +11,7 @@ export default function ImagePopup() {
   useEffect(() => {
     const fetchActivePopup = async () => {
       try {
-        // AMBIL SEMUA KOLOM (*) UNTUK MENGHINDARI ERROR SELECT 406
+        // PERBAIKAN: Jangan pakai .maybeSingle() agar tidak error 406
         const { data, error } = await supabase
           .from('konfigurasi_popup')
           .select('*')
@@ -19,24 +19,22 @@ export default function ImagePopup() {
           .order('urutan', { ascending: true });
 
         if (error) {
-          console.error("Gagal mengambil data popup:", error.message);
+          console.error("Supabase Error:", error.message);
           return;
         }
 
         if (data && data.length > 0) {
-          // Cari data yang memiliki lampiran sebagai prioritas utama
-          const prioritizedData = data.find((item: any) => item.file_url !== null && item.file_url !== "") || data[0];
+          // Cari data yang ada lampirannya (prioritas), kalau tidak ada ambil yang pertama
+          const selected = data.find((item: any) => item.file_url) || data[0];
+          setContent(selected);
           
-          setContent(prioritizedData);
-          
-          // Delay sedikit agar tidak tabrakan dengan proses render utama
           const timer = setTimeout(() => {
             setIsOpen(true);
-          }, 1200);
+          }, 1000);
           return () => clearTimeout(timer);
         }
       } catch (err) {
-        console.error("Sistem gagal memuat popup:", err);
+        console.error("System Error:", err);
       }
     };
 
@@ -58,92 +56,75 @@ export default function ImagePopup() {
           }
         }, 40); 
       }, 2500);
-
-      return () => {
-        clearInterval(scrollInterval);
-        clearTimeout(startTimeout);
-      };
+      return () => { clearInterval(scrollInterval); clearTimeout(startTimeout); };
     }
   }, [isOpen]);
-
-  const handleClose = () => setIsOpen(false);
 
   if (!content) return null;
 
   return (
     <AnimatePresence mode="wait">
       {isOpen && (
-        <div 
-          key="modal-overlay" // KEY UNIK UNTUK MENGATASI ERROR KONSOL
+        <motion.div 
+          key={content.id || 'popup-wrapper'} // PERBAIKAN: Key unik untuk hilangkan warning
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
         >
           <motion.div 
-            key={`popup-${content.id || 'static'}`} // KEY DINAMIS DARI DATABASE
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
             className="relative w-full max-w-[400px] max-h-[85vh]"
           >
-            {/* Tombol Close */}
             <button 
-              onClick={handleClose}
-              className="absolute -top-12 right-0 flex items-center gap-2 group transition-all"
+              onClick={() => setIsOpen(false)}
+              className="absolute -top-12 right-0 flex items-center gap-2 group"
             >
               <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">Tutup</span>
-              <div className="p-2 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition-all">
+              <div className="p-2 bg-white/10 text-white rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition-all">
                 <X size={18} />
               </div>
             </button>
 
             <div className="bg-[#0F172A] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl flex flex-col h-full ring-1 ring-white/5">
-              <div 
-                ref={scrollRef}
-                className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
-              >
-                {/* Image Section */}
+              <div ref={scrollRef} className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth">
                 <div className="relative w-full bg-slate-900">
-                  <img 
-                    src={content.url_gambar} 
-                    className="w-full h-auto block" 
-                    alt={content.judul} 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
+                  <img src={content.url_gambar} className="w-full h-auto block" alt="Popup" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] to-transparent" />
                 </div>
 
-                {/* Content Section */}
                 <div className="px-10 pb-12 pt-6 text-center">
                   <div className="flex justify-center mb-6">
-                    <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                    <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[9px] font-black uppercase flex items-center gap-2">
                       <Zap size={12} className="fill-blue-400" /> Pengumuman Resmi
                     </div>
                   </div>
                   
-                  <h3 className="text-2xl font-black italic uppercase text-white mb-3">
+                  <h3 className="text-2xl font-black italic uppercase text-white mb-3 tracking-tighter leading-tight">
                     {content.judul}
                   </h3>
                   
-                  <p className="text-slate-400 text-[11px] mb-10 leading-relaxed uppercase tracking-wide">
+                  <p className="text-slate-400 text-[11px] mb-10 uppercase tracking-wide">
                     {content.deskripsi}
                   </p>
                   
-                  {/* TOMBOL DOWNLOAD: DIPAKSA MUNCUL JIKA STRING TIDAK KOSONG */}
-                  {content.file_url && String(content.file_url).length > 5 && (
+                  {/* TOMBOL DOWNLOAD - SEKARANG PASTI MUNCUL JIKA ADA LINK */}
+                  {content.file_url && (
                     <motion.a 
-                      key="btn-download-lampiran"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      key="download-button"
                       href={content.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95 border border-blue-400/20"
+                      className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg border border-blue-400/20"
                     >
                       <Download size={16} /> DOWNLOAD LAMPIRAN
                     </motion.a>
                   )}
 
                   <button 
-                    onClick={handleClose} 
-                    className="w-full py-4.5 bg-white hover:bg-slate-200 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all"
+                    onClick={() => setIsOpen(false)} 
+                    className="w-full py-4.5 bg-white text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em]"
                   >
                     SAYA MENGERTI
                   </button>
@@ -151,14 +132,9 @@ export default function ImagePopup() {
               </div>
             </div>
           </motion.div>
-
-          <div className="absolute inset-0 -z-10" onClick={handleClose} />
-        </div>
+        </motion.div>
       )}
-      <style dangerouslySetInnerHTML={{ __html: `
-        .hide-scrollbar::-webkit-scrollbar { display: none !important; }
-        .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-      `}} />
+      <style dangerouslySetInnerHTML={{ __html: `.hide-scrollbar::-webkit-scrollbar { display: none; }` }} />
     </AnimatePresence>
   );
 }

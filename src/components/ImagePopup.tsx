@@ -9,7 +9,7 @@ export default function ImagePopup() {
     url_gambar: string;
     judul: string;
     deskripsi: string;
-    file_url?: string; 
+    file_url?: string; // Menangkap data kolom file_url
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -18,7 +18,7 @@ export default function ImagePopup() {
       try {
         const { data, error } = await supabase
           .from('konfigurasi_popup')
-          .select('url_gambar, judul, deskripsi, file_url') 
+          .select('url_gambar, judul, deskripsi, file_url') // Pastikan file_url dipanggil
           .eq('is_active', true)
           .order('urutan', { ascending: true })
           .limit(1)
@@ -45,6 +45,7 @@ export default function ImagePopup() {
     localStorage.removeItem('popup_last_shown');
   }, []);
 
+  // Logika Auto-Scroll Otomatis
   useEffect(() => {
     let scrollInterval: any;
     if (isOpen && scrollRef.current) {
@@ -82,6 +83,7 @@ export default function ImagePopup() {
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             className="relative w-full max-w-[400px] max-h-[85vh]"
           >
+            {/* Tombol Close */}
             <button 
               onClick={handleClose}
               className="absolute -top-12 right-0 flex items-center gap-2 group transition-all active:scale-90"
@@ -98,6 +100,7 @@ export default function ImagePopup() {
                 className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
+                {/* Poster Promo */}
                 <div className="relative w-full bg-slate-900">
                   <img 
                     src={content.url_gambar} 
@@ -124,16 +127,18 @@ export default function ImagePopup() {
                     {content.deskripsi}
                   </p>
                   
-                  {/* TOMBOL DOWNLOAD AKTIF */}
+                  {/* TOMBOL DOWNLOAD OTOMATIS */}
                   {content.file_url && content.file_url.trim() !== "" && (
-                    <a 
+                    <motion.a 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
                       href={content.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
+                      className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95"
                     >
-                      <Download size={14} /> DOWNLOAD LAMPIRAN
-                    </a>
+                      <Download size={16} /> DOWNLOAD LAMPIRAN
+                    </motion.a>
                   )}
 
                   <button 

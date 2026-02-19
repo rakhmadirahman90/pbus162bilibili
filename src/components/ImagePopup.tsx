@@ -9,7 +9,7 @@ export default function ImagePopup() {
     url_gambar: string;
     judul: string;
     deskripsi: string;
-    file_url?: string; // Menangkap data kolom file_url
+    file_url?: string; 
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -18,7 +18,7 @@ export default function ImagePopup() {
       try {
         const { data, error } = await supabase
           .from('konfigurasi_popup')
-          .select('url_gambar, judul, deskripsi, file_url') // Pastikan file_url dipanggil
+          .select('url_gambar, judul, deskripsi, file_url') 
           .eq('is_active', true)
           .order('urutan', { ascending: true })
           .limit(1)
@@ -30,6 +30,8 @@ export default function ImagePopup() {
         }
 
         if (data) {
+          // DEBUG: Cek di console browser (F12) apakah file_url muncul
+          console.log("Data Popup Diterima:", data); 
           setContent(data);
           const timer = setTimeout(() => {
             setIsOpen(true);
@@ -42,10 +44,8 @@ export default function ImagePopup() {
     };
 
     fetchActivePopup();
-    localStorage.removeItem('popup_last_shown');
   }, []);
 
-  // Logika Auto-Scroll Otomatis
   useEffect(() => {
     let scrollInterval: any;
     if (isOpen && scrollRef.current) {
@@ -83,24 +83,23 @@ export default function ImagePopup() {
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             className="relative w-full max-w-[400px] max-h-[85vh]"
           >
-            {/* Tombol Close */}
+            {/* Tombol Close Atas */}
             <button 
               onClick={handleClose}
-              className="absolute -top-12 right-0 flex items-center gap-2 group transition-all active:scale-90"
+              className="absolute -top-12 right-0 flex items-center gap-2 group transition-all"
             >
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em] group-hover:text-white transition-colors">Tutup</span>
-              <div className="p-2 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 shadow-2xl group-hover:bg-white group-hover:text-black transition-all">
-                <X size={18} strokeWidth={2.5} />
+              <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">Tutup</span>
+              <div className="p-2 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition-all">
+                <X size={18} />
               </div>
             </button>
 
-            <div className="bg-[#0F172A] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.5)] flex flex-col h-full ring-1 ring-white/5">
+            <div className="bg-[#0F172A] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl flex flex-col h-full ring-1 ring-white/5">
               <div 
                 ref={scrollRef}
                 className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {/* Poster Promo */}
+                {/* Gambar/Poster */}
                 <div className="relative w-full bg-slate-900">
                   <img 
                     src={content.url_gambar} 
@@ -110,6 +109,7 @@ export default function ImagePopup() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
                 </div>
 
+                {/* Konten Teks */}
                 <div className="px-10 pb-12 pt-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
@@ -117,17 +117,15 @@ export default function ImagePopup() {
                     </div>
                   </div>
                   
-                  <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-3 leading-tight">
+                  <h3 className="text-2xl font-black italic uppercase text-white mb-3">
                     {content.judul}
                   </h3>
                   
-                  <div className="w-10 h-1 bg-blue-600 mx-auto mb-6 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)]" />
-                  
-                  <p className="text-slate-400 font-medium text-xs mb-10 leading-relaxed uppercase tracking-wide">
+                  <p className="text-slate-400 text-xs mb-10 leading-relaxed uppercase tracking-wide">
                     {content.deskripsi}
                   </p>
                   
-                  {/* TOMBOL DOWNLOAD OTOMATIS */}
+                  {/* TOMBOL DOWNLOAD: Muncul otomatis jika file_url tersedia */}
                   {content.file_url && content.file_url.trim() !== "" && (
                     <motion.a 
                       initial={{ opacity: 0, y: 10 }}
@@ -143,23 +141,19 @@ export default function ImagePopup() {
 
                   <button 
                     onClick={handleClose} 
-                    className="w-full py-4.5 bg-white hover:bg-slate-200 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-[0.97] shadow-2xl"
+                    className="w-full py-4.5 bg-white hover:bg-slate-200 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all"
                   >
                     SAYA MENGERTI
                   </button>
                 </div>
               </div>
             </div>
-
-            <p className="text-center mt-8 text-white/10 text-[8px] font-bold uppercase tracking-[0.6em]">
-              PB US 162 • EXCELLENCE IN BADMINTON
-            </p>
           </motion.div>
 
           <div className="absolute inset-0 -z-10" onClick={handleClose} />
 
           <style dangerouslySetInnerHTML={{ __html: `
-            .hide-scrollbar::-webkit-scrollbar { display: none !important; width: 0 !important; }
+            .hide-scrollbar::-webkit-scrollbar { display: none !important; }
             .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
           `}} />
         </div>

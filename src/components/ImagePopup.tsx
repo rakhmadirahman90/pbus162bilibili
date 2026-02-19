@@ -9,7 +9,7 @@ export default function ImagePopup() {
     url_gambar: string;
     judul: string;
     deskripsi: string;
-    file_url?: string; 
+    file_url?: string | null; // Menambahkan null untuk kompatibilitas database
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -30,9 +30,10 @@ export default function ImagePopup() {
         }
 
         if (data) {
-          // DEBUG: Cek di console browser (F12) apakah file_url muncul
+          // DEBUG: Cek di console browser (F12)
           console.log("Data Popup Diterima:", data); 
           setContent(data);
+          
           const timer = setTimeout(() => {
             setIsOpen(true);
           }, 800);
@@ -125,8 +126,8 @@ export default function ImagePopup() {
                     {content.deskripsi}
                   </p>
                   
-                  {/* TOMBOL DOWNLOAD: Muncul otomatis jika file_url tersedia */}
-                  {content.file_url && content.file_url.trim() !== "" && (
+                  {/* TOMBOL DOWNLOAD PERBAIKAN: Menggunakan pengecekan string yang lebih kuat */}
+                  {content.file_url && content.file_url !== "NULL" && content.file_url.trim().length > 0 && (
                     <motion.a 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}

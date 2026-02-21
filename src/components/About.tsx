@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'; 
-import { BookOpen, Target, Rocket, Shield, Award, MapPin, CheckCircle2, Users2, ArrowRight } from 'lucide-react';
+import { BookOpen, Target, Rocket, Shield, Award, MapPin, CheckCircle2, Users2, ArrowRight, User } from 'lucide-react';
 // PERBAIKAN: Mengikuti path yang sama dengan Navbar agar tidak error import
 import { supabase } from '../supabase'; 
 
@@ -11,12 +11,14 @@ interface AboutProps {
 export default function About({ activeTab: propsActiveTab, onTabChange }: AboutProps) {
   const [internalTab, setInternalTab] = useState('sejarah');
   const [dynamicContent, setDynamicContent] = useState<Record<string, any>>({});
+  const [orgData, setOrgData] = useState<any[]>([]); // State untuk data pengurus
   
   // Menggunakan activeTab dari props (Navbar) jika ada, jika tidak pakai internal state
   const activeTab = propsActiveTab || internalTab;
 
   useEffect(() => {
     fetchAboutContent();
+    fetchOrganizationalStructure();
   }, []);
 
   const fetchAboutContent = async () => {
@@ -33,6 +35,22 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       }
     } catch (err) {
       console.error("Error fetching about content:", err);
+    }
+  };
+
+  // Fungsi baru untuk mengambil data pengurus dari database
+  const fetchOrganizationalStructure = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('organizational_structure')
+        .select('*')
+        .order('level', { ascending: true }); // Mengurutkan berdasarkan level (Pimpinan -> Pengurus -> Seksi)
+
+      if (!error && data) {
+        setOrgData(data);
+      }
+    } catch (err) {
+      console.error("Error fetching org structure:", err);
     }
   };
 
@@ -82,12 +100,13 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </button>
           ))}
           
-          {/* TOMBOL BARU: STRUKTUR ORGANISASI (Link ke Sub-Menu Utama) */}
           <button
-            onClick={() => {
-              if (onTabChange) onTabChange('organisasi');
-            }}
-            className="px-6 md:px-10 py-3 rounded-2xl font-bold text-[11px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 bg-slate-900 text-white border-slate-900 hover:bg-blue-700 hover:border-blue-700 flex items-center gap-2 group shadow-xl shadow-slate-200"
+            onClick={() => handleTabChange('organisasi')}
+            className={`px-6 md:px-10 py-3 rounded-2xl font-bold text-[11px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 flex items-center gap-2 group shadow-xl ${
+              activeTab === 'organisasi'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200 scale-105'
+              : 'bg-slate-900 text-white border-slate-900 hover:bg-blue-700 hover:border-blue-700'
+            }`}
           >
             Struktur Organisasi
             <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
@@ -95,7 +114,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         </div>
 
         {/* Tab Content Box */}
-        <div className="bg-slate-50/50 rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-16 border border-slate-100 shadow-sm min-h-[500px] flex items-center transition-all duration-500">
+        <div className="bg-slate-50/50 rounded-[2.5rem] md:rounded-[4rem] p-8 md:p-16 border border-slate-100 shadow-sm min-h-[500px] flex items-start justify-center transition-all duration-500">
           
           {/* 1. SEJARAH */}
           {activeTab === 'sejarah' && (
@@ -137,7 +156,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           {/* 2. VISI MISI */}
           {activeTab === 'visi-misi' && (
             <div id="visi-misi" className="w-full animate-in fade-in slide-in-from-right-8 duration-700 grid lg:grid-cols-2 gap-8 items-stretch">
-              {/* Visi Card */}
               <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
                 <div className="absolute -top-10 -right-10 opacity-5 text-blue-600 transition-transform duration-700 group-hover:scale-110">
                   <Target size={250} />
@@ -151,7 +169,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </p>
               </div>
 
-              {/* Misi Card */}
               <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
                 <div className="absolute -top-10 -right-10 opacity-5 text-slate-900 transition-transform duration-700 group-hover:scale-110">
                   <Rocket size={250} />
@@ -202,7 +219,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
               </div>
 
-              {/* Fasilitas Gallery Collage (Menggunakan Data Dinamis) */}
               <div className="grid grid-cols-2 gap-4 h-[400px] md:h-[500px]">
                 <div className="relative overflow-hidden rounded-[2.5rem] shadow-lg group">
                    <img 
@@ -226,6 +242,44 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     className="w-full h-full object-cover rounded-[2.5rem] shadow-md border-2 border-white transition-transform duration-700 hover:scale-105"
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. STRUKTUR ORGANISASI (ISI BARU) */}
+          {activeTab === 'organisasi' && (
+            <div id="organisasi" className="w-full animate-in fade-in slide-in-from-bottom-10 duration-700">
+              <div className="text-center mb-12">
+                <h3 className="text-3xl font-black text-slate-900 uppercase">Susunan Kepengurusan</h3>
+                <p className="text-slate-500 font-bold italic uppercase text-xs tracking-widest mt-2">PB US 162 Bilibili Periode 2024-2028</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {orgData.length > 0 ? (
+                  orgData.map((person) => (
+                    <div key={person.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-5 hover:border-blue-500 transition-all group">
+                      <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border-2 border-transparent group-hover:border-blue-100 transition-all">
+                        {person.photo_url ? (
+                          <img src={person.photo_url} alt={person.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <User size={30} className="text-blue-300" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-black text-slate-900 text-sm uppercase leading-tight mb-1">{person.name}</h4>
+                        <span className="inline-block px-3 py-1 bg-blue-600 text-white text-[9px] font-black uppercase rounded-lg tracking-wider">
+                          {person.role}
+                        </span>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-tighter">Level {person.level}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-20 text-center">
+                    <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Memuat Data Pengurus...</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

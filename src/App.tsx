@@ -13,6 +13,7 @@ import Gallery from './components/Gallery';
 import RegistrationForm from './components/RegistrationForm'; 
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
+import StrukturOrganisasi from './components/StrukturOrganisasi'; // KODE BARU: Komponen Tampilan Publik
 
 // Import Komponen Admin
 import Login from './components/Login';
@@ -34,6 +35,7 @@ import KelolaHero from './components/KelolaHero';
 import AdminPopup from './components/AdminPopup'; 
 import AdminFooter from './components/AdminFooter'; 
 import AdminAbout from './components/AdminAbout';
+import AdminStructure from './components/AdminStructure'; // KODE BARU: Komponen Manajemen Struktur
 
 import { X, ChevronLeft, ChevronRight, Menu, Zap, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -215,6 +217,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeAboutTab, setActiveAboutTab] = useState('sejarah');
   const [activeAthleteFilter, setActiveAthleteFilter] = useState('all');
+  const [showStruktur, setShowStruktur] = useState(false); // KODE BARU: State kontrol tampilan Struktur
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -228,6 +231,16 @@ export default function App() {
   }, []);
 
   const handleNavigate = (sectionId: string, subPath?: string) => {
+    // KODE BARU: Penanganan navigasi ke Struktur Organisasi
+    if (sectionId === 'struktur' || subPath === 'organisasi' || sectionId === 'organization') {
+        setShowStruktur(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+
+    // Kembali ke landing page utama jika navigasi ke section lain
+    setShowStruktur(false);
+
     if (sectionId === 'tentang-kami' || ['sejarah', 'visi-misi', 'fasilitas'].includes(subPath || '')) {
       if (subPath) setActiveAboutTab(subPath);
     }
@@ -236,6 +249,7 @@ export default function App() {
       const event = new CustomEvent('filterAtlet', { detail: subPath });
       window.dispatchEvent(event);
     }
+    
     const targetId = subPath || sectionId;
     setTimeout(() => {
       const element = document.getElementById(targetId) || document.getElementById(sectionId);
@@ -254,15 +268,25 @@ export default function App() {
           <div className="min-h-screen bg-white">
             <ImagePopup />
             <Navbar onNavigate={handleNavigate} />
-            <Hero />
-            <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
-            <News />
-            <News />
-            <Athletes initialFilter={activeAthleteFilter} />
-            <Ranking />
-            <Gallery />
-            <section id="register" className="py-20 bg-slate-900"><RegistrationForm /></section>
-            <Contact />
+            
+            {/* LOGIKA KONDISIONAL: Render Home atau Struktur Organisasi */}
+            {!showStruktur ? (
+              <>
+                <Hero />
+                <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
+                <News />
+                <Athletes initialFilter={activeAthleteFilter} />
+                <Ranking />
+                <Gallery />
+                <section id="register" className="py-20 bg-slate-900"><RegistrationForm /></section>
+                <Contact />
+              </>
+            ) : (
+              <div className="pt-20"> {/* Padding top agar tidak tertutup Navbar */}
+                <StrukturOrganisasi />
+              </div>
+            )}
+            
             <Footer />
           </div>
         } />
@@ -303,6 +327,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="popup" element={<AdminPopup />} /> 
             <Route path="footer" element={<AdminFooter />} />
             <Route path="about" element={<AdminAbout />} />
+            <Route path="struktur" element={<AdminStructure />} /> {/* KODE BARU: Rute Manajemen Struktur */}
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>

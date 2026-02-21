@@ -89,7 +89,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     return navData.filter(item => item.parent_id === parentId);
   };
 
-  // --- LOGIKA NAVIGASI TOTAL (FIXED UNTUK LOGO & BERANDA) ---
+  // --- LOGIKA NAVIGASI TOTAL (UPDATED FOR STRUKTUR ORGANISASI) ---
   const handleNavClick = (path: string, subPath?: string) => {
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
@@ -102,6 +102,13 @@ export default function Navbar({ onNavigate }: NavbarProps) {
       });
       onNavigate('home');
       return;
+    }
+
+    // Penanganan khusus untuk halaman non-scroll (seperti Struktur Organisasi)
+    if (path === 'struktur' || subPath === 'organisasi' || path === 'organization') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        onNavigate(path, subPath);
+        return;
     }
 
     const targetId = subPath || path;
@@ -120,7 +127,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
           behavior: 'smooth'
         });
       } else {
-        // Fallback jika ID tidak ditemukan (kembali ke atas)
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 100);
@@ -137,14 +143,14 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     <nav className="fixed top-0 w-full bg-slate-900/95 backdrop-blur-md text-white z-[100] h-20 border-b border-white/10 shadow-2xl">
       <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center">
         
-        {/* LOGO SECTION - Mengarah ke Home/Top */}
+        {/* LOGO SECTION - FIXED ROUNDED PRECISION */}
         <div 
           className="flex items-center gap-4 cursor-pointer group" 
           onClick={() => handleNavClick('home')}
         >
           <div className="relative w-12 h-12 flex items-center justify-center">
-            <div className="absolute inset-0 border border-white/30 rounded-xl group-hover:border-blue-500/50 transition-colors duration-300"></div>
-            <div className="w-11 h-11 rounded-[10px] overflow-hidden bg-transparent flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+            <div className="absolute inset-0 border border-white/30 rounded-full group-hover:border-blue-500/50 transition-colors duration-300"></div>
+            <div className="w-11 h-11 rounded-full overflow-hidden bg-white flex items-center justify-center transition-transform duration-500 group-hover:scale-105 shadow-inner">
               <img 
                 src={branding.logo_url} 
                 alt="Logo" 

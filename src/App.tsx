@@ -13,7 +13,9 @@ import Gallery from './components/Gallery';
 import RegistrationForm from './components/RegistrationForm'; 
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
-import StrukturOrganisasi from './components/StrukturOrganisasi'; // KODE BARU: Komponen Tampilan Publik
+
+// Pastikan file StrukturOrganisasi.tsx sudah dibuat di folder components
+import StrukturOrganisasi from './components/StrukturOrganisasi'; 
 
 // Import Komponen Admin
 import Login from './components/Login';
@@ -35,7 +37,9 @@ import KelolaHero from './components/KelolaHero';
 import AdminPopup from './components/AdminPopup'; 
 import AdminFooter from './components/AdminFooter'; 
 import AdminAbout from './components/AdminAbout';
-import AdminStructure from './components/AdminStructure'; // KODE BARU: Komponen Manajemen Struktur
+
+// Pastikan file AdminStructure.tsx sudah dibuat di folder components
+import AdminStructure from './components/AdminStructure'; 
 
 import { X, ChevronLeft, ChevronRight, Menu, Zap, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -169,7 +173,7 @@ function ImagePopup() {
                 {current.deskripsi}
               </p>
               
-              {/* TOMBOL LAMPIRAN - MUNCUL OTOMATIS JIKA file_url TERSEDIA */}
+              {/* TOMBOL LAMPIRAN */}
               {current.file_url && current.file_url.length > 5 && (
                 <motion.a 
                   initial={{ opacity: 0, y: 10 }}
@@ -217,7 +221,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeAboutTab, setActiveAboutTab] = useState('sejarah');
   const [activeAthleteFilter, setActiveAthleteFilter] = useState('all');
-  const [showStruktur, setShowStruktur] = useState(false); // KODE BARU: State kontrol tampilan Struktur
+  const [showStruktur, setShowStruktur] = useState(false); 
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -231,7 +235,7 @@ export default function App() {
   }, []);
 
   const handleNavigate = (sectionId: string, subPath?: string) => {
-    // KODE BARU: Penanganan navigasi ke Struktur Organisasi
+    // Navigasi ke Struktur Organisasi
     if (sectionId === 'struktur' || subPath === 'organisasi' || sectionId === 'organization') {
         setShowStruktur(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -269,7 +273,6 @@ export default function App() {
             <ImagePopup />
             <Navbar onNavigate={handleNavigate} />
             
-            {/* LOGIKA KONDISIONAL: Render Home atau Struktur Organisasi */}
             {!showStruktur ? (
               <>
                 <Hero />
@@ -282,8 +285,15 @@ export default function App() {
                 <Contact />
               </>
             ) : (
-              <div className="pt-20"> {/* Padding top agar tidak tertutup Navbar */}
+              <div className="pt-20 bg-slate-50 min-h-screen"> 
                 <StrukturOrganisasi />
+                {/* Tombol kembali ke Beranda yang melayang (opsional) */}
+                <button 
+                  onClick={() => setShowStruktur(false)}
+                  className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-blue-600 text-white rounded-full font-black text-[10px] tracking-widest shadow-2xl hover:bg-slate-900 transition-all z-50 uppercase"
+                >
+                  Kembali ke Beranda
+                </button>
               </div>
             )}
             
@@ -327,7 +337,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="popup" element={<AdminPopup />} /> 
             <Route path="footer" element={<AdminFooter />} />
             <Route path="about" element={<AdminAbout />} />
-            <Route path="struktur" element={<AdminStructure />} /> {/* KODE BARU: Rute Manajemen Struktur */}
+            <Route path="struktur" element={<AdminStructure />} /> 
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>

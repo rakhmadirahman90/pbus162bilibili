@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle } from 'lucide-react';
+import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle, Image as ImageIcon, Type } from 'lucide-react';
 import { supabase } from '../supabase'; 
-import Swal from 'sweetalert2'; // Import SweetAlert2 untuk notifikasi modern
+import Swal from 'sweetalert2';
 
 // KONFIGURASI IDENTITAS DATABASE (UUID & KEY)
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
@@ -10,6 +10,11 @@ const SETTINGS_KEY = "footer_settings";
 export default function AdminFooter() {
   const [loading, setLoading] = useState(false);
   const [footerConfig, setFooterConfig] = useState({
+    // --- KODE BARU: IDENTITAS BRAND ---
+    brandName: 'PB US 162',
+    brandSubName: 'Bilibili',
+    logoUrl: '', // Kosongkan jika ingin menggunakan logo default kotak biru
+    // ----------------------------------
     description: 'Membina legenda masa depan dengan fasilitas standar nasional dan sport-science.',
     address: 'Jl. Andi Makkasau No. 171, Parepare, Indonesia',
     phone: '+62 812 1902 7234',
@@ -32,7 +37,6 @@ export default function AdminFooter() {
     }
   });
 
-  // Tema Notifikasi Kustom (Dark Mode Style)
   const Toast = Swal.mixin({
     toast: true,
     position: 'top-end',
@@ -81,24 +85,21 @@ export default function AdminFooter() {
           id: SETTINGS_ID, 
           key: SETTINGS_KEY, 
           footer_config: footerConfig,
-          value: "active_footer", // Solusi Not-Null Constraint
+          value: "active_footer",
           updated_at: new Date().toISOString()
         }, { onConflict: 'key' }); 
 
       if (error) throw error;
 
-      // NOTIFIKASI BERHASIL MODERN
       Toast.fire({
         icon: 'success',
         title: 'Sinkronisasi Berhasil',
-        text: 'Footer telah diperbarui secara real-time.',
+        text: 'Footer dan Identitas telah diperbarui.',
         iconColor: '#2563eb'
       });
 
     } catch (error: any) {
       console.error("Error update footer:", error);
-      
-      // NOTIFIKASI GAGAL MODERN
       Swal.fire({
         icon: 'error',
         title: 'Gagal Menyimpan',
@@ -149,7 +150,7 @@ export default function AdminFooter() {
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold flex items-center gap-3 italic">
             <div className="w-1.5 h-8 bg-blue-600 rounded-full"></div>
-            PENGATURAN FOOTER DINAMIS
+            PENGATURAN FOOTER & BRANDING
           </h2>
           <div className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-[10px] text-blue-500 font-black tracking-widest uppercase">
             {footerConfig.navigation.length} Menu Aktif
@@ -158,6 +159,35 @@ export default function AdminFooter() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
+            {/* --- SECTION BARU: EDIT LOGO & NAMA --- */}
+            <div className="p-5 bg-blue-600/5 rounded-3xl border border-blue-600/10 space-y-4">
+               <label className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em] block mb-2">Identitas Landing Page</label>
+               <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label className="text-[9px] text-slate-500 uppercase mb-1 block">Nama Utama</label>
+                   <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2">
+                     <Type size={14} className="text-slate-400" />
+                     <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.brandName} onChange={(e) => setFooterConfig({...footerConfig, brandName: e.target.value})} placeholder="Contoh: PB US 162" />
+                   </div>
+                 </div>
+                 <div>
+                   <label className="text-[9px] text-slate-500 uppercase mb-1 block">Nama Tambahan</label>
+                   <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2">
+                     <Type size={14} className="text-blue-500" />
+                     <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.brandSubName} onChange={(e) => setFooterConfig({...footerConfig, brandSubName: e.target.value})} placeholder="Contoh: Bilibili" />
+                   </div>
+                 </div>
+               </div>
+               <div>
+                 <label className="text-[9px] text-slate-500 uppercase mb-1 block">URL Logo Gambar (Opsional)</label>
+                 <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2">
+                   <ImageIcon size={14} className="text-slate-400" />
+                   <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.logoUrl} onChange={(e) => setFooterConfig({...footerConfig, logoUrl: e.target.value})} placeholder="https://link-gambar-logo.png" />
+                 </div>
+               </div>
+            </div>
+            {/* -------------------------------------- */}
+
             <div>
               <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Deskripsi Klub</label>
               <textarea 
@@ -176,14 +206,6 @@ export default function AdminFooter() {
                   onChange={(e) => setFooterConfig({...footerConfig, address: e.target.value})}
                 />
               </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Teks Hak Cipta (Copyright)</label>
-              <input 
-                className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-mono text-[11px]"
-                value={footerConfig.copyright}
-                onChange={(e) => setFooterConfig({...footerConfig, copyright: e.target.value})}
-              />
             </div>
           </div>
 
@@ -251,6 +273,15 @@ export default function AdminFooter() {
                 </div>
                ))}
             </div>
+            
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Teks Hak Cipta (Copyright)</label>
+              <input 
+                className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-mono text-[11px]"
+                value={footerConfig.copyright}
+                onChange={(e) => setFooterConfig({...footerConfig, copyright: e.target.value})}
+              />
+            </div>
           </div>
         </div>
 
@@ -273,8 +304,15 @@ export default function AdminFooter() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 text-left relative z-10">
             <div className="col-span-1">
               <div className="flex items-center gap-2 mb-6">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.4)]"></div>
-                <span className="font-black text-lg italic tracking-tighter uppercase">PB US 162 <span className="text-blue-500">Bilibili</span></span>
+                {/* LOGO DINAMIS */}
+                {footerConfig.logoUrl ? (
+                    <img src={footerConfig.logoUrl} alt="Logo" className="h-10 object-contain" />
+                ) : (
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.4)]"></div>
+                )}
+                <span className="font-black text-lg italic tracking-tighter uppercase">
+                    {footerConfig.brandName} <span className="text-blue-500">{footerConfig.brandSubName}</span>
+                </span>
               </div>
               <p className="text-slate-400 text-[11px] leading-relaxed italic">"{footerConfig.description}"</p>
             </div>

@@ -41,7 +41,7 @@ import AdminAbout from './components/AdminAbout';
 // Pastikan file AdminStructure.tsx sudah dibuat di folder components
 import AdminStructure from './components/AdminStructure'; 
 
-import { X, ChevronLeft, ChevronRight, Menu, Zap, Download } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -263,39 +263,64 @@ export default function App() {
     }, 100);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white">Loading...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white font-black italic tracking-tighter uppercase">Initializing System...</div>;
 
   return (
     <Router>
       <Routes>
         <Route path="/" element={
-          <div className="min-h-screen bg-white">
+          <div className="min-h-screen bg-white selection:bg-blue-600 selection:text-white">
             <ImagePopup />
             <Navbar onNavigate={handleNavigate} />
             
-            {!showStruktur ? (
-              <>
-                <Hero />
-                <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
-                <News />
-                <Athletes initialFilter={activeAthleteFilter} />
-                <Ranking />
-                <Gallery />
-                <section id="register" className="py-20 bg-slate-900"><RegistrationForm /></section>
-                <Contact />
-              </>
-            ) : (
-              <div className="pt-20 bg-slate-50 min-h-screen"> 
-                <StrukturOrganisasi />
-                {/* Tombol kembali ke Beranda yang melayang (opsional) */}
-                <button 
-                  onClick={() => setShowStruktur(false)}
-                  className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-blue-600 text-white rounded-full font-black text-[10px] tracking-widest shadow-2xl hover:bg-slate-900 transition-all z-50 uppercase"
+            <AnimatePresence mode="wait">
+              {!showStruktur ? (
+                <motion.div
+                  key="landing"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
                 >
-                  Kembali ke Beranda
-                </button>
-              </div>
-            )}
+                  <Hero />
+                  <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
+                  <News />
+                  <Athletes initialFilter={activeAthleteFilter} />
+                  <Ranking />
+                  <Gallery />
+                  <section id="register" className="py-20 bg-slate-900 border-y border-white/5">
+                    <RegistrationForm />
+                  </section>
+                  <Contact />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="struktur"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.5 }}
+                  className="pt-20 bg-slate-50 min-h-screen relative"
+                > 
+                  <StrukturOrganisasi />
+                  
+                  {/* Floating Action Button untuk Kembali */}
+                  <motion.button 
+                    initial={{ scale: 0, y: 50 }}
+                    animate={{ scale: 1, y: 0 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setShowStruktur(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-slate-900 text-white rounded-full font-black text-[11px] tracking-[0.2em] shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:bg-blue-600 transition-all z-50 uppercase flex items-center gap-3 border border-white/10"
+                  >
+                    <ArrowUp size={16} /> Kembali ke Beranda
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
             
             <Footer />
           </div>
@@ -311,14 +336,18 @@ function AdminLayout({ session }: { session: any }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   return (
     <div className="flex h-screen w-full bg-[#050505] overflow-hidden">
-      <aside className={`h-full flex-shrink-0 z-[101] transition-transform md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} absolute md:relative`}>
+      <aside className={`h-full flex-shrink-0 z-[101] transition-transform duration-300 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} absolute md:relative`}>
         <Sidebar email={session.user.email} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </aside>
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        <div className="md:hidden flex items-center bg-[#0F172A] p-4 border-b border-white/5">
-          <button onClick={() => setIsSidebarOpen(true)} className="text-white"><Menu /></button>
+        <div className="md:hidden flex items-center justify-between bg-[#0F172A] p-4 border-b border-white/5">
+          <button onClick={() => setIsSidebarOpen(true)} className="text-white p-2 hover:bg-white/10 rounded-lg transition-colors">
+            <Menu />
+          </button>
+          <div className="text-white font-black italic tracking-tighter text-sm uppercase">Admin Console</div>
+          <div className="w-8"></div> {/* Spacer */}
         </div>
-        <div className="flex-1 overflow-y-auto bg-[#050505]">
+        <div className="flex-1 overflow-y-auto bg-[#050505] custom-scrollbar">
           <Routes>
             <Route path="dashboard" element={<ManajemenPendaftaran />} />
             <Route path="atlet" element={<ManajemenAtlet />} />
@@ -344,9 +373,14 @@ function AdminLayout({ session }: { session: any }) {
       </main>
 
       <style>{`
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: #050505; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #050505; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
+        
+        /* Smooth Entrance for Admin Components */
+        .admin-page-enter { opacity: 0; transform: translateY(10px); }
+        .admin-page-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s ease; }
       `}</style>
     </div>
   );

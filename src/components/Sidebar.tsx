@@ -22,10 +22,11 @@ import {
   BarChart3,
   FileSearch,
   Layout,
-  Images, // Ikon untuk Kelola Hero
-  Megaphone, // KODE BARU: Ikon untuk Kelola Pop-up
-  LayoutGrid, // KODE BARU: Ikon untuk Kelola Footer
-  Info // KODE BARU: Ikon untuk Kelola Tentang Kami
+  Images, 
+  Megaphone, 
+  LayoutGrid, 
+  Info,
+  Sitemap // KODE BARU: Ikon untuk Kelola Struktur Organisasi
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -95,9 +96,10 @@ export default function Sidebar({ email, isOpen, onClose }: SidebarProps) {
         { name: 'Kelola Tampilan', path: '/admin/tampilan', icon: Layout }, 
         { name: 'Kelola Hero', path: '/admin/hero', icon: Images },
         { name: 'Kelola Pop-up', path: '/admin/popup', icon: Megaphone },
-        { name: 'Kelola Tentang', path: '/admin/about', icon: Info }, // KODE BARU: Menu Kelola Tentang
+        { name: 'Kelola Tentang', path: '/admin/about', icon: Info }, 
+        { name: 'Kelola Struktur', path: '/admin/struktur', icon: Sitemap }, // KODE BARU: Menu Kelola Struktur Organisasi
         { name: 'Kelola Navbar', path: '/admin/navbar', icon: Menu }, 
-        { name: 'Kelola Footer', path: '/admin/footer', icon: LayoutGrid }, // KODE BARU: Menu Kelola Footer
+        { name: 'Kelola Footer', path: '/admin/footer', icon: LayoutGrid }, 
         { name: 'Kelola Kontak', path: '/admin/kontak', icon: Phone },
       ]
     }

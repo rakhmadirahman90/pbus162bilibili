@@ -3,11 +3,11 @@ import { Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin, Loader2 } f
 import { supabase } from '../supabase'; 
 
 export default function Footer() {
-  // --- KODE BARU: State untuk Data Dinamis Sesuai AdminFooter (Termasuk Logo & Site Name) ---
+  // --- KODE BARU: State untuk Data Dinamis Sesuai AdminFooter ---
   const [config, setConfig] = useState({
     site_name: 'PB US 162 BILIBILI',
     site_name_highlight: 'Bilibili',
-    logo_url: '', 
+    logo_url: '', // Tambahan untuk logo dinamis
     description: 'Membina legenda masa depan dengan fasilitas standar nasional dan sport-science.',
     address: 'Jl. Andi Makkasau No. 171, Parepare, Indonesia',
     copyright: `© ${new Date().getFullYear()} PB US 162 Bilibili. All rights reserved.`,
@@ -81,17 +81,6 @@ export default function Footer() {
     }
   };
 
-  // Helper untuk memisahkan nama klub agar bisa di-highlight biru
-  const renderBrandName = () => {
-    if (!config.site_name_highlight) return config.site_name;
-    const parts = config.site_name.split(new RegExp(`(${config.site_name_highlight})`, 'gi'));
-    return parts.map((part, i) => 
-      part.toLowerCase() === config.site_name_highlight.toLowerCase() 
-        ? <span key={i} className="text-blue-500">{part}</span> 
-        : part
-    );
-  };
-
   return (
     <footer className="bg-slate-900 text-white pt-16 pb-8 relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -100,17 +89,17 @@ export default function Footer() {
           {/* Brand & Deskripsi */}
           <div className="animate-in fade-in duration-700">
             <div className="flex items-center space-x-3 mb-4">
-              {config.logo_url ? (
+              {/* FIXED LOGO: Tetap bulat presisi dengan aspect-square dan object-cover */}
+              <div className="w-14 h-14 shrink-0 overflow-hidden rounded-full border-2 border-slate-700 bg-white">
                 <img
-                  src={config.logo_url}
-                  alt="Logo Klub"
-                  className="w-12 h-12 object-contain"
+                  src={config.logo_url || "/photo_2026-02-03_00-32-07.jpg"}
+                  alt="Logo PB US 162"
+                  className="w-full h-full object-cover" 
                 />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center font-bold italic">PB</div>
-              )}
-              <h3 className="text-xl font-bold italic tracking-tighter uppercase">
-                {renderBrandName()}
+              </div>
+              <h3 className="text-xl font-bold italic tracking-tighter uppercase leading-tight">
+                {config.site_name.replace(config.site_name_highlight, '')}
+                <span className="text-blue-500">{config.site_name_highlight}</span>
               </h3>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">

@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle, Image as ImageIcon, Type } from 'lucide-react';
+import { Save, MapPin, Phone, Mail, Instagram, Facebook, Youtube, Twitter, Eye, Plus, Trash2, ArrowUp, ArrowDown, MessageCircle, Upload, Type } from 'lucide-react';
 import { supabase } from '../supabase'; 
-import Swal from 'sweetalert2';
+import Swal from 'sweetalert2'; 
 
-// KONFIGURASI IDENTITAS DATABASE (UUID & KEY)
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
 const SETTINGS_KEY = "footer_settings"; 
 
 export default function AdminFooter() {
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false); // State baru untuk upload
   const [footerConfig, setFooterConfig] = useState({
-    // --- KODE BARU: IDENTITAS BRAND ---
-    brandName: 'PB US 162',
-    brandSubName: 'Bilibili',
-    logoUrl: '', // Kosongkan jika ingin menggunakan logo default kotak biru
-    // ----------------------------------
+    clubName: 'PB US 162 BILIBILI', // Field baru
+    logoUrl: '', // Field baru
     description: 'Membina legenda masa depan dengan fasilitas standar nasional dan sport-science.',
     address: 'Jl. Andi Makkasau No. 171, Parepare, Indonesia',
     phone: '+62 812 1902 7234',
@@ -76,6 +73,37 @@ export default function AdminFooter() {
     getFooterData();
   }, []);
 
+  // --- KODE BARU: FUNGSI UPLOAD LOGO ---
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logo-${Math.random()}.${fileExt}`;
+      const filePath = `site-assets/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('public-assets') // Pastikan bucket 'public-assets' tersedia di Supabase Anda
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('public-assets')
+        .getPublicUrl(filePath);
+
+      setFooterConfig({ ...footerConfig, logoUrl: publicUrl });
+      
+      Toast.fire({ icon: 'success', title: 'Logo berhasil diunggah' });
+    } catch (error: any) {
+      Swal.fire({ icon: 'error', title: 'Upload Gagal', text: error.message });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleUpdate = async () => {
     setLoading(true);
     try {
@@ -94,7 +122,7 @@ export default function AdminFooter() {
       Toast.fire({
         icon: 'success',
         title: 'Sinkronisasi Berhasil',
-        text: 'Footer dan Identitas telah diperbarui.',
+        text: 'Footer telah diperbarui secara real-time.',
         iconColor: '#2563eb'
       });
 
@@ -150,44 +178,57 @@ export default function AdminFooter() {
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold flex items-center gap-3 italic">
             <div className="w-1.5 h-8 bg-blue-600 rounded-full"></div>
-            PENGATURAN FOOTER & BRANDING
+            PENGATURAN FOOTER DINAMIS
           </h2>
           <div className="px-4 py-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full text-[10px] text-blue-500 font-black tracking-widest uppercase">
             {footerConfig.navigation.length} Menu Aktif
           </div>
         </div>
 
+        {/* --- KODE BARU: BAGIAN PENGATURAN LOGO & NAMA --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-white/5">
+           <div className="p-6 bg-[#0f111a] rounded-3xl border border-blue-500/20">
+              <label className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em] mb-4 block">Identitas Visual (Logo)</label>
+              <div className="flex items-center gap-6">
+                <div className="w-20 h-20 bg-[#161925] rounded-2xl border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden relative group">
+                  {footerConfig.logoUrl ? (
+                    <img src={footerConfig.logoUrl} alt="Logo Preview" className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <Upload className="text-slate-600" />
+                  )}
+                  {uploading && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[8px]">UPLOADING...</div>}
+                </div>
+                <div className="flex-1 space-y-3">
+                   <input 
+                    type="file" 
+                    id="logo-upload" 
+                    hidden 
+                    accept="image/*" 
+                    onChange={handleLogoUpload}
+                   />
+                   <label htmlFor="logo-upload" className="inline-block px-4 py-2 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-600/30 rounded-lg text-[10px] font-bold cursor-pointer transition-all">
+                      GANTI LOGO BARU
+                   </label>
+                   <p className="text-[9px] text-slate-500 italic">*Format PNG/SVG transparat disarankan</p>
+                </div>
+              </div>
+           </div>
+           <div className="p-6 bg-[#0f111a] rounded-3xl border border-blue-500/20">
+              <label className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em] mb-4 block">Nama Klub / Brand</label>
+              <div className="relative">
+                <Type className="absolute left-4 top-4 text-blue-500" size={18} />
+                <input 
+                  className="w-full bg-[#161925] border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-blue-500 outline-none font-bold"
+                  value={footerConfig.clubName}
+                  placeholder="Contoh: PB US 162 BILIBILI"
+                  onChange={(e) => setFooterConfig({...footerConfig, clubName: e.target.value})}
+                />
+              </div>
+           </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
-            {/* --- SECTION BARU: EDIT LOGO & NAMA --- */}
-            <div className="p-5 bg-blue-600/5 rounded-3xl border border-blue-600/10 space-y-4">
-               <label className="text-[10px] font-black uppercase text-blue-500 tracking-[0.2em] block mb-2">Identitas Landing Page</label>
-               <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label className="text-[9px] text-slate-500 uppercase mb-1 block">Nama Utama</label>
-                   <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2">
-                     <Type size={14} className="text-slate-400" />
-                     <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.brandName} onChange={(e) => setFooterConfig({...footerConfig, brandName: e.target.value})} placeholder="Contoh: PB US 162" />
-                   </div>
-                 </div>
-                 <div>
-                   <label className="text-[9px] text-slate-500 uppercase mb-1 block">Nama Tambahan</label>
-                   <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2">
-                     <Type size={14} className="text-blue-500" />
-                     <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.brandSubName} onChange={(e) => setFooterConfig({...footerConfig, brandSubName: e.target.value})} placeholder="Contoh: Bilibili" />
-                   </div>
-                 </div>
-               </div>
-               <div>
-                 <label className="text-[9px] text-slate-500 uppercase mb-1 block">URL Logo Gambar (Opsional)</label>
-                 <div className="flex items-center gap-2 bg-[#0f111a] border border-white/10 rounded-xl px-3 py-2">
-                   <ImageIcon size={14} className="text-slate-400" />
-                   <input className="bg-transparent flex-1 text-xs outline-none" value={footerConfig.logoUrl} onChange={(e) => setFooterConfig({...footerConfig, logoUrl: e.target.value})} placeholder="https://link-gambar-logo.png" />
-                 </div>
-               </div>
-            </div>
-            {/* -------------------------------------- */}
-
             <div>
               <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Deskripsi Klub</label>
               <textarea 
@@ -206,6 +247,14 @@ export default function AdminFooter() {
                   onChange={(e) => setFooterConfig({...footerConfig, address: e.target.value})}
                 />
               </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Teks Hak Cipta (Copyright)</label>
+              <input 
+                className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-mono text-[11px]"
+                value={footerConfig.copyright}
+                onChange={(e) => setFooterConfig({...footerConfig, copyright: e.target.value})}
+              />
             </div>
           </div>
 
@@ -273,15 +322,6 @@ export default function AdminFooter() {
                 </div>
                ))}
             </div>
-            
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 block">Teks Hak Cipta (Copyright)</label>
-              <input 
-                className="w-full bg-[#0f111a] border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-mono text-[11px]"
-                value={footerConfig.copyright}
-                onChange={(e) => setFooterConfig({...footerConfig, copyright: e.target.value})}
-              />
-            </div>
           </div>
         </div>
 
@@ -294,7 +334,6 @@ export default function AdminFooter() {
         </button>
       </div>
 
-      {/* PREVIEW SECTION */}
       <div className="max-w-6xl mx-auto space-y-4 pb-20">
         <h3 className="flex items-center gap-2 text-slate-500 font-bold text-[10px] uppercase tracking-[0.2em] ml-4">
           <Eye size={14} /> LIVE PREVIEW (Tampilan Akhir)
@@ -304,14 +343,15 @@ export default function AdminFooter() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 text-left relative z-10">
             <div className="col-span-1">
               <div className="flex items-center gap-2 mb-6">
-                {/* LOGO DINAMIS */}
+                {/* --- KODE BARU: DISPLAY LOGO & NAMA DINAMIS --- */}
                 {footerConfig.logoUrl ? (
-                    <img src={footerConfig.logoUrl} alt="Logo" className="h-10 object-contain" />
+                   <img src={footerConfig.logoUrl} alt="Logo" className="h-10 w-auto object-contain" />
                 ) : (
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.4)]"></div>
+                   <div className="w-8 h-8 bg-blue-600 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.4)]"></div>
                 )}
-                <span className="font-black text-lg italic tracking-tighter uppercase">
-                    {footerConfig.brandName} <span className="text-blue-500">{footerConfig.brandSubName}</span>
+                <span className="font-black text-lg italic tracking-tighter uppercase whitespace-nowrap">
+                  {footerConfig.clubName.split(' ').slice(0, -1).join(' ')} 
+                  <span className="text-blue-500 ml-1">{footerConfig.clubName.split(' ').slice(-1)}</span>
                 </span>
               </div>
               <p className="text-slate-400 text-[11px] leading-relaxed italic">"{footerConfig.description}"</p>

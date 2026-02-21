@@ -46,6 +46,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * FIXED: Komponen Pop-up dengan Lampiran & Smooth Auto-Scroll
+ * Perbaikan pada key handling untuk menghindari error duplicate key
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -100,13 +101,17 @@ function ImagePopup() {
   const closePopup = () => setIsOpen(false);
 
   if (promoImages.length === 0 || !isOpen) return null;
+  
   const current = promoImages[currentIndex];
+  // Guard clause jika data current tidak sengaja undefined
+  if (!current) return null;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
         <motion.div 
-          key={currentIndex}
+          // FIX: Gunakan ID unik dari database agar tidak terjadi duplikasi key saat transisi
+          key={current.id || `popup-${currentIndex}`}
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9 }}

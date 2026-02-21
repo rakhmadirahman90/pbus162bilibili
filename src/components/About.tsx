@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'; 
-import { BookOpen, Target, Rocket, Shield, Award, MapPin, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Target, Rocket, Shield, Award, MapPin, CheckCircle2, Users2, ArrowRight } from 'lucide-react';
 // PERBAIKAN: Mengikuti path yang sama dengan Navbar agar tidak error import
 import { supabase } from '../supabase'; 
 
@@ -56,6 +56,10 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         
         {/* Header Section */}
         <div className="text-center mb-8 shrink-0">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full mb-4">
+            <Users2 size={16} className="animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Profil Organisasi</span>
+          </div>
           <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase">
             Tentang <span className="text-blue-600">Kami</span>
           </h2>
@@ -77,6 +81,17 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
               {tab.label}
             </button>
           ))}
+          
+          {/* TOMBOL BARU: STRUKTUR ORGANISASI (Link ke Sub-Menu Utama) */}
+          <button
+            onClick={() => {
+              if (onTabChange) onTabChange('organisasi');
+            }}
+            className="px-6 md:px-10 py-3 rounded-2xl font-bold text-[11px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 bg-slate-900 text-white border-slate-900 hover:bg-blue-700 hover:border-blue-700 flex items-center gap-2 group shadow-xl shadow-slate-200"
+          >
+            Struktur Organisasi
+            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
 
         {/* Tab Content Box */}

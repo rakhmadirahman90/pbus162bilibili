@@ -26,7 +26,7 @@ import {
   Megaphone, 
   LayoutGrid, 
   Info,
-  Sitemap // KODE BARU: Ikon untuk Kelola Struktur Organisasi
+  Network // FIXED: Mengganti Sitemap yang tidak ada di lucide-react menjadi Network
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -97,7 +97,7 @@ export default function Sidebar({ email, isOpen, onClose }: SidebarProps) {
         { name: 'Kelola Hero', path: '/admin/hero', icon: Images },
         { name: 'Kelola Pop-up', path: '/admin/popup', icon: Megaphone },
         { name: 'Kelola Tentang', path: '/admin/about', icon: Info }, 
-        { name: 'Kelola Struktur', path: '/admin/struktur', icon: Sitemap }, // KODE BARU: Menu Kelola Struktur Organisasi
+        { name: 'Kelola Struktur', path: '/admin/struktur', icon: Network }, // MENGGUNAKAN IKON NETWORK
         { name: 'Kelola Navbar', path: '/admin/navbar', icon: Menu }, 
         { name: 'Kelola Footer', path: '/admin/footer', icon: LayoutGrid }, 
         { name: 'Kelola Kontak', path: '/admin/kontak', icon: Phone },

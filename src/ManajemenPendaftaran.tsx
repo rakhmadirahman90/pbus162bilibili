@@ -404,6 +404,26 @@ export default function ManajemenPendaftaran() {
               className="w-full pl-14 pr-6 py-4 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
+            <div className="mt-3 flex gap-3 items-center">
+  <input
+    type="date"
+    value={filterDate}
+    onChange={(e) => {
+      setFilterDate(e.target.value);
+      setCurrentPage(1);
+    }}
+    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold"
+  />
+
+  {filterDate && (
+    <button
+      onClick={() => setFilterDate('')}
+      className="px-4 py-2 bg-slate-200 rounded-xl text-xs font-bold"
+    >
+      Reset Tanggal
+    </button>
+  )}
+</div>
           </div>
         </section>
 

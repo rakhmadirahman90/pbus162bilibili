@@ -20,7 +20,8 @@ import {
   Plus,
   Upload,
   Clock,
-  Calendar
+  Calendar,
+  Download
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
@@ -41,12 +42,20 @@ interface Registrant {
 }
 
 export default function ManajemenPendaftaran() {
+
   const [registrants, setRegistrants] = useState<Registrant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 8;
+
   const [newItem, setNewItem] = useState<Partial<Registrant>>({
     nama: '',
     whatsapp: '',
@@ -55,13 +64,6 @@ export default function ManajemenPendaftaran() {
     jenis_kelamin: 'Putra',
     foto_url: ''
   });
-  
-  const [uploading, setUploading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  
-  const itemsPerPage = 8; 
 
   const kategoriUmur = [
     "Pra Dini (U-9)", "Usia Dini (U-11)", "Anak-anak (U-13)", 
@@ -69,7 +71,6 @@ export default function ManajemenPendaftaran() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
-  // --- UTILS ---
   const Toast = Swal.mixin({
     toast: true,
     position: "top-end",
@@ -78,108 +79,94 @@ export default function ManajemenPendaftaran() {
     timerProgressBar: true,
   });
 
-  const compressImage = (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800;
-          const scaleSize = MAX_WIDTH / img.width;
-          canvas.width = MAX_WIDTH;
-          canvas.height = img.height * scaleSize;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => {
-            resolve(blob as Blob);
-          }, 'image/jpeg', 0.8);
-        };
-      };
-    });
-  };
+  // ================= DOWNLOAD TEMPLATE =================
+  const downloadTemplateExcel = () => {
+    const templateData = [
+      {
+        Nama: "BUDI SANTOSO",
+        WhatsApp: "081234567890",
+        Kategori: "Pemula (U-15)",
+        Domisili: "SURABAYA",
+        Gender: "Putra"
+      }
+    ];
 
-  // --- EXPORT FUNCTIONS ---
-  const exportToExcel = () => {
-    if (filteredData.length === 0) return Swal.fire("Opps!", "Tidak ada data untuk diekspor", "warning");
-    const dataToExport = filteredData.map((item, index) => ({
-      No: index + 1,
-      Nama: (item.nama || '').toUpperCase(),
-      Gender: item.jenis_kelamin || '-',
-      Kategori: item.kategori || '-',
-      WhatsApp: item.whatsapp || '-',
-      Domisili: item.domisili || '-',
-      Tanggal_Daftar: item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pendaftar");
-    XLSX.writeFile(workbook, `Data_Atlet_${Date.now()}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template Import");
+
+    XLSX.writeFile(workbook, "Template_Import_Pendaftaran_Atlet.xlsx");
   };
 
-  const exportToPDF = () => {
-    if (filteredData.length === 0) return Swal.fire("Opps!", "Tidak ada data untuk diekspor", "warning");
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("LAPORAN DATA PENDAFTARAN ATLET", 14, 15);
-    const tableColumn = ["No", "Nama Atlet", "Gender", "Kategori", "Domisili", "WhatsApp"];
-    const tableRows = filteredData.map((item, index) => [
-      index + 1,
-      (item.nama || '').toUpperCase(),
-      item.jenis_kelamin || '-',
-      item.kategori || '-',
-      item.domisili || '-',
-      item.whatsapp || '-'
-    ]);
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 28,
-      theme: 'grid',
-      headStyles: { fillColor: [37, 99, 235], fontStyle: 'bold' },
-    });
-    doc.save(`Data_Atlet_${Date.now()}.pdf`);
-  };
-
-  // --- IMPORT EXCEL ---
+  // ================= IMPORT EXCEL (VALIDASI LENGKAP) =================
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
+        const rawData: any[] = XLSX.utils.sheet_to_json(ws);
 
-        if (data.length === 0) throw new Error("File kosong");
+        if (!rawData.length) {
+          throw new Error("File Excel kosong.");
+        }
 
-        const formattedData = data.map((item: any) => ({
-          nama: (item.Nama || item.nama || '').toUpperCase(),
-          whatsapp: String(item.WhatsApp || item.whatsapp || ''),
-          kategori: item.Kategori || item.kategori || 'Umum',
-          domisili: (item.Domisili || item.domisili || '').toUpperCase(),
-          jenis_kelamin: item.Gender || item.jenis_kelamin || 'Putra',
-        }));
+        const requiredHeaders = ["Nama", "WhatsApp", "Kategori", "Domisili", "Gender"];
+        const fileHeaders = Object.keys(rawData[0]);
+        const missingHeaders = requiredHeaders.filter(h => !fileHeaders.includes(h));
+
+        if (missingHeaders.length > 0) {
+          throw new Error(`Format salah. Kolom berikut tidak ditemukan: ${missingHeaders.join(", ")}`);
+        }
+
+        const formattedData = rawData.map((item, index) => {
+
+          const gender = (item.Gender || "").trim();
+          if (!["Putra", "Putri"].includes(gender)) {
+            throw new Error(`Baris ${index + 2}: Gender harus Putra atau Putri`);
+          }
+
+          return {
+            nama: (item.Nama || "").toUpperCase().trim(),
+            whatsapp: String(item.WhatsApp || "").trim(),
+            kategori: item.Kategori || "Dewasa / Umum",
+            domisili: (item.Domisili || "").toUpperCase().trim(),
+            jenis_kelamin: gender,
+          };
+        });
+
+        const confirm = await Swal.fire({
+          title: "Konfirmasi Import",
+          text: `${formattedData.length} data akan diimport ke database.`,
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Ya, Import Sekarang",
+          cancelButtonText: "Batal"
+        });
+
+        if (!confirm.isConfirmed) return;
 
         const { error } = await supabase.from('pendaftaran').insert(formattedData);
         if (error) throw error;
 
-        Toast.fire({ icon: 'success', title: `${data.length} Data berhasil diimport` });
+        Swal.fire("Berhasil!", `${formattedData.length} data berhasil diimport.`, "success");
         fetchData();
+
       } catch (err: any) {
         Swal.fire("Gagal Import", err.message, "error");
       }
     };
+
     reader.readAsBinaryString(file);
   };
 
-  // --- CORE FUNCTIONS ---
+  // ================= FETCH DATA =================
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -187,10 +174,11 @@ export default function ManajemenPendaftaran() {
         .from('pendaftaran')
         .select('*')
         .order('created_at', { ascending: false });
+
       if (error) throw error;
       setRegistrants(data || []);
     } catch (error: any) {
-      console.error('Error fetching data:', error.message);
+      console.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -198,486 +186,96 @@ export default function ManajemenPendaftaran() {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase
-      .channel('pendaftaran_changes')
-      .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, 
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setRegistrants((prev) => [payload.new as Registrant, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            setRegistrants((prev) => prev.map((item) => item.id === payload.new.id ? (payload.new as Registrant) : item));
-          } else if (payload.eventType === 'DELETE') {
-            setRegistrants((prev) => prev.filter((item) => item.id !== payload.old.id));
-          }
-        }
-      ).subscribe();
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const filteredData = (registrants || []).filter(item => 
-    (item?.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredData = registrants.filter(item =>
+    (item.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.kategori || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const deleteOldFile = async (url: string) => {
-    if (!url || !url.includes('identitas-atlet')) return;
-    try {
-      const parts = url.split('/');
-      const fileName = parts[parts.length - 1];
-      if (fileName) {
-        await supabase.storage.from('identitas-atlet').remove([`identitas/${fileName}`]);
-      }
-    } catch (e) { console.error("Gagal hapus file lama", e); }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'edit' | 'add') => {
-    if (!e.target.files?.[0]) return;
-    const file = e.target.files[0];
-    setUploading(true);
-    
-    try {
-      const compressedBlob = await compressImage(file);
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-      const filePath = `identitas/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('identitas-atlet')
-        .upload(filePath, compressedBlob, { contentType: 'image/jpeg' });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
-      
-      if (mode === 'edit' && editingItem) {
-        setEditingItem({ ...editingItem, foto_url: publicUrl });
-      } else {
-        setNewItem(prev => ({ ...prev, foto_url: publicUrl }));
-      }
-      
-      Toast.fire({ icon: 'success', title: 'Foto berhasil diunggah' });
-    } catch (error: any) { 
-      Swal.fire("Gagal upload", error.message, "error"); 
-    } finally { 
-      setUploading(false); 
-    }
-  };
-
-  const handleDelete = async (id: string, nama: string, foto_url: string) => {
-    const result = await Swal.fire({
-      title: 'Hapus Data?',
-      text: `Apakah Anda yakin ingin menghapus data ${nama}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#e11d48',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'Ya, Hapus!',
-      cancelButtonText: 'Batal'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        if (foto_url) await deleteOldFile(foto_url);
-        const { error } = await supabase.from('pendaftaran').delete().eq('id', id);
-        if (error) throw error;
-        Toast.fire({ icon: 'success', title: 'Data berhasil dihapus' });
-      } catch (error: any) { 
-        Swal.fire('Gagal', error.message, 'error'); 
-      }
-    }
-  };
-
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('pendaftaran').insert([{
-        ...newItem,
-        nama: (newItem.nama || '').toUpperCase(),
-        domisili: (newItem.domisili || '').toUpperCase()
-      }]);
-      if (error) throw error;
-      
-      setIsAddModalOpen(false);
-      setNewItem({ nama: '', whatsapp: '', kategori: 'Pra Dini (U-9)', domisili: '', jenis_kelamin: 'Putra', foto_url: '' });
-      Toast.fire({ icon: 'success', title: 'Atlet baru berhasil ditambahkan' });
-    } catch (error: any) {
-      Swal.fire("Gagal", error.message, "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingItem || uploading) return;
-    
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('pendaftaran').update({
-        nama: (editingItem.nama || '').toUpperCase(),
-        whatsapp: editingItem.whatsapp,
-        domisili: editingItem.domisili.toUpperCase(),
-        kategori: editingItem.kategori,
-        jenis_kelamin: editingItem.jenis_kelamin, 
-        foto_url: editingItem.foto_url
-      }).eq('id', editingItem.id);
-
-      if (error) throw error;
-      
-      setIsEditModalOpen(false);
-      Toast.fire({ icon: 'success', title: 'Data berhasil diperbarui' });
-    } catch (error: any) { 
-      Swal.fire("Gagal", error.message, "error"); 
-    } finally { 
-      setIsSaving(false); 
-    }
-  };
+  const currentItems = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">
       <div className="max-w-[1400px] mx-auto px-4 py-4 md:px-8">
-        
+
         {/* HEADER */}
-        <header className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6">
+        <header className="flex flex-wrap gap-3 justify-between items-center mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
-              <Users className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900 uppercase italic leading-none">
-                Manajemen <span className="text-blue-600">Atlet</span>
-              </h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Database & Administrasi Real-time</p>
-            </div>
+            <Users className="text-blue-600" size={30} />
+            <h1 className="text-2xl font-black uppercase">
+              Manajemen <span className="text-blue-600">Atlet</span>
+            </h1>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-xl font-bold text-[10px] tracking-widest hover:bg-slate-900 transition-all active:scale-95 shadow-lg shadow-blue-100">
-              <Plus size={16} /> TAMBAH ATLET
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold">
+              <Plus size={16}/> TAMBAH
             </button>
 
-            <label className="flex items-center gap-2 bg-amber-500 text-white px-5 py-3 rounded-xl font-bold text-[10px] tracking-widest hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-100 cursor-pointer">
-              <Upload size={16} /> IMPORT EXCEL
-              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
+            <label className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">
+              <Upload size={16}/> IMPORT
+              <input type="file" className="hidden" accept=".xlsx,.xls" onChange={handleImportExcel}/>
             </label>
 
-            <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-            
-            <button onClick={exportToExcel} className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all">
-              <FileSpreadsheet size={20} />
-            </button>
-            <button onClick={exportToPDF} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all">
-              <FileText size={20} />
+            <button onClick={downloadTemplateExcel}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold">
+              <Download size={16}/> TEMPLATE
             </button>
 
-            <div className="px-5 py-2 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center">
-              <span className="text-[8px] font-black text-slate-400 uppercase leading-none">Total Atlet</span>
-              <span className="text-xl font-black text-blue-600 leading-none">{registrants.length}</span>
-            </div>
-
-            <button onClick={fetchData} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-blue-600 transition-all">
-              <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
+            <button onClick={fetchData}
+              className="p-2 bg-slate-900 text-white rounded-xl">
+              <RefreshCcw size={18}/>
             </button>
           </div>
         </header>
 
-        {/* SEARCH BAR */}
-        <section className="mb-6">
-          <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input 
-              type="text"
-              placeholder="Cari berdasarkan nama, kategori, atau kota domisili..."
-              className="w-full pl-14 pr-6 py-4 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-            />
-          </div>
-        </section>
+        {/* SEARCH */}
+        <div className="mb-4 relative">
+          <Search className="absolute left-3 top-3 text-slate-400"/>
+          <input
+            type="text"
+            placeholder="Cari nama, kategori, domisili..."
+            className="pl-10 pr-4 py-2 w-full border rounded-xl"
+            onChange={(e)=>{setSearchTerm(e.target.value); setCurrentPage(1);}}
+          />
+        </div>
 
-        {/* TABLE SECTION */}
-        <section className="bg-white rounded-[2rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden mb-6">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-900 text-white">
-                  <th className="pl-8 pr-2 py-5 font-bold uppercase text-[10px] tracking-widest w-12 text-center">No</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Profil Atlet</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Gender</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Kategori</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Kontak & Lokasi</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Waktu Registrasi</th>
-                  <th className="px-8 py-5 font-bold uppercase text-[10px] tracking-widest text-right">Aksi</th>
+        {/* TABLE */}
+        <div className="bg-white rounded-2xl shadow overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-900 text-white">
+              <tr>
+                <th className="p-3">No</th>
+                <th>Nama</th>
+                <th>Gender</th>
+                <th>Kategori</th>
+                <th>Domisili</th>
+                <th>WhatsApp</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentItems.map((item,index)=>(
+                <tr key={item.id} className="border-b">
+                  <td className="p-3">{(currentPage-1)*itemsPerPage+index+1}</td>
+                  <td>{item.nama}</td>
+                  <td>{item.jenis_kelamin}</td>
+                  <td>{item.kategori}</td>
+                  <td>{item.domisili}</td>
+                  <td>{item.whatsapp}</td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading && registrants.length === 0 ? (
-                  <tr><td colSpan={7} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Memuat Database Atlet...</td></tr>
-                ) : currentItems.length === 0 ? (
-                  <tr><td colSpan={7} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Tidak ada data atlet ditemukan</td></tr>
-                ) : currentItems.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-blue-50/40 even:bg-slate-50/30 transition-all duration-200 group">
-                    <td className="pl-8 pr-2 py-4 text-center">
-                      <span className="text-xs font-black text-slate-300 group-hover:text-blue-600 transition-colors">
-                        {String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
-                      </span>
-                    </td>
-                    
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-4">
-                        <div 
-                          onClick={() => item.foto_url && setPreviewImage(item.foto_url)}
-                          className="w-12 h-12 rounded-2xl bg-slate-200 border-2 border-white shadow-sm overflow-hidden flex-shrink-0 cursor-zoom-in group-hover:scale-110 transition-transform"
-                        >
-                          {item.foto_url ? (
-                            <img src={item.foto_url} className="w-full h-full object-cover object-top" alt={item.nama} />
-                          ) : (
-                            <User className="m-auto mt-2 text-slate-400" size={24} />
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-black text-slate-800 text-sm uppercase leading-tight">{item.nama || 'No Name'}</h4>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">UID: {item.id.split('-')[0]}</span>
-                        </div>
-                      </div>
-                    </td>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-                    <td className="px-4 py-4">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${item.jenis_kelamin === 'Putra' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}`}>
-                        {item.jenis_kelamin || '-'}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className="inline-flex items-center bg-slate-100 text-slate-700 px-3 py-1 rounded-lg text-[10px] font-bold uppercase shadow-sm border border-slate-200">
-                        {item.kategori || 'UMUM'}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="space-y-1.5">
-                        <a href={`https://wa.me/${(item.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 font-bold text-slate-600 hover:text-green-600 text-[11px] transition-colors">
-                          <Phone size={12} className="text-green-500" /> {item.whatsapp || '-'}
-                        </a>
-                        <div className="flex items-center gap-2 font-bold text-slate-400 uppercase text-[10px]">
-                          <MapPin size={12} className="text-rose-500" /> {item.domisili || '-'}
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-slate-600 font-bold text-[10px]">
-                          <Calendar size={12} className="text-blue-500" /> {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px]">
-                          <Clock size={12} /> {new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-8 py-4">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                          <Edit3 size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(item.id, item.nama, item.foto_url)} className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* PAGINATION */}
-        <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-8 py-4 bg-slate-900 rounded-3xl text-white shadow-2xl">
-          <div className="flex flex-col">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Navigasi Data</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase">Halaman {currentPage} Dari {totalPages || 1}</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-2 bg-white/10 rounded-xl disabled:opacity-20 hover:bg-white/20 transition-all active:scale-90">
-              <ChevronLeft size={20} />
-            </button>
-            <div className="flex gap-2">
-                {[...Array(totalPages || 0)].map((_, i) => (
-                 <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-9 h-9 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50' : 'bg-white/5 hover:bg-white/10 text-white/50'}`}>
-                    {i + 1}
-                 </button>
-                ))}
-            </div>
-            <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="p-2 bg-white/10 rounded-xl disabled:opacity-20 hover:bg-white/20 transition-all active:scale-90">
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </footer>
       </div>
-
-      {/* MODAL TAMBAH (ADD) */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsAddModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">Tambah <span className="text-blue-600">Atlet Baru</span></h2>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Input data atlet resmi ke database</p>
-              </div>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-3 hover:bg-rose-50 hover:text-rose-500 rounded-2xl text-slate-400 transition-all"><X size={20}/></button>
-            </div>
-            
-            <form onSubmit={handleAddSubmit} className="p-8 space-y-5">
-              <div className="flex items-center gap-8 mb-4">
-                <div className="relative">
-                  <div className="w-28 h-28 rounded-[2rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex-shrink-0">
-                    {newItem.foto_url ? (
-                      <img src={newItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
-                        <User size={40} />
-                        <span className="text-[8px] font-black uppercase mt-1">No Photo</span>
-                      </div>
-                    )}
-                    {uploading && <div className="absolute inset-0 bg-white/90 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={24} /></div>}
-                  </div>
-                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 hover:scale-110 transition-all border-4 border-white">
-                    <Camera size={18} />
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'add')} />
-                  </label>
-                </div>
-                <div className="flex-1 space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nama Lengkap</label>
-                    <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-blue-600 focus:ring-4 focus:ring-blue-50 outline-none transition-all" placeholder="CONTOH: BUDI SANTOSO" value={newItem.nama} onChange={e => setNewItem({...newItem, nama: e.target.value})} required />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Jenis Kelamin</label>
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-200">
-                    {['Putra', 'Putri'].map((g) => (
-                      <button key={g} type="button" onClick={() => setNewItem({...newItem, jenis_kelamin: g})} className={`py-2.5 rounded-xl font-black text-[10px] tracking-widest transition-all ${newItem.jenis_kelamin === g ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                        {g.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">WhatsApp</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" placeholder="0812..." value={newItem.whatsapp} onChange={e => setNewItem({...newItem, whatsapp: e.target.value})} required />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori Umur</label>
-                  <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" value={newItem.kategori} onChange={e => setNewItem({...newItem, kategori: e.target.value})}>
-                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kota Domisili</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm outline-none focus:border-blue-600" placeholder="SURABAYA" value={newItem.domisili} onChange={e => setNewItem({...newItem, domisili: e.target.value})} required />
-                </div>
-              </div>
-
-              <div className="pt-4">
-                <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-200 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50">
-                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                  Simpan Atlet ke Database
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL EDIT */}
-      {isEditModalOpen && editingItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsEditModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Edit Data <span className="text-blue-600">Atlet</span></h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-2xl text-slate-400 transition-all"><X size={20}/></button>
-            </div>
-            <form onSubmit={handleUpdate} className="p-8 space-y-5">
-              <div className="flex items-center gap-8 mb-4">
-                <div className="relative">
-                  <div className="w-28 h-28 rounded-[2rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex-shrink-0">
-                    {editingItem.foto_url ? (
-                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
-                    ) : (
-                      <User size={40} className="m-auto mt-6 text-slate-200" />
-                    )}
-                    {uploading && <div className="absolute inset-0 bg-white/90 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={24} /></div>}
-                  </div>
-                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 transition-all border-4 border-white">
-                    <Camera size={18} />
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'edit')} />
-                  </label>
-                </div>
-                <div className="flex-1 space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nama Lengkap</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-blue-600 outline-none transition-all" value={editingItem.nama || ''} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Jenis Kelamin</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['Putra', 'Putri'].map((g) => (
-                    <button key={g} type="button" onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})} className={`py-3 rounded-2xl font-black text-xs tracking-widest border-2 transition-all ${editingItem.jenis_kelamin === g ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                      {g.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">WhatsApp</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" value={editingItem.whatsapp || ''} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori Umur</label>
-                  <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" value={editingItem.kategori || ''} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
-                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Domisili</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm outline-none focus:border-blue-600" value={editingItem.domisili || ''} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
-                </div>
-              </div>
-              <div className="pt-4">
-                <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3 active:scale-95">
-                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                  Simpan Perubahan Data
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* LIGHTBOX PREVIEW */}
-      {previewImage && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setPreviewImage(null)}>
-          <div className="relative max-w-2xl w-full">
-            <button className="absolute -top-12 right-0 text-white hover:text-rose-500 transition-colors flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
-              Tutup <X size={24} />
-            </button>
-            <img src={previewImage} className="w-full h-auto rounded-[2.5rem] border-8 border-white shadow-2xl animate-in zoom-in duration-300" alt="preview-large" />
-          </div>
-        </div>
-      )}
     </div>
   );
-}   
+}

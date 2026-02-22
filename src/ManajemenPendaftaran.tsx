@@ -1,26 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from "./supabase";
 import { 
-  Trash2, 
-  RefreshCcw, 
-  Search, 
-  Phone, 
-  MapPin, 
-  ChevronLeft,
-  ChevronRight,
-  Edit3,
-  X,
-  Save,
-  User,
-  Camera,
-  Loader2,
-  Users,
-  FileSpreadsheet,
-  FileText,
-  Plus,
-  Upload,
-  Clock,
-  Calendar
+  Trash2, RefreshCcw, Search, Phone, MapPin, ChevronLeft, ChevronRight,
+  Edit3, X, Save, User, Camera, Loader2, Users, FileSpreadsheet,
+  FileText, Plus, Upload, Clock, Calendar, Info
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
@@ -30,6 +13,7 @@ import Swal from 'sweetalert2';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
+// --- INTERFACES ---
 interface Registrant {
   id: string;
   created_at: string;
@@ -43,6 +27,7 @@ interface Registrant {
 }
 
 export default function ManajemenPendaftaran() {
+  // --- STATES ---
   const [registrants, setRegistrants] = useState<Registrant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,19 +36,14 @@ export default function ManajemenPendaftaran() {
   const [filterDate, setFilterDate] = useState<Date | null>(null);
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
   const [newItem, setNewItem] = useState<Partial<Registrant>>({
-    nama: '',
-    whatsapp: '',
-    kategori: 'Pra Dini (U-9)',
-    domisili: '',
-    jenis_kelamin: 'Putra',
-    foto_url: ''
+    nama: '', whatsapp: '', kategori: 'Pra Dini (U-9)', domisili: '',
+    jenis_kelamin: 'Putra', foto_url: ''
   });
   
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  
   const itemsPerPage = 8; 
 
   const kategoriUmur = [
@@ -218,17 +198,17 @@ export default function ManajemenPendaftaran() {
   }, []);
 
   const filteredData = (registrants || []).filter(item => {
-  const matchSearch =
-    (item?.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch =
+      (item?.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-  const matchDate = filterDate
-  ? new Date(item.created_at).toDateString() === filterDate.toDateString()
-  : true;
+    const matchDate = filterDate
+      ? new Date(item.created_at).toDateString() === filterDate.toDateString()
+      : true;
 
-  return matchSearch && matchDate;
-});
+    return matchSearch && matchDate;
+  });
   
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -347,323 +327,327 @@ export default function ManajemenPendaftaran() {
     }
   };
 
+  // --- RENDER HELPERS ---
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
+      <div className="p-6 bg-slate-50 rounded-full mb-4">
+        <Users size={48} className="text-slate-300" />
+      </div>
+      <h3 className="text-lg font-bold text-slate-800">Tidak ada data ditemukan</h3>
+      <p className="text-sm text-slate-500 max-w-xs text-center">Coba ubah kata kunci pencarian atau filter tanggal Anda.</p>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">
-      <div className="max-w-[1400px] mx-auto px-4 py-4 md:px-8">
+      <div className="max-w-[1400px] mx-auto px-4 py-6 md:px-8">
         
-        {/* HEADER */}
-        <header className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
-              <Users className="text-white" size={24} />
+        {/* --- HEADER SECTION --- */}
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-blue-600 rounded-2xl shadow-xl shadow-blue-200 rotate-3">
+              <Users className="text-white" size={28} />
             </div>
             <div>
-              <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900 uppercase italic leading-none">
+              <h1 className="text-2xl md:text-4xl font-black tracking-tight text-slate-900 uppercase italic leading-none">
                 Manajemen <span className="text-blue-600">Atlet</span>
               </h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Database & Administrasi Real-time</p>
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
+                <Clock size={12} className="text-blue-500" /> Database Real-time v2.0
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-xl font-bold text-[10px] tracking-widest hover:bg-slate-900 transition-all active:scale-95 shadow-lg shadow-blue-100">
-              <Plus size={16} /> TAMBAH ATLET
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <button onClick={() => setIsAddModalOpen(true)} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-xl font-black text-[11px] tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-blue-100 active:scale-95">
+              <Plus size={18} /> TAMBAH ATLET
             </button>
 
-            <label className="flex items-center gap-2 bg-amber-500 text-white px-5 py-3 rounded-xl font-bold text-[10px] tracking-widest hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-100 cursor-pointer">
-              <Upload size={16} /> IMPORT EXCEL
+            <label className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-amber-500 text-white px-6 py-3.5 rounded-xl font-black text-[11px] tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-100 cursor-pointer active:scale-95">
+              <Upload size={18} /> IMPORT EXCEL
               <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
             </label>
 
-            <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-            
-            <button onClick={exportToExcel} className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all">
-              <FileSpreadsheet size={20} />
-            </button>
-            <button onClick={exportToPDF} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all">
-              <FileText size={20} />
-            </button>
-
-            <div className="px-5 py-2 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center">
-              <span className="text-[8px] font-black text-slate-400 uppercase leading-none">Total Atlet</span>
-              <span className="text-xl font-black text-blue-600 leading-none">{registrants.length}</span>
+            <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+              <button onClick={() => fetchData()} className="p-2.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-all" title="Refresh Data">
+                <RefreshCcw size={20} className={loading ? 'animate-spin text-blue-600' : ''} />
+              </button>
+              <div className="h-8 w-px bg-slate-200 mx-1"></div>
+              <button onClick={exportToPDF} className="p-2.5 text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Ekspor PDF">
+                <FileText size={20} />
+              </button>
+              <button onClick={exportToExcel} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Ekspor Excel">
+                <FileSpreadsheet size={20} />
+              </button>
             </div>
-
-            <button onClick={fetchData} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-blue-600 transition-all">
-              <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
-            </button>
           </div>
         </header>
 
-        {/* SEARCH BAR */}
-        <section className="mb-6">
-          <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+        {/* --- FILTER & SEARCH BAR --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">
+          <div className="lg:col-span-8 relative group">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input 
               type="text"
-              placeholder="Cari berdasarkan nama, kategori, atau kota domisili..."
-              className="w-full pl-14 pr-6 py-4 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
+              placeholder="Cari Nama Atlet, Kategori, atau Domisili..."
+              className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none font-bold text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all"
+              value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
-            <div className="mt-5 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-
-    {/* LEFT SIDE - SEARCH + DATE */}
-    <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-
-      {/* SEARCH */}
-      <div className="relative w-full sm:w-80">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-        <input
-          type="text"
-          placeholder="Cari atlet..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
-
-      {/* DATE PICKER */}
-      <DatePicker
-        selected={filterDate}
-        onChange={(date) => {
-          setFilterDate(date);
-          setCurrentPage(1);
-        }}
-        dateFormat="dd MMM yyyy"
-        placeholderText="Filter tanggal"
-        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold bg-white"
-      />
-
-      {filterDate && (
-        <button
-          onClick={() => setFilterDate(null)}
-          className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold"
-        >
-          Reset
-        </button>
-      )}
-    </div>
-
-    {/* RIGHT SIDE - INFO + REFRESH */}
-    <div className="flex items-center gap-3">
-
-      {/* TOTAL DATA */}
-      <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-sm font-bold">
-        Total: {filteredData.length}
-      </div>
-
-      {/* REFRESH */}
-      <button
-        onClick={fetchData}
-        className="p-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition"
-      >
-        <RefreshCcw className="w-4 h-4" />
-      </button>
-
-    </div>
-
-  </div>
-</div>
           </div>
-        </section>
-
-        {/* TABLE SECTION */}
-        <section className="bg-white rounded-[2rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden mb-6">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-900 text-white">
-                  <th className="pl-8 pr-2 py-5 font-bold uppercase text-[10px] tracking-widest w-12 text-center">No</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Profil Atlet</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Gender</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Kategori</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Kontak & Lokasi</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Waktu Registrasi</th>
-                  <th className="px-8 py-5 font-bold uppercase text-[10px] tracking-widest text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading && registrants.length === 0 ? (
-                  <tr><td colSpan={7} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Memuat Database Atlet...</td></tr>
-                ) : currentItems.length === 0 ? (
-                  <tr><td colSpan={7} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Tidak ada data atlet ditemukan</td></tr>
-                ) : currentItems.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-blue-50/40 even:bg-slate-50/30 transition-all duration-200 group">
-                    <td className="pl-8 pr-2 py-4 text-center">
-                      <span className="text-xs font-black text-slate-300 group-hover:text-blue-600 transition-colors">
-                        {String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
-                      </span>
-                    </td>
-                    
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-4">
-                        <div 
-                          onClick={() => item.foto_url && setPreviewImage(item.foto_url)}
-                          className="w-12 h-12 rounded-2xl bg-slate-200 border-2 border-white shadow-sm overflow-hidden flex-shrink-0 cursor-zoom-in group-hover:scale-110 transition-transform"
-                        >
-                          {item.foto_url ? (
-                            <img src={item.foto_url} className="w-full h-full object-cover object-top" alt={item.nama} />
-                          ) : (
-                            <User className="m-auto mt-2 text-slate-400" size={24} />
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-black text-slate-800 text-sm uppercase leading-tight">{item.nama || 'No Name'}</h4>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">UID: {item.id.split('-')[0]}</span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${item.jenis_kelamin === 'Putra' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}`}>
-                        {item.jenis_kelamin || '-'}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className="inline-flex items-center bg-slate-100 text-slate-700 px-3 py-1 rounded-lg text-[10px] font-bold uppercase shadow-sm border border-slate-200">
-                        {item.kategori || 'UMUM'}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="space-y-1.5">
-                        <a href={`https://wa.me/${(item.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 font-bold text-slate-600 hover:text-green-600 text-[11px] transition-colors">
-                          <Phone size={12} className="text-green-500" /> {item.whatsapp || '-'}
-                        </a>
-                        <div className="flex items-center gap-2 font-bold text-slate-400 uppercase text-[10px]">
-                          <MapPin size={12} className="text-rose-500" /> {item.domisili || '-'}
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-slate-600 font-bold text-[10px]">
-                          <Calendar size={12} className="text-blue-500" /> {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px]">
-                          <Clock size={12} /> {new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-8 py-4">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                          <Edit3 size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(item.id, item.nama, item.foto_url)} className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* PAGINATION */}
-        <footer className="flex flex-col sm:flex-row justify-between items-center gap-4 px-8 py-4 bg-slate-900 rounded-3xl text-white shadow-2xl">
-          <div className="flex flex-col">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Navigasi Data</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase">Halaman {currentPage} Dari {totalPages || 1}</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-2 bg-white/10 rounded-xl disabled:opacity-20 hover:bg-white/20 transition-all active:scale-90">
-              <ChevronLeft size={20} />
-            </button>
-            <div className="flex gap-2">
-                {[...Array(totalPages || 0)].map((_, i) => (
-                 <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-9 h-9 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50' : 'bg-white/5 hover:bg-white/10 text-white/50'}`}>
-                    {i + 1}
-                 </button>
-                ))}
+          
+          <div className="lg:col-span-4 flex gap-2">
+            <div className="relative flex-1">
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={18} />
+              <DatePicker
+                selected={filterDate}
+                onChange={(date) => { setFilterDate(date); setCurrentPage(1); }}
+                dateFormat="dd MMM yyyy"
+                placeholderText="Filter Tanggal Daftar"
+                className="w-full pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none font-bold text-sm focus:ring-4 focus:ring-blue-100 transition-all"
+              />
+              {filterDate && (
+                <button onClick={() => setFilterDate(null)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-slate-100 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all z-10">
+                  <X size={14} />
+                </button>
+              )}
             </div>
-            <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="p-2 bg-white/10 rounded-xl disabled:opacity-20 hover:bg-white/20 transition-all active:scale-90">
-              <ChevronRight size={20} />
-            </button>
           </div>
-        </footer>
+        </div>
+
+        {/* --- DATA DISPLAY (GRID CARDS) --- */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-32">
+            <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+            <p className="text-slate-500 font-black text-xs tracking-widest uppercase">Sinkronisasi Data...</p>
+          </div>
+        ) : filteredData.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+              {currentItems.map((atlet) => (
+                <div key={atlet.id} className="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-blue-900/5 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
+                  
+                  {/* Card Header (Photo) */}
+                  <div className="relative h-48 bg-slate-100 overflow-hidden cursor-pointer" onClick={() => atlet.foto_url && setPreviewImage(atlet.foto_url)}>
+                    <img 
+                      src={atlet.foto_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(atlet.nama)}&background=random&size=200`} 
+                      alt={atlet.nama}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    
+                    <div className="absolute top-4 right-4 flex gap-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all z-10">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditingItem(atlet); setIsEditModalOpen(true); }} 
+                        className="p-2 bg-white/90 backdrop-blur shadow-lg rounded-xl text-blue-600 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                      >
+                        <Edit3 size={18} />
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(atlet.id, atlet.nama, atlet.foto_url); }} 
+                        className="p-2 bg-white/90 backdrop-blur shadow-lg rounded-xl text-rose-600 hover:bg-rose-600 hover:text-white transition-all active:scale-90"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+
+                    <div className="absolute bottom-4 left-4 z-10">
+                      <span className="px-3 py-1 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-lg">
+                        {atlet.kategori}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="p-6">
+                    <h3 className="text-lg font-black text-slate-900 truncate mb-1 uppercase italic" title={atlet.nama}>{atlet.nama}</h3>
+                    <div className="flex items-center gap-2 text-slate-400 mb-4">
+                      <MapPin size={14} className="text-blue-500" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider truncate">{atlet.domisili}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-50">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-black text-slate-300 uppercase mb-0.5">Gender</span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${atlet.jenis_kelamin === 'Putra' ? 'text-blue-600' : 'text-rose-600'}`}>
+                          {atlet.jenis_kelamin}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-black text-slate-300 uppercase mb-0.5">WhatsApp</span>
+                        <a href={`https://wa.me/${(atlet.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-700 hover:text-green-500 transition-colors">
+                          {atlet.whatsapp}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* --- PAGINATION --- */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-8 py-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
+                <div className="flex flex-col">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Navigasi Data</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">Menampilkan halaman {currentPage} dari {totalPages}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                    className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-30 disabled:hover:bg-slate-50 transition-all active:scale-95"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <div className="hidden sm:flex gap-1">
+                    {[...Array(totalPages)].map((_, i) => (
+                      <button 
+                        key={i} 
+                        onClick={() => setCurrentPage(i + 1)} 
+                        className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-transparent text-slate-400 hover:bg-slate-100'}`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                  <button 
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                    className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-30 disabled:hover:bg-slate-50 transition-all active:scale-95"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <EmptyState />
+        )}
       </div>
+
+      {/* --- FLOATING STATUS --- */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <div className="flex items-center gap-3 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl border border-white/10">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+          <span className="text-[10px] font-black uppercase tracking-widest">Sistem Aktif</span>
+        </div>
+      </div>
+
+      {/* =========================================
+          MODALS SECTION (ADD, EDIT, PREVIEW) 
+      ========================================= */}
 
       {/* MODAL TAMBAH (ADD) */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsAddModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)}></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            
             <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
-                <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">Tambah <span className="text-blue-600">Atlet Baru</span></h2>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Input data atlet resmi ke database</p>
+                <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Tambah <span className="text-blue-600">Atlet Baru</span></h2>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Registrasi Data Resmi</p>
               </div>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-3 hover:bg-rose-50 hover:text-rose-500 rounded-2xl text-slate-400 transition-all"><X size={20}/></button>
+              <button onClick={() => setIsAddModalOpen(false)} className="p-2.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 rounded-xl text-slate-400 transition-all active:scale-90">
+                <X size={20} />
+              </button>
             </div>
             
-            <form onSubmit={handleAddSubmit} className="p-8 space-y-5">
-              <div className="flex items-center gap-8 mb-4">
-                <div className="relative">
-                  <div className="w-28 h-28 rounded-[2rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex-shrink-0">
+            <form onSubmit={handleAddSubmit} className="p-8 overflow-y-auto space-y-6 custom-scrollbar">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
+                {/* Photo Upload */}
+                <div className="relative shrink-0">
+                  <div className="w-32 h-32 rounded-3xl bg-slate-100 border-4 border-slate-50 shadow-inner overflow-hidden flex flex-col items-center justify-center relative">
                     {newItem.foto_url ? (
                       <img src={newItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
                     ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
-                        <User size={40} />
-                        <span className="text-[8px] font-black uppercase mt-1">No Photo</span>
+                      <>
+                        <User size={36} className="text-slate-300 mb-1" />
+                        <span className="text-[9px] font-black uppercase text-slate-400">No Photo</span>
+                      </>
+                    )}
+                    {uploading && (
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                        <Loader2 className="animate-spin text-blue-600" size={28} />
                       </div>
                     )}
-                    {uploading && <div className="absolute inset-0 bg-white/90 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={24} /></div>}
                   </div>
-                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 hover:scale-110 transition-all border-4 border-white">
+                  <label className="absolute -bottom-3 -right-3 p-3.5 bg-blue-600 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 hover:-translate-y-1 transition-all border-4 border-white active:scale-95">
                     <Camera size={18} />
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'add')} />
                   </label>
                 </div>
-                <div className="flex-1 space-y-4">
-                  <div className="space-y-1">
+
+                {/* Main Inputs */}
+                <div className="flex-1 w-full space-y-4">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nama Lengkap</label>
-                    <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-blue-600 focus:ring-4 focus:ring-blue-50 outline-none transition-all" placeholder="CONTOH: BUDI SANTOSO" value={newItem.nama} onChange={e => setNewItem({...newItem, nama: e.target.value})} required />
+                    <input 
+                      required 
+                      value={newItem.nama} 
+                      onChange={e => setNewItem({...newItem, nama: e.target.value})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50 outline-none transition-all placeholder:text-slate-300" 
+                      placeholder="CONTOH: JONATHAN CHRISTIE" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori Umur</label>
+                    <select 
+                      value={newItem.kategori} 
+                      onChange={e => setNewItem({...newItem, kategori: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50 outline-none transition-all appearance-none cursor-pointer" 
+                    >
+                      {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
+              {/* Grid Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nomor WhatsApp</label>
+                  <input 
+                    required 
+                    value={newItem.whatsapp} 
+                    onChange={e => setNewItem({...newItem, whatsapp: e.target.value})} 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50 outline-none transition-all placeholder:text-slate-300" 
+                    placeholder="081234567890" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kota Domisili</label>
+                  <input 
+                    required 
+                    value={newItem.domisili} 
+                    onChange={e => setNewItem({...newItem, domisili: e.target.value})} 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50 outline-none transition-all placeholder:text-slate-300" 
+                    placeholder="MAKASSAR" 
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Jenis Kelamin</label>
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-200">
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
                     {['Putra', 'Putri'].map((g) => (
-                      <button key={g} type="button" onClick={() => setNewItem({...newItem, jenis_kelamin: g})} className={`py-2.5 rounded-xl font-black text-[10px] tracking-widest transition-all ${newItem.jenis_kelamin === g ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                      <button 
+                        key={g} 
+                        type="button" 
+                        onClick={() => setNewItem({...newItem, jenis_kelamin: g})} 
+                        className={`py-3.5 rounded-xl font-black text-[11px] tracking-widest transition-all ${newItem.jenis_kelamin === g ? 'bg-white shadow-sm border border-slate-100 text-blue-600 scale-[1.02]' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                      >
                         {g.toUpperCase()}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">WhatsApp</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" placeholder="0812..." value={newItem.whatsapp} onChange={e => setNewItem({...newItem, whatsapp: e.target.value})} required />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori Umur</label>
-                  <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" value={newItem.kategori} onChange={e => setNewItem({...newItem, kategori: e.target.value})}>
-                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kota Domisili</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm outline-none focus:border-blue-600" placeholder="SURABAYA" value={newItem.domisili} onChange={e => setNewItem({...newItem, domisili: e.target.value})} required />
-                </div>
               </div>
 
-              <div className="pt-4">
-                <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-blue-200 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50">
+              <div className="pt-6 border-t border-slate-100">
+                <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-lg shadow-blue-200 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50">
                   {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                  Simpan Atlet ke Database
+                  Simpan Data Atlet
                 </button>
               </div>
             </form>
@@ -671,66 +655,110 @@ export default function ManajemenPendaftaran() {
         </div>
       )}
 
-      {/* MODAL EDIT */}
+      {/* MODAL EDIT (EDIT) */}
       {isEditModalOpen && editingItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsEditModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)}></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            
             <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Edit Data <span className="text-blue-600">Atlet</span></h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-2xl text-slate-400 transition-all"><X size={20}/></button>
+              <div>
+                <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Edit Data <span className="text-amber-500">Atlet</span></h2>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Perbarui Profil & Administrasi</p>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="p-2.5 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 rounded-xl text-slate-400 transition-all active:scale-90">
+                <X size={20} />
+              </button>
             </div>
-            <form onSubmit={handleUpdate} className="p-8 space-y-5">
-              <div className="flex items-center gap-8 mb-4">
-                <div className="relative">
-                  <div className="w-28 h-28 rounded-[2rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex-shrink-0">
+            
+            <form onSubmit={handleUpdate} className="p-8 overflow-y-auto space-y-6 custom-scrollbar">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
+                {/* Photo Upload */}
+                <div className="relative shrink-0">
+                  <div className="w-32 h-32 rounded-3xl bg-slate-100 border-4 border-slate-50 shadow-inner overflow-hidden flex flex-col items-center justify-center relative">
                     {editingItem.foto_url ? (
                       <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
                     ) : (
-                      <User size={40} className="m-auto mt-6 text-slate-200" />
+                      <>
+                        <User size={36} className="text-slate-300 mb-1" />
+                        <span className="text-[9px] font-black uppercase text-slate-400">No Photo</span>
+                      </>
                     )}
-                    {uploading && <div className="absolute inset-0 bg-white/90 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={24} /></div>}
+                    {uploading && (
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                        <Loader2 className="animate-spin text-amber-500" size={28} />
+                      </div>
+                    )}
                   </div>
-                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 transition-all border-4 border-white">
+                  <label className="absolute -bottom-3 -right-3 p-3.5 bg-amber-500 text-white rounded-2xl shadow-xl cursor-pointer hover:bg-slate-900 hover:-translate-y-1 transition-all border-4 border-white active:scale-95">
                     <Camera size={18} />
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'edit')} />
                   </label>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nama Lengkap</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-blue-600 outline-none transition-all" value={editingItem.nama || ''} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
+
+                {/* Main Inputs */}
+                <div className="flex-1 w-full space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nama Lengkap</label>
+                    <input 
+                      required 
+                      value={editingItem.nama} 
+                      onChange={e => setEditingItem({...editingItem, nama: e.target.value})} 
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-50 outline-none transition-all placeholder:text-slate-300" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori Umur</label>
+                    <select 
+                      value={editingItem.kategori} 
+                      onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-50 outline-none transition-all appearance-none cursor-pointer" 
+                    >
+                      {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Jenis Kelamin</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['Putra', 'Putri'].map((g) => (
-                    <button key={g} type="button" onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})} className={`py-3 rounded-2xl font-black text-xs tracking-widest border-2 transition-all ${editingItem.jenis_kelamin === g ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-                      {g.toUpperCase()}
-                    </button>
-                  ))}
+              {/* Grid Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nomor WhatsApp</label>
+                  <input 
+                    required 
+                    value={editingItem.whatsapp} 
+                    onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-50 outline-none transition-all placeholder:text-slate-300" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kota Domisili</label>
+                  <input 
+                    required 
+                    value={editingItem.domisili} 
+                    onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-50 outline-none transition-all placeholder:text-slate-300" 
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Jenis Kelamin</label>
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
+                    {['Putra', 'Putri'].map((g) => (
+                      <button 
+                        key={g} 
+                        type="button" 
+                        onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})} 
+                        className={`py-3.5 rounded-xl font-black text-[11px] tracking-widest transition-all ${editingItem.jenis_kelamin === g ? 'bg-white shadow-sm border border-amber-100 text-amber-500 scale-[1.02]' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                      >
+                        {g.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">WhatsApp</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" value={editingItem.whatsapp || ''} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori Umur</label>
-                  <select className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:border-blue-600" value={editingItem.kategori || ''} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
-                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Domisili</label>
-                  <input className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-sm outline-none focus:border-blue-600" value={editingItem.domisili || ''} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
-                </div>
-              </div>
-              <div className="pt-4">
-                <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3 active:scale-95">
+              <div className="pt-6 border-t border-slate-100">
+                <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-lg shadow-amber-200 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50">
                   {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
                   Simpan Perubahan Data
                 </button>
@@ -742,15 +770,23 @@ export default function ManajemenPendaftaran() {
 
       {/* LIGHTBOX PREVIEW */}
       {previewImage && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setPreviewImage(null)}>
-          <div className="relative max-w-2xl w-full">
-            <button className="absolute -top-12 right-0 text-white hover:text-rose-500 transition-colors flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
-              Tutup <X size={24} />
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setPreviewImage(null)} className="absolute -top-14 right-0 text-white/50 hover:text-white transition-colors flex items-center gap-2 font-black uppercase text-[10px] tracking-widest bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">
+              Tutup <X size={16} />
             </button>
-            <img src={previewImage} className="w-full h-auto rounded-[2.5rem] border-8 border-white shadow-2xl animate-in zoom-in duration-300" alt="preview-large" />
+            <img src={previewImage} className="w-full h-auto rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 ring-4 ring-white/10" alt="Preview Atlet" />
           </div>
         </div>
       )}
+
+      {/* CUSTOM SCROLLBAR UTILS */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      `}</style>
     </div>
   );
-}  
+}

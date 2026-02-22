@@ -19,12 +19,9 @@ import {
   FileText,
   Plus,
   Upload,
-  Clock,
-  Calendar,
   Download,
   Activity,
-  TrendingUp,
-  CheckCircle2
+  TrendingUp
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
@@ -42,7 +39,7 @@ interface Registrant {
   pengalaman: string;
   foto_url: string;
   jenis_kelamin: string;
-  kategori_atlet: string; // Tambahan kolom kategori_atlet
+  kategori_atlet: string; 
 }
 
 export default function ManajemenPendaftaran() {
@@ -52,23 +49,17 @@ export default function ManajemenPendaftaran() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   
-  // State untuk Tambah Data Baru
   const [newItem, setNewItem] = useState<Partial<Registrant>>({
-    nama: '',
-    whatsapp: '',
-    kategori: 'Pra Dini (U-9)',
-    domisili: '',
-    jenis_kelamin: 'Putra',
-    foto_url: '',
-    kategori_atlet: 'Muda' // Default kategori
+    nama: '', whatsapp: '', kategori: 'Pra Dini (U-9)', domisili: '',
+    jenis_kelamin: 'Putra', foto_url: '', kategori_atlet: 'Muda'
   });
 
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8; 
+  const itemsPerPage = 8;
 
   const kategoriUmur = [
     "Pra Dini (U-9)", "Usia Dini (U-11)", "Anak-anak (U-13)", 
@@ -76,7 +67,7 @@ export default function ManajemenPendaftaran() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
-  // --- LOGIKA STATISTIK (SENIOR & MUDA PER GENDER) ---
+  // --- STATISTIK ---
   const stats = {
     total: registrants.length,
     muda: {
@@ -91,180 +82,165 @@ export default function ManajemenPendaftaran() {
     }
   };
 
+  useEffect(() => { fetchData(); }, []);
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('pendaftaran')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('pendaftaran').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       setRegistrants(data || []);
-    } catch (error: any) {
-      console.error('Error fetching:', error.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error: any) { console.error(error.message); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // --- FITUR DOWNLOAD & EXPORT ---
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([{ nama: '', whatsapp: '', kategori: '', domisili: '', jenis_kelamin: '', kategori_atlet: '' }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "Template_Import_Atlet.xlsx");
+  };
+
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(registrants);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data Atlet");
+    XLSX.writeFile(wb, "Data_Pendaftaran_Atlet.xlsx");
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    autoTable(doc, {
+      head: [['Nama', 'WhatsApp', 'Kategori Umur', 'Tipe', 'Domisili']],
+      body: registrants.map(r => [r.nama, r.whatsapp, r.kategori, r.kategori_atlet, r.domisili]),
+    });
+    doc.save("Data_Atlet.pdf");
+  };
+
+  // --- FOTO UPLOAD ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'add' | 'edit') => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setUploading(true);
+    try {
+      const file = e.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const filePath = `atlet/${Math.random()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('identitas-atlet').upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
+      if (mode === 'add') setNewItem({ ...newItem, foto_url: publicUrl });
+      else setEditingItem(prev => prev ? { ...prev, foto_url: publicUrl } : null);
+    } catch (error: any) { Swal.fire("Gagal", error.message, "error"); }
+    finally { setUploading(false); }
+  };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('pendaftaran').insert([{
-        ...newItem,
-        nama: newItem.nama?.toUpperCase(),
-        domisili: newItem.domisili?.toUpperCase()
-      }]);
+      const { error } = await supabase.from('pendaftaran').insert([{ ...newItem, nama: newItem.nama?.toUpperCase(), domisili: newItem.domisili?.toUpperCase() }]);
       if (error) throw error;
       setIsAddModalOpen(false);
-      setNewItem({ nama: '', whatsapp: '', kategori: 'Pra Dini (U-9)', domisili: '', jenis_kelamin: 'Putra', foto_url: '', kategori_atlet: 'Muda' });
       fetchData();
-      Swal.fire({ icon: 'success', title: 'Berhasil!', text: 'Atlet berhasil ditambahkan', timer: 2000 });
-    } catch (error: any) {
-      Swal.fire('Gagal', error.message, 'error');
-    } finally {
-      setIsSaving(false);
-    }
+      Swal.fire("Berhasil", "Atlet ditambahkan", "success");
+    } catch (error: any) { Swal.fire("Gagal", error.message, "error"); }
+    finally { setIsSaving(false); }
   };
 
-  const filteredData = registrants.filter(item => 
-    item.nama?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.domisili?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  const filteredData = registrants.filter(item => item.nama.toLowerCase().includes(searchTerm.toLowerCase()));
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20 font-sans">
-      <div className="max-w-[1440px] mx-auto px-4 md:px-8 py-8">
+    <div className="min-h-screen bg-slate-50 font-sans pb-20">
+      <div className="max-w-[1440px] mx-auto px-4 py-8">
         
-        {/* HEADER SECTION */}
+        {/* HEADER & ACTIONS */}
         <header className="flex flex-col lg:flex-row justify-between items-center gap-6 mb-8">
           <div className="flex items-center gap-4">
-            <div className="p-4 bg-blue-600 rounded-3xl shadow-xl shadow-blue-100 text-white">
-              <Users size={32} />
-            </div>
+            <div className="p-4 bg-blue-600 rounded-3xl text-white shadow-xl shadow-blue-200"><Users size={32} /></div>
             <div>
-              <h1 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter">
-                Manajemen <span className="text-blue-600">Pendaftaran</span>
-              </h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Sistem Database Atlet Terintegrasi</p>
+              <h1 className="text-3xl font-black text-slate-900 uppercase italic">Manajemen <span className="text-blue-600">Atlet</span></h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kontrol Pendaftaran & Export Data</p>
             </div>
           </div>
-          
-          <div className="flex flex-wrap justify-center gap-3">
-            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-4 rounded-2xl font-black text-[11px] tracking-widest hover:bg-blue-600 shadow-lg transition-all active:scale-95">
-              <Plus size={18} /> TAMBAH ATLET
-            </button>
-            <button onClick={fetchData} className="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm">
-              <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
-            </button>
+
+          <div className="flex flex-wrap justify-center gap-2">
+            <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-3 rounded-xl font-black text-[10px] tracking-widest hover:bg-blue-600 transition-all"><Plus size={16}/> TAMBAH ATLET</button>
+            <button onClick={downloadTemplate} className="flex items-center gap-2 bg-white border border-slate-200 px-5 py-3 rounded-xl font-black text-[10px] tracking-widest hover:bg-slate-50 transition-all"><Upload size={16}/> TEMPLATE</button>
+            <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-3 rounded-xl font-black text-[10px] tracking-widest hover:bg-emerald-700 transition-all"><FileSpreadsheet size={16}/> EXCEL</button>
+            <button onClick={exportToPDF} className="flex items-center gap-2 bg-rose-600 text-white px-5 py-3 rounded-xl font-black text-[10px] tracking-widest hover:bg-rose-700 transition-all"><FileText size={16}/> PDF</button>
           </div>
         </header>
 
-        {/* STATS CARDS (SENIOR & MUDA) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-5">
-            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600"><Activity size={24} /></div>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pendaftar</p>
-              <h3 className="text-2xl font-black text-slate-900">{stats.total} <span className="text-xs font-bold text-slate-400">Atlet</span></h3>
+        {/* STATS SECTION */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600"><Activity size={24}/></div>
+            <div><p className="text-[10px] font-black text-slate-400 uppercase">Total Atlet</p><h3 className="text-2xl font-black">{stats.total}</h3></div>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-emerald-500 uppercase flex items-center gap-2"><TrendingUp size={14}/> Kategori Muda</p>
+            <div className="flex justify-between items-end mt-1">
+              <h3 className="text-2xl font-black">{stats.muda.total}</h3>
+              <div className="flex gap-2 text-[10px] font-bold uppercase"><span className="text-blue-500">{stats.muda.pa} PA</span><span className="text-rose-500">{stats.muda.pi} PI</span></div>
             </div>
           </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-indigo-500 uppercase flex items-center gap-2"><TrendingUp size={14}/> Kategori Senior</p>
+            <div className="flex justify-between items-end mt-1">
+              <h3 className="text-2xl font-black">{stats.senior.total}</h3>
+              <div className="flex gap-2 text-[10px] font-bold uppercase"><span className="text-blue-500">{stats.senior.pa} PA</span><span className="text-rose-500">{stats.senior.pi} PI</span></div>
+            </div>
+          </div>
+        </section>
 
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-            <div className="flex justify-between items-start mb-2">
-              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Kategori Muda</p>
-              <TrendingUp size={16} className="text-emerald-500" />
-            </div>
-            <div className="flex items-end justify-between">
-              <h3 className="text-3xl font-black text-slate-800">{stats.muda.total}</h3>
-              <div className="flex gap-3 text-[10px] font-black uppercase">
-                <span className="text-blue-500">{stats.muda.pa} Putra</span>
-                <span className="text-rose-500">{stats.muda.pi} Putri</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-            <div className="flex justify-between items-start mb-2">
-              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Kategori Senior</p>
-              <TrendingUp size={16} className="text-indigo-500" />
-            </div>
-            <div className="flex items-end justify-between">
-              <h3 className="text-3xl font-black text-slate-800">{stats.senior.total}</h3>
-              <div className="flex gap-3 text-[10px] font-black uppercase">
-                <span className="text-blue-500">{stats.senior.pa} Putra</span>
-                <span className="text-rose-500">{stats.senior.pi} Putri</span>
-              </div>
-            </div>
-          </div>
+        {/* SEARCH */}
+        <div className="relative mb-6">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
+          <input type="text" placeholder="Cari nama atlet..." className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 font-bold text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
 
-        {/* SEARCH BAR */}
-        <div className="relative mb-8">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Cari nama atlet atau asal domisili..." 
-            className="w-full pl-16 pr-8 py-5 bg-white border border-slate-200 rounded-[2rem] outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 shadow-sm font-bold text-sm transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        {/* TABLE SECTION - RESPONSIVE OPTIMIZED */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl overflow-hidden">
-          <div className="w-full overflow-x-auto lg:overflow-x-visible">
-            <table className="w-full text-left border-collapse min-w-[900px] lg:min-w-full">
+        {/* TABLE - RESPONSIVE NO SCROLL DESKTOP */}
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
+          <div className="overflow-x-auto lg:overflow-visible">
+            <table className="w-full text-left min-w-[900px] lg:min-w-full">
               <thead>
-                <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-[0.2em] font-black">
-                  <th className="px-6 py-6 text-center w-16">No</th>
-                  <th className="px-6 py-6">Informasi Atlet</th>
-                  <th className="px-6 py-6">Kategori Umur</th>
-                  <th className="px-6 py-6">Tipe Atlet</th>
-                  <th className="px-6 py-6">Domisili</th>
-                  <th className="px-6 py-6">WhatsApp</th>
-                  <th className="px-6 py-6 text-right">Aksi</th>
+                <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-widest font-black">
+                  <th className="px-6 py-5 text-center w-16">No</th>
+                  <th className="px-6 py-5">Profil Atlet</th>
+                  <th className="px-6 py-5">Kategori Umur</th>
+                  <th className="px-6 py-5">Tipe</th>
+                  <th className="px-6 py-5">WhatsApp</th>
+                  <th className="px-6 py-5">Domisili</th>
+                  <th className="px-6 py-5 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {currentItems.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
-                    <td className="px-6 py-5 text-center font-black text-slate-300 text-xs">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-4">
-                        <div onClick={() => item.foto_url && setPreviewImage(item.foto_url)} className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden cursor-zoom-in border border-slate-200 flex-shrink-0 shadow-sm">
-                          {item.foto_url ? <img src={item.foto_url} className="w-full h-full object-cover" /> : <User size={20} className="m-auto mt-3 text-slate-300"/>}
+                  <tr key={item.id} className="hover:bg-blue-50/50 transition-all group">
+                    <td className="px-6 py-4 text-center font-black text-slate-300 text-xs">{(currentPage-1)*itemsPerPage + idx + 1}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div onClick={() => item.foto_url && setPreviewImage(item.foto_url)} className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden cursor-zoom-in border border-slate-200 flex-shrink-0">
+                          {item.foto_url ? <img src={item.foto_url} className="w-full h-full object-cover" /> : <User size={16} className="m-auto mt-2 text-slate-300"/>}
                         </div>
-                        <div className="flex flex-col">
-                          <span className="font-black text-slate-800 uppercase text-xs tracking-tight">{item.nama}</span>
-                          <span className={`text-[9px] font-black uppercase ${item.jenis_kelamin === 'Putra' ? 'text-blue-500' : 'text-rose-500'}`}>{item.jenis_kelamin}</span>
+                        <div>
+                          <p className="font-black text-slate-800 uppercase text-xs leading-none">{item.nama}</p>
+                          <p className={`text-[9px] font-bold uppercase mt-1 ${item.jenis_kelamin === 'Putra' ? 'text-blue-500' : 'text-rose-500'}`}>{item.jenis_kelamin}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-5 font-bold text-slate-600 uppercase text-[10px]">{item.kategori}</td>
-                    <td className="px-6 py-5">
-                      <span className={`px-3 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-widest ${item.kategori_atlet === 'Senior' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                        {item.kategori_atlet || 'Muda'}
-                      </span>
+                    <td className="px-6 py-4 font-bold text-slate-600 uppercase text-[10px]">{item.kategori}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-md font-black text-[9px] uppercase ${item.kategori_atlet === 'Senior' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.kategori_atlet}</span>
                     </td>
-                    <td className="px-6 py-5 font-bold text-slate-500 uppercase text-xs">{item.domisili}</td>
-                    <td className="px-6 py-5">
-                      <a href={`https://wa.me/${item.whatsapp}`} target="_blank" className="flex items-center gap-2 font-bold text-slate-700 text-xs hover:text-blue-600 transition-colors">
-                        <Phone size={14} className="text-emerald-500"/> {item.whatsapp}
-                      </a>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => { setEditingItem(item); setIsEditModalOpen(true); }} className="p-2.5 text-blue-600 hover:bg-blue-100 rounded-xl transition-all"><Edit3 size={16}/></button>
-                        <button onClick={() => {/* Fungsi Hapus */}} className="p-2.5 text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16}/></button>
+                    <td className="px-6 py-4 font-bold text-slate-500 text-xs">{item.whatsapp}</td>
+                    <td className="px-6 py-4 font-bold text-slate-500 uppercase text-xs">{item.domisili}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onClick={() => {setEditingItem(item); setIsEditModalOpen(true);}} className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"><Edit3 size={16}/></button>
+                        <button className="p-2 text-rose-600 hover:bg-rose-100 rounded-lg"><Trash2 size={16}/></button>
                       </div>
                     </td>
                   </tr>
@@ -272,66 +248,37 @@ export default function ManajemenPendaftaran() {
               </tbody>
             </table>
           </div>
-          
-          {/* PAGINATION */}
-          <div className="p-8 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Halaman {currentPage} dari {totalPages || 1}</p>
-            <div className="flex gap-2">
-              <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-3 bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-900 hover:text-white transition-all shadow-sm"><ChevronLeft size={18}/></button>
-              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-3 bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-900 hover:text-white transition-all shadow-sm"><ChevronRight size={18}/></button>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* MODAL ADD ATLET */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border border-white/20 animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200"><Plus size={24} /></div>
-                <h2 className="text-xl font-black uppercase italic leading-none text-slate-900">Tambah <span className="text-blue-600">Atlet</span></h2>
-              </div>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-3 text-slate-400 hover:text-rose-500 transition-all"><X size={24}/></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden">
+            <div className="p-6 border-b flex justify-between items-center bg-slate-50/50">
+              <h2 className="text-xl font-black uppercase italic text-slate-900">Tambah <span className="text-blue-600">Atlet</span></h2>
+              <button onClick={() => setIsAddModalOpen(false)} className="p-2 text-slate-400 hover:text-rose-500"><X size={24}/></button>
             </div>
-            <form onSubmit={handleAddSubmit} className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nama Lengkap</label>
-                  <input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-xs outline-none focus:border-blue-500 transition-all" value={newItem.nama} onChange={e => setNewItem({...newItem, nama: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">WhatsApp</label>
-                  <input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none focus:border-blue-500 transition-all" value={newItem.whatsapp} onChange={e => setNewItem({...newItem, whatsapp: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipe Atlet</label>
-                  <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none cursor-pointer" value={newItem.kategori_atlet} onChange={e => setNewItem({...newItem, kategori_atlet: e.target.value})}>
-                    <option value="Muda">Muda</option>
-                    <option value="Senior">Senior</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Jenis Kelamin</label>
-                  <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none cursor-pointer" value={newItem.jenis_kelamin} onChange={e => setNewItem({...newItem, jenis_kelamin: e.target.value})}>
-                    <option value="Putra">Putra</option>
-                    <option value="Putri">Putri</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Kategori Umur</label>
-                  <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-xs outline-none cursor-pointer" value={newItem.kategori} onChange={e => setNewItem({...newItem, kategori: e.target.value})}>
-                    {kategoriUmur.map(k => <option key={k} value={k}>{k}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Asal Domisili</label>
-                  <input required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold uppercase text-xs outline-none focus:border-blue-500 transition-all" value={newItem.domisili} onChange={e => setNewItem({...newItem, domisili: e.target.value})} />
+            <form onSubmit={handleAddSubmit} className="p-8 space-y-5">
+              <div className="flex justify-center mb-4">
+                <div className="relative group">
+                  <div className="w-24 h-24 rounded-3xl bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center">
+                    {newItem.foto_url ? <img src={newItem.foto_url} className="w-full h-full object-cover" /> : <User size={40} className="text-slate-200"/>}
+                  </div>
+                  <label className="absolute -bottom-2 -right-2 p-2.5 bg-blue-600 text-white rounded-xl shadow-lg cursor-pointer hover:bg-slate-900 transition-all">
+                    {uploading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'add')} />
+                  </label>
                 </div>
               </div>
-              <button type="submit" disabled={isSaving} className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3">
-                {isSaving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />} SIMPAN DATA ATLET
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Nama Lengkap</label><input required className="w-full p-3 bg-slate-50 border rounded-xl font-bold uppercase text-xs outline-none focus:border-blue-500" value={newItem.nama} onChange={e => setNewItem({...newItem, nama: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">WhatsApp</label><input required className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs outline-none focus:border-blue-500" value={newItem.whatsapp} onChange={e => setNewItem({...newItem, whatsapp: e.target.value})} /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Tipe Atlet</label><select className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs outline-none" value={newItem.kategori_atlet} onChange={e => setNewItem({...newItem, kategori_atlet: e.target.value})}><option value="Muda">Muda</option><option value="Senior">Senior</option></select></div>
+                <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Jenis Kelamin</label><select className="w-full p-3 bg-slate-50 border rounded-xl font-bold text-xs outline-none" value={newItem.jenis_kelamin} onChange={e => setNewItem({...newItem, jenis_kelamin: e.target.value})}><option value="Putra">Putra</option><option value="Putri">Putri</option></select></div>
+              </div>
+              <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
+                {isSaving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} SIMPAN DATA ATLET
               </button>
             </form>
           </div>
@@ -340,10 +287,14 @@ export default function ManajemenPendaftaran() {
 
       {/* LIGHTBOX PREVIEW */}
       {previewImage && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setPreviewImage(null)}>
-          <div className="relative max-w-xl w-full">
-            <button className="absolute -top-12 right-0 text-white flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">Tutup <X size={20} /></button>
-            <img src={previewImage} className="w-full h-auto rounded-[2rem] border-4 border-white shadow-2xl" />
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-xl w-full flex flex-col items-center">
+             <button className="absolute -top-10 right-0 text-white flex items-center gap-2 font-black uppercase text-[10px]">Tutup <X size={20}/></button>
+             <img src={previewImage} className="max-h-[80vh] w-auto rounded-3xl border-4 border-white shadow-2xl animate-in zoom-in-95 duration-300" />
+             <div className="mt-4 flex gap-4">
+                <button className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all" onClick={(e) => e.stopPropagation()}><ChevronLeft size={24}/></button>
+                <button className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all" onClick={(e) => e.stopPropagation()}><ChevronRight size={24}/></button>
+             </div>
           </div>
         </div>
       )}

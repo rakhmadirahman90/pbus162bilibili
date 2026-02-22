@@ -46,6 +46,8 @@ export default function ManajemenPendaftaran() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterDate, setFilterDate] = useState('');
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
   const [newItem, setNewItem] = useState<Partial<Registrant>>({
     nama: '',

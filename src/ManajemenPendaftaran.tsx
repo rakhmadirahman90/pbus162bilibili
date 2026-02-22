@@ -394,6 +394,20 @@ export default function ManajemenPendaftaran() {
             </button>
           </div>
         </header>
+
+        {/* SEARCH BAR */}
+        <section className="mb-6">
+          <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input 
+              type="text"
+              placeholder="Cari berdasarkan nama, kategori, atau kota domisili..."
+              className="w-full pl-14 pr-6 py-4 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            />
+            <div className="mt-5 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+
     {/* LEFT SIDE - SEARCH + DATE */}
     <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
 

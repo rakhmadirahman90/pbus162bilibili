@@ -20,7 +20,8 @@ import {
   Plus,
   Upload,
   Clock,
-  Calendar
+  Calendar,
+  Download // Ditambahkan icon Download
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
@@ -55,7 +56,6 @@ export default function ManajemenPendaftaran() {
     jenis_kelamin: 'Putra',
     foto_url: ''
   });
-  
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -68,6 +68,11 @@ export default function ManajemenPendaftaran() {
     "Pemula (U-15)", "Remaja (U-17)", "Taruna (U-19)", 
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
+
+  // --- MENGHITUNG JUMLAH PENDAFTAR (STATISTIK) ---
+  const totalPendaftar = registrants.length;
+  const totalPutra = registrants.filter(r => r.jenis_kelamin === 'Putra').length;
+  const totalPutri = registrants.filter(r => r.jenis_kelamin === 'Putri').length;
 
   // --- UTILS ---
   const Toast = Swal.mixin({
@@ -101,7 +106,7 @@ export default function ManajemenPendaftaran() {
     });
   };
 
-  // --- EXPORT FUNCTIONS ---
+  // --- EXPORT & TEMPLATE FUNCTIONS ---
   const exportToExcel = () => {
     if (filteredData.length === 0) return Swal.fire("Opps!", "Tidak ada data untuk diekspor", "warning");
     const dataToExport = filteredData.map((item, index) => ({
@@ -143,6 +148,18 @@ export default function ManajemenPendaftaran() {
     doc.save(`Data_Atlet_${Date.now()}.pdf`);
   };
 
+  // --- FUNGSI DOWNLOAD TEMPLATE EXCEL ---
+  const downloadTemplate = () => {
+    const templateData = [
+      { Nama: "Contoh Nama Atlet", WhatsApp: "081234567890", Kategori: "Dewasa / Umum", Domisili: "Makassar", Gender: "Putra" },
+      { Nama: "Susi Susanti", WhatsApp: "089876543210", Kategori: "Remaja (U-17)", Domisili: "Jakarta", Gender: "Putri" }
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "Template_Import_Atlet.xlsx");
+  };
+
   // --- IMPORT EXCEL ---
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -175,6 +192,8 @@ export default function ManajemenPendaftaran() {
       } catch (err: any) {
         Swal.fire("Gagal Import", err.message, "error");
       }
+      // Reset input file
+      e.target.value = '';
     };
     reader.readAsBinaryString(file);
   };
@@ -219,7 +238,7 @@ export default function ManajemenPendaftaran() {
     (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -251,7 +270,7 @@ export default function ManajemenPendaftaran() {
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
-      
+
       if (mode === 'edit' && editingItem) {
         setEditingItem({ ...editingItem, foto_url: publicUrl });
       } else {
@@ -260,7 +279,7 @@ export default function ManajemenPendaftaran() {
       
       Toast.fire({ icon: 'success', title: 'Foto berhasil diunggah' });
     } catch (error: any) { 
-      Swal.fire("Gagal upload", error.message, "error"); 
+      Swal.fire("Gagal upload", error.message, "error");
     } finally { 
       setUploading(false); 
     }
@@ -285,7 +304,7 @@ export default function ManajemenPendaftaran() {
         if (error) throw error;
         Toast.fire({ icon: 'success', title: 'Data berhasil dihapus' });
       } catch (error: any) { 
-        Swal.fire('Gagal', error.message, 'error'); 
+        Swal.fire('Gagal', error.message, 'error');
       }
     }
   };
@@ -299,6 +318,7 @@ export default function ManajemenPendaftaran() {
         nama: (newItem.nama || '').toUpperCase(),
         domisili: (newItem.domisili || '').toUpperCase()
       }]);
+      
       if (error) throw error;
       
       setIsAddModalOpen(false);
@@ -331,7 +351,7 @@ export default function ManajemenPendaftaran() {
       setIsEditModalOpen(false);
       Toast.fire({ icon: 'success', title: 'Data berhasil diperbarui' });
     } catch (error: any) { 
-      Swal.fire("Gagal", error.message, "error"); 
+      Swal.fire("Gagal", error.message, "error");
     } finally { 
       setIsSaving(false); 
     }
@@ -360,30 +380,61 @@ export default function ManajemenPendaftaran() {
               <Plus size={16} /> TAMBAH ATLET
             </button>
 
+            {/* BUTTON DOWNLOAD TEMPLATE BARU */}
+            <button onClick={downloadTemplate} className="flex items-center gap-2 bg-indigo-500 text-white px-5 py-3 rounded-xl font-bold text-[10px] tracking-widest hover:bg-indigo-600 transition-all active:scale-95 shadow-lg shadow-indigo-100">
+              <Download size={16} /> TEMPLATE IMPORT
+            </button>
+
             <label className="flex items-center gap-2 bg-amber-500 text-white px-5 py-3 rounded-xl font-bold text-[10px] tracking-widest hover:bg-amber-600 transition-all active:scale-95 shadow-lg shadow-amber-100 cursor-pointer">
               <Upload size={16} /> IMPORT EXCEL
               <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} />
             </label>
 
             <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-            
-            <button onClick={exportToExcel} className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all">
+             
+            <button onClick={exportToExcel} className="p-3 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all" title="Export Excel">
               <FileSpreadsheet size={20} />
             </button>
-            <button onClick={exportToPDF} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all">
+            <button onClick={exportToPDF} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all" title="Export PDF">
               <FileText size={20} />
             </button>
-
-            <div className="px-5 py-2 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center">
-              <span className="text-[8px] font-black text-slate-400 uppercase leading-none">Total Atlet</span>
-              <span className="text-xl font-black text-blue-600 leading-none">{registrants.length}</span>
-            </div>
 
             <button onClick={fetchData} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-blue-600 transition-all">
               <RefreshCcw size={20} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
         </header>
+
+        {/* --- STATISTIK INFORMASI ATLET --- */}
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pendaftar</p>
+              <p className="text-3xl font-black text-slate-900 mt-1">{totalPendaftar}</p>
+            </div>
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+              <Users size={24} />
+            </div>
+          </div>
+          <div className="bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Atlet Putra</p>
+              <p className="text-3xl font-black text-blue-600 mt-1">{totalPutra}</p>
+            </div>
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+              <User size={24} />
+            </div>
+          </div>
+          <div className="bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Atlet Putri</p>
+              <p className="text-3xl font-black text-rose-600 mt-1">{totalPutri}</p>
+            </div>
+            <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl">
+              <User size={24} />
+            </div>
+          </div>
+        </section>
 
         {/* SEARCH BAR */}
         <section className="mb-6">
@@ -507,11 +558,11 @@ export default function ManajemenPendaftaran() {
               <ChevronLeft size={20} />
             </button>
             <div className="flex gap-2">
-                {[...Array(totalPages || 0)].map((_, i) => (
+              {[...Array(totalPages || 0)].map((_, i) => (
                  <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-9 h-9 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50' : 'bg-white/5 hover:bg-white/10 text-white/50'}`}>
                     {i + 1}
                  </button>
-                ))}
+              ))}
             </div>
             <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="p-2 bg-white/10 rounded-xl disabled:opacity-20 hover:bg-white/20 transition-all active:scale-90">
               <ChevronRight size={20} />
@@ -680,4 +731,4 @@ export default function ManajemenPendaftaran() {
       )}
     </div>
   );
-}  
+}

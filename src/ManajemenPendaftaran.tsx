@@ -469,7 +469,6 @@ export default function ManajemenPendaftaran() {
     </div>
 
   </div>
-</div>
           </div>
         </section>
 

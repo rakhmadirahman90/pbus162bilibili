@@ -27,6 +27,8 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Swal from 'sweetalert2';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface Registrant {
   id: string;
@@ -46,7 +48,7 @@ export default function ManajemenPendaftaran() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDate, setFilterDate] = useState<Date | null>(null);
   const [editingItem, setEditingItem] = useState<Registrant | null>(null);
   const [newItem, setNewItem] = useState<Partial<Registrant>>({
     nama: '',
@@ -222,8 +224,8 @@ export default function ManajemenPendaftaran() {
     (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase());
 
   const matchDate = filterDate
-    ? new Date(item.created_at).toISOString().split('T')[0] === filterDate
-    : true;
+  ? new Date(item.created_at).toDateString() === filterDate.toDateString()
+  : true;
 
   return matchSearch && matchDate;
 });
@@ -404,19 +406,20 @@ export default function ManajemenPendaftaran() {
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
             <div className="mt-3 flex gap-3 items-center">
-  <input
-    type="date"
-    value={filterDate}
-    onChange={(e) => {
-      setFilterDate(e.target.value);
+  <DatePicker
+    selected={filterDate}
+    onChange={(date) => {
+      setFilterDate(date);
       setCurrentPage(1);
     }}
-    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold"
+    dateFormat="dd MMM yyyy"
+    placeholderText="Pilih tanggal"
+    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold bg-white"
   />
 
   {filterDate && (
     <button
-      onClick={() => setFilterDate('')}
+      onClick={() => setFilterDate(null)}
       className="px-4 py-2 bg-slate-200 rounded-xl text-xs font-bold"
     >
       Reset Tanggal

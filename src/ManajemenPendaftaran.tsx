@@ -21,7 +21,7 @@ import {
   Upload,
   Clock,
   Calendar,
-  Download // Ditambahkan icon Download
+  Download
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
@@ -116,7 +116,8 @@ export default function ManajemenPendaftaran() {
       Kategori: item.kategori || '-',
       WhatsApp: item.whatsapp || '-',
       Domisili: item.domisili || '-',
-      Tanggal_Daftar: item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'
+      Tanggal_Daftar: item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-',
+      Waktu_Daftar: item.created_at ? new Date(item.created_at).toLocaleTimeString('id-ID') : '-'
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -129,14 +130,15 @@ export default function ManajemenPendaftaran() {
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("LAPORAN DATA PENDAFTARAN ATLET", 14, 15);
-    const tableColumn = ["No", "Nama Atlet", "Gender", "Kategori", "Domisili", "WhatsApp"];
+    const tableColumn = ["No", "Nama Atlet", "Gender", "Kategori", "Domisili", "WhatsApp", "Tgl Daftar"];
     const tableRows = filteredData.map((item, index) => [
       index + 1,
       (item.nama || '').toUpperCase(),
       item.jenis_kelamin || '-',
       item.kategori || '-',
       item.domisili || '-',
-      item.whatsapp || '-'
+      item.whatsapp || '-',
+      item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-'
     ]);
     autoTable(doc, {
       head: [tableColumn],
@@ -452,23 +454,26 @@ export default function ManajemenPendaftaran() {
         {/* TABLE SECTION */}
         <section className="bg-white rounded-[2rem] border border-slate-100 shadow-2xl shadow-slate-200/50 overflow-hidden mb-6">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-slate-900 text-white">
                   <th className="pl-8 pr-2 py-5 font-bold uppercase text-[10px] tracking-widest w-12 text-center">No</th>
                   <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Profil Atlet</th>
                   <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Gender</th>
                   <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Kategori</th>
-                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Kontak & Lokasi</th>
+                  {/* Kolom yang dipisah */}
+                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Kontak</th>
+                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Lokasi</th>
+                  <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Tanggal Registrasi</th>
                   <th className="px-4 py-5 font-bold uppercase text-[10px] tracking-widest">Waktu Registrasi</th>
                   <th className="px-8 py-5 font-bold uppercase text-[10px] tracking-widest text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loading && registrants.length === 0 ? (
-                  <tr><td colSpan={7} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Memuat Database Atlet...</td></tr>
+                  <tr><td colSpan={9} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Memuat Database Atlet...</td></tr>
                 ) : currentItems.length === 0 ? (
-                  <tr><td colSpan={7} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Tidak ada data atlet ditemukan</td></tr>
+                  <tr><td colSpan={9} className="py-32 text-center text-slate-400 font-bold uppercase text-xs">Tidak ada data atlet ditemukan</td></tr>
                 ) : currentItems.map((item, index) => (
                   <tr key={item.id} className="hover:bg-blue-50/40 even:bg-slate-50/30 transition-all duration-200 group">
                     <td className="pl-8 pr-2 py-4 text-center">
@@ -508,25 +513,31 @@ export default function ManajemenPendaftaran() {
                       </span>
                     </td>
 
+                    {/* Kolom Kontak */}
                     <td className="px-4 py-4">
-                      <div className="space-y-1.5">
-                        <a href={`https://wa.me/${(item.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 font-bold text-slate-600 hover:text-green-600 text-[11px] transition-colors">
-                          <Phone size={12} className="text-green-500" /> {item.whatsapp || '-'}
-                        </a>
-                        <div className="flex items-center gap-2 font-bold text-slate-400 uppercase text-[10px]">
-                          <MapPin size={12} className="text-rose-500" /> {item.domisili || '-'}
-                        </div>
+                      <a href={`https://wa.me/${(item.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-bold text-slate-600 hover:text-green-600 text-[11px] transition-colors">
+                        <Phone size={12} className="text-green-500" /> {item.whatsapp || '-'}
+                      </a>
+                    </td>
+
+                    {/* Kolom Lokasi */}
+                    <td className="px-4 py-4">
+                      <div className="inline-flex items-center gap-2 font-bold text-slate-400 uppercase text-[10px]">
+                        <MapPin size={12} className="text-rose-500" /> {item.domisili || '-'}
                       </div>
                     </td>
 
+                    {/* Kolom Tanggal Registrasi */}
                     <td className="px-4 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-slate-600 font-bold text-[10px]">
-                          <Calendar size={12} className="text-blue-500" /> {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px]">
-                          <Clock size={12} /> {new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
-                        </div>
+                      <div className="inline-flex items-center gap-2 text-slate-600 font-bold text-[10px]">
+                        <Calendar size={12} className="text-blue-500" /> {new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </div>
+                    </td>
+
+                    {/* Kolom Waktu Registrasi */}
+                    <td className="px-4 py-4">
+                      <div className="inline-flex items-center gap-2 text-slate-400 font-bold text-[10px]">
+                        <Clock size={12} /> {new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
                       </div>
                     </td>
 

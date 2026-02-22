@@ -405,9 +405,7 @@ export default function ManajemenPendaftaran() {
               className="w-full pl-14 pr-6 py-4 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
-            <div className="mt-4 space-y-3">
-
-  <div className="mt-5 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <div className="mt-5 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
 
     {/* LEFT SIDE - SEARCH + DATE */}
@@ -469,6 +467,7 @@ export default function ManajemenPendaftaran() {
     </div>
 
   </div>
+</div>
           </div>
         </section>
 

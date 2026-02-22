@@ -216,11 +216,18 @@ export default function ManajemenPendaftaran() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const filteredData = (registrants || []).filter(item => 
+  const filteredData = (registrants || []).filter(item => {
+  const matchSearch =
     (item?.nama || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item?.domisili || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    (item?.kategori || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+  const matchDate = filterDate
+    ? new Date(item.created_at).toISOString().split('T')[0] === filterDate
+    : true;
+
+  return matchSearch && matchDate;
+});
   
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);

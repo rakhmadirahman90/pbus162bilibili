@@ -405,26 +405,46 @@ export default function ManajemenPendaftaran() {
               className="w-full pl-14 pr-6 py-4 bg-transparent outline-none font-bold text-sm placeholder:text-slate-300"
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
-            <div className="mt-3 flex gap-3 items-center">
-  <DatePicker
-    selected={filterDate}
-    onChange={(date) => {
-      setFilterDate(date);
-      setCurrentPage(1);
-    }}
-    dateFormat="dd MMM yyyy"
-    placeholderText="Pilih tanggal"
-    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold bg-white"
-  />
+            <div className="mt-4 space-y-3">
 
-  {filterDate && (
-    <button
-      onClick={() => setFilterDate(null)}
-      className="px-4 py-2 bg-slate-200 rounded-xl text-xs font-bold"
-    >
-      Reset Tanggal
-    </button>
-  )}
+  {/* SEARCH */}
+  <div className="relative">
+    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+    <input
+      type="text"
+      placeholder="Cari berdasarkan nama, kategori, atau kota domisili..."
+      value={searchTerm}
+      onChange={(e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1);
+      }}
+      className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    />
+  </div>
+
+  {/* FILTER TANGGAL */}
+  <div className="flex items-center gap-3">
+    <DatePicker
+      selected={filterDate}
+      onChange={(date) => {
+        setFilterDate(date);
+        setCurrentPage(1);
+      }}
+      dateFormat="dd MMM yyyy"
+      placeholderText="Pilih tanggal"
+      className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-semibold bg-white"
+    />
+
+    {filterDate && (
+      <button
+        onClick={() => setFilterDate(null)}
+        className="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-semibold"
+      >
+        Reset
+      </button>
+    )}
+  </div>
+
 </div>
           </div>
         </section>

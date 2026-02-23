@@ -35,13 +35,14 @@ interface PopupConfig {
   file_url?: string; 
 }
 
-// --- FUNGSI HELPER: DETEKSI & FORMAT LINK OTOMATIS ---
+// --- FUNGSI HELPER: DETEKSI & FORMAT LINK OTOMATIS (DIPERBAIKI) ---
 const renderDescriptionWithLinks = (text: string) => {
   if (!text) return null;
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
   
   return text.split('\n').map((line, i) => (
-    <p key={i} className="mb-1 last:mb-0 break-all">
+    /* PERBAIKAN: break-all pada p tag agar link panjang tidak bocor keluar */
+    <p key={i} className="mb-1 last:mb-0 break-all overflow-hidden text-left">
       {line.split(urlRegex).map((part, index) => {
         if (part.match(urlRegex)) {
           const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
@@ -51,9 +52,10 @@ const renderDescriptionWithLinks = (text: string) => {
               href={cleanUrl} 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="text-blue-400 underline hover:text-blue-300 inline-flex items-center gap-1"
+              /* PERBAIKAN: break-all pada a tag agar link zoom terpotong dengan rapi */
+              className="text-blue-400 underline hover:text-blue-300 inline-flex items-center gap-1 break-all"
             >
-              {part} <ExternalLink size={10} />
+              {part} <ExternalLink size={10} className="shrink-0" />
             </a>
           );
         }
@@ -115,7 +117,7 @@ function SortablePopupItem({ item, toggleStatus, startEdit, handleDelete }: any)
 
       <div className="p-7 relative z-30 -mt-20">
         <h4 className="text-white font-black uppercase text-sm mb-2 italic line-clamp-1 tracking-tight">{item.judul || 'TANPA JUDUL'}</h4>
-        <div className="text-white/50 text-[11px] font-medium mb-6 line-clamp-2 leading-relaxed min-h-[2rem]">
+        <div className="text-white/50 text-[11px] font-medium mb-6 line-clamp-2 leading-relaxed min-h-[2rem] break-all">
             {item.deskripsi}
         </div>
         
@@ -380,12 +382,12 @@ export default function AdminPopup() {
                    value={newPopup.deskripsi} 
                    onChange={e => setNewPopup({...newPopup, deskripsi: e.target.value})} 
                 />
-                {/* PREVIEW TEKS REALTIME DI BAWAH INPUT */}
-                <div className="mt-2 p-4 bg-blue-500/5 rounded-xl border border-blue-500/10">
-                   <p className="text-[9px] font-black uppercase tracking-widest text-blue-400 mb-2">Live Preview Deskripsi:</p>
-                   <div className="text-[11px] text-white/60 leading-relaxed font-medium">
-                      {renderDescriptionWithLinks(newPopup.deskripsi) || <span className="italic opacity-30">Belum ada deskripsi...</span>}
-                   </div>
+                {/* PREVIEW TEKS REALTIME DI BAWAH INPUT (DIPERBAIKI) */}
+                <div className="mt-2 p-4 bg-blue-500/5 rounded-xl border border-blue-500/10 overflow-hidden">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-blue-400 mb-2">Live Preview Deskripsi:</p>
+                    <div className="text-[11px] text-white/60 leading-relaxed font-medium break-all">
+                       {renderDescriptionWithLinks(newPopup.deskripsi) || <span className="italic opacity-30">Belum ada deskripsi...</span>}
+                    </div>
                 </div>
               </div>
               

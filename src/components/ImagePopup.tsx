@@ -36,8 +36,8 @@ export default function ImagePopup() {
   }, []);
 
   /**
-   * FUNGSI FORMATTER LINK & PARAGRAF (VERSI FINAL LANDING PAGE)
-   * Menggunakan break-all secara agresif agar link tidak keluar bingkai.
+   * FUNGSI FORMATTER LINK (VERSI ULTRA BREAK)
+   * Menggunakan span dengan display: block untuk memaksa isolasi baris
    */
   const formatContent = (text: string) => {
     if (!text) return null;
@@ -50,7 +50,8 @@ export default function ImagePopup() {
       return (
         <p 
           key={`line-${lineIdx}`} 
-          className="mb-3 last:mb-0 leading-relaxed text-left break-words overflow-hidden w-full whitespace-normal"
+          className="mb-3 last:mb-0 leading-relaxed text-left break-words overflow-hidden whitespace-normal block w-full"
+          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
         >
           {line.split(urlRegex).map((part, partIdx) => {
             if (part.match(urlRegex)) {
@@ -61,15 +62,19 @@ export default function ImagePopup() {
                   href={cleanUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  /* PERBAIKAN: break-all memaksa link sepanjang apapun untuk patah baris */
-                  className="inline text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/30 underline-offset-4 transition-all break-all"
+                  className="text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/30 underline-offset-4 transition-all"
+                  style={{ 
+                    wordBreak: 'break-all', 
+                    display: 'inline',
+                    whiteSpace: 'normal'
+                  }}
                   onClick={(e) => e.stopPropagation()} 
                 >
                   {part} <ExternalLink size={12} className="inline-block mb-0.5 shrink-0" />
                 </a>
               );
             }
-            return <span key={`text-${partIdx}`} className="break-words">{part}</span>;
+            return <span key={`text-${partIdx}`} style={{ overflowWrap: 'anywhere' }}>{part}</span>;
           })}
         </p>
       );
@@ -87,7 +92,6 @@ export default function ImagePopup() {
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 sm:p-6"
         >
-          {/* Overlay Click to Close */}
           <div className="absolute inset-0" onClick={() => setIsOpen(false)} />
 
           <motion.div 
@@ -95,10 +99,11 @@ export default function ImagePopup() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 40 }}
             onClick={(e) => e.stopPropagation()} 
-            /* PERBAIKAN: Memastikan max-width terkunci dan tidak ada elemen anak yang memaksa melebar */
+            /* PENTING: max-width dikunci 440px. 
+               grid & grid-cols-1 memaksa anak elemen (teks) tidak bisa melebihi 100% lebar induk.
+            */
             className="relative w-full max-w-[440px] bg-[#0F172A] rounded-[2.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden ring-1 ring-white/10 flex flex-col max-h-[90vh]"
           >
-            {/* Tombol Close Floating */}
             <button 
               onClick={() => setIsOpen(false)}
               className="absolute top-5 right-5 z-[100] p-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full shadow-lg transition-all active:scale-90 border border-white/20"
@@ -107,7 +112,6 @@ export default function ImagePopup() {
             </button>
 
             <div ref={scrollRef} className="overflow-y-auto hide-scrollbar custom-scroll-area">
-              {/* Image Section */}
               <div className="relative aspect-[4/3] w-full bg-slate-800">
                 <img 
                   src={content.url_gambar} 
@@ -117,27 +121,27 @@ export default function ImagePopup() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
               </div>
 
-              {/* Body Content */}
-              <div className="px-8 pt-6 pb-12">
+              <div className="px-8 pt-6 pb-12 w-full flex flex-col items-center">
                 <div className="flex justify-center mb-5">
                   <span className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
                     <Zap size={14} fill="currentColor" /> Pengumuman Terbaru
                   </span>
                 </div>
 
-                <h3 className="text-2xl font-black text-white text-center italic uppercase tracking-tighter leading-tight mb-8">
+                <h3 className="text-2xl font-black text-white text-center italic uppercase tracking-tighter leading-tight mb-8 w-full">
                   {content.judul}
                 </h3>
 
-                {/* Kontainer Teks - DIKUNCI dengan w-full & overflow-hidden agar link tidak menabrak bingkai */}
-                <div className="bg-slate-900/50 rounded-[1.5rem] p-6 border border-white/5 text-slate-300 text-[14px] font-medium leading-relaxed shadow-inner overflow-hidden w-full">
-                  <div className="relative z-10 w-full break-words">
+                {/* KONTINER UTAMA: Menggunakan grid-cols-1 dan min-w-0 
+                   Ini adalah 'magic' CSS agar elemen di dalamnya tidak bisa mendorong lebar kontainer keluar.
+                */}
+                <div className="grid grid-cols-1 w-full bg-slate-900/50 rounded-[1.5rem] p-6 border border-white/5 text-slate-300 text-[14px] font-medium leading-relaxed shadow-inner overflow-hidden">
+                  <div className="min-w-0 w-full break-words">
                     {formatContent(content.deskripsi)}
                   </div>
                 </div>
 
-                {/* Tombol Aksi */}
-                <div className="mt-8 space-y-3">
+                <div className="mt-8 space-y-3 w-full">
                   {content.file_url && (
                     <a 
                       href={content.file_url}

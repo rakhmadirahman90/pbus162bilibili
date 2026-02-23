@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Zap, Download } from 'lucide-react'; 
+import { X, Zap, Download, ExternalLink } from 'lucide-react'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabase';
 
@@ -17,10 +17,7 @@ export default function ImagePopup() {
           .eq('is_active', true)
           .order('urutan', { ascending: true });
 
-        if (error) {
-          console.error("Supabase Error:", error.message);
-          return;
-        }
+        if (error) return;
 
         if (data && data.length > 0) {
           const selected = data.find((item: any) => item.file_url) || data[0];
@@ -32,61 +29,46 @@ export default function ImagePopup() {
           return () => clearTimeout(timer);
         }
       } catch (err) {
-        console.error("System Error:", err);
+        console.error(err);
       }
     };
-
     fetchActivePopup();
   }, []);
 
-  useEffect(() => {
-    let scrollInterval: any;
-    if (isOpen && scrollRef.current) {
-      const startTimeout = setTimeout(() => {
-        scrollInterval = setInterval(() => {
-          if (scrollRef.current) {
-            const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-            if (scrollTop + clientHeight >= scrollHeight - 2) {
-              clearInterval(scrollInterval);
-            } else {
-              scrollRef.current.scrollBy({ top: 1, behavior: 'auto' });
-            }
-          }
-        }, 40); 
-      }, 2500);
-      return () => { clearInterval(scrollInterval); clearTimeout(startTimeout); };
-    }
-  }, [isOpen]);
-
-  // --- KODE BARU: FORMATTER TEKS & LINK OTOMATIS ---
-  const formatRichText = (text: string) => {
+  // --- FUNGSI FORMATTER LINK & PARAGRAF SUPER PRESISI ---
+  const formatContent = (text: string) => {
     if (!text) return null;
 
-    // Regex untuk mendeteksi link http/https/www
+    // 1. Regex untuk mendeteksi link (mendukung http, https, dan www)
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
-    
-    // Pecah teks berdasarkan baris baru terlebih dahulu agar urutan paragraf terjaga
-    return text.split('\n').map((line, i) => (
-      <span key={i} className="block mb-2">
-        {line.split(urlRegex).map((part, index) => {
-          if (part.match(urlRegex)) {
-            const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
-            return (
-              <a
-                key={index}
-                href={cleanUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:text-blue-300 underline break-all font-semibold inline-block"
-              >
-                {part}
-              </a>
-            );
-          }
-          return part;
-        })}
-      </span>
-    ));
+
+    // 2. Split berdasarkan baris baru agar paragraf tetap terjaga
+    return text.split('\n').map((line, lineIdx) => {
+      // Jika baris kosong, berikan jarak (spacer)
+      if (line.trim() === "") return <div key={lineIdx} className="h-3" />;
+
+      return (
+        <p key={lineIdx} className="mb-2 last:mb-0 leading-relaxed text-justify">
+          {line.split(urlRegex).map((part, partIdx) => {
+            if (part.match(urlRegex)) {
+              const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
+              return (
+                <a
+                  key={partIdx}
+                  href={cleanUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/30 underline-offset-4 break-all transition-colors"
+                >
+                  {part} <ExternalLink size={10} />
+                </a>
+              );
+            }
+            return part;
+          })}
+        </p>
+      );
+    });
   };
 
   if (!content) return null;
@@ -95,85 +77,75 @@ export default function ImagePopup() {
     <AnimatePresence mode="wait">
       {isOpen && (
         <motion.div 
-          key={content.id || 'popup-wrapper'}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
+          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-6"
         >
           <motion.div 
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            className="relative w-full max-w-[420px] max-h-[90vh]"
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="relative w-full max-w-[440px] bg-[#0F172A] rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden ring-1 ring-white/10 flex flex-col max-h-[85vh]"
           >
-            {/* Tombol Tutup */}
+            {/* Tombol Close Modern */}
             <button 
               onClick={() => setIsOpen(false)}
-              className="absolute -top-12 right-0 flex items-center gap-2 group"
+              className="absolute top-4 right-4 z-50 p-2 bg-black/20 hover:bg-rose-500 text-white rounded-full backdrop-blur-md transition-all border border-white/10"
             >
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">Tutup</span>
-              <div className="p-2 bg-white/10 text-white rounded-full border border-white/20 group-hover:bg-white group-hover:text-black transition-all">
-                <X size={18} />
-              </div>
+              <X size={20} />
             </button>
 
-            <div className="bg-[#0F172A] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl flex flex-col h-full ring-1 ring-white/5">
-              <div ref={scrollRef} className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth">
-                
-                {/* Image Section */}
-                <div className="relative w-full bg-slate-900 border-b border-white/5">
-                  <img src={content.url_gambar} className="w-full h-auto block object-cover" alt="Popup" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
+            <div ref={scrollRef} className="overflow-y-auto hide-scrollbar">
+              {/* Image Section dengan Overlay */}
+              <div className="relative aspect-video w-full bg-slate-800">
+                <img src={content.url_gambar} className="w-full h-full object-cover" alt="Banner" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
+              </div>
+
+              {/* Body Content */}
+              <div className="px-8 pt-4 pb-10">
+                <div className="flex justify-center mb-4">
+                  <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <Zap size={12} fill="currentColor" /> Breaking News
+                  </span>
                 </div>
 
-                {/* Content Section */}
-                <div className="px-8 pb-10 pt-6">
-                  <div className="flex justify-center mb-5">
-                    <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[9px] font-black uppercase flex items-center gap-2 tracking-widest">
-                      <Zap size={12} className="fill-blue-400" /> Informasi Terbaru
-                    </div>
-                  </div>
-                  
-                  <h3 className="text-xl font-black italic uppercase text-white mb-4 tracking-tight leading-tight text-center">
-                    {content.judul}
-                  </h3>
-                  
-                  {/* TEXT CONTAINER: Disini perbaikan utamanya */}
-                  <div className="text-slate-300 text-[13px] leading-relaxed text-left bg-white/5 p-5 rounded-2xl border border-white/5 mb-8 overflow-hidden">
-                    <div className="whitespace-pre-wrap break-words">
-                      {formatRichText(content.deskripsi)}
-                    </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="space-y-3">
-                    {content.file_url && (
-                      <motion.a 
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        href={content.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg border border-blue-400/20"
-                      >
-                        <Download size={16} /> DOWNLOAD LAMPIRAN
-                      </motion.a>
-                    )}
+                <h3 className="text-xl font-black text-white text-center italic uppercase tracking-tight leading-tight mb-6">
+                  {content.judul}
+                </h3>
 
-                    <button 
-                      onClick={() => setIsOpen(false)} 
-                      className="w-full py-4.5 bg-slate-800 hover:bg-white hover:text-slate-950 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all border border-white/10"
-                    >
-                      SAYA MENGERTI
-                    </button>
+                {/* Kontainer Teks yang Rapih */}
+                <div className="bg-slate-800/50 rounded-2xl p-5 border border-white/5 text-slate-300 text-[13px] font-medium leading-loose shadow-inner">
+                  <div className="whitespace-pre-wrap">
+                    {formatContent(content.deskripsi)}
                   </div>
+                </div>
+
+                {/* Tombol Aksi */}
+                <div className="mt-8 space-y-3">
+                  {content.file_url && (
+                    <a 
+                      href={content.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-3 w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg shadow-blue-900/20"
+                    >
+                      <Download size={16} /> Unduh Lampiran
+                    </a>
+                  )}
+                  <button 
+                    onClick={() => setIsOpen(false)} 
+                    className="w-full py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all border border-white/10"
+                  >
+                    Tutup Pengumuman
+                  </button>
                 </div>
               </div>
             </div>
           </motion.div>
         </motion.div>
       )}
-      <style dangerouslySetInnerHTML={{ __html: `.hide-scrollbar::-webkit-scrollbar { display: none; }` }} />
+      <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
     </AnimatePresence>
   );
 }

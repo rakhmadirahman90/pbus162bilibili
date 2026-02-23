@@ -3,10 +3,18 @@ import { supabase } from "../supabase";
 import { 
   Newspaper, Plus, Trash2, Edit3, Save, X, 
   Image as ImageIcon, Calendar, Tag, Loader2, Zap, Search, AlertCircle, 
-  Filter, ArrowUpDown, Clock, Upload, Maximize, Check
+  Filter, ArrowUpDown, Clock, Upload, Maximize, Check, MessageSquare, User, Trash
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import Cropper from 'react-easy-crop'; // Library untuk Crop
+import Cropper from 'react-easy-crop';
+
+interface Komentar {
+  id: string;
+  nama_user: string;
+  isi_komentar: string;
+  tanggal: string;
+  berita_id: string;
+}
 
 interface Berita {
   id: string;
@@ -17,6 +25,7 @@ interface Berita {
   gambar_url: string;
   tanggal: string;
   created_at?: string;
+  comments_count?: number; // Tambahan untuk hitung komentar
 }
 
 export default function AdminBerita() {
@@ -26,6 +35,12 @@ export default function AdminBerita() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // --- STATE KOMENTAR ---
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+  const [selectedNewsForComments, setSelectedNewsForComments] = useState<Berita | null>(null);
+  const [comments, setComments] = useState<Komentar[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+
   // --- STATE UPLOAD & CROP ---
   const [isUploading, setIsUploading] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
@@ -61,9 +76,47 @@ export default function AdminBerita() {
 
   const fetchNews = async () => {
     setLoading(true);
-    const { data } = await supabase.from('berita').select('*').order('tanggal', { ascending: false });
-    if (data) setNews(data);
+    // Fetch berita beserta jumlah komentar
+    const { data, error } = await supabase
+      .from('berita')
+      .select(`*, comments_count:komentar(count)`)
+      .order('tanggal', { ascending: false });
+
+    if (data) {
+      const formattedData = data.map(item => ({
+        ...item,
+        comments_count: item.comments_count?.[0]?.count || 0
+      }));
+      setNews(formattedData);
+    }
     setLoading(false);
+  };
+
+  // --- LOGIKA MODERASI KOMENTAR ---
+  const openCommentModal = async (item: Berita) => {
+    setSelectedNewsForComments(item);
+    setIsCommentModalOpen(true);
+    setLoadingComments(true);
+    
+    const { data, error } = await supabase
+      .from('komentar')
+      .select('*')
+      .eq('berita_id', item.id)
+      .order('tanggal', { ascending: false });
+
+    if (data) setComments(data);
+    setLoadingComments(false);
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (window.confirm("Hapus komentar ini secara permanen?")) {
+      const { error } = await supabase.from('komentar').delete().eq('id', commentId);
+      if (!error) {
+        setComments(comments.filter(c => c.id !== commentId));
+        // Update hitungan di list utama
+        setNews(news.map(n => n.id === selectedNewsForComments?.id ? { ...n, comments_count: (n.comments_count || 1) - 1 } : n));
+      }
+    }
   };
 
   // --- LOGIKA CROPPER ---
@@ -143,7 +196,7 @@ export default function AdminBerita() {
         .getPublicUrl(filePath);
 
       setFormData({ ...formData, gambar_url: publicUrl });
-      setImageToCrop(null); // Tutup cropper setelah sukses
+      setImageToCrop(null);
     } catch (err: any) {
       setFormError("Gagal: " + err.message);
     } finally {
@@ -175,7 +228,7 @@ export default function AdminBerita() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Hapus Berita?")) {
+    if (window.confirm("Hapus Berita? Seluruh komentar terkait juga akan terhapus.")) {
       await supabase.from('berita').delete().eq('id', id);
       fetchNews();
     }
@@ -195,7 +248,6 @@ export default function AdminBerita() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 relative overflow-hidden">
-      {/* Background Decor */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10" />
       
       <div className="max-w-7xl mx-auto relative z-10">
@@ -253,8 +305,14 @@ export default function AdminBerita() {
                   <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded-lg text-[8px] font-black uppercase text-blue-400">{item.kategori}</div>
                 </div>
                 <div className="flex-grow space-y-2">
-                  <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-bold">
-                    <Clock size={12} className="text-blue-600" /> {item.tanggal}
+                  <div className="flex items-center gap-4 text-zinc-500 text-[10px] font-bold">
+                    <div className="flex items-center gap-1.5"><Clock size={12} className="text-blue-600" /> {item.tanggal}</div>
+                    <button 
+                      onClick={() => openCommentModal(item)}
+                      className="flex items-center gap-1.5 bg-blue-600/10 text-blue-400 px-2 py-1 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
+                    >
+                      <MessageSquare size={12} /> {item.comments_count || 0} Komentar
+                    </button>
                   </div>
                   <h3 className="text-xl font-black italic uppercase tracking-tighter group-hover:text-blue-500 transition-colors">{item.judul}</h3>
                   <p className="text-zinc-400 text-sm line-clamp-1 italic font-medium opacity-70">{item.ringkasan}</p>
@@ -288,13 +346,12 @@ export default function AdminBerita() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase">Kategori</label>
-                  <select className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 outline-none font-bold text-sm" value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})}>
+                  <select className="w-full px-6 py-4 bg-white/5 rounded-2xl border border-white/5 outline-none font-bold text-sm text-zinc-400" value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})}>
                     <option value="Prestasi">Prestasi</option><option value="Fasilitas">Fasilitas</option><option value="Program">Program</option><option value="Turnamen">Turnamen</option>
                   </select>
                 </div>
               </div>
 
-              {/* UPLOAD & IMAGE SECTION */}
               <div className="space-y-4">
                  <label className="text-[10px] font-black text-zinc-500 uppercase">Upload & Crop Gambar Utama</label>
                  {!imageToCrop ? (
@@ -357,6 +414,51 @@ export default function AdminBerita() {
         </div>
       )}
 
+      {/* MODAL MODERASI KOMENTAR */}
+      {isCommentModalOpen && selectedNewsForComments && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/98 backdrop-blur-xl">
+          <div className="bg-[#0c0c0c] w-full max-w-2xl rounded-[3rem] overflow-hidden border border-white/10 flex flex-col max-h-[85vh]">
+            <div className="p-8 border-b border-white/5 flex justify-between items-center bg-zinc-900/50">
+              <div>
+                <h3 className="text-xl font-black italic uppercase tracking-tighter">Moderasi <span className="text-blue-600">Komentar</span></h3>
+                <p className="text-[9px] text-zinc-500 font-bold uppercase mt-1 truncate max-w-[300px]">{selectedNewsForComments.judul}</p>
+              </div>
+              <button onClick={() => setIsCommentModalOpen(false)} className="p-3 hover:bg-red-500/10 hover:text-red-500 rounded-full text-zinc-500 transition-all"><X size={24}/></button>
+            </div>
+
+            <div className="p-8 overflow-y-auto custom-scrollbar space-y-4">
+              {loadingComments ? (
+                <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" /></div>
+              ) : comments.length > 0 ? (
+                comments.map((c) => (
+                  <div key={c.id} className="bg-white/5 p-6 rounded-2xl border border-white/5 flex justify-between items-start gap-4 group">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-blue-600/20 rounded-full flex items-center justify-center text-[10px] text-blue-500 font-black italic"><User size={12}/></div>
+                        <span className="text-xs font-black uppercase italic text-zinc-300">{c.nama_user}</span>
+                        <span className="text-[9px] font-bold text-zinc-500">{new Date(c.tanggal).toLocaleDateString('id-ID')}</span>
+                      </div>
+                      <p className="text-sm text-zinc-400 font-medium leading-relaxed">{c.isi_komentar}</p>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteComment(c.id)}
+                      className="p-3 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"
+                    >
+                      <Trash size={16} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="py-20 text-center space-y-3">
+                  <MessageSquare className="mx-auto text-zinc-800" size={48} />
+                  <p className="text-zinc-600 font-black uppercase tracking-widest text-xs">Belum ada komentar untuk berita ini.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Success Notification */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0'}`}>
         <div className="bg-zinc-900/95 border border-blue-500/50 px-10 py-6 rounded-[2.5rem] shadow-2xl flex items-center gap-6">
@@ -372,6 +474,7 @@ export default function AdminBerita() {
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        select option { background: #0c0c0c; color: white; }
       `}</style>
     </div>
   );

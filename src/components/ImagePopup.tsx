@@ -36,8 +36,8 @@ export default function ImagePopup() {
   }, []);
 
   /**
-   * FUNGSI FORMATTER LINK (VERSI ULTRA BREAK)
-   * Menggunakan span dengan display: block untuk memaksa isolasi baris
+   * FUNGSI FORMATTER (VERSI PERBAIKAN TOTAL)
+   * Memaksa link menjadi block atau inline-block agar word-break bekerja maksimal
    */
   const formatContent = (text: string) => {
     if (!text) return null;
@@ -50,8 +50,13 @@ export default function ImagePopup() {
       return (
         <p 
           key={`line-${lineIdx}`} 
-          className="mb-3 last:mb-0 leading-relaxed text-left break-words overflow-hidden whitespace-normal block w-full"
-          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+          className="mb-3 last:mb-0 leading-relaxed text-left whitespace-normal"
+          style={{ 
+            wordBreak: 'break-word', 
+            overflowWrap: 'anywhere',
+            display: 'block',
+            width: '100%' 
+          }}
         >
           {line.split(urlRegex).map((part, partIdx) => {
             if (part.match(urlRegex)) {
@@ -62,15 +67,19 @@ export default function ImagePopup() {
                   href={cleanUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  /* Link dipaksa break-all dan overflow-wrap anywhere */
                   className="text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/30 underline-offset-4 transition-all"
                   style={{ 
                     wordBreak: 'break-all', 
-                    display: 'inline',
-                    whiteSpace: 'normal'
+                    overflowWrap: 'anywhere',
+                    display: 'inline-block', // Mengubah ke inline-block agar kontainer lebih patuh
+                    maxWidth: '100%',
+                    verticalAlign: 'bottom'
                   }}
                   onClick={(e) => e.stopPropagation()} 
                 >
-                  {part} <ExternalLink size={12} className="inline-block mb-0.5 shrink-0" />
+                  <span className="break-all">{part}</span>
+                  <ExternalLink size={12} className="inline-block ml-1 mb-0.5 shrink-0" />
                 </a>
               );
             }
@@ -90,7 +99,7 @@ export default function ImagePopup() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 sm:p-6"
+          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
         >
           <div className="absolute inset-0" onClick={() => setIsOpen(false)} />
 
@@ -99,65 +108,64 @@ export default function ImagePopup() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 40 }}
             onClick={(e) => e.stopPropagation()} 
-            /* PENTING: max-width dikunci 440px. 
-               grid & grid-cols-1 memaksa anak elemen (teks) tidak bisa melebihi 100% lebar induk.
-            */
-            className="relative w-full max-w-[440px] bg-[#0F172A] rounded-[2.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden ring-1 ring-white/10 flex flex-col max-h-[90vh]"
+            /* Perbaikan Struktur: Menggunakan table-fixed secara simulasi dengan w-full + overflow-hidden */
+            className="relative w-full max-w-[440px] bg-[#0F172A] rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
           >
+            {/* Close Button */}
             <button 
               onClick={() => setIsOpen(false)}
-              className="absolute top-5 right-5 z-[100] p-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full shadow-lg transition-all active:scale-90 border border-white/20"
+              className="absolute top-5 right-5 z-[100] p-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full transition-all active:scale-90 border border-white/20"
             >
               <X size={20} strokeWidth={3} />
             </button>
 
             <div ref={scrollRef} className="overflow-y-auto hide-scrollbar custom-scroll-area">
-              <div className="relative aspect-[4/3] w-full bg-slate-800">
+              {/* Gambar */}
+              <div className="relative aspect-[4/3] w-full bg-slate-800 shrink-0">
                 <img 
                   src={content.url_gambar} 
                   className="w-full h-full object-cover" 
-                  alt="Popup Visual" 
+                  alt="Popup" 
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent" />
               </div>
 
-              <div className="px-8 pt-6 pb-12 w-full flex flex-col items-center">
+              {/* Konten */}
+              <div className="px-6 sm:px-8 pt-6 pb-10 w-full">
                 <div className="flex justify-center mb-5">
-                  <span className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Zap size={14} fill="currentColor" /> Pengumuman Terbaru
+                  <span className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <Zap size={14} fill="currentColor" /> Pengumuman
                   </span>
                 </div>
 
-                <h3 className="text-2xl font-black text-white text-center italic uppercase tracking-tighter leading-tight mb-8 w-full">
+                <h3 className="text-xl sm:text-2xl font-black text-white text-center uppercase tracking-tighter mb-6">
                   {content.judul}
                 </h3>
 
-                {/* KONTINER UTAMA: Menggunakan grid-cols-1 dan min-w-0 
-                   Ini adalah 'magic' CSS agar elemen di dalamnya tidak bisa mendorong lebar kontainer keluar.
-                */}
-                <div className="grid grid-cols-1 w-full bg-slate-900/50 rounded-[1.5rem] p-6 border border-white/5 text-slate-300 text-[14px] font-medium leading-relaxed shadow-inner overflow-hidden">
-                  <div className="min-w-0 w-full break-words">
+                {/* AREA KRUSIAL: Penggunaan min-w-0 untuk mematahkan paksaan lebar konten */}
+                <div className="w-full min-w-0 bg-slate-900/50 rounded-3xl p-5 border border-white/5 text-slate-300 text-sm shadow-inner overflow-hidden">
+                  <div className="w-full min-w-0">
                     {formatContent(content.deskripsi)}
                   </div>
                 </div>
 
-                <div className="mt-8 space-y-3 w-full">
+                {/* Tombol */}
+                <div className="mt-8 space-y-3">
                   {content.file_url && (
                     <a 
                       href={content.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-3 w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] transition-all shadow-xl shadow-blue-900/40 active:scale-95"
+                      className="flex items-center justify-center gap-3 w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold uppercase text-[11px] tracking-widest transition-all"
                     >
-                      <Download size={18} /> Unduh File Lampiran
+                      <Download size={18} /> Unduh Lampiran
                     </a>
                   )}
-                  
                   <button 
                     onClick={() => setIsOpen(false)} 
-                    className="w-full py-5 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] transition-all border border-white/10 active:scale-95"
+                    className="w-full py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-bold uppercase text-[11px] tracking-widest transition-all border border-white/10"
                   >
-                    Tutup
+                    Saya Mengerti
                   </button>
                 </div>
               </div>
@@ -169,7 +177,6 @@ export default function ImagePopup() {
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .custom-scroll-area { scroll-behavior: smooth; }
       `}</style>
     </AnimatePresence>
   );

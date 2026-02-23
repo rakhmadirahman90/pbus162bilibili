@@ -1,4 +1,4 @@
-import { Calendar, ArrowRight, X, ChevronDown, ChevronUp, Loader2, User, Eye, Heart, MessageCircle, Send } from 'lucide-react';
+import { Calendar, ArrowRight, X, ChevronDown, ChevronUp, Loader2, User, Eye, Heart, MessageCircle, Send, Share2, Link2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from "../supabase";
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,7 +32,6 @@ export default function News() {
   const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Menggunakan localStorage agar status "liked" bertahan meski halaman direfresh
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   // State Baru untuk Komentar
@@ -40,16 +39,17 @@ export default function News() {
   const [newComment, setNewComment] = useState({ nama: '', pesan: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // State Baru untuk Berbagi
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+
   useEffect(() => {
     fetchNews();
-    // Load liked posts dari local storage saat inisialisasi
     const savedLikes = localStorage.getItem('pb_us_liked_posts');
     if (savedLikes) {
       setLikedPosts(new Set(JSON.parse(savedLikes)));
     }
   }, []);
 
-  // Simpan status like ke local storage setiap kali berubah
   useEffect(() => {
     localStorage.setItem('pb_us_liked_posts', JSON.stringify(Array.from(likedPosts)));
   }, [likedPosts]);
@@ -97,11 +97,9 @@ export default function News() {
     fetchComments(news.id);
     
     try {
-      // Menggunakan RPC increment_views di Supabase
       const { error } = await supabase.rpc('increment_views', { row_id: news.id });
       
       if (error) {
-        // Fallback jika RPC belum dibuat
         await supabase
           .from('berita')
           .update({ views: (news.views || 0) + 1 })
@@ -146,12 +144,10 @@ export default function News() {
     }
   };
 
-  // --- LOGIKA LIKE BERITA LENGKAP ---
   const handleLike = async (e: React.MouseEvent, newsId: string) => {
     e.stopPropagation(); 
     const isLiked = likedPosts.has(newsId);
     
-    // Optimistic Update UI
     const newLikedPosts = new Set(likedPosts);
     if (isLiked) newLikedPosts.delete(newsId);
     else newLikedPosts.add(newsId);
@@ -162,7 +158,6 @@ export default function News() {
       const currentLikes = newsItem?.likes || 0;
       const newLikeCount = isLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1;
 
-      // Update Database
       const { error } = await supabase
         .from('berita')
         .update({ likes: newLikeCount })
@@ -170,20 +165,44 @@ export default function News() {
 
       if (error) throw error;
 
-      // Update State Global
       setBeritaList(prev => prev.map(item => 
         item.id === newsId ? { ...item, likes: newLikeCount } : item
       ));
 
-      // Update State Modal jika sedang terbuka
       if (selectedNews?.id === newsId) {
         setSelectedNews(prev => prev ? { ...prev, likes: newLikeCount } : null);
       }
 
     } catch (err) {
       console.error("Gagal update likes:", err);
-      // Revert status like jika gagal database
       setLikedPosts(likedPosts);
+    }
+  };
+
+  // --- FUNGSI BARU: BERBAGI BERITA ---
+  const handleShare = async (news: Berita, platform: 'wa' | 'fb' | 'x' | 'copy') => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?newsId=${news.id}`;
+    const shareText = `Cek berita terbaru dari PB US 162: "${news.judul}"`;
+
+    switch (platform) {
+      case 'wa':
+        window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank');
+        break;
+      case 'fb':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+        break;
+      case 'x':
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+        break;
+      case 'copy':
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          setCopySuccess(news.id);
+          setTimeout(() => setCopySuccess(null), 2000);
+        } catch (err) {
+          console.error("Gagal menyalin tautan", err);
+        }
+        break;
     }
   };
 
@@ -219,7 +238,15 @@ export default function News() {
                 <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
                   {news.kategori}
                 </div>
-                {/* Tombol Like di Card */}
+                
+                {/* Overlay Share Cepat saat Hover */}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                   <button onClick={() => handleShare(news, 'wa')} className="p-2 bg-green-500 text-white rounded-full hover:scale-110 transition-transform"><Share2 size={16} /></button>
+                   <button onClick={() => handleShare(news, 'copy')} className="p-2 bg-white text-gray-900 rounded-full hover:scale-110 transition-transform">
+                      {copySuccess === news.id ? <span className="text-[8px] font-bold px-1">COPIED</span> : <Link2 size={16} />}
+                   </button>
+                </div>
+
                 <button 
                   onClick={(e) => handleLike(e, news.id)}
                   className={`absolute bottom-4 right-4 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 z-10 ${likedPosts.has(news.id) ? 'bg-rose-500 text-white' : 'bg-white text-gray-400 hover:text-rose-500'}`}
@@ -278,7 +305,6 @@ export default function News() {
                   <img src={selectedNews.gambar_url} alt={selectedNews.judul} className="w-full h-auto block max-h-[70vh] object-contain object-top" />
                   <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent"></div>
                   
-                  {/* Floating Like Button in Modal */}
                   <button 
                     onClick={(e) => handleLike(e, selectedNews.id)}
                     className={`absolute bottom-8 right-8 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 z-[130] ${likedPosts.has(selectedNews.id) ? 'bg-rose-500 text-white' : 'bg-white text-gray-400 hover:text-rose-500'}`}
@@ -288,14 +314,22 @@ export default function News() {
                 </div>
                 
                 <div className="p-8 md:p-14 bg-white relative -mt-6 rounded-t-[2.5rem]">
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                  {/* SHARE TOOLS BAR */}
+                  <div className="flex flex-wrap items-center justify-between gap-6 mb-12 p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Bagikan Informasi Ini</p>
+                      <div className="flex gap-3">
+                        <button onClick={() => handleShare(selectedNews, 'wa')} className="w-10 h-10 bg-[#25D366] text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-green-100"><Share2 size={18} /></button>
+                        <button onClick={() => handleShare(selectedNews, 'fb')} className="w-10 h-10 bg-[#1877F2] text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-blue-100 font-bold">f</button>
+                        <button onClick={() => handleShare(selectedNews, 'x')} className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-gray-200"><X size={16} /></button>
+                        <button onClick={() => handleShare(selectedNews, 'copy')} className="flex items-center gap-2 px-4 bg-white text-gray-600 rounded-full border border-gray-200 hover:bg-gray-100 transition-colors text-xs font-bold uppercase">
+                          <Link2 size={16} /> {copySuccess === selectedNews.id ? 'Tersalin!' : 'Salin Link'}
+                        </button>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-4">
                       <span className="bg-blue-600 text-white px-5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-200">{selectedNews.kategori}</span>
                       <div className="flex items-center text-gray-400 text-xs font-bold uppercase tracking-widest italic"><Calendar size={16} className="mr-2 text-blue-500" /> {selectedNews.tanggal}</div>
-                    </div>
-                    <div className="flex items-center gap-6 text-gray-400 border-l pl-6 border-gray-100">
-                       <div className="flex flex-col items-center"><span className="text-[10px] font-black uppercase text-gray-300">Views</span><span className="text-sm font-bold text-gray-900">{selectedNews.views || 0}</span></div>
-                       <div className="flex flex-col items-center"><span className="text-[10px] font-black uppercase text-gray-300">Likes</span><span className="text-sm font-bold text-gray-900">{selectedNews.likes || 0}</span></div>
                     </div>
                   </div>
                   

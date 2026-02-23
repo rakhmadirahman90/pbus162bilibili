@@ -58,32 +58,35 @@ export default function ImagePopup() {
     }
   }, [isOpen]);
 
-  // KODE BARU: Fungsi untuk mendeteksi URL dan mengubahnya menjadi link yang bisa diklik
-  const renderDescription = (text: string) => {
+  // --- KODE BARU: FORMATTER TEKS & LINK OTOMATIS ---
+  const formatRichText = (text: string) => {
     if (!text) return null;
-    
-    // Regex untuk mendeteksi URL (http, https, www)
+
+    // Regex untuk mendeteksi link http/https/www
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
     
-    const parts = text.split(urlRegex);
-    
-    return parts.map((part, index) => {
-      if (part.match(urlRegex)) {
-        const href = part.startsWith('www.') ? `https://${part}` : part;
-        return (
-          <a 
-            key={index} 
-            href={href} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="text-blue-400 hover:text-blue-300 underline underline-offset-4 break-all font-bold"
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
+    // Pecah teks berdasarkan baris baru terlebih dahulu agar urutan paragraf terjaga
+    return text.split('\n').map((line, i) => (
+      <span key={i} className="block mb-2">
+        {line.split(urlRegex).map((part, index) => {
+          if (part.match(urlRegex)) {
+            const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
+            return (
+              <a
+                key={index}
+                href={cleanUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 underline break-all font-semibold inline-block"
+              >
+                {part}
+              </a>
+            );
+          }
+          return part;
+        })}
+      </span>
+    ));
   };
 
   if (!content) return null;
@@ -101,8 +104,9 @@ export default function ImagePopup() {
           <motion.div 
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
-            className="relative w-full max-w-[400px] max-h-[85vh]"
+            className="relative w-full max-w-[420px] max-h-[90vh]"
           >
+            {/* Tombol Tutup */}
             <button 
               onClick={() => setIsOpen(false)}
               className="absolute -top-12 right-0 flex items-center gap-2 group"
@@ -115,45 +119,54 @@ export default function ImagePopup() {
 
             <div className="bg-[#0F172A] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl flex flex-col h-full ring-1 ring-white/5">
               <div ref={scrollRef} className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth">
-                <div className="relative w-full bg-slate-900">
-                  <img src={content.url_gambar} className="w-full h-auto block" alt="Popup" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] to-transparent" />
+                
+                {/* Image Section */}
+                <div className="relative w-full bg-slate-900 border-b border-white/5">
+                  <img src={content.url_gambar} className="w-full h-auto block object-cover" alt="Popup" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
                 </div>
 
-                <div className="px-10 pb-12 pt-6 text-center">
-                  <div className="flex justify-center mb-6">
-                    <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[9px] font-black uppercase flex items-center gap-2">
-                      <Zap size={12} className="fill-blue-400" /> Pengumuman Resmi
+                {/* Content Section */}
+                <div className="px-8 pb-10 pt-6">
+                  <div className="flex justify-center mb-5">
+                    <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[9px] font-black uppercase flex items-center gap-2 tracking-widest">
+                      <Zap size={12} className="fill-blue-400" /> Informasi Terbaru
                     </div>
                   </div>
                   
-                  <h3 className="text-2xl font-black italic uppercase text-white mb-3 tracking-tighter leading-tight">
+                  <h3 className="text-xl font-black italic uppercase text-white mb-4 tracking-tight leading-tight text-center">
                     {content.judul}
                   </h3>
                   
-                  {/* PERBAIKAN: Menggunakan renderDescription dan CSS whitespace untuk kerapian */}
-                  <div className="text-slate-400 text-[12px] mb-10 uppercase tracking-wide leading-relaxed whitespace-pre-line">
-                    {renderDescription(content.deskripsi)}
+                  {/* TEXT CONTAINER: Disini perbaikan utamanya */}
+                  <div className="text-slate-300 text-[13px] leading-relaxed text-left bg-white/5 p-5 rounded-2xl border border-white/5 mb-8 overflow-hidden">
+                    <div className="whitespace-pre-wrap break-words">
+                      {formatRichText(content.deskripsi)}
+                    </div>
                   </div>
                   
-                  {content.file_url && (
-                    <motion.a 
-                      key="download-button"
-                      href={content.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-3 w-full py-4 mb-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg border border-blue-400/20"
-                    >
-                      <Download size={16} /> DOWNLOAD LAMPIRAN
-                    </motion.a>
-                  )}
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
+                    {content.file_url && (
+                      <motion.a 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        href={content.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg border border-blue-400/20"
+                      >
+                        <Download size={16} /> DOWNLOAD LAMPIRAN
+                      </motion.a>
+                    )}
 
-                  <button 
-                    onClick={() => setIsOpen(false)} 
-                    className="w-full py-4.5 bg-white text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-[0.3em]"
-                  >
-                    SAYA MENGERTI
-                  </button>
+                    <button 
+                      onClick={() => setIsOpen(false)} 
+                      className="w-full py-4.5 bg-slate-800 hover:bg-white hover:text-slate-950 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all border border-white/10"
+                    >
+                      SAYA MENGERTI
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

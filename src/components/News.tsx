@@ -1,18 +1,17 @@
-import { Calendar, ArrowRight, X, ChevronDown, ChevronUp, Loader2, User, Eye, Heart, MessageCircle, Plus } from 'lucide-react';
+import { Calendar, ArrowRight, X, ChevronDown, ChevronUp, Loader2, User, Eye, Heart, MessageCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from "../supabase";
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Definisi tipe data yang diperluas
+// Definisi tipe data yang diperluas dengan ID sebagai string (UUID)
 interface Berita {
-  id: string | number;
+  id: string; 
   judul: string;
   ringkasan: string;
   konten: string;
   kategori: string;
   gambar_url: string;
   tanggal: string;
-  // Metadata baru
   penulis?: string;
   views?: number;
   likes?: number;
@@ -24,7 +23,7 @@ export default function News() {
   const [selectedNews, setSelectedNews] = useState<Berita | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [likedPosts, setLikedPosts] = useState<Set<string | number>>(new Set());
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchNews();
@@ -39,7 +38,7 @@ export default function News() {
         .order('tanggal', { ascending: false });
 
       if (error) throw error;
-      if (data) setBeritaList(data);
+      if (data) setBeritaList(data as Berita[]);
     } catch (err) {
       console.error("Gagal memuat berita:", err);
     } finally {
@@ -47,43 +46,43 @@ export default function News() {
     }
   };
 
-  // FUNGSI INCREMENT VIEWS
+  // FUNGSI INCREMENT VIEWS (Mendukung UUID)
   const handleOpenNews = async (news: Berita) => {
     setSelectedNews(news);
     
-    // Increment di Database Supabase
     try {
+      // Memanggil RPC 'increment_views' dengan parameter row_id tipe UUID
       const { error } = await supabase.rpc('increment_views', { row_id: news.id });
       
       if (error) {
-        // Fallback jika RPC tidak tersedia
+        console.warn("RPC Gagal, menggunakan update manual:", error.message);
         await supabase
           .from('berita')
           .update({ views: (news.views || 0) + 1 })
           .eq('id', news.id);
       }
       
-      // Update state lokal agar angka langsung berubah
+      // Update state lokal agar angka langsung bertambah di UI
       setBeritaList(prev => prev.map(item => 
         item.id === news.id ? { ...item, views: (item.views || 0) + 1 } : item
       ));
     } catch (err) {
-      console.error("Gagal update views:", err);
+      console.error("Error updating views:", err);
     }
   };
 
-  // FUNGSI TOGGLE LIKE
-  const handleLike = async (e: React.MouseEvent, newsId: string | number) => {
-    e.stopPropagation(); // Mencegah modal terbuka saat klik like
+  // FUNGSI TOGGLE LIKE (Mendukung UUID)
+  const handleLike = async (e: React.MouseEvent, newsId: string) => {
+    e.stopPropagation(); 
     const isLiked = likedPosts.has(newsId);
     
     try {
       const newsItem = beritaList.find(n => n.id === newsId);
-      const newLikeCount = isLiked ? (newsItem?.likes || 1) - 1 : (newsItem?.likes || 0) + 1;
+      const newLikeCount = isLiked ? Math.max(0, (newsItem?.likes || 1) - 1) : (newsItem?.likes || 0) + 1;
 
       const { error } = await supabase
         .from('berita')
-        .update({ likes: Math.max(0, newLikeCount) })
+        .update({ likes: newLikeCount })
         .eq('id', newsId);
 
       if (!error) {
@@ -93,7 +92,7 @@ export default function News() {
         setLikedPosts(newLikedPosts);
 
         setBeritaList(prev => prev.map(item => 
-          item.id === newsId ? { ...item, likes: Math.max(0, newLikeCount) } : item
+          item.id === newsId ? { ...item, likes: newLikeCount } : item
         ));
       }
     } catch (err) {
@@ -122,14 +121,12 @@ export default function News() {
           <p className="text-xl text-gray-600">Update terbaru tentang prestasi dan kegiatan klub PB US 162</p>
         </div>
 
-        {/* Grid List Berita */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {visibleNews.map((news) => (
             <div
               key={news.id}
-              className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all group flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 border border-gray-100"
+              className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all group flex flex-col border border-gray-100"
             >
-              {/* Image Section */}
               <div className="relative h-48 overflow-hidden bg-gray-100">
                 <img
                   src={news.gambar_url}
@@ -139,7 +136,6 @@ export default function News() {
                 <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
                   {news.kategori}
                 </div>
-                {/* Floating Action Like */}
                 <button 
                   onClick={(e) => handleLike(e, news.id)}
                   className={`absolute bottom-4 right-4 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${likedPosts.has(news.id) ? 'bg-rose-500 text-white' : 'bg-white text-gray-400 hover:text-rose-500'}`}
@@ -148,7 +144,6 @@ export default function News() {
                 </button>
               </div>
 
-              {/* Content Section */}
               <div className="p-5 flex flex-col flex-grow">
                 <div className="text-gray-400 text-[10px] mb-2 font-bold uppercase tracking-tight">
                   {news.tanggal}
@@ -160,7 +155,7 @@ export default function News() {
                   {news.judul}
                 </h3>
                 
-                {/* FOOTER METADATA - PERSIS PBSI STYLE */}
+                {/* FOOTER METADATA */}
                 <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-gray-400">
                     <div className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center">
@@ -226,11 +221,7 @@ export default function News() {
               
               <div className="overflow-y-auto hide-scrollbar flex-grow scroll-smooth">
                 <div className="relative w-full bg-slate-900">
-                  <img 
-                    src={selectedNews.gambar_url} 
-                    alt={selectedNews.judul} 
-                    className="w-full h-auto block max-h-[70vh] object-contain object-top" 
-                  />
+                  <img src={selectedNews.gambar_url} alt={selectedNews.judul} className="w-full h-auto block max-h-[70vh] object-contain object-top" />
                   <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent"></div>
                 </div>
                 
@@ -245,7 +236,6 @@ export default function News() {
                       </div>
                     </div>
 
-                    {/* Meta Detail Modal */}
                     <div className="flex items-center gap-6 text-gray-400 border-l pl-6 border-gray-100">
                        <div className="flex flex-col items-center">
                           <span className="text-[10px] font-black uppercase text-gray-300">Views</span>
@@ -265,21 +255,13 @@ export default function News() {
                   <div className="space-y-10">
                     <div className="relative pl-8 py-2">
                       <div className="absolute left-0 top-0 bottom-0 w-2 bg-blue-600 rounded-full"></div>
-                      <p className="text-xl md:text-2xl italic text-gray-600 leading-relaxed font-medium">
-                        {selectedNews.ringkasan}
-                      </p>
+                      <p className="text-xl md:text-2xl italic text-gray-600 leading-relaxed font-medium">{selectedNews.ringkasan}</p>
                     </div>
-                    
-                    <div className="text-gray-800 text-lg leading-[1.9] whitespace-pre-wrap font-medium">
-                      {selectedNews.konten}
-                    </div>
+                    <div className="text-gray-800 text-lg leading-[1.9] whitespace-pre-wrap font-medium">{selectedNews.konten}</div>
                   </div>
 
                   <div className="mt-20 pt-10 border-t border-gray-100">
-                    <button 
-                      onClick={() => setSelectedNews(null)} 
-                      className="w-full bg-gray-900 hover:bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-sm tracking-[0.4em] transition-all transform active:scale-95 shadow-xl"
-                    >
+                    <button onClick={() => setSelectedNews(null)} className="w-full bg-gray-900 hover:bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-sm tracking-[0.4em] transition-all transform active:scale-95 shadow-xl">
                       Tutup Jendela Berita
                     </button>
                   </div>

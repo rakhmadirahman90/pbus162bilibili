@@ -3,7 +3,8 @@ import { supabase } from "../supabase";
 import { 
   Newspaper, Plus, Trash2, Edit3, Save, X, 
   Image as ImageIcon, Calendar, Tag, Loader2, Zap, Search, AlertCircle, 
-  Filter, ArrowUpDown, Clock, Upload, Maximize, Check, MessageSquare, User, Trash
+  Filter, ArrowUpDown, Clock, Upload, Maximize, Check, MessageSquare, User, Trash, 
+  Heart, Send, CornerDownRight 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Cropper from 'react-easy-crop';
@@ -25,7 +26,8 @@ interface Berita {
   gambar_url: string;
   tanggal: string;
   created_at?: string;
-  comments_count?: number; // Tambahan untuk hitung komentar
+  comments_count?: number;
+  likes?: number; // Menampilkan jumlah like
 }
 
 export default function AdminBerita() {
@@ -35,11 +37,13 @@ export default function AdminBerita() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // --- STATE KOMENTAR ---
+  // --- STATE KOMENTAR & REPLY ---
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [selectedNewsForComments, setSelectedNewsForComments] = useState<Berita | null>(null);
   const [comments, setComments] = useState<Komentar[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   // --- STATE UPLOAD & CROP ---
   const [isUploading, setIsUploading] = useState(false);
@@ -76,7 +80,6 @@ export default function AdminBerita() {
 
   const fetchNews = async () => {
     setLoading(true);
-    // Fetch berita beserta jumlah komentar
     const { data, error } = await supabase
       .from('berita')
       .select(`*, comments_count:komentar(count)`)
@@ -85,14 +88,15 @@ export default function AdminBerita() {
     if (data) {
       const formattedData = data.map(item => ({
         ...item,
-        comments_count: item.comments_count?.[0]?.count || 0
+        comments_count: item.comments_count?.[0]?.count || 0,
+        likes: item.likes || 0 // Memastikan field likes terambil
       }));
       setNews(formattedData);
     }
     setLoading(false);
   };
 
-  // --- LOGIKA MODERASI KOMENTAR ---
+  // --- LOGIKA MODERASI & REPLY KOMENTAR ---
   const openCommentModal = async (item: Berita) => {
     setSelectedNewsForComments(item);
     setIsCommentModalOpen(true);
@@ -108,12 +112,40 @@ export default function AdminBerita() {
     setLoadingComments(false);
   };
 
+  const handleAdminReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedNewsForComments || !replyText.trim()) return;
+
+    setIsSubmittingReply(true);
+    try {
+      const { data, error } = await supabase
+        .from('komentar')
+        .insert([{
+          berita_id: selectedNewsForComments.id,
+          nama_user: "ADMIN PB US 162", // Identitas Balasan Admin
+          isi_komentar: replyText,
+          tanggal: new Date().toISOString()
+        }])
+        .select();
+
+      if (!error && data) {
+        setComments([data[0], ...comments]);
+        setReplyText('');
+        // Update count di list utama
+        setNews(news.map(n => n.id === selectedNewsForComments.id ? { ...n, comments_count: (n.comments_count || 0) + 1 } : n));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
   const handleDeleteComment = async (commentId: string) => {
     if (window.confirm("Hapus komentar ini secara permanen?")) {
       const { error } = await supabase.from('komentar').delete().eq('id', commentId);
       if (!error) {
         setComments(comments.filter(c => c.id !== commentId));
-        // Update hitungan di list utama
         setNews(news.map(n => n.id === selectedNewsForComments?.id ? { ...n, comments_count: (n.comments_count || 1) - 1 } : n));
       }
     }
@@ -129,31 +161,13 @@ export default function AdminBerita() {
       const image = await createImage(imageToCrop!);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-
       canvas.width = croppedAreaPixels.width;
       canvas.height = croppedAreaPixels.height;
-
-      ctx?.drawImage(
-        image,
-        croppedAreaPixels.x,
-        croppedAreaPixels.y,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height,
-        0,
-        0,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height
-      );
-
+      ctx?.drawImage(image, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, croppedAreaPixels.width, croppedAreaPixels.height);
       return new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-        }, 'image/jpeg', 0.8);
+        canvas.toBlob((blob) => { if (blob) resolve(blob); }, 'image/jpeg', 0.8);
       });
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
+    } catch (e) { return null; }
   };
 
   const createImage = (url: string): Promise<HTMLImageElement> =>
@@ -169,9 +183,7 @@ export default function AdminBerita() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.addEventListener('load', () => {
-        setImageToCrop(reader.result as string);
-      });
+      reader.addEventListener('load', () => { setImageToCrop(reader.result as string); });
       reader.readAsDataURL(file);
     }
   };
@@ -179,36 +191,21 @@ export default function AdminBerita() {
   const uploadProcessedImage = async () => {
     const croppedBlob = await createCroppedImage();
     if (!croppedBlob) return;
-
     setIsUploading(true);
     try {
       const fileName = `${Math.random()}.jpg`;
       const filePath = `berita/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, croppedBlob);
-
+      const { error: uploadError } = await supabase.storage.from('images').upload(filePath, croppedBlob);
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath);
-
+      const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(filePath);
       setFormData({ ...formData, gambar_url: publicUrl });
       setImageToCrop(null);
-    } catch (err: any) {
-      setFormError("Gagal: " + err.message);
-    } finally {
-      setIsUploading(false);
-    }
+    } catch (err: any) { setFormError("Gagal: " + err.message); } finally { setIsUploading(false); }
   };
 
-  // --- STANDARD CRUD LOGIC ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.gambar_url) return setFormError("Wajib upload gambar.");
-    
     setIsSaving(true);
     try {
       if (editingId) {
@@ -220,15 +217,11 @@ export default function AdminBerita() {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       closeModal();
-    } catch (err) {
-      setFormError("Database Error");
-    } finally {
-      setIsSaving(false);
-    }
+    } catch (err) { setFormError("Database Error"); } finally { setIsSaving(false); }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Hapus Berita? Seluruh komentar terkait juga akan terhapus.")) {
+    if (window.confirm("Hapus Berita? Seluruh data terkait akan hilang.")) {
       await supabase.from('berita').delete().eq('id', id);
       fetchNews();
     }
@@ -307,12 +300,20 @@ export default function AdminBerita() {
                 <div className="flex-grow space-y-2">
                   <div className="flex items-center gap-4 text-zinc-500 text-[10px] font-bold">
                     <div className="flex items-center gap-1.5"><Clock size={12} className="text-blue-600" /> {item.tanggal}</div>
-                    <button 
-                      onClick={() => openCommentModal(item)}
-                      className="flex items-center gap-1.5 bg-blue-600/10 text-blue-400 px-2 py-1 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
-                    >
-                      <MessageSquare size={12} /> {item.comments_count || 0} Komentar
-                    </button>
+                    
+                    {/* STATISTIK LIKE & KOMENTAR */}
+                    <div className="flex items-center gap-3 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                      <div className="flex items-center gap-1 text-rose-500">
+                        <Heart size={12} fill="currentColor" /> <span className="font-black text-white">{item.likes || 0}</span>
+                      </div>
+                      <div className="w-px h-3 bg-white/10" />
+                      <button 
+                        onClick={() => openCommentModal(item)}
+                        className="flex items-center gap-1.5 text-blue-400 hover:text-white transition-colors"
+                      >
+                        <MessageSquare size={12} /> <span className="font-black text-white">{item.comments_count || 0}</span>
+                      </button>
+                    </div>
                   </div>
                   <h3 className="text-xl font-black italic uppercase tracking-tighter group-hover:text-blue-500 transition-colors">{item.judul}</h3>
                   <p className="text-zinc-400 text-sm line-clamp-1 italic font-medium opacity-70">{item.ringkasan}</p>
@@ -338,7 +339,6 @@ export default function AdminBerita() {
 
             <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
               {formError && <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 text-red-500 text-xs font-bold uppercase"><AlertCircle size={18} /> {formError}</div>}
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase">Judul Berita</label>
@@ -374,15 +374,7 @@ export default function AdminBerita() {
                    </label>
                  ) : (
                    <div className="relative h-64 w-full bg-black rounded-[2rem] overflow-hidden border border-blue-600/50">
-                      <Cropper
-                        image={imageToCrop}
-                        crop={crop}
-                        zoom={zoom}
-                        aspect={16 / 9}
-                        onCropChange={setCrop}
-                        onZoomChange={setZoom}
-                        onCropComplete={onCropComplete}
-                      />
+                      <Cropper image={imageToCrop} crop={crop} zoom={zoom} aspect={16 / 9} onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} />
                       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
                          <button type="button" onClick={uploadProcessedImage} disabled={isUploading} className="bg-blue-600 px-6 py-2 rounded-full font-black text-[10px] uppercase flex items-center gap-2 shadow-xl">
                             {isUploading ? <Loader2 className="animate-spin" size={14}/> : <Check size={14}/>} {isUploading ? "Processing..." : "Terapkan & Upload"}
@@ -414,16 +406,38 @@ export default function AdminBerita() {
         </div>
       )}
 
-      {/* MODAL MODERASI KOMENTAR */}
+      {/* MODAL MODERASI & REPLY KOMENTAR */}
       {isCommentModalOpen && selectedNewsForComments && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/98 backdrop-blur-xl">
           <div className="bg-[#0c0c0c] w-full max-w-2xl rounded-[3rem] overflow-hidden border border-white/10 flex flex-col max-h-[85vh]">
             <div className="p-8 border-b border-white/5 flex justify-between items-center bg-zinc-900/50">
               <div>
-                <h3 className="text-xl font-black italic uppercase tracking-tighter">Moderasi <span className="text-blue-600">Komentar</span></h3>
+                <h3 className="text-xl font-black italic uppercase tracking-tighter">Moderasi & <span className="text-blue-600">Reply</span></h3>
                 <p className="text-[9px] text-zinc-500 font-bold uppercase mt-1 truncate max-w-[300px]">{selectedNewsForComments.judul}</p>
               </div>
               <button onClick={() => setIsCommentModalOpen(false)} className="p-3 hover:bg-red-500/10 hover:text-red-500 rounded-full text-zinc-500 transition-all"><X size={24}/></button>
+            </div>
+
+            {/* FORM REPLY ADMIN */}
+            <div className="px-8 pt-6 pb-2 border-b border-white/5">
+              <form onSubmit={handleAdminReply} className="flex gap-2 mb-4">
+                <div className="relative flex-grow">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500"><CornerDownRight size={16}/></div>
+                  <input 
+                    type="text" 
+                    placeholder="Tulis balasan resmi admin..." 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-xs font-bold outline-none focus:border-blue-600 transition-all"
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                  />
+                </div>
+                <button 
+                  disabled={isSubmittingReply || !replyText.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 rounded-xl transition-all disabled:opacity-50"
+                >
+                  {isSubmittingReply ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>}
+                </button>
+              </form>
             </div>
 
             <div className="p-8 overflow-y-auto custom-scrollbar space-y-4">
@@ -431,14 +445,15 @@ export default function AdminBerita() {
                 <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" /></div>
               ) : comments.length > 0 ? (
                 comments.map((c) => (
-                  <div key={c.id} className="bg-white/5 p-6 rounded-2xl border border-white/5 flex justify-between items-start gap-4 group">
+                  <div key={c.id} className={`p-6 rounded-2xl border flex justify-between items-start gap-4 group transition-all ${c.nama_user.includes("ADMIN") ? 'bg-blue-600/5 border-blue-600/20 ml-8' : 'bg-white/5 border-white/5'}`}>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-blue-600/20 rounded-full flex items-center justify-center text-[10px] text-blue-500 font-black italic"><User size={12}/></div>
-                        <span className="text-xs font-black uppercase italic text-zinc-300">{c.nama_user}</span>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black italic ${c.nama_user.includes("ADMIN") ? 'bg-blue-600 text-white' : 'bg-blue-600/20 text-blue-500'}`}><User size={12}/></div>
+                        <span className={`text-xs font-black uppercase italic ${c.nama_user.includes("ADMIN") ? 'text-blue-400' : 'text-zinc-300'}`}>{c.nama_user}</span>
+                        {c.nama_user.includes("ADMIN") && <span className="bg-blue-600 text-white text-[7px] px-1.5 py-0.5 rounded font-black">OFFICIAL</span>}
                         <span className="text-[9px] font-bold text-zinc-500">{new Date(c.tanggal).toLocaleDateString('id-ID')}</span>
                       </div>
-                      <p className="text-sm text-zinc-400 font-medium leading-relaxed">{c.isi_komentar}</p>
+                      <p className={`text-sm font-medium leading-relaxed ${c.nama_user.includes("ADMIN") ? 'text-white' : 'text-zinc-400'}`}>{c.isi_komentar}</p>
                     </div>
                     <button 
                       onClick={() => handleDeleteComment(c.id)}
@@ -451,7 +466,7 @@ export default function AdminBerita() {
               ) : (
                 <div className="py-20 text-center space-y-3">
                   <MessageSquare className="mx-auto text-zinc-800" size={48} />
-                  <p className="text-zinc-600 font-black uppercase tracking-widest text-xs">Belum ada komentar untuk berita ini.</p>
+                  <p className="text-zinc-600 font-black uppercase tracking-widest text-xs">Belum ada komentar.</p>
                 </div>
               )}
             </div>

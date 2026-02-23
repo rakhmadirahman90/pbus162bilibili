@@ -41,8 +41,9 @@ import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLin
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * FIXED POPUP COMPONENT (V3 - ULTRA CLEAN)
- * Perbaikan: Paragraf teratur, Link otomatis, & Kontainer Teks Berjarak
+ * FIXED POPUP COMPONENT (V4 - ABSOLUTE WRAPPING)
+ * Perbaikan: Menggunakan word-break: break-all dan table-layout fixed 
+ * untuk menjamin link tidak bocor keluar container.
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -83,8 +84,8 @@ function ImagePopup() {
               scrollRef.current.scrollBy({ top: 1, behavior: 'auto' });
             }
           }
-        }, 45); // Gerakan lebih halus
-      }, 3500); // User diberi waktu 3.5 detik untuk baca judul
+        }, 45);
+      }, 3500);
 
       return () => {
         clearInterval(scrollInterval);
@@ -93,17 +94,24 @@ function ImagePopup() {
     }
   }, [isOpen, currentIndex]);
 
-  // LOGIKA BARU: Pemecah link & paragraf otomatis
+  // LOGIKA PERBAIKAN: Menambahkan break-all dan overflow-wrap secara eksplisit
   const renderCleanDescription = (text: string) => {
     if (!text) return null;
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
 
     return text.split('\n').map((line, i) => {
-      // Jika baris kosong, beri spacer
       if (line.trim() === "") return <div key={i} className="h-4" />;
 
       return (
-        <p key={i} className="mb-3 last:mb-0 leading-[1.8] text-slate-600 text-left tracking-normal">
+        <p 
+          key={i} 
+          className="mb-3 last:mb-0 leading-[1.8] text-slate-600 text-left tracking-normal"
+          style={{ 
+            wordBreak: 'break-all', 
+            overflowWrap: 'anywhere', 
+            whiteSpace: 'pre-wrap' 
+          }}
+        >
           {line.split(urlRegex).map((part, index) => {
             if (part.match(urlRegex)) {
               const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
@@ -113,9 +121,10 @@ function ImagePopup() {
                   href={cleanUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 underline-offset-4 font-bold inline-flex items-center gap-1 mx-1 transition-all"
+                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 underline-offset-4 font-bold inline transition-all"
+                  style={{ wordBreak: 'break-all' }}
                 >
-                  {part} <ExternalLink size={10} />
+                  {part} <ExternalLink size={10} className="inline-block ml-1" />
                 </a>
               );
             }
@@ -135,14 +144,17 @@ function ImagePopup() {
   return (
     <AnimatePresence mode="wait">
       <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div className="absolute inset-0" onClick={closePopup} />
+        
         <motion.div 
           key={current.id || `popup-${currentIndex}`}
           initial={{ opacity: 0, scale: 0.95, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95 }}
+          /* KUNCI: w-full max-w-[420px] dan overflow-hidden */
           className="relative w-full max-w-[420px] max-h-[85vh] bg-white rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden border border-white/20"
+          onClick={(e) => e.stopPropagation()}
         >
-          {/* Tombol Close */}
           <button 
             onClick={closePopup} 
             className="absolute top-4 right-4 z-50 p-2 bg-white/90 hover:bg-rose-500 hover:text-white text-slate-900 rounded-full shadow-lg transition-all active:scale-90 border border-slate-100"
@@ -151,7 +163,6 @@ function ImagePopup() {
           </button>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth">
-            {/* Image Banner */}
             <div className="relative w-full aspect-[4/5] bg-slate-100">
               <img src={current.url_gambar} className="w-full h-full object-cover" alt={current.judul} />
               <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-60" />
@@ -164,8 +175,7 @@ function ImagePopup() {
               )}
             </div>
 
-            {/* Content Body */}
-            <div className="px-8 pb-10 pt-4 bg-white relative">
+            <div className="px-6 sm:px-8 pb-10 pt-4 bg-white relative">
               <div className="flex justify-center mb-6">
                 <div className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-blue-100">
                   <Zap size={12} fill="currentColor" /> Pengumuman
@@ -176,14 +186,13 @@ function ImagePopup() {
                 {current.judul}
               </h3>
 
-              {/* AREA DESKRIPSI: Dibuat seperti kartu informasi agar rapi */}
-              <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-6 mb-8">
-                <div className="text-[13px] font-medium leading-relaxed">
+              {/* AREA DESKRIPSI: Ditambahkan min-w-0 untuk menghentikan paksaan lebar */}
+              <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-6 mb-8 w-full min-w-0 overflow-hidden">
+                <div className="text-[13px] font-medium leading-relaxed w-full min-w-0">
                   {renderCleanDescription(current.deskripsi)}
                 </div>
               </div>
               
-              {/* Buttons */}
               <div className="space-y-3">
                 {current.file_url && current.file_url.length > 5 && (
                   <motion.a 
@@ -273,25 +282,26 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={
-          <div className="min-h-screen bg-white selection:bg-blue-600 selection:text-white">
+          /* KUNCI: Ditambahkan overflow-x-hidden pada pembungkus utama */
+          <div className="min-h-screen bg-white selection:bg-blue-600 selection:text-white w-full overflow-x-hidden">
             <ImagePopup />
             <Navbar onNavigate={handleNavigate} />
             <AnimatePresence mode="wait">
               {!showStruktur ? (
-                <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full">
                   <Hero />
                   <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
                   <News />
                   <Athletes initialFilter={activeAthleteFilter} />
                   <Ranking />
                   <Gallery />
-                  <section id="register" className="py-20 bg-slate-900">
+                  <section id="register" className="py-20 bg-slate-900 w-full">
                     <RegistrationForm />
                   </section>
                   <Contact />
                 </motion.div>
               ) : (
-                <motion.div key="struktur" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="pt-20 bg-slate-50 min-h-screen">
+                <motion.div key="struktur" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="pt-20 bg-slate-50 min-h-screen w-full">
                   <StrukturOrganisasi />
                   <motion.button 
                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}

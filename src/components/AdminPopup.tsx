@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { 
   Plus, Trash2, Image as ImageIcon, Save, 
-  Loader2, Power, PowerOff, Upload, X, Camera, Edit3, GripVertical, FileText, Download 
+  Loader2, Power, PowerOff, Upload, X, Camera, Edit3, GripVertical, FileText, Download, ExternalLink 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -34,6 +34,34 @@ interface PopupConfig {
   urutan: number;
   file_url?: string; 
 }
+
+// --- FUNGSI HELPER: DETEKSI & FORMAT LINK OTOMATIS ---
+const renderDescriptionWithLinks = (text: string) => {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+  
+  return text.split('\n').map((line, i) => (
+    <p key={i} className="mb-1 last:mb-0 break-all">
+      {line.split(urlRegex).map((part, index) => {
+        if (part.match(urlRegex)) {
+          const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
+          return (
+            <a 
+              key={index} 
+              href={cleanUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-blue-400 underline hover:text-blue-300 inline-flex items-center gap-1"
+            >
+              {part} <ExternalLink size={10} />
+            </a>
+          );
+        }
+        return part;
+      })}
+    </p>
+  ));
+};
 
 // --- KOMPONEN: SORTABLE ITEM ---
 function SortablePopupItem({ item, toggleStatus, startEdit, handleDelete }: any) {
@@ -87,7 +115,9 @@ function SortablePopupItem({ item, toggleStatus, startEdit, handleDelete }: any)
 
       <div className="p-7 relative z-30 -mt-20">
         <h4 className="text-white font-black uppercase text-sm mb-2 italic line-clamp-1 tracking-tight">{item.judul || 'TANPA JUDUL'}</h4>
-        <p className="text-white/50 text-[11px] font-medium mb-6 line-clamp-2 leading-relaxed min-h-[2rem]">{item.deskripsi}</p>
+        <div className="text-white/50 text-[11px] font-medium mb-6 line-clamp-2 leading-relaxed min-h-[2rem]">
+            {item.deskripsi}
+        </div>
         
         <div className="grid grid-cols-4 gap-2">
           <button onClick={() => toggleStatus(item.id, item.is_active)} className={`col-span-1 py-3 rounded-xl flex items-center justify-center transition-all ${item.is_active ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white' : 'bg-white/5 text-white/40 hover:bg-blue-600 hover:text-white'}`}>
@@ -193,7 +223,6 @@ export default function AdminPopup() {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('identitas-atlet').getPublicUrl(filePath);
       
-      // PERBAIKAN: Pastikan state diperbarui dengan link file baru
       setNewPopup(prev => ({ ...prev, file_url: publicUrl }));
       
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'File lampiran diunggah', showConfirmButton: false, timer: 2000 });
@@ -210,12 +239,11 @@ export default function AdminPopup() {
 
     setIsSaving(true);
     
-    // PERBAIKAN: Destrukturisasi data untuk memastikan semua field terkirim
     const payload = {
       judul: newPopup.judul,
       deskripsi: newPopup.deskripsi,
       url_gambar: newPopup.url_gambar,
-      file_url: newPopup.file_url || null, // Pastikan NULL jika kosong agar database bersih
+      file_url: newPopup.file_url || null,
       is_active: true
     };
 
@@ -241,7 +269,6 @@ export default function AdminPopup() {
         Swal.fire({ title: 'Berhasil', text: 'Pop-up baru diaktifkan', icon: 'success', background: '#0F172A', color: '#fff' });
       }
 
-      // Reset form setelah berhasil
       setNewPopup({ url_gambar: '', judul: '', deskripsi: '', file_url: '' });
       setPreviewImage(null);
       fetchPopups();
@@ -345,7 +372,22 @@ export default function AdminPopup() {
           <form onSubmit={handleSave} className="lg:col-span-3 p-8 lg:p-12 space-y-6 flex flex-col justify-center border-l border-white/5">
             <div className="space-y-4">
               <input required className="w-full bg-black/30 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-blue-500 transition-all" placeholder="Judul Promosi" value={newPopup.judul} onChange={e => setNewPopup({...newPopup, judul: e.target.value})} />
-              <textarea className="w-full bg-black/30 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-blue-500 h-32 resize-none transition-all" placeholder="Deskripsi Informasi" value={newPopup.deskripsi} onChange={e => setNewPopup({...newPopup, deskripsi: e.target.value})} />
+              
+              <div className="relative group">
+                <textarea 
+                   className="w-full bg-black/30 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-blue-500 h-32 resize-none transition-all scrollbar-hide" 
+                   placeholder="Deskripsi Informasi (Link akan otomatis terdeteksi)" 
+                   value={newPopup.deskripsi} 
+                   onChange={e => setNewPopup({...newPopup, deskripsi: e.target.value})} 
+                />
+                {/* PREVIEW TEKS REALTIME DI BAWAH INPUT */}
+                <div className="mt-2 p-4 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                   <p className="text-[9px] font-black uppercase tracking-widest text-blue-400 mb-2">Live Preview Deskripsi:</p>
+                   <div className="text-[11px] text-white/60 leading-relaxed font-medium">
+                      {renderDescriptionWithLinks(newPopup.deskripsi) || <span className="italic opacity-30">Belum ada deskripsi...</span>}
+                   </div>
+                </div>
+              </div>
               
               {/* INPUT FILE DOWNLOAD */}
               <div className="relative group">

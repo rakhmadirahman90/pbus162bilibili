@@ -31,6 +31,8 @@ export default function News() {
   const [selectedNews, setSelectedNews] = useState<Berita | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Menggunakan localStorage agar status "liked" bertahan meski halaman direfresh
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   // State Baru untuk Komentar
@@ -40,12 +42,21 @@ export default function News() {
 
   useEffect(() => {
     fetchNews();
+    // Load liked posts dari local storage saat inisialisasi
+    const savedLikes = localStorage.getItem('pb_us_liked_posts');
+    if (savedLikes) {
+      setLikedPosts(new Set(JSON.parse(savedLikes)));
+    }
   }, []);
+
+  // Simpan status like ke local storage setiap kali berubah
+  useEffect(() => {
+    localStorage.setItem('pb_us_liked_posts', JSON.stringify(Array.from(likedPosts)));
+  }, [likedPosts]);
 
   const fetchNews = async () => {
     try {
       setLoading(true);
-      // Query dengan join untuk mendapatkan jumlah komentar per berita
       const { data, error } = await supabase
         .from('berita')
         .select(`*, komentar(count)`)
@@ -67,7 +78,6 @@ export default function News() {
     }
   };
 
-  // FUNGSI UNTUK MENGAMBIL KOMENTAR
   const fetchComments = async (beritaId: string) => {
     try {
       const { data, error } = await supabase
@@ -82,15 +92,16 @@ export default function News() {
     }
   };
 
-  // FUNGSI INCREMENT VIEWS
   const handleOpenNews = async (news: Berita) => {
     setSelectedNews(news);
-    fetchComments(news.id); // Ambil komentar saat modal dibuka
+    fetchComments(news.id);
     
     try {
+      // Menggunakan RPC increment_views di Supabase
       const { error } = await supabase.rpc('increment_views', { row_id: news.id });
       
       if (error) {
+        // Fallback jika RPC belum dibuat
         await supabase
           .from('berita')
           .update({ views: (news.views || 0) + 1 })
@@ -105,7 +116,6 @@ export default function News() {
     }
   };
 
-  // FUNGSI KIRIM KOMENTAR
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedNews || !newComment.nama || !newComment.pesan) return;
@@ -125,7 +135,6 @@ export default function News() {
         setComments(prev => [data[0], ...prev]);
         setNewComment({ nama: '', pesan: '' });
         
-        // Update jumlah komentar di state lokal list utama
         setBeritaList(prev => prev.map(item => 
           item.id === selectedNews.id ? { ...item, comments_count: (item.comments_count || 0) + 1 } : item
         ));
@@ -137,32 +146,44 @@ export default function News() {
     }
   };
 
-  // FUNGSI TOGGLE LIKE
+  // --- LOGIKA LIKE BERITA LENGKAP ---
   const handleLike = async (e: React.MouseEvent, newsId: string) => {
     e.stopPropagation(); 
     const isLiked = likedPosts.has(newsId);
     
+    // Optimistic Update UI
+    const newLikedPosts = new Set(likedPosts);
+    if (isLiked) newLikedPosts.delete(newsId);
+    else newLikedPosts.add(newsId);
+    setLikedPosts(newLikedPosts);
+
     try {
       const newsItem = beritaList.find(n => n.id === newsId);
-      const newLikeCount = isLiked ? Math.max(0, (newsItem?.likes || 1) - 1) : (newsItem?.likes || 0) + 1;
+      const currentLikes = newsItem?.likes || 0;
+      const newLikeCount = isLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1;
 
+      // Update Database
       const { error } = await supabase
         .from('berita')
         .update({ likes: newLikeCount })
         .eq('id', newsId);
 
-      if (!error) {
-        const newLikedPosts = new Set(likedPosts);
-        if (isLiked) newLikedPosts.delete(newsId);
-        else newLikedPosts.add(newsId);
-        setLikedPosts(newLikedPosts);
+      if (error) throw error;
 
-        setBeritaList(prev => prev.map(item => 
-          item.id === newsId ? { ...item, likes: newLikeCount } : item
-        ));
+      // Update State Global
+      setBeritaList(prev => prev.map(item => 
+        item.id === newsId ? { ...item, likes: newLikeCount } : item
+      ));
+
+      // Update State Modal jika sedang terbuka
+      if (selectedNews?.id === newsId) {
+        setSelectedNews(prev => prev ? { ...prev, likes: newLikeCount } : null);
       }
+
     } catch (err) {
       console.error("Gagal update likes:", err);
+      // Revert status like jika gagal database
+      setLikedPosts(likedPosts);
     }
   };
 
@@ -198,9 +219,10 @@ export default function News() {
                 <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
                   {news.kategori}
                 </div>
+                {/* Tombol Like di Card */}
                 <button 
                   onClick={(e) => handleLike(e, news.id)}
-                  className={`absolute bottom-4 right-4 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${likedPosts.has(news.id) ? 'bg-rose-500 text-white' : 'bg-white text-gray-400 hover:text-rose-500'}`}
+                  className={`absolute bottom-4 right-4 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 z-10 ${likedPosts.has(news.id) ? 'bg-rose-500 text-white' : 'bg-white text-gray-400 hover:text-rose-500'}`}
                 >
                   <Heart size={18} fill={likedPosts.has(news.id) ? "currentColor" : "none"} />
                 </button>
@@ -222,7 +244,7 @@ export default function News() {
                   </div>
                   <div className="flex items-center gap-3 text-gray-400">
                     <div className="flex items-center gap-1"><Eye size={12} /><span className="text-[10px] font-bold">{news.views || 0}</span></div>
-                    <div className="flex items-center gap-1"><Heart size={12} className={likedPosts.has(news.id) ? 'text-rose-500' : ''} /><span className="text-[10px] font-bold">{news.likes || 0}</span></div>
+                    <div className="flex items-center gap-1"><Heart size={12} className={likedPosts.has(news.id) ? 'text-rose-500' : ''} fill={likedPosts.has(news.id) ? "currentColor" : "none"} /><span className="text-[10px] font-bold">{news.likes || 0}</span></div>
                     <div className="flex items-center gap-1"><MessageCircle size={12} /><span className="text-[10px] font-bold">{news.comments_count || 0}</span></div>
                   </div>
                 </div>
@@ -255,6 +277,14 @@ export default function News() {
                 <div className="relative w-full bg-slate-900">
                   <img src={selectedNews.gambar_url} alt={selectedNews.judul} className="w-full h-auto block max-h-[70vh] object-contain object-top" />
                   <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white to-transparent"></div>
+                  
+                  {/* Floating Like Button in Modal */}
+                  <button 
+                    onClick={(e) => handleLike(e, selectedNews.id)}
+                    className={`absolute bottom-8 right-8 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 z-[130] ${likedPosts.has(selectedNews.id) ? 'bg-rose-500 text-white' : 'bg-white text-gray-400 hover:text-rose-500'}`}
+                  >
+                    <Heart size={28} fill={likedPosts.has(selectedNews.id) ? "currentColor" : "none"} />
+                  </button>
                 </div>
                 
                 <div className="p-8 md:p-14 bg-white relative -mt-6 rounded-t-[2.5rem]">
@@ -282,7 +312,6 @@ export default function News() {
                       <MessageCircle className="text-blue-600" size={28} /> Komentar ({comments.length})
                     </h3>
 
-                    {/* Form Input Komentar */}
                     <form onSubmit={handleSubmitComment} className="mb-12 bg-gray-50 p-6 rounded-2xl border border-gray-100">
                       <div className="grid md:grid-cols-2 gap-4 mb-4">
                         <input 
@@ -310,7 +339,6 @@ export default function News() {
                       </button>
                     </form>
 
-                    {/* List Komentar */}
                     <div className="space-y-8">
                       {comments.length > 0 ? comments.map((c) => (
                         <div key={c.id} className="flex gap-4 border-b border-gray-50 pb-6 last:border-0">

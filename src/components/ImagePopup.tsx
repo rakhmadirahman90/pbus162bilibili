@@ -11,7 +11,6 @@ export default function ImagePopup() {
   useEffect(() => {
     const fetchActivePopup = async () => {
       try {
-        // PERBAIKAN: Jangan pakai .maybeSingle() agar tidak error 406
         const { data, error } = await supabase
           .from('konfigurasi_popup')
           .select('*')
@@ -24,7 +23,6 @@ export default function ImagePopup() {
         }
 
         if (data && data.length > 0) {
-          // Cari data yang ada lampirannya (prioritas), kalau tidak ada ambil yang pertama
           const selected = data.find((item: any) => item.file_url) || data[0];
           setContent(selected);
           
@@ -60,13 +58,41 @@ export default function ImagePopup() {
     }
   }, [isOpen]);
 
+  // KODE BARU: Fungsi untuk mendeteksi URL dan mengubahnya menjadi link yang bisa diklik
+  const renderDescription = (text: string) => {
+    if (!text) return null;
+    
+    // Regex untuk mendeteksi URL (http, https, www)
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+    
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        const href = part.startsWith('www.') ? `https://${part}` : part;
+        return (
+          <a 
+            key={index} 
+            href={href} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-blue-400 hover:text-blue-300 underline underline-offset-4 break-all font-bold"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   if (!content) return null;
 
   return (
     <AnimatePresence mode="wait">
       {isOpen && (
         <motion.div 
-          key={content.id || 'popup-wrapper'} // PERBAIKAN: Key unik untuk hilangkan warning
+          key={content.id || 'popup-wrapper'}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -105,11 +131,11 @@ export default function ImagePopup() {
                     {content.judul}
                   </h3>
                   
-                  <p className="text-slate-400 text-[11px] mb-10 uppercase tracking-wide">
-                    {content.deskripsi}
-                  </p>
+                  {/* PERBAIKAN: Menggunakan renderDescription dan CSS whitespace untuk kerapian */}
+                  <div className="text-slate-400 text-[12px] mb-10 uppercase tracking-wide leading-relaxed whitespace-pre-line">
+                    {renderDescription(content.deskripsi)}
+                  </div>
                   
-                  {/* TOMBOL DOWNLOAD - SEKARANG PASTI MUNCUL JIKA ADA LINK */}
                   {content.file_url && (
                     <motion.a 
                       key="download-button"

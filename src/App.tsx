@@ -13,8 +13,6 @@ import Gallery from './components/Gallery';
 import RegistrationForm from './components/RegistrationForm'; 
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
-
-// Pastikan file StrukturOrganisasi.tsx sudah dibuat di folder components
 import StrukturOrganisasi from './components/StrukturOrganisasi'; 
 
 // Import Komponen Admin
@@ -43,8 +41,8 @@ import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLin
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * FIXED POPUP COMPONENT
- * Mendukung Paragraf Rapi & Link Otomatis Bisa Diklik
+ * FIXED POPUP COMPONENT (V3 - ULTRA CLEAN)
+ * Perbaikan: Paragraf teratur, Link otomatis, & Kontainer Teks Berjarak
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,7 +61,7 @@ function ImagePopup() {
         
         if (!error && data && data.length > 0) {
           setPromoImages(data);
-          setTimeout(() => setIsOpen(true), 1200);
+          setTimeout(() => setIsOpen(true), 1000);
         }
       } catch (err) {
         console.error("Gagal memuat pop-up:", err);
@@ -85,8 +83,8 @@ function ImagePopup() {
               scrollRef.current.scrollBy({ top: 1, behavior: 'auto' });
             }
           }
-        }, 35);
-      }, 3000); // Tunggu 3 detik sebelum auto-scroll
+        }, 45); // Gerakan lebih halus
+      }, 3500); // User diberi waktu 3.5 detik untuk baca judul
 
       return () => {
         clearInterval(scrollInterval);
@@ -95,15 +93,17 @@ function ImagePopup() {
     }
   }, [isOpen, currentIndex]);
 
-  // FUNGSI BARU: Mendeteksi Link & Mengatur Paragraf agar rapi
-  const formatRichText = (text: string) => {
+  // LOGIKA BARU: Pemecah link & paragraf otomatis
+  const renderCleanDescription = (text: string) => {
     if (!text) return null;
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
 
     return text.split('\n').map((line, i) => {
-      if (line.trim() === "") return <div key={i} className="h-3" />;
+      // Jika baris kosong, beri spacer
+      if (line.trim() === "") return <div key={i} className="h-4" />;
+
       return (
-        <p key={i} className="mb-2 last:mb-0 leading-relaxed text-left">
+        <p key={i} className="mb-3 last:mb-0 leading-[1.8] text-slate-600 text-left tracking-normal">
           {line.split(urlRegex).map((part, index) => {
             if (part.match(urlRegex)) {
               const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
@@ -113,7 +113,7 @@ function ImagePopup() {
                   href={cleanUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline break-all font-bold inline-flex items-center gap-1"
+                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 underline-offset-4 font-bold inline-flex items-center gap-1 mx-1 transition-all"
                 >
                   {part} <ExternalLink size={10} />
                 </a>
@@ -134,90 +134,80 @@ function ImagePopup() {
 
   return (
     <AnimatePresence mode="wait">
-      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
         <motion.div 
           key={current.id || `popup-${currentIndex}`}
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          initial={{ opacity: 0, scale: 0.95, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="relative w-full max-w-[420px] max-h-[85vh] bg-white rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white/20"
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="relative w-full max-w-[420px] max-h-[85vh] bg-white rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden border border-white/20"
         >
           {/* Tombol Close */}
           <button 
             onClick={closePopup} 
-            className="absolute top-4 right-4 z-50 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-xl border-2 border-white transition-transform active:scale-90"
+            className="absolute top-4 right-4 z-50 p-2 bg-white/90 hover:bg-rose-500 hover:text-white text-slate-900 rounded-full shadow-lg transition-all active:scale-90 border border-slate-100"
           >
-            <X size={18} strokeWidth={3} />
+            <X size={18} />
           </button>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto hide-scrollbar scroll-smooth">
-            {/* Image Section */}
-            <div className="relative bg-slate-900 aspect-video overflow-hidden">
+            {/* Image Banner */}
+            <div className="relative w-full aspect-[4/5] bg-slate-100">
               <img src={current.url_gambar} className="w-full h-full object-cover" alt={current.judul} />
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-60" />
               
               {promoImages.length > 1 && (
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20 pointer-events-none">
-                  <button 
-                    onClick={() => { setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1)); scrollRef.current?.scrollTo(0,0); }} 
-                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600 transition-colors"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <button 
-                    onClick={() => { setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1)); scrollRef.current?.scrollTo(0,0); }} 
-                    className="p-2 bg-black/30 text-white rounded-full backdrop-blur-md pointer-events-auto hover:bg-blue-600 transition-colors"
-                  >
-                    <ChevronRight size={20} />
-                  </button>
+                  <button onClick={() => { setCurrentIndex(prev => (prev === 0 ? promoImages.length - 1 : prev - 1)); scrollRef.current?.scrollTo(0,0); }} className="p-2 bg-white/20 hover:bg-white text-slate-900 rounded-full backdrop-blur-md pointer-events-auto transition-all shadow-md"><ChevronLeft size={20} /></button>
+                  <button onClick={() => { setCurrentIndex(prev => (prev === promoImages.length - 1 ? 0 : prev + 1)); scrollRef.current?.scrollTo(0,0); }} className="p-2 bg-white/20 hover:bg-white text-slate-900 rounded-full backdrop-blur-md pointer-events-auto transition-all shadow-md"><ChevronRight size={20} /></button>
                 </div>
               )}
             </div>
 
-            {/* Content Section */}
-            <div className="px-8 pb-10 pt-8 bg-white">
-              <div className="flex justify-center mb-4">
-                <div className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Zap size={12} className="fill-blue-600" /> Informasi Resmi
+            {/* Content Body */}
+            <div className="px-8 pb-10 pt-4 bg-white relative">
+              <div className="flex justify-center mb-6">
+                <div className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-blue-100">
+                  <Zap size={12} fill="currentColor" /> Pengumuman
                 </div>
               </div>
               
-              <h3 className="text-xl font-black italic uppercase tracking-tighter mb-4 text-slate-900 leading-tight text-center">
+              <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-6 text-slate-900 leading-[1.1] text-center">
                 {current.judul}
               </h3>
 
-              {/* Box Deskripsi dengan Format Rapi */}
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 text-slate-600 text-[12px] font-medium mb-8 shadow-inner">
-                <div className="whitespace-pre-wrap">
-                  {formatRichText(current.deskripsi)}
+              {/* AREA DESKRIPSI: Dibuat seperti kartu informasi agar rapi */}
+              <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-6 mb-8">
+                <div className="text-[13px] font-medium leading-relaxed">
+                  {renderCleanDescription(current.deskripsi)}
                 </div>
               </div>
               
-              {/* Tombol Lampiran */}
+              {/* Buttons */}
               <div className="space-y-3">
                 {current.file_url && current.file_url.length > 5 && (
                   <motion.a 
-                    whileHover={{ scale: 1.02 }}
+                    whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     href={current.file_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-3 w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg border border-white/10"
+                    className="flex items-center justify-center gap-3 w-full py-4.5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl"
                   >
-                    <Download size={16} /> DOWNLOAD LAMPIRAN
+                    <Download size={16} /> Download Lampiran
                   </motion.a>
                 )}
 
                 <button 
                   onClick={closePopup} 
-                  className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all active:scale-95 shadow-xl shadow-blue-100"
+                  className="w-full py-4.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] transition-all shadow-[0_10px_20px_-5px_rgba(37,99,235,0.4)]"
                 >
-                  SAYA MENGERTI
+                  Saya Mengerti
                 </button>
               </div>
             </div>
           </div>
         </motion.div>
-        <div className="absolute inset-0 -z-10" onClick={closePopup} />
       </div>
 
       <style>{`
@@ -228,7 +218,7 @@ function ImagePopup() {
   );
 }
 
-// --- MAIN APP COMPONENT ---
+// --- APP COMPONENT ---
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -270,7 +260,14 @@ export default function App() {
     }, 100);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0F172A] text-white font-black italic tracking-tighter uppercase">Initializing...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0F172A]">
+        <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-white font-black italic uppercase tracking-widest text-[10px]">Loading System...</p>
+        </div>
+    </div>
+  );
 
   return (
     <Router>
@@ -288,18 +285,18 @@ export default function App() {
                   <Athletes initialFilter={activeAthleteFilter} />
                   <Ranking />
                   <Gallery />
-                  <section id="register" className="py-20 bg-slate-900 border-y border-white/5">
+                  <section id="register" className="py-20 bg-slate-900">
                     <RegistrationForm />
                   </section>
                   <Contact />
                 </motion.div>
               ) : (
-                <motion.div key="struktur" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="pt-20 bg-slate-50 min-h-screen relative">
+                <motion.div key="struktur" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="pt-20 bg-slate-50 min-h-screen">
                   <StrukturOrganisasi />
                   <motion.button 
                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => { setShowStruktur(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-slate-900 text-white rounded-full font-black text-[11px] tracking-[0.2em] shadow-2xl hover:bg-blue-600 transition-all z-50 uppercase flex items-center gap-3 border border-white/10"
+                    className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-slate-900 text-white rounded-full font-black text-[11px] tracking-[0.2em] shadow-2xl z-50 uppercase flex items-center gap-3 border border-white/10"
                   >
                     <ArrowUp size={16} /> Kembali ke Beranda
                   </motion.button>
@@ -353,11 +350,6 @@ function AdminLayout({ session }: { session: any }) {
           </Routes>
         </div>
       </main>
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #050505; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-      `}</style>
     </div>
   );
 }

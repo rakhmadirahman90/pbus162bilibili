@@ -67,7 +67,8 @@ export default function News() {
       if (data) {
         const formattedData = data.map(item => ({
           ...item,
-          comments_count: item.komentar?.[0]?.count || 0
+          comments_count: item.komentar?.[0]?.count || 0,
+          likes: item.likes || 0 // Memastikan tidak NULL
         }));
         setBeritaList(formattedData as Berita[]);
       }
@@ -97,6 +98,7 @@ export default function News() {
     fetchComments(news.id);
     
     try {
+      // Menggunakan RPC jika tersedia, jika tidak fallback ke update manual
       const { error } = await supabase.rpc('increment_views', { row_id: news.id });
       
       if (error) {
@@ -144,42 +146,47 @@ export default function News() {
     }
   };
 
+  // PERBAIKAN: Fungsi Like dengan Optimistic Update & Sinkronisasi
   const handleLike = async (e: React.MouseEvent, newsId: string) => {
     e.stopPropagation(); 
     const isLiked = likedPosts.has(newsId);
     
+    // 1. Update State likedPosts (Visual Icon) secara instan
     const newLikedPosts = new Set(likedPosts);
     if (isLiked) newLikedPosts.delete(newsId);
     else newLikedPosts.add(newsId);
     setLikedPosts(newLikedPosts);
 
-    try {
-      const newsItem = beritaList.find(n => n.id === newsId);
-      const currentLikes = newsItem?.likes || 0;
-      const newLikeCount = isLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1;
+    // 2. Kalkulasi angka baru secara lokal
+    const newsItem = beritaList.find(n => n.id === newsId);
+    const currentLikes = newsItem?.likes || 0;
+    const finalLikeCount = isLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1;
 
+    // 3. Update State List Berita secara instan
+    setBeritaList(prev => prev.map(item => 
+      item.id === newsId ? { ...item, likes: finalLikeCount } : item
+    ));
+
+    // 4. Update State Detail Berita (Modal) jika sedang terbuka
+    if (selectedNews?.id === newsId) {
+      setSelectedNews(prev => prev ? { ...prev, likes: finalLikeCount } : null);
+    }
+
+    // 5. Kirim data ke Database
+    try {
       const { error } = await supabase
         .from('berita')
-        .update({ likes: newLikeCount })
+        .update({ likes: finalLikeCount })
         .eq('id', newsId);
 
       if (error) throw error;
-
-      setBeritaList(prev => prev.map(item => 
-        item.id === newsId ? { ...item, likes: newLikeCount } : item
-      ));
-
-      if (selectedNews?.id === newsId) {
-        setSelectedNews(prev => prev ? { ...prev, likes: newLikeCount } : null);
-      }
-
     } catch (err) {
-      console.error("Gagal update likes:", err);
-      setLikedPosts(likedPosts);
+      console.error("Gagal update likes di database:", err);
+      // Fallback: Jika gagal, fetch ulang data untuk sinkronisasi asli
+      fetchNews();
     }
   };
 
-  // --- FUNGSI BARU: BERBAGI BERITA ---
   const handleShare = async (news: Berita, platform: 'wa' | 'fb' | 'x' | 'copy') => {
     const shareUrl = `${window.location.origin}${window.location.pathname}?newsId=${news.id}`;
     const shareText = `Cek berita terbaru dari PB US 162: "${news.judul}"`;
@@ -239,11 +246,10 @@ export default function News() {
                   {news.kategori}
                 </div>
                 
-                {/* Overlay Share Cepat saat Hover */}
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                    <button onClick={() => handleShare(news, 'wa')} className="p-2 bg-green-500 text-white rounded-full hover:scale-110 transition-transform"><Share2 size={16} /></button>
                    <button onClick={() => handleShare(news, 'copy')} className="p-2 bg-white text-gray-900 rounded-full hover:scale-110 transition-transform">
-                      {copySuccess === news.id ? <span className="text-[8px] font-bold px-1">COPIED</span> : <Link2 size={16} />}
+                      {copySuccess === news.id ? <span className="text-[8px] font-bold px-1 text-blue-600">COPIED</span> : <Link2 size={16} />}
                    </button>
                 </div>
 
@@ -314,13 +320,12 @@ export default function News() {
                 </div>
                 
                 <div className="p-8 md:p-14 bg-white relative -mt-6 rounded-t-[2.5rem]">
-                  {/* SHARE TOOLS BAR */}
                   <div className="flex flex-wrap items-center justify-between gap-6 mb-12 p-6 bg-gray-50 rounded-3xl border border-gray-100">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">Bagikan Informasi Ini</p>
                       <div className="flex gap-3">
                         <button onClick={() => handleShare(selectedNews, 'wa')} className="w-10 h-10 bg-[#25D366] text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-green-100"><Share2 size={18} /></button>
-                        <button onClick={() => handleShare(selectedNews, 'fb')} className="w-10 h-10 bg-[#1877F2] text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-blue-100 font-bold">f</button>
+                        <button onClick={() => handleShare(selectedNews, 'fb')} className="w-10 h-10 bg-[#1877F2] text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-blue-100 font-bold text-lg flex items-center justify-center">f</button>
                         <button onClick={() => handleShare(selectedNews, 'x')} className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-gray-200"><X size={16} /></button>
                         <button onClick={() => handleShare(selectedNews, 'copy')} className="flex items-center gap-2 px-4 bg-white text-gray-600 rounded-full border border-gray-200 hover:bg-gray-100 transition-colors text-xs font-bold uppercase">
                           <Link2 size={16} /> {copySuccess === selectedNews.id ? 'Tersalin!' : 'Salin Link'}

@@ -37,8 +37,9 @@ export default function ImagePopup() {
   }, []);
 
   /**
-   * FUNGSI FORMATTER LINK & PARAGRAF (VERSI FINAL)
-   * Diperbaiki dengan break-all agar link panjang tidak keluar batas
+   * FUNGSI FORMATTER LINK & PARAGRAF (VERSI FINAL PERBAIKAN)
+   * Menambahkan break-words pada container dan break-all pada link 
+   * untuk memastikan link panjang (Zoom/Drive) tidak bocor.
    */
   const formatContent = (text: string) => {
     if (!text) return null;
@@ -50,7 +51,8 @@ export default function ImagePopup() {
       if (line.trim() === "") return <div key={`spacer-${lineIdx}`} className="h-4" />;
 
       return (
-        <p key={`line-${lineIdx}`} className="mb-3 last:mb-0 leading-relaxed text-left overflow-hidden">
+        /* PERBAIKAN: Menambahkan break-words dan whitespace-normal pada paragraf */
+        <p key={`line-${lineIdx}`} className="mb-3 last:mb-0 leading-relaxed text-left break-words whitespace-normal overflow-hidden">
           {line.split(urlRegex).map((part, partIdx) => {
             if (part.match(urlRegex)) {
               const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
@@ -61,17 +63,18 @@ export default function ImagePopup() {
                   target="_blank"
                   rel="noopener noreferrer"
                   /* PERBAIKAN UTAMA: 
-                    1. break-all: memaksa link panjang (Zoom) turun ke baris baru
-                    2. decoration-blue-500/30: mempercantik garis bawah link
+                    1. break-all: memaksa link tanpa spasi untuk patah ke baris baru
+                    2. inline: memastikan perilaku teks mengalir (bukan block/flex)
                   */
-                  className="inline items-center gap-1 text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/30 underline-offset-4 transition-all break-all"
+                  className="inline text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/30 underline-offset-4 transition-all break-all"
                   onClick={(e) => e.stopPropagation()} 
                 >
-                  {part} <ExternalLink size={12} className="inline-block mb-0.5" />
+                  {part} <ExternalLink size={12} className="inline-block mb-0.5 shrink-0" />
                 </a>
               );
             }
-            return <span key={`text-${partIdx}`}>{part}</span>;
+            /* Membungkus teks biasa dengan span break-words untuk keamanan extra */
+            return <span key={`text-${partIdx}`} className="break-words">{part}</span>;
           })}
         </p>
       );
@@ -130,9 +133,9 @@ export default function ImagePopup() {
                   {content.judul}
                 </h3>
 
-                {/* Kontainer Teks - Diperbaiki agar Link Rapih dan Tidak Bocor Keluar */}
-                <div className="bg-slate-900/50 rounded-[1.5rem] p-6 border border-white/5 text-slate-300 text-[14px] font-medium leading-relaxed shadow-inner overflow-hidden">
-                  <div className="relative z-10">
+                {/* Kontainer Teks - Diperbaiki total agar Link tidak bocor */}
+                <div className="bg-slate-900/50 rounded-[1.5rem] p-6 border border-white/5 text-slate-300 text-[14px] font-medium leading-relaxed shadow-inner overflow-hidden w-full">
+                  <div className="relative z-10 w-full break-words">
                     {formatContent(content.deskripsi)}
                   </div>
                 </div>

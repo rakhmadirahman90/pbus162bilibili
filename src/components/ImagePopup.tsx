@@ -38,23 +38,20 @@ export default function ImagePopup() {
 
   /**
    * FUNGSI FORMATTER LINK & PARAGRAF (VERSI FINAL)
-   * Mengubah teks mentah menjadi elemen React yang bisa diklik
+   * Diperbaiki dengan break-all agar link panjang tidak keluar batas
    */
   const formatContent = (text: string) => {
     if (!text) return null;
 
-    // Regex yang lebih kuat untuk mendeteksi link
+    // Regex untuk mendeteksi link
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
 
-    // Split berdasarkan baris baru (\n)
     return text.split('\n').map((line, lineIdx) => {
-      // Jika baris kosong, berikan spacer vertikal
       if (line.trim() === "") return <div key={`spacer-${lineIdx}`} className="h-4" />;
 
       return (
-        <p key={`line-${lineIdx}`} className="mb-3 last:mb-0 leading-relaxed text-left">
+        <p key={`line-${lineIdx}`} className="mb-3 last:mb-0 leading-relaxed text-left overflow-hidden">
           {line.split(urlRegex).map((part, partIdx) => {
-            // Jika bagian ini adalah URL
             if (part.match(urlRegex)) {
               const cleanUrl = part.startsWith('www.') ? `https://${part}` : part;
               return (
@@ -63,14 +60,17 @@ export default function ImagePopup() {
                   href={cleanUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/50 underline-offset-4 transition-all hover:scale-[1.02] active:scale-95 z-[9999999]"
-                  onClick={(e) => e.stopPropagation()} // Mencegah popup tertutup saat klik link
+                  /* PERBAIKAN UTAMA: 
+                    1. break-all: memaksa link panjang (Zoom) turun ke baris baru
+                    2. decoration-blue-500/30: mempercantik garis bawah link
+                  */
+                  className="inline items-center gap-1 text-blue-400 hover:text-blue-300 font-bold underline decoration-blue-500/30 underline-offset-4 transition-all break-all"
+                  onClick={(e) => e.stopPropagation()} 
                 >
-                  {part} <ExternalLink size={12} className="inline" />
+                  {part} <ExternalLink size={12} className="inline-block mb-0.5" />
                 </a>
               );
             }
-            // Jika teks biasa
             return <span key={`text-${partIdx}`}>{part}</span>;
           })}
         </p>
@@ -96,7 +96,7 @@ export default function ImagePopup() {
             initial={{ scale: 0.9, opacity: 0, y: 40 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 40 }}
-            onClick={(e) => e.stopPropagation()} // Agar modal tidak tutup saat diklik isinya
+            onClick={(e) => e.stopPropagation()} 
             className="relative w-full max-w-[440px] bg-[#0F172A] rounded-[2.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden ring-1 ring-white/10 flex flex-col max-h-[90vh]"
           >
             {/* Tombol Close Floating */}
@@ -130,8 +130,8 @@ export default function ImagePopup() {
                   {content.judul}
                 </h3>
 
-                {/* Kontainer Teks - Diperbaiki agar Link bisa diklik dengan nyaman */}
-                <div className="bg-slate-900/50 rounded-[1.5rem] p-6 border border-white/5 text-slate-300 text-[14px] font-medium leading-relaxed shadow-inner">
+                {/* Kontainer Teks - Diperbaiki agar Link Rapih dan Tidak Bocor Keluar */}
+                <div className="bg-slate-900/50 rounded-[1.5rem] p-6 border border-white/5 text-slate-300 text-[14px] font-medium leading-relaxed shadow-inner overflow-hidden">
                   <div className="relative z-10">
                     {formatContent(content.deskripsi)}
                   </div>
@@ -163,7 +163,7 @@ export default function ImagePopup() {
         </motion.div>
       )}
 
-      {/* CSS Khusus agar Scrollbar hilang namun fungsi scroll tetap ada */}
+      {/* CSS Khusus */}
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { 
           display: none; 

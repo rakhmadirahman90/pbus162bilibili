@@ -21,8 +21,8 @@ interface Berita {
   gambar_url: string;
   tanggal: string;
   penulis?: string;
-  views?: number;
-  likes?: number;
+  views: number; // Diubah menjadi wajib number agar tidak NULL
+  likes: number; // Diubah menjadi wajib number agar tidak NULL
   comments_count?: number;
 }
 
@@ -68,7 +68,8 @@ export default function News() {
         const formattedData = data.map(item => ({
           ...item,
           comments_count: item.komentar?.[0]?.count || 0,
-          likes: item.likes || 0 // Memastikan tidak NULL
+          likes: Number(item.likes) || 0,
+          views: Number(item.views) || 0 // PAKSA MENJADI ANGKA AGAR TIDAK RESET 0
         }));
         setBeritaList(formattedData as Berita[]);
       }
@@ -93,26 +94,30 @@ export default function News() {
     }
   };
 
+  // PERBAIKAN UTAMA: Fungsi Open News & Update View Permanen ke Database
   const handleOpenNews = async (news: Berita) => {
     setSelectedNews(news);
     fetchComments(news.id);
     
+    // 1. Hitung angka view baru
+    const currentViews = Number(news.views) || 0;
+    const updatedViewCount = currentViews + 1;
+
+    // 2. Update UI secara instan (Optimistic Update)
+    setBeritaList(prev => prev.map(item => 
+      item.id === news.id ? { ...item, views: updatedViewCount } : item
+    ));
+
+    // 3. Simpan ke Database secara Permanen agar tidak reset saat refresh
     try {
-      // Menggunakan RPC jika tersedia, jika tidak fallback ke update manual
-      const { error } = await supabase.rpc('increment_views', { row_id: news.id });
-      
-      if (error) {
-        await supabase
-          .from('berita')
-          .update({ views: (news.views || 0) + 1 })
-          .eq('id', news.id);
-      }
-      
-      setBeritaList(prev => prev.map(item => 
-        item.id === news.id ? { ...item, views: (item.views || 0) + 1 } : item
-      ));
+      const { error } = await supabase
+        .from('berita')
+        .update({ views: updatedViewCount })
+        .eq('id', news.id);
+
+      if (error) throw error;
     } catch (err) {
-      console.error("Error updating views:", err);
+      console.error("Gagal menyimpan views ke database:", err);
     }
   };
 
@@ -146,33 +151,27 @@ export default function News() {
     }
   };
 
-  // PERBAIKAN: Fungsi Like dengan Optimistic Update & Sinkronisasi
   const handleLike = async (e: React.MouseEvent, newsId: string) => {
     e.stopPropagation(); 
     const isLiked = likedPosts.has(newsId);
     
-    // 1. Update State likedPosts (Visual Icon) secara instan
     const newLikedPosts = new Set(likedPosts);
     if (isLiked) newLikedPosts.delete(newsId);
     else newLikedPosts.add(newsId);
     setLikedPosts(newLikedPosts);
 
-    // 2. Kalkulasi angka baru secara lokal
     const newsItem = beritaList.find(n => n.id === newsId);
-    const currentLikes = newsItem?.likes || 0;
+    const currentLikes = Number(newsItem?.likes) || 0;
     const finalLikeCount = isLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1;
 
-    // 3. Update State List Berita secara instan
     setBeritaList(prev => prev.map(item => 
       item.id === newsId ? { ...item, likes: finalLikeCount } : item
     ));
 
-    // 4. Update State Detail Berita (Modal) jika sedang terbuka
     if (selectedNews?.id === newsId) {
       setSelectedNews(prev => prev ? { ...prev, likes: finalLikeCount } : null);
     }
 
-    // 5. Kirim data ke Database
     try {
       const { error } = await supabase
         .from('berita')
@@ -182,7 +181,6 @@ export default function News() {
       if (error) throw error;
     } catch (err) {
       console.error("Gagal update likes di database:", err);
-      // Fallback: Jika gagal, fetch ulang data untuk sinkronisasi asli
       fetchNews();
     }
   };

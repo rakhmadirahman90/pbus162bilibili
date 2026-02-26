@@ -23,17 +23,14 @@ import {
   Calendar,
   Download,
   Activity,
-  ZoomIn, // Tambahan Icon
-  ZoomOut, // Tambahan Icon
-  Maximize // Tambahan Icon
+  ZoomIn, // Tambahan untuk fitur baru
+  ZoomOut // Tambahan untuk fitur baru
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Swal from 'sweetalert2';
-// Import framer-motion untuk fitur zoom & drag yang smooth
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface Registrant {
   id: string;
@@ -45,7 +42,7 @@ interface Registrant {
   pengalaman: string;
   foto_url: string;
   jenis_kelamin: string;
-  kategori_atlet: string; 
+  kategori_atlet: string; // NEW: Kolom kategori atlet sesuai DB
 }
 
 export default function ManajemenPendaftaran() {
@@ -58,12 +55,8 @@ export default function ManajemenPendaftaran() {
   const [uploading, setUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // --- KODE BARU: STATE UNTUK ZOOM FOTO ---
+  // State tambahan untuk fitur Zoom
   const [zoomScale, setZoomScale] = useState(1);
-
-  // --- KODE BARU: PAGINATION ---
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
 
   useEffect(() => {
     fetchRegistrants();
@@ -78,9 +71,7 @@ export default function ManajemenPendaftaran() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if (data) {
-        setRegistrants(data);
-      }
+      if (data) setRegistrants(data);
     } catch (err) {
       console.error('Error fetching:', err);
       Swal.fire('Error', 'Gagal memuat data', 'error');
@@ -89,7 +80,7 @@ export default function ManajemenPendaftaran() {
     }
   };
 
-  // --- KODE BARU: SINKRONISASI STATISTIK DENGAN DATABASE ---
+  // LOGIKA STATISTIK OTOMATIS (Tanpa merubah UI)
   const stats = {
     total: registrants.length,
     senior: registrants.filter(r => r.kategori_atlet === 'Senior').length,
@@ -117,9 +108,9 @@ export default function ManajemenPendaftaran() {
         .eq('id', editingItem.id);
 
       if (error) {
-        // Handling khusus error constraint database
+        // PERBAIKAN: Menangani error constraint DB
         if (error.message.includes('check_kategori_atlet')) {
-          throw new Error('Pilihan kategori harus sesuai: Senior atau Atlet Muda');
+          throw new Error('Kategori harus "Senior" atau "Atlet Muda"');
         }
         throw error;
       }
@@ -128,7 +119,7 @@ export default function ManajemenPendaftaran() {
       setIsEditModalOpen(false);
       fetchRegistrants();
     } catch (err: any) {
-      Swal.fire('Gagal', err.message || 'Gagal menyimpan perubahan', 'error');
+      Swal.fire('Gagal', err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -198,16 +189,11 @@ export default function ManajemenPendaftaran() {
     item.domisili.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* HEADER SECTION */}
+        {/* HEADER SECTION - KEMBALI KE ASLI */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -231,7 +217,7 @@ export default function ManajemenPendaftaran() {
           </div>
         </div>
 
-        {/* --- KODE BARU: STATS CARDS TERKONEKSI TABEL --- */}
+        {/* STATS CARDS - KEMBALI KE ASLI & TERKONEKSI DB */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between group hover:border-blue-200 transition-all">
             <div>
@@ -264,7 +250,7 @@ export default function ManajemenPendaftaran() {
           </div>
         </div>
 
-        {/* TABLE SECTION */}
+        {/* TABLE SECTION - KEMBALI KE ASLI */}
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative w-full md:w-96 group">
@@ -290,7 +276,7 @@ export default function ManajemenPendaftaran() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {currentItems.map((item) => (
+                {filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
@@ -305,7 +291,7 @@ export default function ManajemenPendaftaran() {
                         </div>
                         <div>
                           <p className="font-black text-slate-900 uppercase italic tracking-tight">{item.nama}</p>
-                          <a href={`https://wa.me/${item.whatsapp}`} target="_blank" className="flex items-center gap-1.5 text-blue-600 font-bold text-xs mt-0.5 hover:underline">
+                          <a href={`https://wa.me/${item.whatsapp}`} target=\"_blank\" className="flex items-center gap-1.5 text-blue-600 font-bold text-xs mt-0.5 hover:underline">
                             <Phone size={12} /> {item.whatsapp}
                           </a>
                         </div>
@@ -352,33 +338,10 @@ export default function ManajemenPendaftaran() {
               </tbody>
             </table>
           </div>
-
-          {/* PAGINATION */}
-          <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length}
-            </p>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-3 bg-white rounded-xl border border-slate-200 disabled:opacity-50 hover:bg-slate-100 transition-all"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <button 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-3 bg-white rounded-xl border border-slate-200 disabled:opacity-50 hover:bg-slate-100 transition-all"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* EDIT MODAL */}
+      {/* EDIT MODAL - KEMBALI KE ASLI */}
       {isEditModalOpen && editingItem && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
@@ -390,6 +353,7 @@ export default function ManajemenPendaftaran() {
             </div>
 
             <form onSubmit={handleUpdate} className="p-8 overflow-y-auto space-y-6">
+              {/* Profile Photo Edit */}
               <div className="flex flex-col items-center gap-4 mb-8">
                 <div className="relative group">
                   <div className="w-32 h-32 rounded-[2rem] bg-slate-100 overflow-hidden border-4 border-slate-50 shadow-inner group-hover:border-blue-100 transition-all">
@@ -398,52 +362,49 @@ export default function ManajemenPendaftaran() {
                         <Loader2 className="animate-spin text-blue-600" />
                       </div>
                     ) : (
-                      <img 
-                        src={editingItem.foto_url} 
-                        alt="Preview" 
-                        className="w-full h-full object-cover cursor-zoom-in"
-                        onClick={() => {
-                          setPreviewImage(editingItem.foto_url);
-                          setZoomScale(1);
-                        }}
-                      />
+                      <img src={editingItem.foto_url} alt=\"Preview\" className="w-full h-full object-cover" />
                     )}
                   </div>
-                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl cursor-pointer hover:bg-blue-700 transition-all shadow-lg">
+                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl cursor-pointer hover:bg-blue-700 transition-all shadow-lg active:scale-90">
                     <Camera size={18} />
-                    <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+                    <input type="file" className="hidden" accept=\"image/*\" onChange={handlePhotoUpload} />
                   </label>
                 </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nama Lengkap</label>
-                  <input className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700" value={editingItem.nama} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nama Lengkap</label>
+                  <input className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700" value={editingItem.nama} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">WhatsApp</label>
-                  <input className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700" value={editingItem.whatsapp} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">WhatsApp</label>
+                  <input className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700" value={editingItem.whatsapp} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Kategori Atlet</label>
-                  <select 
-                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700" 
-                    value={editingItem.kategori_atlet} 
-                    onChange={e => setEditingItem({...editingItem, kategori_atlet: e.target.value})}
-                  >
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Kategori (Posisi)</label>
+                  <select className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700 appearance-none" value={editingItem.kategori} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
+                    <option>Smasher</option>
+                    <option>Netting</option>
+                    <option>All Around</option>
+                    <option>Defender</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Kategori Atlet (Level)</label>
+                  <select className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700 appearance-none" value={editingItem.kategori_atlet} onChange={e => setEditingItem({...editingItem, kategori_atlet: e.target.value})}>
                     <option value="Senior">Senior</option>
                     <option value="Atlet Muda">Atlet Muda</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Domisili</label>
-                  <input className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700" value={editingItem.domisili} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Domisili</label>
+                  <input className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700" value={editingItem.domisili} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
                 </div>
               </div>
               <div className="pt-4 border-t border-slate-100">
                 <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2 active:scale-95">
-                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                  {isSaving ? <Loader2 className=\"animate-spin\" size={16} /> : <Save size={16} />}
                   Simpan Perubahan
                 </button>
               </div>
@@ -452,55 +413,36 @@ export default function ManajemenPendaftaran() {
         </div>
       )}
 
-      {/* --- KODE BARU: LIGHTBOX DENGAN FITUR ZOOM & DRAG --- */}
-      <AnimatePresence>
-        {previewImage && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md">
+      {/* LIGHTBOX PREVIEW - KEMBALI KE ASLI DENGAN FITUR ZOOM */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[110] flex flex-col items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative max-w-xl w-full flex flex-col items-center gap-4">
             
-            {/* Control Zoom Bar */}
-            <div className="absolute top-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-white/10 p-3 rounded-2xl backdrop-blur-xl border border-white/20 z-[120]">
-               <button onClick={() => setZoomScale(s => Math.max(0.5, s - 0.2))} className="text-white hover:text-blue-400 transition-colors">
-                  <ZoomOut size={22} />
-               </button>
-               <span className="text-white font-black text-xs min-w-[40px] text-center">
-                  {Math.round(zoomScale * 100)}%
-               </span>
-               <button onClick={() => setZoomScale(s => Math.min(3, s + 0.2))} className="text-white hover:text-blue-400 transition-colors">
-                  <ZoomIn size={22} />
-               </button>
-               <div className="w-px h-6 bg-white/20 mx-1"></div>
-               <button onClick={() => setZoomScale(1)} className="text-white hover:text-blue-400 transition-colors">
-                  <Maximize size={20} />
-               </button>
+            {/* Toolbar Zoom Baru */}
+            <div className="flex gap-4 bg-white/10 p-2 rounded-full backdrop-blur-md mb-2">
+              <button onClick={() => setZoomScale(s => Math.max(0.5, s - 0.25))} className="p-2 text-white hover:bg-white/20 rounded-full"><ZoomOut size={20}/></button>
+              <span className="text-white font-bold self-center text-xs">{Math.round(zoomScale * 100)}%</span>
+              <button onClick={() => setZoomScale(s => Math.min(3, s + 0.25))} className="p-2 text-white hover:bg-white/20 rounded-full"><ZoomIn size={20}/></button>
             </div>
 
             <button 
-              onClick={() => {
-                setPreviewImage(null);
-                setZoomScale(1);
-              }} 
-              className="absolute top-12 right-12 text-white hover:text-rose-500 z-[130] flex items-center gap-2 font-black uppercase text-[10px] tracking-widest transition-all"
+              onClick={() => { setPreviewImage(null); setZoomScale(1); }}
+              className="absolute -top-12 right-0 text-white hover:text-rose-500 transition-colors flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"
             >
-              Tutup <X size={24} />
+              Tutup <X size={20} />
             </button>
-            
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-              <motion.div 
-                drag
-                dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
-                style={{ scale: zoomScale }}
-                className="relative cursor-grab active:cursor-grabbing"
-              >
-                <img 
-                  src={previewImage} 
-                  className="max-w-[85vw] max-h-[85vh] rounded-3xl shadow-2xl border-2 border-white/20 pointer-events-none" 
-                  alt="Full Preview" 
-                />
-              </motion.div>
+
+            <div className="overflow-auto max-h-[70vh] w-full flex justify-center hide-scrollbar">
+              <img 
+                src={previewImage} 
+                className="rounded-3xl shadow-2xl border-4 border-white/10 transition-transform duration-200" 
+                style={{ transform: `scale(${zoomScale})` }}
+                alt="Preview" 
+              />
             </div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       <style dangerouslySetInnerHTML={{ __html: `
         .hide-scrollbar::-webkit-scrollbar { display: none; }

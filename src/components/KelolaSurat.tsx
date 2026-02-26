@@ -22,49 +22,55 @@ export function KelolaSurat() {
   const [isDragging, setIsDragging] = useState(false);
 
   // --- KODE BARU: FUNGSI UNTUK GENERATE & UPLOAD PDF KE WHATSAPP ---
-  const handleSendWhatsApp = async (surat: any) => {
-    // Validasi awal
-    if (!surat.nomor_surat) {
-        Swal.fire('Gagal', 'Nomor surat harus diisi sebelum mengirim.', 'error');
-        return;
+ const handleSendWhatsApp = async (surat: any) => {
+    // 1. Jika modal belum terbuka, buka modal dulu agar printRef ter-render
+    if (!isModalOpen || formData.id !== surat.id) {
+      setFormData(surat);
+      setIsModalOpen(true);
+      setIsPreviewOnly(true);
+      
+      // Berikan jeda singkat (delay) agar browser sempat merender elemen pratinjau
+      setTimeout(() => {
+        processWhatsAppPDF(surat);
+      }, 500);
+    } else {
+      processWhatsAppPDF(surat);
     }
+  };
 
+  // Fungsi inti untuk memproses PDF dan Upload
+  const processWhatsAppPDF = async (surat: any) => {
     setIsSubmitting(true);
     
     try {
       const element = printRef.current;
       if (!element) {
-        throw new Error("Elemen pratinjau surat tidak ditemukan.");
+        throw new Error("Elemen pratinjau surat tidak ditemukan. Coba buka pratinjau terlebih dahulu.");
       }
 
-      // Optimasi html2canvas untuk kualitas cetak
+      // Menunggu gambar/logo dimuat sempurna
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
         logging: false,
         backgroundColor: "#ffffff",
-        windowWidth: 794, // Lebar A4 dalam pixel (96 DPI)
+        // Penting: Pastikan elemen terlihat di viewport saat render
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
       });
       
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
-      });
-
+      const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       const pdfBlob = pdf.output('blob');
 
-      // Nama file unik (bersihkan karakter ilegal)
-      const cleanNomor = surat.nomor_surat.replace(/[/\\?%*:|"<>]/g, '-');
-      const fileName = `surat_${cleanNomor}_${Date.now()}.pdf`;
+      const fileName = `surat_${surat.nomor_surat.replace(/[/\\?%*:|"<>]/g, '-')}_${Date.now()}.pdf`;
 
-      // 2. UPLOAD KE SUPABASE STORAGE
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('surat-pdf')
         .upload(fileName, pdfBlob, {
@@ -72,41 +78,28 @@ export function KelolaSurat() {
           upsert: true
         });
 
-      if (uploadError) {
-          console.error("Storage Error:", uploadError);
-          throw new Error("Gagal upload ke storage. Pastikan bucket 'surat-pdf' sudah dibuat dengan akses publik.");
-      }
+      if (uploadError) throw uploadError;
 
-      // 3. DAPATKAN PUBLIC URL
       const { data: { publicUrl } } = supabase.storage
         .from('surat-pdf')
         .getPublicUrl(fileName);
 
-      // 4. PESAN WHATSAPP FORMATTED
-      const message = `*DOKUMEN RESMI PB BILIBILI 162*\n\n` +
+      const message = `*UNDANGAN NARASUMBER - PB BILIBILI 162*\n\n` +
         `Yth. *${surat.tujuan_yth}*\n` + 
         `${surat.jabatan_tujuan || ''}\n\n` +
         `Assalamu'alaikum Wr. Wb.\n` +
-        `Berikut kami kirimkan lampiran surat perihal: *${surat.perihal}* yang dapat diakses melalui tautan berikut:\n\n` +
-        `🔗 *Link Surat (PDF):* \n${publicUrl}\n\n` +
-        `*Detail Kegiatan:*\n` +
-        `🗓️ Hari/Tgl: ${surat.hari_tanggal}\n` +
-        `⏰ Waktu: ${surat.waktu}\n` +
-        `📍 Tempat: ${surat.tempat_kegiatan}\n` +
-        `📚 Tema: "${surat.tema}"\n\n` +
-        `Demikian informasi ini kami sampaikan. Terima kasih.\n\n` +
-        `_Pesan otomatis oleh Sistem Administrasi PB Bilibili 162_`;
+        `Berikut kami lampirkan surat resmi permohonan narasumber yang dapat diunduh melalui tautan di bawah ini:\n\n` +
+        `🔗 *Link Download Surat:* \n${publicUrl}\n\n` +
+        `Terima kasih.\n*Admin PB Bilibili 162*`;
 
       const encodedMessage = encodeURIComponent(message);
       
       Swal.fire({
-        title: 'PDF Berhasil Dibuat!',
-        text: 'Surat siap dikirim ke WhatsApp.',
+        title: 'PDF Siap!',
+        text: 'Surat berhasil diproses.',
         icon: 'success',
-        showCancelButton: true,
-        confirmButtonText: 'Buka WhatsApp',
-        confirmButtonColor: '#25D366',
-        cancelButtonText: 'Tutup'
+        confirmButtonText: 'Kirim via WhatsApp',
+        confirmButtonColor: '#25D366'
       }).then((result) => {
         if (result.isConfirmed) {
           window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
@@ -114,7 +107,7 @@ export function KelolaSurat() {
       });
 
     } catch (error: any) {
-      console.error("Proses WA Gagal:", error);
+      console.error("Gagal:", error);
       Swal.fire('Error', error.message, 'error');
     } finally {
       setIsSubmitting(false);

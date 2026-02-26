@@ -72,14 +72,15 @@ export default function ManajemenPendaftaran() {
     "Dewasa / Umum", "Veteran (35+ / 40+)"
   ];
 
-  // --- MENGHITUNG JUMLAH PENDAFTAR (STATISTIK LENGKAP) ---
+// --- MENGHITUNG JUMLAH PENDAFTAR (STATISTIK LENGKAP) ---
 const totalPendaftar = registrants.length;
 
-// Filter Putra & Putri (Menggunakan trim untuk menghindari spasi tak sengaja)
-const totalPutra = registrants.filter(r => r.jenis_kelamin?.trim() === 'Putra').length;
-const totalPutri = registrants.filter(r => r.jenis_kelamin?.trim() === 'Putri').length;
+// Filter Jenis Kelamin (Pastikan sesuai dengan teks yang tersimpan di DB)
+const totalPutra = registrants.filter(r => r.jenis_kelamin === 'Putra').length;
+const totalPutri = registrants.filter(r => r.jenis_kelamin === 'Putri').length;
 
-// --- STATISTIK MUDA (Dipaksa ke UPPERCASE agar cocok dengan Database) ---
+// --- STATISTIK ATLET MUDA ---
+// Kita gunakan .toUpperCase() agar "Muda", "muda", maupun "MUDA" tetap terhitung
 const totalMuda = registrants.filter(r => 
   (r.kategori_atlet || '').toUpperCase().trim() === 'MUDA'
 ).length;
@@ -92,7 +93,7 @@ const totalMudaPutri = registrants.filter(r =>
   (r.kategori_atlet || '').toUpperCase().trim() === 'MUDA' && r.jenis_kelamin === 'Putri'
 ).length;
 
-// --- STATISTIK SENIOR (Dipaksa ke UPPERCASE agar cocok dengan Database) ---
+// --- STATISTIK ATLET SENIOR ---
 const totalSenior = registrants.filter(r => 
   (r.kategori_atlet || '').toUpperCase().trim() === 'SENIOR'
 ).length;

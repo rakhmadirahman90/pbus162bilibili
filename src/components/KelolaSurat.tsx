@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase'; 
 import { 
-  Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon
+  Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon, Move
 } from 'lucide-react';
 
 export function KelolaSurat() {
@@ -13,7 +13,10 @@ export function KelolaSurat() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // State Form disesuaikan dengan isi dokumen PB Bilibili 162
+  // State untuk posisi Cap Stempel (Drag and Drop)
+  const [stempelPos, setStempelPos] = useState({ x: -40, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+
   const [formData, setFormData] = useState({
     nomor_surat: '001/PB-Bilibili162/II/2026',
     lampiran: '-',
@@ -30,12 +33,12 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
     tema: 'Ramadan sebagai Madrasah Integritas dan Spiritual',
     nama_ketua: 'H. Wawan',
     nama_sekretaris: 'H. Barhaman Muin S.Ag',
-    logo_url: '', // Untuk Preview Logo
-    ttd_ketua_url: '', // Untuk Preview TTD Ketua
-    ttd_sekretaris_url: '' // Untuk Preview TTD Sekretaris
+    logo_url: '', 
+    ttd_ketua_url: '', 
+    ttd_sekretaris_url: '', // Tambahan TTD Sekretaris
+    cap_stempel_url: ''    // Tambahan Cap Stempel
   });
 
-  // Fungsi Handling Upload Gambar (Logo/TTD)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -45,6 +48,24 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Fungsi Drag Cap Stempel
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      setStempelPos({
+        x: stempelPos.x + e.movementX,
+        y: stempelPos.y + e.movementY
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
   };
 
   const fetchSurat = async () => {
@@ -69,6 +90,7 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
             <style>
               @media print { @page { size: A4; margin: 0; } body { margin: 1.5cm; } }
               .font-serif { font-family: 'Times New Roman', Times, serif; }
+              .stempel-print { position: absolute; pointer-events: none; }
             </style>
           </head>
           <body class="bg-white">
@@ -83,7 +105,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
 
   return (
     <div className="p-6 md:p-10 text-white max-w-7xl mx-auto min-h-screen font-sans">
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-600/20 rounded-2xl text-blue-500"><Mail size={32} /></div>
@@ -106,8 +127,8 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
           <table className="w-full text-left">
             <thead>
               <tr className="bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                <th className="px-8 py-5">No. Surat [cite: 5]</th>
-                <th className="px-8 py-5">Perihal [cite: 5]</th>
+                <th className="px-8 py-5">No. Surat </th>
+                <th className="px-8 py-5">Perihal </th>
                 <th className="px-8 py-5 text-right">Aksi</th>
               </tr>
             </thead>
@@ -134,24 +155,39 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
               <h2 className="text-xl font-black uppercase italic border-b border-white/10 pb-4">Edit Isi Surat</h2>
               
               <div className="grid grid-cols-1 gap-3">
-                {/* UPLOAD SECTION */}
                 <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
                     <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Media & Identitas</p>
                     <div className="grid grid-cols-2 gap-2">
-                        <label className="flex flex-col items-center justify-center p-2 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 cursor-pointer transition-all">
-                            <ImageIcon size={16} className="text-slate-400 mb-1"/>
-                            <span className="text-[8px] uppercase font-bold text-slate-500">Upload Logo</span>
+                        <label className="flex flex-col items-center justify-center p-2 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 cursor-pointer">
+                            <ImageIcon size={14} className="mb-1 text-slate-400"/>
+                            <span className="text-[7px] uppercase font-bold text-slate-500 text-center">Logo Kop</span>
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo_url')} />
                         </label>
-                        <label className="flex flex-col items-center justify-center p-2 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 cursor-pointer transition-all">
-                            <Upload size={16} className="text-slate-400 mb-1"/>
-                            <span className="text-[8px] uppercase font-bold text-slate-500">TTD Ketua</span>
+                        <label className="flex flex-col items-center justify-center p-2 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 cursor-pointer">
+                            <Upload size={14} className="mb-1 text-slate-400"/>
+                            <span className="text-[7px] uppercase font-bold text-slate-500 text-center">Cap Stempel</span>
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'cap_stempel_url')} />
+                        </label>
+                        <label className="flex flex-col items-center justify-center p-2 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 cursor-pointer">
+                            <Upload size={14} className="mb-1 text-slate-400"/>
+                            <span className="text-[7px] uppercase font-bold text-slate-500 text-center">TTD Ketua</span>
                             <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'ttd_ketua_url')} />
                         </label>
+                        <label className="flex flex-col items-center justify-center p-2 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 cursor-pointer">
+                            <Upload size={14} className="mb-1 text-slate-400"/>
+                            <span className="text-[7px] uppercase font-bold text-slate-500 text-center">TTD Sekretaris</span>
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'ttd_sekretaris_url')} />
+                        </label>
                     </div>
+                    {formData.cap_stempel_url && (
+                        <div className="flex items-center gap-2 mt-2 p-2 bg-blue-500/10 rounded-lg">
+                            <Move size={12} className="text-blue-400" />
+                            <span className="text-[8px] text-blue-300">Cap Aktif: Geser di Preview untuk posisi</span>
+                        </div>
+                    )}
                 </div>
 
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Nomor Surat [cite: 5]</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Nomor Surat </label>
                 <input type="text" className="w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-xs" value={formData.nomor_surat} onChange={(e)=>setFormData({...formData, nomor_surat: e.target.value})} />
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -168,7 +204,7 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Tujuan (Yth) [cite: 6, 7]</label>
                 <input type="text" className="w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-xs" value={formData.tujuan_yth} onChange={(e)=>setFormData({...formData, tujuan_yth: e.target.value})} />
                 
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Perihal [cite: 5]</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Perihal </label>
                 <textarea className="w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-xs h-16" value={formData.perihal} onChange={(e)=>setFormData({...formData, perihal: e.target.value})} />
                 
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Isi Paragraf [cite: 13, 14]</label>
@@ -182,10 +218,10 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
             </div>
 
             {/* LIVE PREVIEW (KERTAS A4) */}
-            <div className="hidden md:block flex-1 bg-slate-800 p-8 overflow-y-auto custom-scrollbar">
-              <div ref={printRef} className="bg-white text-black p-[1.5cm] mx-auto w-[21cm] min-h-[29.7cm] shadow-2xl font-serif text-[11pt] leading-relaxed">
+            <div className="hidden md:block flex-1 bg-slate-800 p-8 overflow-y-auto custom-scrollbar" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+              <div ref={printRef} className="bg-white text-black p-[1.5cm] mx-auto w-[21cm] min-h-[29.7cm] shadow-2xl font-serif text-[11pt] leading-relaxed relative">
                 
-                {/* KOP SURAT PERSIS FILE [cite: 1, 4] */}
+                {/* KOP SURAT [cite: 1, 4] */}
                 <div className="flex items-center border-b-[4px] border-black pb-2 mb-6">
                   <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center mr-4 overflow-hidden">
                     {formData.logo_url ? (
@@ -201,14 +237,16 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                   </div>
                 </div>
 
-                {/* HEADER INFO [cite: 5] */}
-                <div className="flex justify-between mb-6">
-                    <div className="space-y-0.5">
+                {/* HEADER INFO & TANGGAL (FIXED WRAP)  */}
+                <div className="flex justify-between items-start mb-6">
+                    <div className="flex-1">
                         <p>Nomor : {formData.nomor_surat}</p>
                         <p>Lampiran : {formData.lampiran}</p>
                         <p>Perihal : <strong>{formData.perihal}</strong></p>
                     </div>
-                    <div><p>{formData.tempat_tanggal}</p></div>
+                    <div className="whitespace-nowrap ml-4">
+                        <p>{formData.tempat_tanggal}</p>
+                    </div>
                 </div>
 
                 <div className="mb-6">
@@ -234,19 +272,33 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                     <p>Wassalamu'alaikum Warahmatullahi Wabarakatuh. [cite: 22]</p>
                 </div>
 
-                {/* TANDA TANGAN DOUBLE [cite: 23, 24, 28] */}
+                {/* TANDA TANGAN & CAP (DRAGGABLE) [cite: 23, 24, 28] */}
                 <div className="mt-12 flex justify-between px-10 relative">
+                    {/* SISI KETUA & CAP */}
                     <div className="text-center w-48 relative">
                         <p className="mb-16">Ketua, [cite: 23]</p>
                         {formData.ttd_ketua_url && (
-                            <img src={formData.ttd_ketua_url} alt="TTD Ketua" className="absolute top-6 left-1/2 -translate-x-1/2 h-20 object-contain mix-blend-multiply opacity-90" />
+                            <img src={formData.ttd_ketua_url} alt="TTD Ketua" className="absolute top-6 left-1/2 -translate-x-1/2 h-20 object-contain mix-blend-multiply" />
+                        )}
+                        {/* CAP STEMBEL DRAGGABLE */}
+                        {formData.cap_stempel_url && (
+                            <div 
+                                onMouseDown={handleMouseDown}
+                                style={{ transform: `translate(${stempelPos.x}px, ${stempelPos.y}px)` }}
+                                className="absolute top-4 left-1/2 w-28 h-28 cursor-move z-20 group"
+                            >
+                                <img src={formData.cap_stempel_url} alt="Cap Stempel" className="w-full h-full object-contain opacity-80 mix-blend-darken" />
+                                <div className="hidden group-hover:block absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] bg-blue-500 text-white px-1 rounded">GESER CAP</div>
+                            </div>
                         )}
                         <p className="font-bold underline uppercase">{formData.nama_ketua} </p>
                     </div>
+
+                    {/* SISI SEKRETARIS */}
                     <div className="text-center w-48 relative">
                         <p className="mb-16">Sekretaris, [cite: 28]</p>
                         {formData.ttd_sekretaris_url && (
-                            <img src={formData.ttd_sekretaris_url} alt="TTD Sekretaris" className="absolute top-6 left-1/2 -translate-x-1/2 h-20 object-contain mix-blend-multiply opacity-90" />
+                            <img src={formData.ttd_sekretaris_url} alt="TTD Sekretaris" className="absolute top-6 left-1/2 -translate-x-1/2 h-20 object-contain mix-blend-multiply" />
                         )}
                         <p className="font-bold underline uppercase">{formData.nama_sekretaris} </p>
                     </div>

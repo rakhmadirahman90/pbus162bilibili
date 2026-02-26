@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase'; 
 import { 
-  Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon, Move, Edit, MessageCircle // Tambah Icon WA
+  Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon, Move, Edit, MessageCircle 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import html2canvas from 'html2canvas'; // Untuk convert surat ke gambar/file
-import { jsPDF } from 'jspdf'; // Untuk export PDF
+import html2canvas from 'html2canvas'; 
+import { jsPDF } from 'jspdf'; 
 
 export function KelolaSurat() {
   const [suratList, setSuratList] = useState<any[]>([]);
@@ -21,39 +21,71 @@ export function KelolaSurat() {
   const [stempelPos, setStempelPos] = useState({ x: -40, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
 
-  // --- FITUR BARU: KIRIM WA ---
+  // --- FITUR PERBAIKAN: KIRIM WA DENGAN AUTO DOWNLOAD PDF ---
   const handleSendWhatsApp = async (surat: any) => {
-    // 1. Buat Pesan Ringkas
-    const message = `*UNDANGAN NARASUMBER - PB BILIBILI 162*\n\n` +
-      `Yth. *${surat.tujuan_yth}*\n` +
-      `${surat.jabatan_tujuan}\n\n` +
-      `Assalamu'alaikum Wr. Wb.\n` +
-      `Kami memohon kesediaan Bapak untuk menjadi narasumber pada:\n\n` +
-      `🗓️ *Hari/Tgl:* ${surat.hari_tanggal}\n` +
-      `⏰ *Waktu:* ${surat.waktu}\n` +
-      `📍 *Tempat:* ${surat.tempat_kegiatan}\n` +
-      `📚 *Tema:* "${surat.tema}"\n\n` +
-      `Surat resmi telah kami lampirkan. Terima kasih.\n` +
-      `Wassalam,\n*Panitia PB Bilibili 162*`;
-
-    const encodedMessage = encodeURIComponent(message);
+    setIsSubmitting(true);
     
-    // 2. Alert Instruksi (Karena kirim file PDF via Link WA Web butuh trik khusus)
-    Swal.fire({
-      title: 'Kirim via WhatsApp',
-      text: "WhatsApp Web tidak mendukung kirim file otomatis via URL. Gunakan 'Cetak PDF' terlebih dahulu, lalu lampirkan secara manual di chat yang akan terbuka.",
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonText: 'Buka WhatsApp & Salin Teks',
-      cancelButtonText: 'Batal',
-      confirmButtonColor: '#25D366'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    try {
+      // 1. PROSES GENERATE & DOWNLOAD PDF OTOMATIS
+      // Kita menggunakan ref yang ada (printRef) untuk menangkap tampilan surat
+      const element = printRef.current;
+      let pdfFileName = `Surat_${surat.nomor_surat.replace(/\//g, '-')}.pdf`;
+
+      if (element) {
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff"
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(pdfFileName);
       }
-    });
+
+      // 2. BUAT PESAN RINGKAS
+      const message = `*UNDANGAN NARASUMBER - PB BILIBILI 162*\n\n` +
+        `Yth. *${surat.tujuan_yth}*\n` +
+        `${surat.jabatan_tujuan}\n\n` +
+        `Assalamu'alaikum Wr. Wb.\n` +
+        `Kami memohon kesediaan Bapak untuk menjadi narasumber pada:\n\n` +
+        `🗓️ *Hari/Tgl:* ${surat.hari_tanggal}\n` +
+        `⏰ *Waktu:* ${surat.waktu}\n` +
+        `📍 *Tempat:* ${surat.tempat_kegiatan}\n` +
+        `📚 *Tema:* "${surat.tema}"\n\n` +
+        `*File PDF surat resmi telah terdownload otomatis.* Silahkan lampirkan file tersebut pada chat ini.\n\n` +
+        `Terima kasih.\n*Admin PB Bilibili 162*`;
+
+      const encodedMessage = encodeURIComponent(message);
+      
+      // 3. KONFIRMASI KE PENGGUNA
+      Swal.fire({
+        title: 'File PDF Terdownload!',
+        text: `Surat "${surat.nomor_surat}" sudah diunduh secara otomatis. Klik tombol di bawah untuk membuka WhatsApp, lalu tempel pesan dan lampirkan filenya.`,
+        icon: 'success',
+        confirmButtonText: 'Buka WhatsApp',
+        confirmButtonColor: '#25D366',
+        showCancelButton: true,
+        cancelButtonText: 'Tutup'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+        }
+      });
+
+    } catch (error) {
+      console.error("Gagal memproses WA:", error);
+      Swal.fire('Error', 'Gagal membuat file PDF otomatis', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  // ----------------------------
+  // ---------------------------------------------------------
 
   const defaultForm = {
     nomor_surat: '',
@@ -198,7 +230,7 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
           </head>
           <body class="bg-white">
             <div class="font-serif">
-               ${content.innerHTML}
+                ${content.innerHTML}
             </div>
             <script>window.onload = () => { window.print(); window.close(); }</script>
           </body>
@@ -215,7 +247,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
 
   return (
     <div className="p-6 md:p-10 text-white max-w-7xl mx-auto min-h-screen font-sans">
-      {/* Header Tetap Sama */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-600/20 rounded-2xl text-blue-500"><Mail size={32} /></div>
@@ -251,7 +282,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                   <td className="px-8 py-6 text-slate-500 text-xs">{new Date(s.created_at).toLocaleDateString('id-ID')}</td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end gap-2">
-                        {/* Tombol Kirim WA */}
                         <button onClick={() => handleSendWhatsApp(s)} title="Kirim WhatsApp" className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all">
                           <MessageCircle size={14}/>
                         </button>
@@ -272,7 +302,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
           <div className="bg-[#0F172A] border border-white/10 w-full max-w-[95%] h-[90vh] rounded-[2.5rem] flex flex-col md:flex-row overflow-hidden shadow-2xl">
             
-            {/* Sidebar Form */}
             {!isPreviewOnly && (
               <div className="w-full md:w-1/3 p-6 overflow-y-auto border-r border-white/5 space-y-4 custom-scrollbar">
                 <div className="flex justify-between items-center border-b border-white/10 pb-4">
@@ -281,7 +310,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                 </div>
                 
                 <div className="grid grid-cols-1 gap-3">
-                  {/* Uploaders */}
                   <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
                       <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Media & Identitas</p>
                       <div className="grid grid-cols-2 gap-2">
@@ -308,7 +336,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                       </div>
                   </div>
 
-                  {/* Inputs */}
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Nomor Surat</label>
                   <input type="text" className="w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-xs font-mono text-blue-400" value={formData.nomor_surat} onChange={(e)=>setFormData({...formData, nomor_surat: e.target.value})} />
                   
@@ -346,19 +373,16 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
               </div>
             )}
 
-            {/* Area Preview */}
             <div className={`flex-1 bg-slate-800 p-8 overflow-y-auto custom-scrollbar relative`} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
               <div className="absolute top-6 right-10 flex gap-3 z-50">
-                  {/* Tambah tombol kirim WA di preview */}
-                  <button onClick={() => handleSendWhatsApp(formData)} className="px-4 py-2 bg-green-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl hover:bg-green-500 transition-all">
-                    <MessageCircle size={14}/> Kirim WA
+                  <button onClick={() => handleSendWhatsApp(formData)} disabled={isSubmitting} className="px-4 py-2 bg-green-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl hover:bg-green-500 transition-all disabled:opacity-50">
+                    {isSubmitting ? <Loader2 size={14} className="animate-spin"/> : <MessageCircle size={14}/>} Kirim WA
                   </button>
                   <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl"><Printer size={14}/> Cetak Sekarang</button>
                   <button onClick={() => setIsModalOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"><X size={20}/></button>
               </div>
 
               <div ref={printRef} className="bg-white text-black p-[1.5cm] mx-auto w-[21cm] min-h-[29.7cm] shadow-2xl font-serif text-[11pt] leading-relaxed relative overflow-hidden">
-                {/* Isi Surat (Sama seperti sebelumnya) */}
                 <div className="flex items-center border-b-[4px] border-black pb-2 mb-6">
                   <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center mr-4 overflow-hidden">
                     {formData.logo_url ? (

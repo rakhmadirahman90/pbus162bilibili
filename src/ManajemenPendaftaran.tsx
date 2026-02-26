@@ -73,17 +73,37 @@ export default function ManajemenPendaftaran() {
   ];
 
   // --- MENGHITUNG JUMLAH PENDAFTAR (STATISTIK LENGKAP) ---
-  const totalPendaftar = registrants.length;
-  const totalPutra = registrants.filter(r => r.jenis_kelamin === 'Putra').length;
-  const totalPutri = registrants.filter(r => r.jenis_kelamin === 'Putri').length;
+const totalPendaftar = registrants.length;
 
-  const totalMuda = registrants.filter(r => r.kategori_atlet === 'Muda').length;
-  const totalMudaPutra = registrants.filter(r => r.kategori_atlet === 'Muda' && r.jenis_kelamin === 'Putra').length;
-  const totalMudaPutri = registrants.filter(r => r.kategori_atlet === 'Muda' && r.jenis_kelamin === 'Putri').length;
+// Filter Putra & Putri (Menggunakan trim untuk menghindari spasi tak sengaja)
+const totalPutra = registrants.filter(r => r.jenis_kelamin?.trim() === 'Putra').length;
+const totalPutri = registrants.filter(r => r.jenis_kelamin?.trim() === 'Putri').length;
 
-  const totalSenior = registrants.filter(r => r.kategori_atlet === 'Senior').length;
-  const totalSeniorPutra = registrants.filter(r => r.kategori_atlet === 'Senior' && r.jenis_kelamin === 'Putra').length;
-  const totalSeniorPutri = registrants.filter(r => r.kategori_atlet === 'Senior' && r.jenis_kelamin === 'Putri').length;
+// --- STATISTIK MUDA (Dipaksa ke UPPERCASE agar cocok dengan Database) ---
+const totalMuda = registrants.filter(r => 
+  (r.kategori_atlet || '').toUpperCase().trim() === 'MUDA'
+).length;
+
+const totalMudaPutra = registrants.filter(r => 
+  (r.kategori_atlet || '').toUpperCase().trim() === 'MUDA' && r.jenis_kelamin === 'Putra'
+).length;
+
+const totalMudaPutri = registrants.filter(r => 
+  (r.kategori_atlet || '').toUpperCase().trim() === 'MUDA' && r.jenis_kelamin === 'Putri'
+).length;
+
+// --- STATISTIK SENIOR (Dipaksa ke UPPERCASE agar cocok dengan Database) ---
+const totalSenior = registrants.filter(r => 
+  (r.kategori_atlet || '').toUpperCase().trim() === 'SENIOR'
+).length;
+
+const totalSeniorPutra = registrants.filter(r => 
+  (r.kategori_atlet || '').toUpperCase().trim() === 'SENIOR' && r.jenis_kelamin === 'Putra'
+).length;
+
+const totalSeniorPutri = registrants.filter(r => 
+  (r.kategori_atlet || '').toUpperCase().trim() === 'SENIOR' && r.jenis_kelamin === 'Putri'
+).length;
 
   // --- UTILS ---
   const Toast = Swal.mixin({

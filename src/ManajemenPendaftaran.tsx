@@ -813,4 +813,4 @@ export default function ManajemenPendaftaran() {
       )}
     </div>
   );
-} 
+}

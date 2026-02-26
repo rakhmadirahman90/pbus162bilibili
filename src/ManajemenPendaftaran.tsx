@@ -348,6 +348,7 @@ export default function ManajemenPendaftaran() {
 
   const handleUpdate = async (e: React.FormEvent) => {
   e.preventDefault();
+  // Pastikan editingItem tidak null
   if (!editingItem || uploading) return;
 
   setIsSaving(true);
@@ -355,13 +356,14 @@ export default function ManajemenPendaftaran() {
     const { error } = await supabase
       .from('pendaftaran')
       .update({
-        // Gunakan .toUpperCase() pada semua field teks
-        nama: editingItem.nama.toUpperCase(),
+        // Tambahkan || '' agar jika null tetap terbaca sebagai string kosong
+        nama: (editingItem.nama || '').toUpperCase(),
         whatsapp: editingItem.whatsapp,
-        kategori: editingItem.kategori, // Dropdown umur biasanya tetap
-        kategori_atlet: editingItem.kategori_atlet.toUpperCase(), // Harus MUDA / SENIOR
-        domisili: editingItem.domisili.toUpperCase(),
-        pengalaman: editingItem.pengalaman.toUpperCase(),
+        kategori: editingItem.kategori,
+        // Pastikan kategori_atlet juga aman dari null
+        kategori_atlet: (editingItem.kategori_atlet || 'MUDA').toUpperCase(), 
+        domisili: (editingItem.domisili || '').toUpperCase(),
+        pengalaman: (editingItem.pengalaman || '').toUpperCase(),
         jenis_kelamin: editingItem.jenis_kelamin,
         foto_url: editingItem.foto_url
       })
@@ -369,16 +371,15 @@ export default function ManajemenPendaftaran() {
 
     if (error) throw error;
     
-    Swal.fire('Berhasil', 'Data atlet berhasil diperbarui dalam format kapital!', 'success');
+    Swal.fire('Berhasil', 'Data berhasil diperbarui!', 'success');
     setIsEditModalOpen(false);
     fetchData(); 
   } catch (err: any) {
-    Swal.fire('Gagal Simpan', err.message, 'error');
+    Swal.fire('Gagal', err.message, 'error');
   } finally {
     setIsSaving(false);
   }
 };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">
       <div className="max-w-[1400px] mx-auto px-4 py-4 md:px-8">

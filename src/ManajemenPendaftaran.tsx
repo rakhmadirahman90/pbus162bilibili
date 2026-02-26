@@ -404,7 +404,7 @@ const totalSeniorPutri = registrants.filter(r =>
             </div>
             <div>
               <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900 uppercase italic leading-none">
-                Manajemen <span className="text-blue-600">Atlet</span>
+                Manajemen <span className="text-blue-600">Pendaftaran</span>
               </h1>
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Database & Administrasi Real-time</p>
             </div>

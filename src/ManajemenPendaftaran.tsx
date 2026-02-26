@@ -347,31 +347,37 @@ export default function ManajemenPendaftaran() {
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingItem || uploading) return;
-    
-    setIsSaving(true);
-    try {
-      const { error } = await supabase.from('pendaftaran').update({
-        nama: (editingItem.nama || '').toUpperCase(),
-        whatsapp: editingItem.whatsapp,
-        domisili: editingItem.domisili.toUpperCase(),
-        kategori: editingItem.kategori,
-        kategori_atlet: editingItem.kategori_atlet,
-        jenis_kelamin: editingItem.jenis_kelamin, 
-        foto_url: editingItem.foto_url
-      }).eq('id', editingItem.id);
+  e.preventDefault();
+  if (!editingItem || uploading) return;
 
-      if (error) throw error;
-      
-      setIsEditModalOpen(false);
-      Toast.fire({ icon: 'success', title: 'Data berhasil diperbarui' });
-    } catch (error: any) { 
-      Swal.fire("Gagal", error.message, "error");
-    } finally { 
-      setIsSaving(false); 
-    }
-  };
+  setIsSaving(true);
+  try {
+    const { error } = await supabase
+      .from('pendaftaran')
+      .update({
+        // Gunakan .toUpperCase() pada semua field teks
+        nama: editingItem.nama.toUpperCase(),
+        whatsapp: editingItem.whatsapp,
+        kategori: editingItem.kategori, // Dropdown umur biasanya tetap
+        kategori_atlet: editingItem.kategori_atlet.toUpperCase(), // Harus MUDA / SENIOR
+        domisili: editingItem.domisili.toUpperCase(),
+        pengalaman: editingItem.pengalaman.toUpperCase(),
+        jenis_kelamin: editingItem.jenis_kelamin,
+        foto_url: editingItem.foto_url
+      })
+      .eq('id', editingItem.id);
+
+    if (error) throw error;
+    
+    Swal.fire('Berhasil', 'Data atlet berhasil diperbarui dalam format kapital!', 'success');
+    setIsEditModalOpen(false);
+    fetchData(); 
+  } catch (err: any) {
+    Swal.fire('Gagal Simpan', err.message, 'error');
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">

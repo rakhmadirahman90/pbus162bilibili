@@ -803,7 +803,7 @@ export default function ManajemenPendaftaran() {
       {/* LIGHTBOX PREVIEW */}
       {previewImage && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setPreviewImage(null)}>
-          <div className="relative max-w-xl w-full">
+          <div className="relativ e max-w-xl w-full">
             <button className="absolute -top-12 right-0 text-white hover:text-rose-500 transition-colors flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
               Tutup <X size={20} />
             </button>

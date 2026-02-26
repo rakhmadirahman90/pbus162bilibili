@@ -39,10 +39,9 @@ import AdminStructure from './components/AdminStructure';
 
 /**
  * PERBAIKAN IMPORT: 
- * Mengarahkan langsung ke root 'src' sesuai letak file pada gambar sebelumnya.
- * Pastikan file KelolaSurat.tsx ada di folder src/ (sejajar dengan App.tsx)
+ * Diarahkan ke folder 'components' karena file KelolaSurat.tsx ada di sana.
  */
-import { KelolaSurat } from './KelolaSurat'; 
+import { KelolaSurat } from './components/KelolaSurat'; 
 
 import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

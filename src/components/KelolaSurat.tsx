@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabase'; // Pastikan path ke supabase benar
+/** * PERBAIKAN: Path diubah ke '../supabase' karena file ini berada di folder components,
+ * sedangkan supabase.ts berada di folder src.
+ */
+import { supabase } from '../supabase'; 
 import { 
   Plus, FileText, Download, Trash2, Calendar, 
   Search, Mail, Send 
@@ -9,6 +12,7 @@ import {
 export function KelolaSurat() {
   const [suratList, setSuratList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchSurat = async () => {
@@ -32,8 +36,15 @@ export function KelolaSurat() {
     fetchSurat();
   }, []);
 
+  // Fitur Pencarian Sederhana
+  const filteredSurat = suratList.filter(s => 
+    s.nomor_surat?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    s.perihal?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="p-6 md:p-10 text-white max-w-7xl mx-auto">
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-600/20 rounded-2xl text-blue-500">
@@ -50,6 +61,7 @@ export function KelolaSurat() {
         </button>
       </div>
 
+      {/* Stats Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] backdrop-blur-sm">
           <FileText className="text-blue-500 mb-4" />
@@ -58,6 +70,7 @@ export function KelolaSurat() {
         </div>
       </div>
 
+      {/* Table Container */}
       <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden backdrop-blur-md">
         <div className="p-6 border-b border-white/10 bg-white/5">
           <div className="relative">
@@ -65,6 +78,8 @@ export function KelolaSurat() {
             <input 
               type="text" 
               placeholder="Cari nomor surat atau perihal..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-6 py-3 bg-slate-900/50 border border-white/10 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-sm"
             />
           </div>
@@ -83,22 +98,41 @@ export function KelolaSurat() {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-8 py-20 text-center text-slate-500 italic">Memuat data surat...</td>
+                  <td colSpan={4} className="px-8 py-20 text-center text-slate-500 italic">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      Memuat data surat...
+                    </div>
+                  </td>
                 </tr>
-              ) : suratList.length === 0 ? (
+              ) : filteredSurat.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-8 py-20 text-center text-slate-500 italic">Belum ada data surat yang tersimpan.</td>
+                  <td colSpan={4} className="px-8 py-20 text-center text-slate-500 italic">
+                    Belum ada data surat yang ditemukan.
+                  </td>
                 </tr>
               ) : (
-                suratList.map((surat) => (
+                filteredSurat.map((surat) => (
                   <tr key={surat.id} className="hover:bg-white/5 transition-colors group">
-                    <td className="px-8 py-6 text-sm font-medium text-slate-300">{new Date(surat.created_at).toLocaleDateString('id-ID')}</td>
+                    <td className="px-8 py-6 text-sm font-medium text-slate-300">
+                      {new Date(surat.created_at).toLocaleDateString('id-ID')}
+                    </td>
                     <td className="px-8 py-6 text-sm font-bold text-white">{surat.nomor_surat}</td>
                     <td className="px-8 py-6 text-sm text-slate-400">{surat.perihal}</td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <button className="p-2 hover:bg-blue-600/20 text-blue-500 rounded-lg transition-colors"><Download size={16} /></button>
-                        <button className="p-2 hover:bg-rose-600/20 text-rose-500 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                        <button 
+                          title="Download" 
+                          className="p-2 hover:bg-blue-600/20 text-blue-500 rounded-lg transition-colors"
+                        >
+                          <Download size={16} />
+                        </button>
+                        <button 
+                          title="Hapus"
+                          className="p-2 hover:bg-rose-600/20 text-rose-500 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase'; 
 import { 
   Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon, Move, Edit, MessageCircle 
-} from 'lucide-center';
+} from 'lucide-react';
 import Swal from 'sweetalert2';
 import html2canvas from 'html2canvas'; 
 import { jsPDF } from 'jspdf'; 

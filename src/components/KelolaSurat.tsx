@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase'; 
 import { 
-  Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon, Move, Edit
+  Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon, Move, Edit, MessageCircle // Tambah Icon WA
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import html2canvas from 'html2canvas'; // Untuk convert surat ke gambar/file
+import { jsPDF } from 'jspdf'; // Untuk export PDF
 
 export function KelolaSurat() {
   const [suratList, setSuratList] = useState<any[]>([]);
@@ -13,11 +15,45 @@ export function KelolaSurat() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [isPreviewOnly, setIsPreviewOnly] = useState(false); // Fitur Baru
+  const [isPreviewOnly, setIsPreviewOnly] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const [stempelPos, setStempelPos] = useState({ x: -40, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+
+  // --- FITUR BARU: KIRIM WA ---
+  const handleSendWhatsApp = async (surat: any) => {
+    // 1. Buat Pesan Ringkas
+    const message = `*UNDANGAN NARASUMBER - PB BILIBILI 162*\n\n` +
+      `Yth. *${surat.tujuan_yth}*\n` +
+      `${surat.jabatan_tujuan}\n\n` +
+      `Assalamu'alaikum Wr. Wb.\n` +
+      `Kami memohon kesediaan Bapak untuk menjadi narasumber pada:\n\n` +
+      `🗓️ *Hari/Tgl:* ${surat.hari_tanggal}\n` +
+      `⏰ *Waktu:* ${surat.waktu}\n` +
+      `📍 *Tempat:* ${surat.tempat_kegiatan}\n` +
+      `📚 *Tema:* "${surat.tema}"\n\n` +
+      `Surat resmi telah kami lampirkan. Terima kasih.\n` +
+      `Wassalam,\n*Panitia PB Bilibili 162*`;
+
+    const encodedMessage = encodeURIComponent(message);
+    
+    // 2. Alert Instruksi (Karena kirim file PDF via Link WA Web butuh trik khusus)
+    Swal.fire({
+      title: 'Kirim via WhatsApp',
+      text: "WhatsApp Web tidak mendukung kirim file otomatis via URL. Gunakan 'Cetak PDF' terlebih dahulu, lalu lampirkan secara manual di chat yang akan terbuka.",
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonText: 'Buka WhatsApp & Salin Teks',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#25D366'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+      }
+    });
+  };
+  // ----------------------------
 
   const defaultForm = {
     nomor_surat: '',
@@ -42,33 +78,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
   };
 
   const [formData, setFormData] = useState(defaultForm);
-
-  // --- KODE BARU: FITUR KIRIM WA ---
-  const handleKirimWA = (surat: any) => {
-    const phone = ""; // Bisa dikosongkan agar user memilih kontak di WA
-    const pesan = `*UNDANGAN NARASUMBER - PB BILIBILI 162*
-    
-Assalamu'alaikum Warahmatullahi Wabarakatuh.
-
-Yth. *${surat.tujuan_yth}*
-(${surat.jabatan_tujuan})
-
-Kami dari PB Bilibili 162 bermaksud memohon kesediaan Bapak untuk menjadi narasumber pada:
-
-📅 *Hari/Tgl:* ${surat.hari_tanggal}
-⏰ *Waktu:* ${surat.waktu}
-📍 *Tempat:* ${surat.tempat_kegiatan}
-📚 *Tema:* "${surat.tema}"
-
-Nomor Surat: ${surat.nomor_surat}
-
-Mohon konfirmasi kesediaan Bapak melalui pesan ini. Terima kasih.
-Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
-
-    const encodedPesan = encodeURIComponent(pesan);
-    window.open(`https://wa.me/${phone}?text=${encodedPesan}`, '_blank');
-  };
-  // --- END KODE BARU ---
 
   const prepareNewSurat = () => {
     setEditId(null);
@@ -189,7 +198,7 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
           </head>
           <body class="bg-white">
             <div class="font-serif">
-                ${content.innerHTML}
+               ${content.innerHTML}
             </div>
             <script>window.onload = () => { window.print(); window.close(); }</script>
           </body>
@@ -206,6 +215,7 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
 
   return (
     <div className="p-6 md:p-10 text-white max-w-7xl mx-auto min-h-screen font-sans">
+      {/* Header Tetap Sama */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-600/20 rounded-2xl text-blue-500"><Mail size={32} /></div>
@@ -241,9 +251,10 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                   <td className="px-8 py-6 text-slate-500 text-xs">{new Date(s.created_at).toLocaleDateString('id-ID')}</td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end gap-2">
-                        {/* TOMBOL KIRIM WA BARU */}
-                        <button onClick={() => handleKirimWA(s)} title="Kirim via WhatsApp" className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"><Send size={14}/></button>
-                        
+                        {/* Tombol Kirim WA */}
+                        <button onClick={() => handleSendWhatsApp(s)} title="Kirim WhatsApp" className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all">
+                          <MessageCircle size={14}/>
+                        </button>
                         <button onClick={() => handlePreview(s)} title="Preview Surat" className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"><Eye size={14}/></button>
                         <button onClick={() => handleEdit(s)} title="Edit Surat" className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Edit size={14}/></button>
                         <button onClick={() => handleDelete(s.id)} title="Hapus" className="p-2 bg-rose-500/10 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={14} /></button>
@@ -261,6 +272,7 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
           <div className="bg-[#0F172A] border border-white/10 w-full max-w-[95%] h-[90vh] rounded-[2.5rem] flex flex-col md:flex-row overflow-hidden shadow-2xl">
             
+            {/* Sidebar Form */}
             {!isPreviewOnly && (
               <div className="w-full md:w-1/3 p-6 overflow-y-auto border-r border-white/5 space-y-4 custom-scrollbar">
                 <div className="flex justify-between items-center border-b border-white/10 pb-4">
@@ -269,6 +281,7 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                 </div>
                 
                 <div className="grid grid-cols-1 gap-3">
+                  {/* Uploaders */}
                   <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-3">
                       <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Media & Identitas</p>
                       <div className="grid grid-cols-2 gap-2">
@@ -295,6 +308,7 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                       </div>
                   </div>
 
+                  {/* Inputs */}
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Nomor Surat</label>
                   <input type="text" className="w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-xs font-mono text-blue-400" value={formData.nomor_surat} onChange={(e)=>setFormData({...formData, nomor_surat: e.target.value})} />
                   
@@ -325,25 +339,26 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                       {editId ? 'Perbarui & Simpan' : 'Simpan ke Arsip'}
                     </button>
                     <div className="flex gap-2">
-                      <button onClick={handlePrint} className="flex-1 py-3 bg-slate-700 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 hover:bg-slate-600 transition-all"><Printer size={14}/> Print PDF</button>
+                      <button onClick={handlePrint} className="flex-1 py-3 bg-slate-700 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 hover:bg-slate-600 transition-all"><Printer size={14}/> Cetak PDF</button>
                       <button onClick={()=>setIsModalOpen(false)} className="flex-1 py-3 bg-rose-600/10 text-rose-500 border border-rose-500/20 rounded-xl font-bold text-[10px] hover:bg-rose-500 hover:text-white transition-all">Batal</button>
                     </div>
                 </div>
               </div>
             )}
 
+            {/* Area Preview */}
             <div className={`flex-1 bg-slate-800 p-8 overflow-y-auto custom-scrollbar relative`} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
-              {isPreviewOnly && (
-                <div className="absolute top-6 right-10 flex gap-3 z-50">
-                   <button onClick={() => handleKirimWA(formData)} className="px-4 py-2 bg-green-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl"><Send size={14}/> Kirim WA</button>
-                   <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl"><Printer size={14}/> Cetak Sekarang</button>
-                   <button onClick={() => setIsModalOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"><X size={20}/></button>
-                </div>
-              )}
+              <div className="absolute top-6 right-10 flex gap-3 z-50">
+                  {/* Tambah tombol kirim WA di preview */}
+                  <button onClick={() => handleSendWhatsApp(formData)} className="px-4 py-2 bg-green-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl hover:bg-green-500 transition-all">
+                    <MessageCircle size={14}/> Kirim WA
+                  </button>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl"><Printer size={14}/> Cetak Sekarang</button>
+                  <button onClick={() => setIsModalOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"><X size={20}/></button>
+              </div>
 
               <div ref={printRef} className="bg-white text-black p-[1.5cm] mx-auto w-[21cm] min-h-[29.7cm] shadow-2xl font-serif text-[11pt] leading-relaxed relative overflow-hidden">
-                
-                {/* Kop Surat */}
+                {/* Isi Surat (Sama seperti sebelumnya) */}
                 <div className="flex items-center border-b-[4px] border-black pb-2 mb-6">
                   <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center mr-4 overflow-hidden">
                     {formData.logo_url ? (
@@ -359,7 +374,6 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                   </div>
                 </div>
 
-                {/* Nomor & Tanggal */}
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex-1">
                         <p>Nomor : {formData.nomor_surat}</p>
@@ -371,7 +385,6 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                     </div>
                 </div>
 
-                {/* Tujuan */}
                 <div className="mb-6">
                     <p>Kepada Yth.</p>
                     <p className="font-bold">{formData.tujuan_yth}</p>
@@ -379,7 +392,6 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                     <p>Di - Tempat</p>
                 </div>
 
-                {/* Isi */}
                 <div className="space-y-4 text-justify">
                     <p>Assalamu'alaikum Warahmatullahi Wabarakatuh,</p>
                     <p className="font-bold">Dengan hormat,</p>
@@ -396,7 +408,6 @@ Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
                     <p>Wassalamu'alaikum Warahmatullahi Wabarakatuh.</p>
                 </div>
 
-                {/* Tanda Tangan & Stempel */}
                 <div className="mt-12 flex justify-between px-10 relative">
                     <div className="text-center w-48 relative">
                         <p className="mb-16">Ketua,</p>

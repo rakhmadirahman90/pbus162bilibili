@@ -724,83 +724,103 @@ const handleUpdate = async (e: React.FormEvent) => {
         </div>
       )}
 
-      {/* ======================= MODAL EDIT ======================= */}
+     {/* MODAL EDIT ATLET */}
       {isEditModalOpen && editingItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsEditModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">Edit Data <span className="text-blue-600">Atlet</span></h2>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Perbarui informasi database</p>
-              </div>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-2.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl text-slate-400 transition-all"><X size={18}/></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+            {/* Header Modal */}
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-slate-900">
+                Edit <span className="text-blue-600">Data Atlet</span>
+              </h3>
+              <button 
+                onClick={() => setIsEditModalOpen(false)} 
+                className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-full transition-colors"
+              >
+                <X size={24} />
+              </button>
             </div>
-            
-            <form onSubmit={handleUpdate} className="p-8 space-y-5">
-              <div className="flex items-center gap-6 mb-2">
-                <div className="relative">
-                  <div className="w-24 h-24 rounded-[1.5rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex-shrink-0">
-                    {editingItem.foto_url ? (
-                      <img src={editingItem.foto_url} className="w-full h-full object-cover object-top" alt="preview" /> 
+
+            {/* Form Edit */}
+            <form onSubmit={handleUpdate} className="p-8 overflow-y-auto space-y-6">
+              {/* Upload Foto Preview */}
+              <div className="flex flex-col items-center gap-4 mb-8">
+                <div className="relative group">
+                  <div className="w-32 h-32 rounded-[2rem] bg-slate-100 overflow-hidden border-4 border-slate-50 shadow-inner group-hover:border-blue-100 transition-all">
+                    {uploading ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                        <Loader2 className="animate-spin text-blue-600" />
+                      </div>
                     ) : (
-                      <User size={32} className="m-auto mt-6 text-slate-200" />
+                      <img src={editingItem.foto_url || '/placeholder.png'} alt="Preview" className="w-full h-full object-cover" />
                     )}
-                    {uploading && <div className="absolute inset-0 bg-white/90 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={20} /></div>}
                   </div>
-                  <label className="absolute -bottom-2 -right-2 p-2.5 bg-blue-600 text-white rounded-xl shadow-xl cursor-pointer hover:bg-slate-900 transition-all border-4 border-white">
-                    <Camera size={14} />
+                  <label className="absolute -bottom-2 -right-2 p-3 bg-blue-600 text-white rounded-2xl cursor-pointer hover:bg-blue-700 transition-all shadow-lg active:scale-90">
+                    <Camera size={18} />
                     <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'edit')} />
                   </label>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Nama Lengkap</label>
-                  <input className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs focus:border-blue-600 outline-none transition-all" value={editingItem.nama || ''} onChange={e => setEditingItem({...editingItem, nama: e.target.value})} required />
+              </div>
+
+              {/* Input Grid */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nama Lengkap</label>
+                  <input 
+                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700 uppercase" 
+                    value={editingItem.nama || ''} 
+                    onChange={e => setEditingItem({...editingItem, nama: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">WhatsApp</label>
+                  <input 
+                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700" 
+                    value={editingItem.whatsapp || ''} 
+                    onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Kategori Umur</label>
+                  <select 
+                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700 appearance-none" 
+                    value={editingItem.kategori} 
+                    onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}
+                  >
+                    {kategoriUmur.map(k => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Kategori Atlet</label>
+                  <select 
+                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700 appearance-none" 
+                    value={editingItem.kategori_atlet} 
+                    onChange={e => setEditingItem({...editingItem, kategori_atlet: e.target.value})}
+                  >
+                    <option value="Muda">Muda</option>
+                    <option value="Senior">Senior</option>
+                  </select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Domisili</label>
+                  <input 
+                    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700 uppercase" 
+                    value={editingItem.domisili || ''} 
+                    onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} 
+                    required 
+                  />
                 </div>
               </div>
 
-              <div className="space-y-2">
-  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-    Kategori Atlet
-  </label>
-  <select 
-    className="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-700 appearance-none" 
-    value={editingItem.kategori_atlet} 
-    onChange={e => setEditingItem({...editingItem, kategori_atlet: e.target.value})}
-  >
-    {/* Sesuaikan value di bawah ini dengan isi Check Constraint Anda */}
-    <option value="Atlet Muda">Atlet Muda</option>
-    <option value="Senior">Senior</option>
-  </select>
-</div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Jenis Kelamin</label>
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200">
-                    {['Putra', 'Putri'].map((g) => (
-                      <button key={g} type="button" onClick={() => setEditingItem({...editingItem, jenis_kelamin: g})} className={`py-2 rounded-lg font-black text-[9px] tracking-widest transition-all ${editingItem.jenis_kelamin === g ? (g === 'Putra' ? 'bg-blue-600 text-white shadow-md' : 'bg-rose-500 text-white shadow-md') : 'text-slate-400 hover:text-slate-600'}`}>
-                        {g.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Kategori Umur</label>
-                  <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none focus:border-blue-600" value={editingItem.kategori || ''} onChange={e => setEditingItem({...editingItem, kategori: e.target.value})}>
-                    {kategoriUmur.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">WhatsApp</label>
-                  <input className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none focus:border-blue-600" value={editingItem.whatsapp || ''} onChange={e => setEditingItem({...editingItem, whatsapp: e.target.value})} required />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Domisili</label>
-                  <input className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold uppercase text-xs outline-none focus:border-blue-600" value={editingItem.domisili || ''} onChange={e => setEditingItem({...editingItem, domisili: e.target.value})} required />
-                </div>
-              </div>
+              {/* Action Button */}
               <div className="pt-4 border-t border-slate-100">
-                <button type="submit" disabled={isSaving || uploading} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2 active:scale-95">
+                <button 
+                  type="submit" 
+                  disabled={isSaving || uploading} 
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
                   {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                   Simpan Perubahan
                 </button>
@@ -817,10 +837,10 @@ const handleUpdate = async (e: React.FormEvent) => {
             <button className="absolute -top-12 right-0 text-white hover:text-rose-500 transition-colors flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
               Tutup <X size={20} />
             </button>
-            <img src={previewImage} className="w-full h-auto rounded-[2rem] border-4 border-white shadow-2xl animate-in zoom-in duration-300" alt="preview-large" />
+            <img src={previewImage} className="w-full rounded-3xl shadow-2xl border-4 border-white/10" alt="Preview" />
           </div>
         </div>
       )}
     </div>
   );
-} 
+}

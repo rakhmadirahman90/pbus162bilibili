@@ -43,6 +43,33 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
 
   const [formData, setFormData] = useState(defaultForm);
 
+  // --- KODE BARU: FITUR KIRIM WA ---
+  const handleKirimWA = (surat: any) => {
+    const phone = ""; // Bisa dikosongkan agar user memilih kontak di WA
+    const pesan = `*UNDANGAN NARASUMBER - PB BILIBILI 162*
+    
+Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Yth. *${surat.tujuan_yth}*
+(${surat.jabatan_tujuan})
+
+Kami dari PB Bilibili 162 bermaksud memohon kesediaan Bapak untuk menjadi narasumber pada:
+
+📅 *Hari/Tgl:* ${surat.hari_tanggal}
+⏰ *Waktu:* ${surat.waktu}
+📍 *Tempat:* ${surat.tempat_kegiatan}
+📚 *Tema:* "${surat.tema}"
+
+Nomor Surat: ${surat.nomor_surat}
+
+Mohon konfirmasi kesediaan Bapak melalui pesan ini. Terima kasih.
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.`;
+
+    const encodedPesan = encodeURIComponent(pesan);
+    window.open(`https://wa.me/${phone}?text=${encodedPesan}`, '_blank');
+  };
+  // --- END KODE BARU ---
+
   const prepareNewSurat = () => {
     setEditId(null);
     setIsPreviewOnly(false);
@@ -70,7 +97,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
     setIsModalOpen(true);
   };
 
-  // Fungsi Baru: Handle Preview
   const handlePreview = (surat: any) => {
     setEditId(null);
     setIsPreviewOnly(true);
@@ -163,7 +189,7 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
           </head>
           <body class="bg-white">
             <div class="font-serif">
-               ${content.innerHTML}
+                ${content.innerHTML}
             </div>
             <script>window.onload = () => { window.print(); window.close(); }</script>
           </body>
@@ -215,7 +241,9 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                   <td className="px-8 py-6 text-slate-500 text-xs">{new Date(s.created_at).toLocaleDateString('id-ID')}</td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end gap-2">
-                        {/* Tombol Preview Baru */}
+                        {/* TOMBOL KIRIM WA BARU */}
+                        <button onClick={() => handleKirimWA(s)} title="Kirim via WhatsApp" className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"><Send size={14}/></button>
+                        
                         <button onClick={() => handlePreview(s)} title="Preview Surat" className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"><Eye size={14}/></button>
                         <button onClick={() => handleEdit(s)} title="Edit Surat" className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Edit size={14}/></button>
                         <button onClick={() => handleDelete(s.id)} title="Hapus" className="p-2 bg-rose-500/10 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={14} /></button>
@@ -233,7 +261,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
           <div className="bg-[#0F172A] border border-white/10 w-full max-w-[95%] h-[90vh] rounded-[2.5rem] flex flex-col md:flex-row overflow-hidden shadow-2xl">
             
-            {/* Sidebar Form: Hanya muncul jika bukan Preview Only */}
             {!isPreviewOnly && (
               <div className="w-full md:w-1/3 p-6 overflow-y-auto border-r border-white/5 space-y-4 custom-scrollbar">
                 <div className="flex justify-between items-center border-b border-white/10 pb-4">
@@ -305,10 +332,10 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
               </div>
             )}
 
-            {/* Area Preview: Akan melebar jika Preview Only */}
             <div className={`flex-1 bg-slate-800 p-8 overflow-y-auto custom-scrollbar relative`} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
               {isPreviewOnly && (
                 <div className="absolute top-6 right-10 flex gap-3 z-50">
+                   <button onClick={() => handleKirimWA(formData)} className="px-4 py-2 bg-green-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl"><Send size={14}/> Kirim WA</button>
                    <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xl"><Printer size={14}/> Cetak Sekarang</button>
                    <button onClick={() => setIsModalOpen(false)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"><X size={20}/></button>
                 </div>

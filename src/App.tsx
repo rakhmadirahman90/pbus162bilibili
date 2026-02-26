@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from "../supabase"; // Ditambah titik satu lagi untuk naik ke folder src
+// Ganti ../supabase menjadi ./supabase karena App.tsx dan supabase.ts berada di folder yang sama (src)
+import { supabase } from './supabase';
 
 // Import Komponen Landing Page
 import Navbar from './components/Navbar';

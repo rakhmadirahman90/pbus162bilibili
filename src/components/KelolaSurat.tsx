@@ -3,7 +3,7 @@ import { supabase } from '../supabase';
 import { 
   Plus, FileText, Download, Trash2, Search, Mail, X, Send, Loader2, Eye, Printer, Upload, Image as ImageIcon, Move, Edit
 } from 'lucide-react';
-import Swal from 'sweetalert2'; // Pastikan sudah install sweetalert2
+import Swal from 'sweetalert2';
 
 export function KelolaSurat() {
   const [suratList, setSuratList] = useState<any[]>([]);
@@ -12,14 +12,12 @@ export function KelolaSurat() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null); // State untuk mode edit
+  const [editId, setEditId] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // State untuk posisi Cap Stempel (Drag and Drop)
   const [stempelPos, setStempelPos] = useState({ x: -40, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
 
-  // Initial State default
   const defaultForm = {
     nomor_surat: '',
     lampiran: '-',
@@ -44,18 +42,14 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
 
   const [formData, setFormData] = useState(defaultForm);
 
-  // --- LOGIKA BARU: AUTO NUMBERING & DRAFT TERAKHIR ---
   const prepareNewSurat = () => {
     setEditId(null);
     if (suratList.length > 0) {
-      const lastSurat = suratList[0]; // Data terbaru
-      
-      // Ambil angka dari nomor surat terakhir (asumsi format: 001/...)
+      const lastSurat = suratList[0];
       const lastNomor = lastSurat.nomor_surat.split('/')[0];
       const nextNumber = (parseInt(lastNomor) + 1).toString().padStart(3, '0');
       const newFullNomor = `${nextNumber}${lastSurat.nomor_surat.substring(3)}`;
 
-      // Load data terakhir sebagai template
       setFormData({
         ...lastSurat,
         nomor_surat: newFullNomor,
@@ -75,22 +69,23 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
 
   const handleSave = async () => {
     setIsSubmitting(true);
+    // Destruktur data agar tidak mengirim kolom sistem (seperti id, created_at) ke update/insert
+    const { id, created_at, ...payload } = formData as any;
+
     try {
       if (editId) {
-        // UPDATE
-        const { error } = await supabase.from('arsip_surat').update(formData).eq('id', editId);
+        const { error } = await supabase.from('arsip_surat').update(payload).eq('id', editId);
         if (error) throw error;
         Swal.fire('Berhasil', 'Surat diperbarui!', 'success');
       } else {
-        // INSERT
-        const { error } = await supabase.from('arsip_surat').insert([formData]);
+        const { error } = await supabase.from('arsip_surat').insert([payload]);
         if (error) throw error;
         Swal.fire('Berhasil', 'Surat disimpan ke arsip!', 'success');
       }
       setIsModalOpen(false);
       fetchSurat();
     } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
+      Swal.fire('Error Database', 'Pastikan kolom SQL sudah ditambahkan: ' + err.message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -112,7 +107,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
     }
   };
 
-  // --- KODE LAMA TETAP DIPERTAHANKAN ---
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -154,7 +148,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
             <style>
               @media print { @page { size: A4; margin: 0; } body { margin: 1.5cm; } }
               .font-serif { font-family: 'Times New Roman', Times, serif; }
-              .stempel-print { position: absolute; pointer-events: none; }
             </style>
           </head>
           <body class="bg-white">
@@ -187,7 +180,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
         </button>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">
         <div className="p-6 border-b border-white/10">
             <input type="text" placeholder="Cari nomor atau perihal..." className="w-full max-w-md pl-5 pr-6 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -216,22 +208,15 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                   </td>
                 </tr>
               ))}
-              {filteredSurat.length === 0 && (
-                <tr>
-                    <td colSpan={4} className="px-8 py-10 text-center text-slate-500 italic">Belum ada data surat.</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* MODAL LENGKAP */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
           <div className="bg-[#0F172A] border border-white/10 w-full max-w-[95%] h-[90vh] rounded-[2.5rem] flex flex-col md:flex-row overflow-hidden">
             
-            {/* FORM INPUT */}
             <div className="w-full md:w-1/3 p-6 overflow-y-auto border-r border-white/5 space-y-4 custom-scrollbar">
               <div className="flex justify-between items-center border-b border-white/10 pb-4">
                 <h2 className="text-xl font-black uppercase italic">{editId ? 'Edit Surat' : 'Buat Surat Baru'}</h2>
@@ -265,7 +250,7 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                     </div>
                 </div>
 
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Nomor Surat (Auto-Increment)</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Nomor Surat</label>
                 <input type="text" className="w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-xs font-mono text-blue-400" value={formData.nomor_surat} onChange={(e)=>setFormData({...formData, nomor_surat: e.target.value})} />
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -301,11 +286,9 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
               </div>
             </div>
 
-            {/* LIVE PREVIEW */}
             <div className="hidden md:block flex-1 bg-slate-800 p-8 overflow-y-auto custom-scrollbar" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
               <div ref={printRef} className="bg-white text-black p-[1.5cm] mx-auto w-[21cm] min-h-[29.7cm] shadow-2xl font-serif text-[11pt] leading-relaxed relative">
                 
-                {/* KOP SURAT */}
                 <div className="flex items-center border-b-[4px] border-black pb-2 mb-6">
                   <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center mr-4 overflow-hidden">
                     {formData.logo_url ? (
@@ -321,7 +304,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                   </div>
                 </div>
 
-                {/* HEADER INFO & TANGGAL */}
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex-1">
                         <p>Nomor : {formData.nomor_surat}</p>
@@ -356,7 +338,6 @@ Dalam rangka menyemarakkan syiar Islam dan memperdalam pemahaman keagamaan di bu
                     <p>Wassalamu'alaikum Warahmatullahi Wabarakatuh.</p>
                 </div>
 
-                {/* TANDA TANGAN & CAP */}
                 <div className="mt-12 flex justify-between px-10 relative">
                     <div className="text-center w-48 relative">
                         <p className="mb-16">Ketua,</p>

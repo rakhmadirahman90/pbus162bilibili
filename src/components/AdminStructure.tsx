@@ -1,16 +1,35 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
-// Memastikan semua ikon diimport dengan benar untuk mencegah ReferenceError
 import { 
   Plus, Trash2, Shield, Edit3, X, Upload, Loader2, 
   Image as ImageIcon, Search, ChevronLeft, ChevronRight, 
-  CheckCircle2, AlertCircle, Save 
+  CheckCircle2, AlertCircle, Save, GripVertical, Eye,
+  Award, ShieldCheck, Users, ChevronDown
 } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 
+// --- IMPORT LIBRARY DND-KIT ---
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 // --- KOMPONEN NOTIFIKASI (TOAST) ---
 const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
-  <div className={`fixed top-5 right-5 z-[150] flex items-center gap-3 px-6 py-4 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 ${
+  <div className={`fixed top-5 right-5 z-[250] flex items-center gap-3 px-6 py-4 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 ${
     type === 'success' ? 'bg-[#0F172A] border-emerald-500/50 text-emerald-400' : 'bg-[#0F172A] border-red-500/50 text-red-400'
   }`}>
     {type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
@@ -21,19 +40,40 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
   </div>
 );
 
+// --- KOMPONEN SORTABLE ITEM UNTUK LIST ---
+function SortableMemberRow({ member, onEdit, onDelete }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: member.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 100 : 1 };
+
+  return (
+    <div ref={setNodeRef} style={style} className={`flex items-center gap-3 p-3 mb-2 rounded-2xl border ${isDragging ? 'bg-blue-600/20 border-blue-500 shadow-2xl' : 'bg-white/5 border-white/5'} group transition-all`}>
+      <button {...attributes} {...listeners} className="p-2 text-slate-600 hover:text-white cursor-grab active:cursor-grabbing">
+        <GripVertical size={16} />
+      </button>
+      <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-800 shrink-0">
+        <img src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`} className="w-full h-full object-cover" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="text-[11px] font-black uppercase italic truncate">{member.name}</h4>
+        <p className="text-[9px] text-blue-400 font-bold uppercase tracking-tighter">{member.role}</p>
+      </div>
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={() => onEdit(member)} className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"><Edit3 size={14} /></button>
+        <button onClick={() => onDelete(member)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={14} /></button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminStructure() {
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
-  
-  // State Fitur Pencarian & Pagination
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
-  // State Fitur Crop Foto
+  const [searchTerm, setSearchTerm] = useState('');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -43,16 +83,11 @@ export default function AdminStructure() {
     name: '', role: '', category: 'Seksi', level: 3, photo_url: ''
   });
 
-  useEffect(() => { 
-    fetchMembers(); 
-  }, []);
+  // DnD Sensors
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
-  useEffect(() => { 
-    if (toast) { 
-      const t = setTimeout(() => setToast(null), 3000); 
-      return () => clearTimeout(t); 
-    } 
-  }, [toast]);
+  useEffect(() => { fetchMembers(); }, []);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); } }, [toast]);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -60,17 +95,13 @@ export default function AdminStructure() {
       const { data, error } = await supabase
         .from('organizational_structure')
         .select('*')
-        .order('level', { ascending: true });
+        .order('level', { ascending: true })
+        .order('sort_order', { ascending: true });
       if (error) throw error;
       setMembers(data || []);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error("Fetch error:", err); } finally { setLoading(false); }
   };
 
-  // --- LOGIKA IMAGE PROCESSING (CROP & UPLOAD) ---
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -80,9 +111,7 @@ export default function AdminStructure() {
     }
   };
 
-  const onCropComplete = useCallback((_: any, pixels: any) => {
-    setCroppedAreaPixels(pixels);
-  }, []);
+  const onCropComplete = useCallback((_: any, pixels: any) => { setCroppedAreaPixels(pixels); }, []);
 
   const handleProcessImage = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
@@ -92,260 +121,238 @@ export default function AdminStructure() {
       const image = new Image();
       image.src = imageSrc;
       await new Promise((resolve) => (image.onload = resolve));
-
       const ctx = canvas.getContext('2d');
-      canvas.width = 500;
-      canvas.height = 500;
-
-      ctx?.drawImage(
-        image,
-        croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height,
-        0, 0, 500, 500
-      );
-
+      canvas.width = 500; canvas.height = 500;
+      ctx?.drawImage(image, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 500, 500);
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
-      if (!blob) throw new Error("Gagal membuat blob gambar");
-
+      if (!blob) throw new Error("Gagal membuat blob");
       const fileName = `admin-${Date.now()}.jpg`;
       const filePath = `photos/${fileName}`;
-
       const { error: upErr } = await supabase.storage.from('avatars').upload(filePath, blob);
       if (upErr) throw upErr;
-
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
       setFormData(prev => ({ ...prev, photo_url: data.publicUrl }));
       setImageSrc(null);
       setToast({ msg: 'FOTO BERHASIL DIPROSES', type: 'success' });
-    } catch (err: any) {
-      setToast({ msg: 'GAGAL UPLOAD FOTO', type: 'error' });
-    } finally {
-      setUploading(false);
-    }
+    } catch (err) { setToast({ msg: 'GAGAL UPLOAD FOTO', type: 'error' }); } finally { setUploading(false); }
   };
 
-  // --- LOGIKA CRUD ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (editingId) {
-        const { error } = await supabase
-          .from('organizational_structure')
-          .update(formData)
-          .eq('id', editingId);
+        const { error } = await supabase.from('organizational_structure').update(formData).eq('id', editingId);
         if (error) throw error;
         setToast({ msg: 'DATA BERHASIL DIPERBARUI!', type: 'success' });
         setEditingId(null);
       } else {
-        const { error } = await supabase.from('organizational_structure').insert([formData]);
+        const { error } = await supabase.from('organizational_structure').insert([{...formData, sort_order: members.length}]);
         if (error) throw error;
         setToast({ msg: 'PENGURUS BERHASIL DITAMBAHKAN!', type: 'success' });
       }
       setFormData({ name: '', role: '', category: 'Seksi', level: 3, photo_url: '' });
       fetchMembers();
-    } catch (err) {
-      setToast({ msg: 'TERJADI KESALAHAN SISTEM', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setToast({ msg: 'TERJADI KESALAHAN SISTEM', type: 'error' }); } finally { setLoading(false); }
   };
 
   const startEdit = (m: any) => {
     setEditingId(m.id);
-    setFormData({
-      name: m.name || '',
-      role: m.role || '',
-      category: m.category || 'Seksi',
-      level: m.level || 3,
-      photo_url: m.photo_url || ''
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setFormData({ name: m.name, role: m.role, category: m.category, level: m.level, photo_url: m.photo_url });
   };
 
-  // --- FILTER & PAGINATION LOGIC ---
-  const filtered = members.filter(m => 
-    m.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    m.role?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const currentItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // --- LOGIKA DRAG END & SAVE ORDER ---
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setMembers((items) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const saveNewOrder = async () => {
+    setIsSavingOrder(true);
+    try {
+      const updates = members.map((m, index) => ({ id: m.id, sort_order: index, name: m.name, level: m.level, role: m.role, category: m.category }));
+      const { error } = await supabase.from('organizational_structure').upsert(updates);
+      if (error) throw error;
+      setToast({ msg: 'URUTAN BERHASIL DIPUBLIKASIKAN!', type: 'success' });
+    } catch (err) { setToast({ msg: 'GAGAL MENYIMPAN URUTAN', type: 'error' }); } finally { setIsSavingOrder(false); }
+  };
+
+  const filtered = members.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="p-8 bg-[#050505] min-h-screen text-white font-sans">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-[#050505] text-white font-sans overflow-hidden">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* --- MODAL CROPPER --- */}
       {imageSrc && (
-        <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-6">
-          <div className="relative w-full max-w-xl aspect-square bg-[#0F172A] rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
-            <Cropper
-              image={imageSrc}
-              crop={crop}
-              zoom={zoom}
-              aspect={1}
-              onCropChange={setCrop}
-              onCropComplete={onCropComplete}
-              onZoomChange={setZoom}
-            />
+        <div className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center p-6">
+          <div className="relative w-full max-w-lg aspect-square bg-[#0F172A] rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
+            <Cropper image={imageSrc} crop={crop} zoom={zoom} aspect={1} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
           </div>
-          <div className="mt-8 w-full max-w-xl space-y-6 bg-[#0F172A] p-6 rounded-3xl border border-white/5">
-            <div className="space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-widest text-center text-slate-400">Atur Skala Foto</p>
-              <input type="range" value={zoom} min={1} max={3} step={0.1} onChange={(e) => setZoom(Number(e.target.value))} className="w-full accent-blue-600" />
-            </div>
+          <div className="mt-8 w-full max-w-lg space-y-6 bg-[#0F172A] p-6 rounded-3xl border border-white/5">
+            <input type="range" value={zoom} min={1} max={3} step={0.1} onChange={(e) => setZoom(Number(e.target.value))} className="w-full accent-blue-600" />
             <div className="flex gap-4">
-              <button onClick={() => setImageSrc(null)} className="flex-1 py-4 rounded-2xl bg-white/5 font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all">Batal</button>
-              <button onClick={handleProcessImage} disabled={uploading} className="flex-1 py-4 rounded-2xl bg-blue-600 font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all">
-                {uploading ? <Loader2 className="animate-spin" size={16} /> : 'Terapkan & Simpan'}
+              <button onClick={() => setImageSrc(null)} className="flex-1 py-4 rounded-2xl bg-white/5 font-black uppercase text-[10px] tracking-widest">Batal</button>
+              <button onClick={handleProcessImage} disabled={uploading} className="flex-1 py-4 rounded-2xl bg-blue-600 font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2">
+                {uploading ? <Loader2 className="animate-spin" size={16} /> : 'Terapkan'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/20"><Shield className="text-white" /></div>
-            <div>
-              <h1 className="text-3xl font-black italic uppercase tracking-tighter">
-                {editingId ? 'Edit Pengurus' : 'Admin Panel'}
-              </h1>
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Organizational Database</p>
-            </div>
-          </div>
-          
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={18} />
-            <input 
-              type="text" 
-              placeholder="CARI NAMA / JABATAN..." 
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="bg-[#0F172A] border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-[10px] font-black tracking-widest outline-none focus:border-blue-500/50 w-full md:w-80 transition-all shadow-inner"
-            />
+      {/* --- PANEL KIRI: EDITOR (40%) --- */}
+      <div className="w-full lg:w-[450px] h-screen overflow-y-auto border-r border-white/5 bg-[#0A0A0A] p-6 custom-scrollbar">
+        <header className="flex items-center gap-4 mb-8">
+          <div className="p-3 bg-blue-600 rounded-2xl shadow-lg"><Shield size={20} /></div>
+          <div>
+            <h1 className="text-xl font-black italic uppercase tracking-tighter">Structure Editor</h1>
+            <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">PB US 162 Database</p>
           </div>
         </header>
 
-        {/* --- FORM SECTION --- */}
-        <form onSubmit={handleSubmit} className={`bg-[#0F172A] p-8 rounded-[2.5rem] border transition-all duration-500 ${editingId ? 'border-amber-500/50 shadow-2xl shadow-amber-500/10' : 'border-white/5 shadow-xl'} mb-10 grid grid-cols-1 md:grid-cols-3 gap-6`}>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Nama Lengkap</label>
-            <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-blue-500 outline-none transition-all placeholder:text-slate-700" placeholder="Contoh: Budi Santoso" />
+        {/* FORM */}
+        <form onSubmit={handleSubmit} className="space-y-4 mb-10 p-6 bg-[#0F172A] rounded-3xl border border-white/5 shadow-xl">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Nama Lengkap</label>
+            <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none" />
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Jabatan</label>
-            <input required value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-blue-500 outline-none transition-all" placeholder="Ketua / Sekretaris" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Jabatan</label>
+              <input required value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Hierarki</label>
+              <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none appearance-none">
+                <option value={1}>Level 1</option>
+                <option value={2}>Level 2</option>
+                <option value={3}>Level 3</option>
+              </select>
+            </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Level Hierarki</label>
-            <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer">
-              <option value={1}>Level 1 (Penasehat)</option>
-              <option value={2}>Level 2 (Inti)</option>
-              <option value={3}>Level 3 (Seksi/Anggota)</option>
-            </select>
-          </div>
-          <div className="md:col-span-2 space-y-2">
-            <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Foto Profil (Presisi 1:1)</label>
-            <div className="flex gap-4">
-              <div className="flex-1 relative group">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Foto Profil</label>
+            <div className="flex gap-3">
+              <div className="flex-1 relative group h-12">
                 <input type="file" accept="image/*" onChange={onFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                <div className="w-full h-full bg-[#050505] border border-dashed border-white/20 rounded-2xl px-5 py-4 text-[10px] font-black uppercase flex items-center gap-3 text-slate-400 group-hover:border-blue-500/50 transition-all tracking-tighter">
-                  <Upload size={16} /> {formData.photo_url ? 'Ganti Foto Pengurus' : 'Klik Untuk Pilih File'}
+                <div className="w-full h-full bg-[#050505] border border-dashed border-white/20 rounded-xl flex items-center justify-center text-[9px] font-black uppercase text-slate-500">
+                  <Upload size={14} className="mr-2" /> Upload
                 </div>
               </div>
-              <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shrink-0 shadow-lg">
-                {formData.photo_url ? <img src={formData.photo_url} className="w-full h-full object-cover" alt="Avatar" /> : <ImageIcon className="text-slate-700" />}
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 overflow-hidden shrink-0">
+                {formData.photo_url ? <img src={formData.photo_url} className="w-full h-full object-cover" /> : <ImageIcon className="m-auto text-slate-700 mt-3" size={18}/>}
               </div>
             </div>
           </div>
-          <div className="flex items-end gap-2">
-            <button type="submit" disabled={loading} className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 ${editingId ? 'bg-amber-600 text-white shadow-amber-600/20' : 'bg-blue-600 text-white shadow-blue-600/20'}`}>
-              {loading ? <Loader2 className="animate-spin" size={16} /> : (editingId ? <Save size={16} /> : <Plus size={16} />)}
-              {editingId ? 'Update Data' : 'Simpan Data'}
-            </button>
-            {editingId && (
-              <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:3, photo_url:''})}} className="p-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl hover:bg-red-500/20 transition-all active:scale-90"><X size={18}/></button>
-            )}
-          </div>
+          <button type="submit" disabled={loading} className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 ${editingId ? 'bg-amber-600' : 'bg-blue-600'}`}>
+            {loading ? <Loader2 className="animate-spin" size={16} /> : (editingId ? 'Update Data' : 'Tambah Pengurus')}
+          </button>
+          {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:3, photo_url:''})}} className="w-full text-[9px] font-black uppercase text-red-500">Batalkan Edit</button>}
         </form>
 
-        {/* --- TABLE LIST SECTION --- */}
-        <div className="bg-[#0F172A] rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-white/5">
-                  <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-500">Profil Pengurus</th>
-                  <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-500">Jabatan</th>
-                  <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-500 text-center">Hierarki</th>
-                  <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-500 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {loading && currentItems.length === 0 ? (
-                  <tr><td colSpan={4} className="py-20 text-center text-slate-600 text-[10px] font-black uppercase animate-pulse">Memuat Data...</td></tr>
-                ) : currentItems.map(m => (
-                  <tr key={m.id} className="hover:bg-white/[0.01] transition-colors group">
-                    <td className="px-8 py-5 flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl overflow-hidden ring-2 ring-white/5 group-hover:ring-blue-500/30 transition-all duration-500">
-                        <img 
-                          src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=0D8ABC&color=fff`} 
-                          className="w-full h-full object-cover" 
-                          alt={m.name} 
-                        />
-                      </div>
-                      <span className="font-bold text-sm tracking-tight">{m.name}</span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/10">
-                        {m.role}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5 text-center">
-                      <div className={`text-[9px] font-black px-2 py-1 rounded-full inline-block ${m.level === 1 ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-500/10 text-slate-400'}`}>
-                        LVL {m.level}
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-right flex justify-end gap-2">
-                      <button onClick={() => startEdit(m)} className="p-3 text-amber-500 hover:bg-amber-500/10 rounded-xl transition-all active:scale-90" title="Edit">
-                        <Edit3 size={16} />
-                      </button>
-                      <button onClick={async () => { if(confirm(`Hapus ${m.name}?`)) { await supabase.from('organizational_structure').delete().eq('id', m.id); fetchMembers(); setToast({msg:'DATA BERHASIL DIHAPUS!', type:'success'}); }}} className="p-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-all active:scale-90" title="Hapus">
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* DRAG & DROP LIST */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between mb-4">
+             <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Atur Urutan Tampil</h3>
+             <button onClick={saveNewOrder} disabled={isSavingOrder} className="px-4 py-2 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded-full text-[9px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all">
+                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Urutan'}
+             </button>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={members.map(m => m.id)} strategy={verticalListSortingStrategy}>
+              {members.map(m => (
+                <SortableMemberRow key={m.id} member={m} onEdit={startEdit} onDelete={async (member: any) => { if(confirm(`Hapus ${member.name}?`)) { await supabase.from('organizational_structure').delete().eq('id', member.id); fetchMembers(); setToast({msg:'DIHAPUS!', type:'success'}); }}} />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      </div>
+
+      {/* --- PANEL KANAN: LIVE PREVIEW (60%) --- */}
+      <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative shadow-inner">
+        <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
+           <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Eye size={12}/> Live Preview Mode
+              </span>
+           </div>
+        </div>
+
+        {/* DESAIN PREVIEW (DIAMBIL DARI KODE LANDING PAGE ANDA) */}
+        <div className="max-w-5xl mx-auto px-4 pb-32 pt-20">
+          <div className="text-center mb-24">
+            <div className="inline-block px-4 py-1.5 mb-4 bg-blue-50 rounded-full border border-blue-100">
+                <p className="text-blue-600 font-black text-[9px] uppercase tracking-[0.2em]">Official Management Preview</p>
+            </div>
+            <h1 className="text-5xl md:text-6xl font-black text-slate-900 italic tracking-tighter mb-4 uppercase leading-none">
+              Struktur <span className="text-blue-600">Organisasi</span>
+            </h1>
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">PB US 162 • Periode 2024 - 2028</p>
           </div>
 
-          {/* --- PAGINATION CONTROLS --- */}
-          {totalPages > 1 && (
-            <div className="p-6 bg-white/[0.02] flex items-center justify-between border-t border-white/5">
-              <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.1em]">
-                Halaman {currentPage} Dari {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <button 
-                  disabled={currentPage === 1} 
-                  onClick={() => setCurrentPage(p => p - 1)} 
-                  className="p-3 bg-white/5 rounded-xl disabled:opacity-20 hover:bg-white/10 transition-all border border-white/5 active:scale-90"
-                >
-                  <ChevronLeft size={18}/>
-                </button>
-                <button 
-                  disabled={currentPage === totalPages} 
-                  onClick={() => setCurrentPage(p => p + 1)} 
-                  className="p-3 bg-white/5 rounded-xl disabled:opacity-20 hover:bg-white/10 transition-all border border-white/5 active:scale-90"
-                >
-                  <ChevronRight size={18}/>
-                </button>
+          <div className="relative">
+            <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 via-blue-50 to-transparent -translate-x-1/2 hidden lg:block"></div>
+
+            {/* LEVEL 1 */}
+            <div className="relative z-10 mb-20 flex flex-col items-center">
+              <div className="bg-amber-500 text-white p-2 rounded-xl mb-6 shadow-lg"><ShieldCheck size={20} /></div>
+              <div className="flex flex-wrap justify-center gap-6">
+                {members.filter(m => m.level === 1).map(m => (
+                  <div key={m.id} className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-blue-50 text-center w-56">
+                    <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden border-4 border-slate-50 shadow-inner">
+                      <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+                    </div>
+                    <h3 className="font-black text-slate-900 text-[11px] italic uppercase">{m.name}</h3>
+                    <p className="text-blue-600 font-black text-[8px] uppercase mt-2">{m.role}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+
+            <div className="flex justify-center mb-16"><ChevronDown className="text-blue-200 animate-bounce" /></div>
+
+            {/* LEVEL 2 */}
+            <div className="relative z-10 mb-20 flex flex-col items-center">
+              <div className="bg-blue-600 text-white p-2 rounded-xl mb-6 shadow-lg"><Award size={20} /></div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full px-10">
+                {members.filter(m => m.level === 2).map(m => (
+                  <div key={m.id} className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 text-center">
+                    <div className="w-24 h-24 mx-auto mb-4 rounded-3xl overflow-hidden border-4 border-blue-50 shadow-md">
+                      <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+                    </div>
+                    <h3 className="font-black text-slate-900 text-[12px] italic uppercase tracking-tighter">{m.name}</h3>
+                    <p className="text-blue-600 font-black text-[9px] uppercase mt-1 tracking-widest">{m.role}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* LEVEL 3 */}
+            <div className="relative z-10 flex flex-col items-center">
+               <div className="bg-slate-800 text-white p-2 rounded-xl mb-6 shadow-lg"><Users size={20} /></div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-10">
+                 {members.filter(m => m.level === 3).map(m => (
+                   <div key={m.id} className="bg-white p-4 rounded-3xl shadow-md border border-slate-100 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-50 border shrink-0">
+                        <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="text-left">
+                        <h4 className="font-black text-slate-900 text-[10px] uppercase italic">{m.name}</h4>
+                        <p className="text-blue-600 font-bold text-[8px] uppercase tracking-wider">{m.role}</p>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -202,21 +202,21 @@ export default function AdminStructure() {
 
   const filteredMembers = members.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // --- KOMPONEN KARTU LANDING PAGE (Disesuaikan Gambar) ---
+  // --- KOMPONEN KARTU LANDING PAGE ---
   const MemberCard = ({ member, size = 'md' }: { member: any, size?: 'lg' | 'md' | 'sm' }) => (
-    <div className={`bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50/50 flex flex-col items-center p-6 transition-all duration-500 hover:translate-y-[-5px] hover:shadow-2xl ${size === 'lg' ? 'w-80' : 'w-64'}`}>
-      <div className={`${size === 'lg' ? 'w-32 h-32' : 'w-24 h-24'} rounded-[2rem] overflow-hidden mb-5 bg-slate-100 border-[6px] border-white shadow-inner`}>
+    <div className={`bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-blue-50/50 flex flex-col items-center p-8 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${size === 'lg' ? 'w-80' : 'w-72'}`}>
+      <div className={`${size === 'lg' ? 'w-36 h-36' : 'w-28 h-28'} rounded-[2.2rem] overflow-hidden mb-6 bg-slate-50 border-[6px] border-white shadow-inner`}>
         <img 
           src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=0D8ABC&color=fff`} 
           className="w-full h-full object-cover" 
           alt={member.name}
         />
       </div>
-      <h3 className="text-slate-900 font-black italic uppercase text-center leading-tight tracking-tighter mb-2" style={{ fontSize: size === 'lg' ? '16px' : '13px' }}>
+      <h3 className="text-slate-900 font-black italic uppercase text-center leading-tight tracking-tighter mb-3" style={{ fontSize: size === 'lg' ? '18px' : '15px' }}>
         {member.name}
       </h3>
-      <div className="bg-amber-500 px-4 py-1.5 rounded-full shadow-lg shadow-amber-500/20">
-        <span className="text-white font-black uppercase tracking-widest" style={{ fontSize: '8px' }}>
+      <div className="bg-amber-500 px-5 py-2 rounded-full shadow-lg shadow-amber-500/20">
+        <span className="text-white font-black uppercase tracking-[0.15em]" style={{ fontSize: '9px' }}>
           {member.role}
         </span>
       </div>
@@ -251,7 +251,7 @@ export default function AdminStructure() {
           <div className="p-3 bg-blue-600 rounded-2xl shadow-lg"><Shield size={20} /></div>
           <div>
             <h1 className="text-xl font-black italic uppercase tracking-tighter">Structure Editor</h1>
-            <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">PB US 162 Database</p>
+            <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Database Management</p>
           </div>
         </header>
 
@@ -279,9 +279,9 @@ export default function AdminStructure() {
             <div className="space-y-1">
               <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Hierarki</label>
               <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none cursor-pointer">
-                <option value={1}>Level 1 (Top/Penanggung Jawab)</option>
-                <option value={2}>Level 2 (Inti/Pengurus)</option>
-                <option value={3}>Level 3 (Seksi/Anggota)</option>
+                <option value={1}>Top (Penanggung Jawab)</option>
+                <option value={2}>Middle (Penasehat/Pembina)</option>
+                <option value={3}>Bottom (Pengurus/Seksi)</option>
               </select>
             </div>
           </div>
@@ -307,9 +307,9 @@ export default function AdminStructure() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-4 px-2">
-              <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Atur Urutan Tampil</h3>
+              <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Urutan Management</h3>
               <button onClick={saveNewOrder} disabled={isSavingOrder || loading} className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 transition-all">
-                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Urutan'}
+                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Sequence'}
               </button>
           </div>
           
@@ -327,7 +327,7 @@ export default function AdminStructure() {
                 ))
               ) : (
                 <div className="py-10 text-center border border-dashed border-white/5 rounded-2xl">
-                  <p className="text-[9px] font-black uppercase text-slate-600">Tidak ada data</p>
+                  <p className="text-[9px] font-black uppercase text-slate-600">No data found</p>
                 </div>
               )}
             </SortableContext>
@@ -335,74 +335,74 @@ export default function AdminStructure() {
         </div>
       </div>
 
-      {/* --- PANEL KANAN: LIVE PREVIEW (Disesuaikan Landing Page Asli) --- */}
+      {/* --- PANEL KANAN: LIVE PREVIEW (FULL LANDING PAGE STRUCTURE) --- */}
       <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative">
+        {/* Floating Badge */}
         <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
            <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Eye size={12}/> Live Preview Mode
+                <Eye size={12}/> Preview Mode
               </span>
            </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 pb-40 pt-24">
-          {/* Header Section */}
-          <div className="text-center mb-32">
-            <div className="inline-block px-4 py-1 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-[0.2em] mb-4">
-               Profil Organisasi
+        <div className="max-w-6xl mx-auto px-6 pb-64 pt-32">
+          {/* Header Landing Page */}
+          <div className="text-center mb-40">
+            <div className="inline-block px-5 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.3em] mb-6">
+               Organizational Profile
             </div>
-            <h1 className="text-6xl font-black text-slate-900 italic tracking-tighter mb-6 uppercase leading-none">
+            <h1 className="text-7xl font-black text-slate-900 italic tracking-tighter mb-8 uppercase leading-none">
               Struktur <span className="text-blue-600">Organisasi</span>
             </h1>
-            <div className="w-24 h-1.5 bg-blue-600 mx-auto rounded-full mb-6"></div>
-            <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.3em]">PB US 162 • Periode 2024 - 2028</p>
+            <div className="w-32 h-2 bg-blue-600 mx-auto rounded-full mb-8"></div>
+            <p className="text-slate-400 font-bold text-sm uppercase tracking-[0.4em]">PB US 162 • Periode 2024 - 2028</p>
           </div>
 
-          <div className="relative flex flex-col items-center gap-24">
-            {/* Garis Penghubung Tengah */}
-            <div className="absolute top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-100 via-blue-100 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
+          {/* STRUCTURE FLOW */}
+          <div className="relative flex flex-col items-center">
+            {/* Background Line Connector */}
+            <div className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 via-blue-100 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
 
-            {/* LEVEL 1: PENANGGUNG JAWAB (SINGLE TOP) */}
-            {members.filter(m => m.level === 1).length > 0 && (
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="bg-amber-500 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-amber-500/10">
-                  <ShieldCheck size={24} />
-                </div>
-                <div className="flex flex-wrap justify-center gap-10">
-                  {members.filter(m => m.level === 1).map(m => (
-                    <MemberCard key={m.id} member={m} size="lg" />
-                  ))}
-                </div>
+            {/* SECTION 1: PENANGGUNG JAWAB (LEVEL 1) */}
+            <div className="relative z-10 flex flex-col items-center mb-32 w-full">
+              <div className="bg-amber-500 text-white p-4 rounded-3xl mb-12 shadow-2xl ring-[12px] ring-amber-500/10">
+                <ShieldCheck size={32} />
               </div>
-            )}
+              <div className="flex flex-wrap justify-center gap-12">
+                {members.filter(m => m.level === 1).map(m => (
+                  <MemberCard key={m.id} member={m} size="lg" />
+                ))}
+              </div>
+            </div>
 
-            {/* LEVEL 2 & 3: PENASEHAT & PEMBINA (GRID) */}
-            <div className="relative z-10 w-full">
-              <div className="text-center mb-10">
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">Jajaran Penasehat & Pembina</span>
+            {/* SECTION 2: PENASEHAT & PEMBINA (LEVEL 2) */}
+            <div className="relative z-10 flex flex-col items-center mb-32 w-full">
+              <div className="bg-blue-600 text-white p-3 rounded-2xl mb-12 shadow-xl ring-8 ring-blue-600/10">
+                <Award size={24} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 justify-items-center">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16 justify-items-center w-full max-w-5xl">
                 {members.filter(m => m.level === 2).map(m => (
                   <MemberCard key={m.id} member={m} />
                 ))}
               </div>
             </div>
 
-            {/* LEVEL 4: STRUKTUR INTI & SEKSI (LIST HORIZONTAL/GRID KECIL) */}
-            <div className="relative z-10 w-full">
-              <div className="text-center mb-10">
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">Jajaran Pengurus & Seksi</span>
+            {/* SECTION 3: PENGURUS & SEKSI (LEVEL 3) */}
+            <div className="relative z-10 flex flex-col items-center w-full">
+              <div className="bg-slate-800 text-white p-3 rounded-2xl mb-12 shadow-xl ring-8 ring-slate-800/10">
+                <Users size={24} />
               </div>
-              <div className="flex flex-wrap justify-center gap-8 px-10">
+              <div className="flex flex-wrap justify-center gap-8 px-4 max-w-6xl">
                 {members.filter(m => m.level === 3).map(m => (
-                  <div key={m.id} className="bg-white p-4 rounded-[1.5rem] shadow-lg border border-slate-100 flex items-center gap-4 w-72">
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-md shrink-0">
+                  <div key={m.id} className="bg-white p-5 rounded-[2rem] shadow-[0_15px_40px_rgba(0,0,0,0.03)] border border-slate-100 flex items-center gap-5 w-80 transition-all hover:shadow-xl hover:translate-y-[-3px]">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-50 border-4 border-white shadow-md shrink-0">
                       <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
                     </div>
-                    <div className="flex flex-col">
-                      <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight">{m.name}</h4>
-                      <p className="text-blue-600 font-bold text-[8px] uppercase tracking-wider mt-1">{m.role}</p>
+                    <div className="flex flex-col min-w-0">
+                      <h4 className="font-black text-slate-900 text-[13px] uppercase italic leading-tight truncate">{m.name}</h4>
+                      <p className="text-blue-600 font-bold text-[9px] uppercase tracking-widest mt-1.5">{m.role}</p>
                     </div>
                   </div>
                 ))}
@@ -411,9 +411,13 @@ export default function AdminStructure() {
           </div>
         </div>
         
-        {/* Footer info preview */}
-        <div className="p-10 text-center opacity-20">
-          <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">End of Organizational Chart</p>
+        {/* Decorative Footer */}
+        <div className="py-20 text-center">
+          <div className="inline-flex items-center gap-4 px-6 py-2 bg-slate-100 rounded-full">
+             <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">PB US 162 Official Structure</p>
+             <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+          </div>
         </div>
       </div>
     </div>

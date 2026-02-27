@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Shield, Edit3, X, Upload, Loader2, 
   Image as ImageIcon, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, Save, GripVertical, Eye,
-  Award, ShieldCheck, Users, ChevronDown
+  Award, ShieldCheck, Users, ChevronDown, Crown
 } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 
@@ -80,7 +80,7 @@ export default function AdminStructure() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   const [formData, setFormData] = useState({
-    name: '', role: '', category: 'Seksi', level: 3, photo_url: ''
+    name: '', role: '', category: 'Seksi', level: 1, photo_url: ''
   });
 
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
@@ -88,23 +88,19 @@ export default function AdminStructure() {
   useEffect(() => { fetchMembers(); }, []);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); } }, [toast]);
 
-  // --- FIX: FETCH MEMBERS DENGAN FALLBACK AGAR DATA TIDAK HILANG ---
   const fetchMembers = async () => {
     setLoading(true);
     try {
-      // Kami mencoba menarik data dengan urutan sort_order, tapi juga id sebagai cadangan
       const { data, error } = await supabase
         .from('organizational_structure')
         .select('*')
         .order('level', { ascending: true })
-        .order('sort_order', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true }); // Cadangan jika sort_order kosong
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
       setMembers(data || []);
     } catch (err) { 
-      console.error("Fetch error:", err);
-      setToast({ msg: 'GAGAL MEMUAT DATA DATABASE', type: 'error' });
+      console.error("Fetch error:", err); 
     } finally { 
       setLoading(false); 
     }
@@ -155,12 +151,11 @@ export default function AdminStructure() {
         setToast({ msg: 'DATA BERHASIL DIPERBARUI!', type: 'success' });
         setEditingId(null);
       } else {
-        // Otomatis menaruh di urutan terakhir
         const { error } = await supabase.from('organizational_structure').insert([{...formData, sort_order: members.length}]);
         if (error) throw error;
         setToast({ msg: 'PENGURUS BERHASIL DITAMBAHKAN!', type: 'success' });
       }
-      setFormData({ name: '', role: '', category: 'Seksi', level: 3, photo_url: '' });
+      setFormData({ name: '', role: '', category: 'Seksi', level: 1, photo_url: '' });
       fetchMembers();
     } catch (err) { setToast({ msg: 'TERJADI KESALAHAN SISTEM', type: 'error' }); } finally { setLoading(false); }
   };
@@ -184,7 +179,6 @@ export default function AdminStructure() {
   const saveNewOrder = async () => {
     setIsSavingOrder(true);
     try {
-      // Ambil data terbaru dari state members dan map untuk update massal
       const updates = members.map((m, index) => ({ 
         id: m.id, 
         sort_order: index, 
@@ -192,21 +186,15 @@ export default function AdminStructure() {
         level: m.level, 
         role: m.role, 
         category: m.category,
-        photo_url: m.photo_url 
+        photo_url: m.photo_url
       }));
-      
       const { error } = await supabase.from('organizational_structure').upsert(updates);
       if (error) throw error;
       setToast({ msg: 'URUTAN BERHASIL DIPUBLIKASIKAN!', type: 'success' });
-    } catch (err) { 
-      console.error(err);
-      setToast({ msg: 'GAGAL MENYIMPAN URUTAN. PASTIKAN KOLOM sort_order ADA.', type: 'error' }); 
-    } finally { 
-      setIsSavingOrder(false); 
-    }
+    } catch (err) { setToast({ msg: 'GAGAL MENYIMPAN URUTAN', type: 'error' }); } finally { setIsSavingOrder(false); }
   };
 
-  const filteredMembers = members.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filtered = members.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-[#050505] text-white font-sans overflow-hidden">
@@ -230,7 +218,7 @@ export default function AdminStructure() {
         </div>
       )}
 
-      {/* --- PANEL KIRI: EDITOR (450px) --- */}
+      {/* --- PANEL KIRI: EDITOR --- */}
       <div className="w-full lg:w-[450px] h-screen overflow-y-auto border-r border-white/5 bg-[#0A0A0A] p-6">
         <header className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-blue-600 rounded-2xl shadow-lg"><Shield size={20} /></div>
@@ -240,20 +228,7 @@ export default function AdminStructure() {
           </div>
         </header>
 
-        {/* INPUT PENCARIAN */}
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-          <input 
-            type="text" 
-            placeholder="CARI NAMA..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#0F172A] border border-white/5 rounded-xl py-3 pl-10 pr-4 text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500/50"
-          />
-        </div>
-
-        {/* FORM TAMBAH/EDIT */}
-        <form onSubmit={handleSubmit} className="space-y-4 mb-10 p-5 bg-[#0F172A] rounded-3xl border border-white/5 shadow-xl">
+        <form onSubmit={handleSubmit} className="space-y-4 mb-10 p-6 bg-[#0F172A] rounded-3xl border border-white/5 shadow-xl">
           <div className="space-y-1">
             <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Nama Lengkap</label>
             <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none" />
@@ -265,10 +240,11 @@ export default function AdminStructure() {
             </div>
             <div className="space-y-1">
               <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Hierarki</label>
-              <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none cursor-pointer">
-                <option value={1}>Level 1 (Penasehat)</option>
-                <option value={2}>Level 2 (Inti)</option>
-                <option value={3}>Level 3 (Seksi)</option>
+              <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none">
+                <option value={1}>Penanggung Jawab (Lvl 1)</option>
+                <option value={2}>Penasehat (Lvl 2)</option>
+                <option value={3}>Pembina (Lvl 3)</option>
+                <option value={4}>Inti / Seksi (Lvl 4)</option>
               </select>
             </div>
           </div>
@@ -277,7 +253,7 @@ export default function AdminStructure() {
             <div className="flex gap-3">
               <div className="flex-1 relative group h-12">
                 <input type="file" accept="image/*" onChange={onFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                <div className="w-full h-full bg-[#050505] border border-dashed border-white/20 rounded-xl flex items-center justify-center text-[9px] font-black uppercase text-slate-500 group-hover:border-blue-500/50">
+                <div className="w-full h-full bg-[#050505] border border-dashed border-white/20 rounded-xl flex items-center justify-center text-[9px] font-black uppercase text-slate-500">
                   <Upload size={14} className="mr-2" /> Upload
                 </div>
               </div>
@@ -286,49 +262,34 @@ export default function AdminStructure() {
               </div>
             </div>
           </div>
-          <button type="submit" disabled={loading} className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 shadow-lg ${editingId ? 'bg-amber-600 shadow-amber-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}>
+          <button type="submit" disabled={loading} className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 ${editingId ? 'bg-amber-600' : 'bg-blue-600'}`}>
             {loading ? <Loader2 className="animate-spin" size={16} /> : (editingId ? 'Update Data' : 'Tambah Pengurus')}
           </button>
-          {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:3, photo_url:''})}} className="w-full text-[9px] font-black uppercase text-red-500 hover:underline">Batalkan Edit</button>}
+          {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:1, photo_url:''})}} className="w-full text-[9px] font-black uppercase text-red-500">Batalkan Edit</button>}
         </form>
 
-        {/* LIST DRAG & DROP DENGAN FILTER PENCARIAN */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between mb-4 px-2">
+          <div className="flex items-center justify-between mb-4">
              <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Urutan Tampil</h3>
-             <button onClick={saveNewOrder} disabled={isSavingOrder || loading} className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 transition-all">
-                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Simpan Urutan'}
+             <button onClick={saveNewOrder} disabled={isSavingOrder} className="px-4 py-2 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded-full text-[9px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all">
+                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Urutan'}
              </button>
           </div>
-          
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={12} />
+            <input placeholder="CARI NAMA..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-white/5 border border-white/5 rounded-xl py-2 pl-9 pr-4 text-[10px] uppercase font-black outline-none focus:border-blue-500/50" />
+          </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={members.map(m => m.id)} strategy={verticalListSortingStrategy}>
-              {filteredMembers.length > 0 ? (
-                filteredMembers.map(m => (
-                  <SortableMemberRow 
-                    key={m.id} 
-                    member={m} 
-                    onEdit={startEdit} 
-                    onDelete={async (member: any) => { 
-                      if(confirm(`Hapus ${member.name}?`)) { 
-                        await supabase.from('organizational_structure').delete().eq('id', member.id); 
-                        fetchMembers(); 
-                        setToast({msg:'DATA DIHAPUS!', type:'success'}); 
-                      } 
-                    }} 
-                  />
-                ))
-              ) : (
-                <div className="py-10 text-center border border-dashed border-white/5 rounded-2xl">
-                  <p className="text-[9px] font-black uppercase text-slate-600">Tidak ada data ditemukan</p>
-                </div>
-              )}
+              {filtered.map(m => (
+                <SortableMemberRow key={m.id} member={m} onEdit={startEdit} onDelete={async (member: any) => { if(confirm(`Hapus ${member.name}?`)) { await supabase.from('organizational_structure').delete().eq('id', member.id); fetchMembers(); setToast({msg:'DIHAPUS!', type:'success'}); }}} />
+              ))}
             </SortableContext>
           </DndContext>
         </div>
       </div>
 
-      {/* --- PANEL KANAN: LIVE PREVIEW --- */}
+      {/* --- PANEL KANAN: LIVE PREVIEW (URUTAN SESUAI LANDING PAGE) --- */}
       <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative">
         <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
            <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
@@ -340,7 +301,7 @@ export default function AdminStructure() {
         </div>
 
         <div className="max-w-5xl mx-auto px-4 pb-32 pt-20">
-          <div className="text-center mb-20">
+          <div className="text-center mb-16">
             <h1 className="text-5xl font-black text-slate-900 italic tracking-tighter mb-4 uppercase">
               Struktur <span className="text-blue-600">Organisasi</span>
             </h1>
@@ -348,48 +309,62 @@ export default function AdminStructure() {
           </div>
 
           <div className="relative">
-            <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 to-transparent -translate-x-1/2 hidden lg:block"></div>
+            {/* 1. PENANGGUNG JAWAB (LEVEL 1) */}
+            <div className="relative z-10 mb-16 flex flex-col items-center">
+              {members.filter(m => m.level === 1).map(m => (
+                <div key={m.id} className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-2 border-amber-100 text-center w-64 animate-in fade-in zoom-in duration-700">
+                  <div className="w-24 h-24 mx-auto mb-4 rounded-3xl overflow-hidden border-4 border-amber-50 shadow-md">
+                    <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+                  </div>
+                  <h3 className="font-black text-slate-900 text-[12px] italic uppercase">{m.name}</h3>
+                  <div className="mt-2 inline-block px-3 py-1 bg-amber-500 rounded-lg shadow-sm">
+                    <p className="text-white font-black text-[8px] uppercase">{m.role}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-            {/* LEVEL 1 (PENASEHAT) */}
-            <div className="relative z-10 mb-20 flex flex-col items-center">
-              <div className="bg-amber-500 text-white p-2 rounded-xl mb-6 shadow-lg"><ShieldCheck size={20} /></div>
+            {/* 2. JAJARAN PENASEHAT (LEVEL 2) */}
+            <div className="relative z-10 mb-16">
+              <div className="text-center mb-8">
+                <span className="px-4 py-1 bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] rounded-full border border-slate-200">Jajaran Penasehat</span>
+              </div>
               <div className="flex flex-wrap justify-center gap-6">
-                {members.filter(m => m.level === 1).map(m => (
-                  <div key={m.id} className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-blue-50 text-center w-56 animate-in fade-in zoom-in duration-500">
-                    <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden border-4 border-slate-50 shadow-inner">
-                      <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
-                    </div>
-                    <h3 className="font-black text-slate-900 text-[11px] italic uppercase">{m.name}</h3>
-                    <p className="text-blue-600 font-black text-[8px] uppercase mt-2">{m.role}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-center mb-16"><ChevronDown className="text-blue-200 animate-bounce" /></div>
-
-            {/* LEVEL 2 (INTI) */}
-            <div className="relative z-10 mb-20 flex flex-col items-center">
-              <div className="bg-blue-600 text-white p-2 rounded-xl mb-6 shadow-lg"><Award size={20} /></div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full px-10">
                 {members.filter(m => m.level === 2).map(m => (
-                  <div key={m.id} className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="w-24 h-24 mx-auto mb-4 rounded-3xl overflow-hidden border-4 border-blue-50 shadow-md">
+                  <div key={m.id} className="bg-white p-5 rounded-[2.5rem] shadow-xl border border-blue-50 text-center w-52">
+                    <div className="w-20 h-20 mx-auto mb-3 rounded-2xl overflow-hidden border-2 border-slate-50 shadow-sm">
                       <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
                     </div>
-                    <h3 className="font-black text-slate-900 text-[12px] italic uppercase tracking-tighter">{m.name}</h3>
-                    <p className="text-blue-600 font-black text-[9px] uppercase mt-1 tracking-widest">{m.role}</p>
+                    <h3 className="font-black text-slate-900 text-[10px] italic uppercase">{m.name}</h3>
+                    <p className="text-blue-600 font-black text-[8px] uppercase mt-1">{m.role}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* LEVEL 3 (SEKSI) */}
-            <div className="relative z-10 flex flex-col items-center">
-               <div className="bg-slate-800 text-white p-2 rounded-xl mb-6 shadow-lg"><Users size={20} /></div>
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-10">
-                 {members.filter(m => m.level === 3).map(m => (
-                   <div key={m.id} className="bg-white p-4 rounded-3xl shadow-md border border-slate-100 flex items-center gap-4 animate-in fade-in duration-500">
+            {/* 3. JAJARAN PEMBINA (LEVEL 3) */}
+            <div className="relative z-10 mb-16">
+              <div className="text-center mb-8">
+                <span className="px-4 py-1 bg-blue-50 text-blue-400 text-[9px] font-black uppercase tracking-[0.3em] rounded-full border border-blue-100">Jajaran Pembina</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-10">
+                {members.filter(m => m.level === 3).map(m => (
+                  <div key={m.id} className="bg-white p-5 rounded-[2.5rem] shadow-lg border border-slate-100 text-center">
+                    <div className="w-20 h-20 mx-auto mb-3 rounded-3xl overflow-hidden border-2 border-blue-50 shadow-md">
+                      <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+                    </div>
+                    <h3 className="font-black text-slate-900 text-[10px] italic uppercase tracking-tighter">{m.name}</h3>
+                    <p className="text-blue-600 font-black text-[8px] uppercase mt-1">{m.role}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. INTI & SEKSI (LEVEL 4) */}
+            <div className="relative z-10">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-10">
+                 {members.filter(m => m.level === 4).map(m => (
+                   <div key={m.id} className="bg-white p-4 rounded-3xl shadow-md border border-slate-50 flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-50 border shrink-0">
                         <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
                       </div>

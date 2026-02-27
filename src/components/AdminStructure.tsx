@@ -94,9 +94,7 @@ export default function AdminStructure() {
       const { data, error } = await supabase
         .from('organizational_structure')
         .select('*')
-        .order('level', { ascending: true })
-        .order('sort_order', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true });
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
       setMembers(data || []);
@@ -196,13 +194,34 @@ export default function AdminStructure() {
       setToast({ msg: 'URUTAN BERHASIL DIPUBLIKASIKAN!', type: 'success' });
     } catch (err) { 
       console.error(err);
-      setToast({ msg: 'GAGAL MENYIMPAN URUTAN. PASTIKAN KOLOM sort_order ADA.', type: 'error' }); 
+      setToast({ msg: 'GAGAL MENYIMPAN URUTAN.', type: 'error' }); 
     } finally { 
       setIsSavingOrder(false); 
     }
   };
 
   const filteredMembers = members.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // --- KOMPONEN KARTU LANDING PAGE (Disesuaikan Gambar) ---
+  const MemberCard = ({ member, size = 'md' }: { member: any, size?: 'lg' | 'md' | 'sm' }) => (
+    <div className={`bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50/50 flex flex-col items-center p-6 transition-all duration-500 hover:translate-y-[-5px] hover:shadow-2xl ${size === 'lg' ? 'w-80' : 'w-64'}`}>
+      <div className={`${size === 'lg' ? 'w-32 h-32' : 'w-24 h-24'} rounded-[2rem] overflow-hidden mb-5 bg-slate-100 border-[6px] border-white shadow-inner`}>
+        <img 
+          src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=0D8ABC&color=fff`} 
+          className="w-full h-full object-cover" 
+          alt={member.name}
+        />
+      </div>
+      <h3 className="text-slate-900 font-black italic uppercase text-center leading-tight tracking-tighter mb-2" style={{ fontSize: size === 'lg' ? '16px' : '13px' }}>
+        {member.name}
+      </h3>
+      <div className="bg-amber-500 px-4 py-1.5 rounded-full shadow-lg shadow-amber-500/20">
+        <span className="text-white font-black uppercase tracking-widest" style={{ fontSize: '8px' }}>
+          {member.role}
+        </span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-[#050505] text-white font-sans overflow-hidden">
@@ -260,9 +279,9 @@ export default function AdminStructure() {
             <div className="space-y-1">
               <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Hierarki</label>
               <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none cursor-pointer">
-                <option value={1}>Level 1 (Penasehat)</option>
-                <option value={2}>Level 2 (Inti)</option>
-                <option value={3}>Level 3 (Seksi)</option>
+                <option value={1}>Level 1 (Top/Penanggung Jawab)</option>
+                <option value={2}>Level 2 (Inti/Pengurus)</option>
+                <option value={3}>Level 3 (Seksi/Anggota)</option>
               </select>
             </div>
           </div>
@@ -283,32 +302,40 @@ export default function AdminStructure() {
           <button type="submit" disabled={loading} className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 shadow-lg ${editingId ? 'bg-amber-600 shadow-amber-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}>
             {loading ? <Loader2 className="animate-spin" size={16} /> : (editingId ? 'Update Data' : 'Tambah Pengurus')}
           </button>
+          {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:3, photo_url:''})}} className="w-full text-[9px] font-black uppercase text-red-500 hover:underline">Batalkan Edit</button>}
         </form>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-4 px-2">
-             <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Urutan Tampil</h3>
-             <button onClick={saveNewOrder} disabled={isSavingOrder || loading} className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 transition-all">
-                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Simpan Urutan'}
-             </button>
+              <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Atur Urutan Tampil</h3>
+              <button onClick={saveNewOrder} disabled={isSavingOrder || loading} className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 transition-all">
+                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Urutan'}
+              </button>
           </div>
+          
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={members.map(m => m.id)} strategy={verticalListSortingStrategy}>
-              {filteredMembers.map(m => (
-                <SortableMemberRow key={m.id} member={m} onEdit={startEdit} onDelete={async (member: any) => { 
-                  if(confirm(`Hapus ${member.name}?`)) { 
-                    await supabase.from('organizational_structure').delete().eq('id', member.id); 
-                    fetchMembers(); 
-                    setToast({msg:'DATA DIHAPUS!', type:'success'}); 
-                  } 
-                }} />
-              ))}
+              {filteredMembers.length > 0 ? (
+                filteredMembers.map(m => (
+                  <SortableMemberRow key={m.id} member={m} onEdit={startEdit} onDelete={async (member: any) => { 
+                    if(confirm(`Hapus ${member.name}?`)) { 
+                      await supabase.from('organizational_structure').delete().eq('id', member.id); 
+                      fetchMembers(); 
+                      setToast({msg:'DATA DIHAPUS!', type:'success'}); 
+                    } 
+                  }} />
+                ))
+              ) : (
+                <div className="py-10 text-center border border-dashed border-white/5 rounded-2xl">
+                  <p className="text-[9px] font-black uppercase text-slate-600">Tidak ada data</p>
+                </div>
+              )}
             </SortableContext>
           </DndContext>
         </div>
       </div>
 
-      {/* --- PANEL KANAN: LIVE PREVIEW (SESUAI GAMBAR LANDING PAGE) --- */}
+      {/* --- PANEL KANAN: LIVE PREVIEW (Disesuaikan Landing Page Asli) --- */}
       <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative">
         <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
            <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
@@ -320,86 +347,73 @@ export default function AdminStructure() {
         </div>
 
         <div className="max-w-6xl mx-auto px-6 pb-40 pt-24">
-          <div className="text-center mb-24 relative">
-            <div className="inline-block px-4 py-1.5 bg-blue-50 rounded-full mb-4">
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Users size={12} /> Profil Organisasi
-                </span>
+          {/* Header Section */}
+          <div className="text-center mb-32">
+            <div className="inline-block px-4 py-1 bg-blue-50 text-blue-600 rounded-full text-[9px] font-black uppercase tracking-[0.2em] mb-4">
+               Profil Organisasi
             </div>
-            <h1 className="text-6xl font-black text-slate-900 italic tracking-tighter mb-4 uppercase">
-              Tentang <span className="text-blue-600">Kami</span>
+            <h1 className="text-6xl font-black text-slate-900 italic tracking-tighter mb-6 uppercase leading-none">
+              Struktur <span className="text-blue-600">Organisasi</span>
             </h1>
-            <div className="w-20 h-1.5 bg-blue-600 mx-auto rounded-full mb-8"></div>
+            <div className="w-24 h-1.5 bg-blue-600 mx-auto rounded-full mb-6"></div>
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.3em]">PB US 162 • Periode 2024 - 2028</p>
           </div>
 
-          <div className="relative flex flex-col items-center">
-            {/* Garis Vertikal Utama */}
-            <div className="absolute top-0 bottom-0 w-[1.5px] bg-gradient-to-b from-amber-200 via-blue-100 to-transparent hidden lg:block"></div>
+          <div className="relative flex flex-col items-center gap-24">
+            {/* Garis Penghubung Tengah */}
+            <div className="absolute top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-100 via-blue-100 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
 
-            {/* LEVEL 1: PENANGGUNG JAWAB & PEMBINA */}
-            <div className="relative z-10 mb-24 flex flex-col items-center w-full">
-              <div className="bg-amber-500 text-white p-3 rounded-2xl mb-10 shadow-xl shadow-amber-500/20"><ShieldCheck size={24} /></div>
-              
-              <div className="flex flex-wrap justify-center gap-10">
-                {members.filter(m => m.level === 1).map((m, idx) => (
-                  <div key={m.id} className="relative group animate-in fade-in zoom-in duration-700">
-                    <div className="bg-white p-10 rounded-[3.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.08)] border border-slate-100 text-center w-72 transition-all group-hover:-translate-y-2">
-                      <div className="w-28 h-28 mx-auto mb-6 rounded-3xl overflow-hidden border-[6px] border-slate-50 shadow-inner">
-                        <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
-                      </div>
-                      <h3 className="font-black text-slate-900 text-sm italic uppercase leading-tight mb-3">{m.name}</h3>
-                      <div className="inline-block px-4 py-1.5 bg-amber-500 rounded-full">
-                        <p className="text-white font-black text-[9px] uppercase tracking-wider">{m.role}</p>
-                      </div>
-                    </div>
-                  </div>
+            {/* LEVEL 1: PENANGGUNG JAWAB (SINGLE TOP) */}
+            {members.filter(m => m.level === 1).length > 0 && (
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="bg-amber-500 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-amber-500/10">
+                  <ShieldCheck size={24} />
+                </div>
+                <div className="flex flex-wrap justify-center gap-10">
+                  {members.filter(m => m.level === 1).map(m => (
+                    <MemberCard key={m.id} member={m} size="lg" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* LEVEL 2 & 3: PENASEHAT & PEMBINA (GRID) */}
+            <div className="relative z-10 w-full">
+              <div className="text-center mb-10">
+                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">Jajaran Penasehat & Pembina</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 justify-items-center">
+                {members.filter(m => m.level === 2).map(m => (
+                  <MemberCard key={m.id} member={m} />
                 ))}
               </div>
             </div>
 
-            {/* LEVEL 2: PENASEHAT & INTI */}
-            <div className="relative z-10 mb-24 flex flex-col items-center w-full">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-8">Jajaran Penasehat & Pengurus</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-5xl">
-                {members.filter(m => m.level === 2).map((m, idx) => (
-                  <div key={m.id} className="bg-white p-8 rounded-[3rem] shadow-[0_15px_45px_-10px_rgba(0,0,0,0.06)] border border-slate-50 text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    <div className="w-24 h-24 mx-auto mb-5 rounded-[2rem] overflow-hidden border-4 border-blue-50 shadow-md">
+            {/* LEVEL 4: STRUKTUR INTI & SEKSI (LIST HORIZONTAL/GRID KECIL) */}
+            <div className="relative z-10 w-full">
+              <div className="text-center mb-10">
+                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">Jajaran Pengurus & Seksi</span>
+              </div>
+              <div className="flex flex-wrap justify-center gap-8 px-10">
+                {members.filter(m => m.level === 3).map(m => (
+                  <div key={m.id} className="bg-white p-4 rounded-[1.5rem] shadow-lg border border-slate-100 flex items-center gap-4 w-72">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-md shrink-0">
                       <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
                     </div>
-                    <h3 className="font-black text-slate-900 text-xs italic uppercase tracking-tight mb-2 leading-tight">{m.name}</h3>
-                    <p className="text-blue-600 font-black text-[9px] uppercase tracking-[0.1em]">{m.role}</p>
+                    <div className="flex flex-col">
+                      <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight">{m.name}</h4>
+                      <p className="text-blue-600 font-bold text-[8px] uppercase tracking-wider mt-1">{m.role}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-
-            {/* LEVEL 3: SEKSI (KOORDINATOR) */}
-            <div className="relative z-10 w-full">
-               <div className="text-center mb-12">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-2xl shadow-lg">
-                    <Users size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Bidang & Seksi Teknik</span>
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {members.filter(m => m.level === 3).map((m, idx) => (
-                   <div key={m.id} className="bg-white/80 backdrop-blur-sm p-5 rounded-[2rem] shadow-sm border border-slate-100 flex items-center gap-5 hover:bg-white hover:shadow-xl transition-all duration-300">
-                      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border-2 border-white shadow-sm shrink-0">
-                        <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="text-left">
-                        <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight mb-1">{m.name}</h4>
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 rounded-md">
-                            <div className="w-1 h-1 bg-blue-600 rounded-full"></div>
-                            <p className="text-blue-600 font-bold text-[8px] uppercase tracking-wider">{m.role}</p>
-                        </div>
-                      </div>
-                   </div>
-                 ))}
-               </div>
-            </div>
           </div>
+        </div>
+        
+        {/* Footer info preview */}
+        <div className="p-10 text-center opacity-20">
+          <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">End of Organizational Chart</p>
         </div>
       </div>
     </div>

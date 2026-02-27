@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { 
   Plus, Trash2, Shield, Edit3, X, Upload, Loader2, 
-  ImageIcon, Search, ChevronLeft, ChevronRight, 
+  Image as ImageIcon, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, Save, GripVertical, Eye,
-  Award, ShieldCheck, Users, ChevronDown
+  Award, ShieldCheck, Users, ChevronDown, Star, Briefcase, Target
 } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 
@@ -55,7 +55,7 @@ function SortableMemberRow({ member, onEdit, onDelete }: any) {
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="text-[11px] font-black uppercase italic truncate">{member.name}</h4>
-        <p className="text-[9px] text-blue-400 font-bold uppercase tracking-tighter">{member.role}</p>
+        <p className="text-[9px] text-blue-400 font-bold uppercase tracking-tighter">{member.role} (Lvl {member.level})</p>
       </div>
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={() => onEdit(member)} className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg"><Edit3 size={14} /></button>
@@ -80,7 +80,7 @@ export default function AdminStructure() {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   const [formData, setFormData] = useState({
-    name: '', role: '', category: 'Seksi', level: 3, photo_url: ''
+    name: '', role: '', category: 'Seksi', level: 1, photo_url: ''
   });
 
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
@@ -155,7 +155,7 @@ export default function AdminStructure() {
         if (error) throw error;
         setToast({ msg: 'PENGURUS BERHASIL DITAMBAHKAN!', type: 'success' });
       }
-      setFormData({ name: '', role: '', category: 'Seksi', level: 3, photo_url: '' });
+      setFormData({ name: '', role: '', category: 'Seksi', level: 1, photo_url: '' });
       fetchMembers();
     } catch (err) { setToast({ msg: 'TERJADI KESALAHAN SISTEM', type: 'error' }); } finally { setLoading(false); }
   };
@@ -277,11 +277,15 @@ export default function AdminStructure() {
               <input required value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none" />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Hierarki</label>
-              <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none cursor-pointer">
-                <option value={1}>Top (Penanggung Jawab)</option>
-                <option value={2}>Middle (Penasehat/Pembina)</option>
-                <option value={3}>Bottom (Pengurus/Seksi)</option>
+              <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Tingkat Hierarki</label>
+              <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold outline-none cursor-pointer">
+                <option value={1}>Lvl 1: Penanggung Jawab</option>
+                <option value={2}>Lvl 2: Penasehat</option>
+                <option value={3}>Lvl 3: Pembina</option>
+                <option value={4}>Lvl 4: Ketua Umum</option>
+                <option value={5}>Lvl 5: Pengurus Inti</option>
+                <option value={6}>Lvl 6: Kepala Pelatih</option>
+                <option value={7}>Lvl 7: Koordinator & Anggota</option>
               </select>
             </div>
           </div>
@@ -302,7 +306,7 @@ export default function AdminStructure() {
           <button type="submit" disabled={loading} className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 shadow-lg ${editingId ? 'bg-amber-600 shadow-amber-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}>
             {loading ? <Loader2 className="animate-spin" size={16} /> : (editingId ? 'Update Data' : 'Tambah Pengurus')}
           </button>
-          {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:3, photo_url:''})}} className="w-full text-[9px] font-black uppercase text-red-500 hover:underline">Batalkan Edit</button>}
+          {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:1, photo_url:''})}} className="w-full text-[9px] font-black uppercase text-red-500 hover:underline">Batalkan Edit</button>}
         </form>
 
         <div className="space-y-2">
@@ -335,15 +339,15 @@ export default function AdminStructure() {
         </div>
       </div>
 
-      {/* --- PANEL KANAN: LIVE PREVIEW (FIXED STRUCTURE) --- */}
+      {/* --- PANEL KANAN: LIVE PREVIEW (STRUKTUR BERJENJANG VERTIKAL) --- */}
       <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative">
         <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
-           <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
+            <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <Eye size={12}/> Preview Mode
               </span>
-           </div>
+            </div>
         </div>
 
         <div className="max-w-6xl mx-auto px-6 pb-64 pt-32">
@@ -359,47 +363,102 @@ export default function AdminStructure() {
           </div>
 
           <div className="relative flex flex-col items-center">
-            {/* Connector Line */}
-            <div className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 via-blue-100 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
+            {/* Jalur Konektor Sentral */}
+            <div className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 via-blue-200 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
 
-            {/* LEVEL 1: PENANGGUNG JAWAB - BARIS TERSENDIRI */}
-            <div className="relative z-10 w-full flex flex-col items-center mb-32">
-              <div className="bg-amber-500 text-white p-4 rounded-3xl mb-12 shadow-2xl ring-[12px] ring-amber-500/10">
-                <ShieldCheck size={32} />
+            {/* LEVEL 1: PENANGGUNG JAWAB */}
+            <div className="relative z-10 flex flex-col items-center mb-24 w-full">
+              <div className="bg-amber-500 text-white p-4 rounded-3xl mb-12 shadow-2xl ring-[12px] ring-amber-500/10 flex items-center gap-3">
+                <ShieldCheck size={24} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Penanggung Jawab</span>
               </div>
-              <div className="flex justify-center w-full">
+              <div className="flex justify-center">
                 {members.filter(m => m.level === 1).map(m => (
                   <MemberCard key={m.id} member={m} size="lg" />
                 ))}
               </div>
             </div>
 
-            {/* LEVEL 2: PENASEHAT & PEMBINA - BARIS BARU DI BAWAHNYA */}
-            <div className="relative z-10 w-full flex flex-col items-center mb-32">
-              <div className="bg-blue-600 text-white p-3 rounded-2xl mb-12 shadow-xl ring-8 ring-blue-600/10">
-                <Award size={24} />
+            {/* LEVEL 2: PENASEHAT */}
+            <div className="relative z-10 flex flex-col items-center mb-24 w-full">
+              <div className="bg-blue-600 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-blue-600/10 flex items-center gap-3">
+                <Award size={20} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Jajaran Penasehat</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-16 justify-items-center max-w-4xl mx-auto">
+              <div className="flex flex-wrap justify-center gap-12">
                 {members.filter(m => m.level === 2).map(m => (
                   <MemberCard key={m.id} member={m} />
                 ))}
               </div>
             </div>
 
-            {/* LEVEL 3: PENGURUS & SEKSI - BARIS DASAR */}
-            <div className="relative z-10 w-full flex flex-col items-center">
-              <div className="bg-slate-800 text-white p-3 rounded-2xl mb-12 shadow-xl ring-8 ring-slate-800/10">
-                <Users size={24} />
+            {/* LEVEL 3: PEMBINA */}
+            <div className="relative z-10 flex flex-col items-center mb-24 w-full">
+              <div className="bg-indigo-600 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-indigo-600/10 flex items-center gap-3">
+                <Star size={20} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Jajaran Pembina</span>
               </div>
-              <div className="flex flex-wrap justify-center gap-8 px-4 max-w-6xl">
+              <div className="flex flex-wrap justify-center gap-12">
                 {members.filter(m => m.level === 3).map(m => (
-                  <div key={m.id} className="bg-white p-5 rounded-[2rem] shadow-[0_15px_40px_rgba(0,0,0,0.03)] border border-slate-100 flex items-center gap-5 w-80 transition-all hover:shadow-xl hover:translate-y-[-3px]">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-50 border-4 border-white shadow-md shrink-0">
+                  <MemberCard key={m.id} member={m} />
+                ))}
+              </div>
+            </div>
+
+            {/* LEVEL 4: KETUA UMUM */}
+            <div className="relative z-10 flex flex-col items-center mb-24 w-full">
+              <div className="bg-emerald-600 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-emerald-600/10 flex items-center gap-3">
+                <Target size={20} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Ketua Umum</span>
+              </div>
+              <div className="flex justify-center">
+                {members.filter(m => m.level === 4).map(m => (
+                  <MemberCard key={m.id} member={m} size="lg" />
+                ))}
+              </div>
+            </div>
+
+            {/* LEVEL 5: PENGURUS INTI */}
+            <div className="relative z-10 flex flex-col items-center mb-24 w-full">
+              <div className="bg-slate-800 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-slate-800/10 flex items-center gap-3">
+                <Briefcase size={20} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Pengurus Inti</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+                {members.filter(m => m.level === 5).map(m => (
+                  <MemberCard key={m.id} member={m} />
+                ))}
+              </div>
+            </div>
+
+            {/* LEVEL 6: KEPALA PELATIH */}
+            <div className="relative z-10 flex flex-col items-center mb-24 w-full">
+               <div className="bg-orange-600 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-orange-600/10 flex items-center gap-3">
+                <Users size={20} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Kepala Pelatih</span>
+              </div>
+              <div className="flex justify-center">
+                {members.filter(m => m.level === 6).map(m => (
+                  <MemberCard key={m.id} member={m} />
+                ))}
+              </div>
+            </div>
+
+            {/* LEVEL 7: KOORDINATOR & ANGGOTA BIDANG */}
+            <div className="relative z-10 flex flex-col items-center w-full">
+              <div className="bg-slate-400 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-slate-400/10 flex items-center gap-3">
+                <Users size={20} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Koordinator & Anggota Bidang</span>
+              </div>
+              <div className="flex flex-wrap justify-center gap-6 px-4 max-w-6xl">
+                {members.filter(m => m.level === 7).map(m => (
+                  <div key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-sm shrink-0">
                       <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <h4 className="font-black text-slate-900 text-[13px] uppercase italic leading-tight truncate">{m.name}</h4>
-                      <p className="text-blue-600 font-bold text-[9px] uppercase tracking-widest mt-1.5">{m.role}</p>
+                      <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight truncate">{m.name}</h4>
+                      <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{m.role}</p>
                     </div>
                   </div>
                 ))}

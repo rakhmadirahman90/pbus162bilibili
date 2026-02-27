@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { 
   Plus, Trash2, Shield, Edit3, X, Upload, Loader2, 
-  Image as ImageIcon, Search, ChevronLeft, ChevronRight, 
+  ImageIcon, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, Save, GripVertical, Eye,
   Award, ShieldCheck, Users, ChevronDown
 } from 'lucide-react';
@@ -335,9 +335,8 @@ export default function AdminStructure() {
         </div>
       </div>
 
-      {/* --- PANEL KANAN: LIVE PREVIEW (FULL LANDING PAGE STRUCTURE) --- */}
+      {/* --- PANEL KANAN: LIVE PREVIEW (FIXED STRUCTURE) --- */}
       <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative">
-        {/* Floating Badge */}
         <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
            <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -348,7 +347,6 @@ export default function AdminStructure() {
         </div>
 
         <div className="max-w-6xl mx-auto px-6 pb-64 pt-32">
-          {/* Header Landing Page */}
           <div className="text-center mb-40">
             <div className="inline-block px-5 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.3em] mb-6">
                Organizational Profile
@@ -360,37 +358,36 @@ export default function AdminStructure() {
             <p className="text-slate-400 font-bold text-sm uppercase tracking-[0.4em]">PB US 162 • Periode 2024 - 2028</p>
           </div>
 
-          {/* STRUCTURE FLOW */}
           <div className="relative flex flex-col items-center">
-            {/* Background Line Connector */}
+            {/* Connector Line */}
             <div className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 via-blue-100 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
 
-            {/* SECTION 1: PENANGGUNG JAWAB (LEVEL 1) */}
-            <div className="relative z-10 flex flex-col items-center mb-32 w-full">
+            {/* LEVEL 1: PENANGGUNG JAWAB - BARIS TERSENDIRI */}
+            <div className="relative z-10 w-full flex flex-col items-center mb-32">
               <div className="bg-amber-500 text-white p-4 rounded-3xl mb-12 shadow-2xl ring-[12px] ring-amber-500/10">
                 <ShieldCheck size={32} />
               </div>
-              <div className="flex flex-wrap justify-center gap-12">
+              <div className="flex justify-center w-full">
                 {members.filter(m => m.level === 1).map(m => (
                   <MemberCard key={m.id} member={m} size="lg" />
                 ))}
               </div>
             </div>
 
-            {/* SECTION 2: PENASEHAT & PEMBINA (LEVEL 2) */}
-            <div className="relative z-10 flex flex-col items-center mb-32 w-full">
+            {/* LEVEL 2: PENASEHAT & PEMBINA - BARIS BARU DI BAWAHNYA */}
+            <div className="relative z-10 w-full flex flex-col items-center mb-32">
               <div className="bg-blue-600 text-white p-3 rounded-2xl mb-12 shadow-xl ring-8 ring-blue-600/10">
                 <Award size={24} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16 justify-items-center w-full max-w-5xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-16 justify-items-center max-w-4xl mx-auto">
                 {members.filter(m => m.level === 2).map(m => (
                   <MemberCard key={m.id} member={m} />
                 ))}
               </div>
             </div>
 
-            {/* SECTION 3: PENGURUS & SEKSI (LEVEL 3) */}
-            <div className="relative z-10 flex flex-col items-center w-full">
+            {/* LEVEL 3: PENGURUS & SEKSI - BARIS DASAR */}
+            <div className="relative z-10 w-full flex flex-col items-center">
               <div className="bg-slate-800 text-white p-3 rounded-2xl mb-12 shadow-xl ring-8 ring-slate-800/10">
                 <Users size={24} />
               </div>
@@ -411,7 +408,6 @@ export default function AdminStructure() {
           </div>
         </div>
         
-        {/* Decorative Footer */}
         <div className="py-20 text-center">
           <div className="inline-flex items-center gap-4 px-6 py-2 bg-slate-100 rounded-full">
              <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>

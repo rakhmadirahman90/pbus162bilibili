@@ -117,6 +117,7 @@ export default function AdminStructure() {
 
   const onCropComplete = useCallback((_: any, pixels: any) => { setCroppedAreaPixels(pixels); }, []);
 
+  // --- FUNGSI PROSES GAMBAR (SUDAH DIOPTIMASI KOMPRESI) ---
   const handleProcessImage = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
     setUploading(true);
@@ -126,28 +127,48 @@ export default function AdminStructure() {
       image.src = imageSrc;
       await new Promise((resolve) => (image.onload = resolve));
       const ctx = canvas.getContext('2d');
-      canvas.width = 500; canvas.height = 500;
-      ctx?.drawImage(image, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 500, 500);
-      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
+      
+      // OPTIMASI 1: Set resolusi maksimal 400x400 agar hemat bandwidth namun tetap tajam
+      canvas.width = 400; 
+      canvas.height = 400;
+
+      ctx?.drawImage(
+        image, 
+        croppedAreaPixels.x, 
+        croppedAreaPixels.y, 
+        croppedAreaPixels.width, 
+        croppedAreaPixels.height, 
+        0, 0, 400, 400
+      );
+
+      // OPTIMASI 2: Kompresi JPEG ke 0.6 (60%) kualitas - Target file 50KB-150KB
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.6));
+      
       if (!blob) throw new Error("Gagal membuat blob");
       
-      // LOGIKA UPLOAD BRIDGE KE MYDOMAINESIA (Sesuai diskusi sebelumnya)
       const formDataUpload = new FormData();
-      formDataUpload.append('photo', blob, 'pbus_profil.jpg');
+      // Gunakan nama file unik dengan timestamp agar cache browser diperbarui
+      formDataUpload.append('photo', blob, `pbus-member-${Date.now()}.jpg`);
+
       const response = await fetch('https://pbus162.com/assets/struktur/upload.php', {
         method: 'POST',
         body: formDataUpload,
       });
+      
       const result = await response.json();
       
       if (result.status === 'success') {
         setFormData(prev => ({ ...prev, photo_url: result.url }));
         setImageSrc(null);
-        setToast({ msg: 'FOTO TERSIMPAN DI HOSTING', type: 'success' });
+        setToast({ msg: 'FOTO BERHASIL DIKOMPRES & DIUPLOAD', type: 'success' });
       } else {
         throw new Error(result.message);
       }
-    } catch (err) { setToast({ msg: 'GAGAL UPLOAD FOTO', type: 'error' }); } finally { setUploading(false); }
+    } catch (err) { 
+      setToast({ msg: 'GAGAL PROSES/UPLOAD GAMBAR', type: 'error' }); 
+    } finally { 
+      setUploading(false); 
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -217,7 +238,6 @@ export default function AdminStructure() {
     const role = m.role.toLowerCase();
     let fieldName = "Lainnya";
     
-    // Deteksi Bidang berdasarkan Kata Kunci
     if (role.includes("humas")) fieldName = "Bidang Humas";
     else if (role.includes("pertandingan") || role.includes("wasit")) fieldName = "Bidang Pertandingan";
     else if (role.includes("sarana") || role.includes("prasarana")) fieldName = "Bidang Sarpras";
@@ -269,7 +289,7 @@ export default function AdminStructure() {
             <div className="flex gap-4">
               <button onClick={() => setImageSrc(null)} className="flex-1 py-4 rounded-2xl bg-white/5 font-black uppercase text-[10px] tracking-widest">Batal</button>
               <button onClick={handleProcessImage} disabled={uploading} className="flex-1 py-4 rounded-2xl bg-blue-600 font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2">
-                {uploading ? <Loader2 className="animate-spin" size={16} /> : 'Terapkan'}
+                {uploading ? <Loader2 className="animate-spin" size={16} /> : 'Terapkan & Kompres'}
               </button>
             </div>
           </div>
@@ -326,7 +346,7 @@ export default function AdminStructure() {
               <div className="flex-1 relative group h-12">
                 <input type="file" accept="image/*" onChange={onFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                 <div className="w-full h-full bg-[#050505] border border-dashed border-white/20 rounded-xl flex items-center justify-center text-[9px] font-black uppercase text-slate-500 group-hover:border-blue-500/50">
-                  <Upload size={14} className="mr-2" /> Upload
+                  <Upload size={14} className="mr-2" /> Pilih Foto
                 </div>
               </div>
               <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 overflow-hidden shrink-0">
@@ -410,8 +430,6 @@ export default function AdminStructure() {
               </div>
             </div>
 
-            {/* LEVEL 2-6 (KODE LAMA TETAP SAMA) */}
-            {/* ... [LEVEL 2 SAMPAI LEVEL 6 DIHAPUS UNTUK RINGKASAN, TAPI TETAP ADA DI KODE ASLI] ... */}
             {/* LEVEL 2: PENASEHAT */}
             <div className="relative z-10 flex flex-col items-center mb-24 w-full">
               <div className="bg-blue-600 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-blue-600/10 flex items-center gap-3">
@@ -477,7 +495,7 @@ export default function AdminStructure() {
               </div>
             </div>
 
-            {/* --- LEVEL 7: KOORDINATOR & ANGGOTA (PERBAIKAN GROUPING) --- */}
+            {/* --- LEVEL 7: KOORDINATOR & ANGGOTA --- */}
             <div className="relative z-10 flex flex-col items-center w-full">
               <div className="bg-slate-400 text-white p-3 rounded-2xl mb-20 shadow-xl ring-8 ring-slate-400/10 flex items-center gap-3">
                 <Users size={20} />
@@ -491,12 +509,10 @@ export default function AdminStructure() {
 
                   return (
                     <div key={fieldName} className="flex flex-col items-center w-full">
-                      {/* Judul Bidang */}
                       <div className="bg-white px-8 py-2 rounded-full border border-slate-200 shadow-sm mb-12">
                         <h2 className="text-blue-600 font-black italic uppercase text-[12px] tracking-[0.2em]">{fieldName}</h2>
                       </div>
 
-                      {/* Koordinator */}
                       {coordinator && (
                         <div className="mb-16 relative">
                           <MemberCard member={coordinator} />
@@ -506,7 +522,6 @@ export default function AdminStructure() {
                         </div>
                       )}
 
-                      {/* Anggota (Staff) */}
                       <div className="flex flex-wrap justify-center gap-6 px-4 max-w-6xl">
                         {staffs.map(m => (
                           <div key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all hover:-translate-y-1">

@@ -445,27 +445,90 @@ export default function AdminStructure() {
             </div>
 
             {/* LEVEL 7: KOORDINATOR & ANGGOTA BIDANG */}
+            {/* LEVEL 7: KOORDINATOR & ANGGOTA BIDANG (GROUPED) */}
             <div className="relative z-10 flex flex-col items-center w-full">
               <div className="bg-slate-400 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-slate-400/10 flex items-center gap-3">
                 <Users size={20} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Koordinator & Anggota Bidang</span>
               </div>
-              <div className="flex flex-wrap justify-center gap-6 px-4 max-w-6xl">
-                {members.filter(m => m.level === 7).map(m => (
-                  <div key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all">
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-sm shrink-0">
-                      <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight truncate">{m.name}</h4>
-                      <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{m.role}</p>
-                    </div>
-                  </div>
-                ))}
+
+              <div className="flex flex-wrap justify-center gap-10 px-4 max-w-7xl">
+                {/* LOGIKA PENGELOMPOKAN BIDANG */}
+                {(() => {
+                  const level7Members = members.filter(m => m.level === 7);
+                  
+                  // 1. Cari siapa saja yang jadi Koordinator
+                  const coordinators = level7Members.filter(m => 
+                    m.role.toLowerCase().includes('koordinator')
+                  );
+
+                  // 2. Cari anggota yang bukan koordinator
+                  const staff = level7Members.filter(m => 
+                    !m.role.toLowerCase().includes('koordinator')
+                  );
+
+                  // Jika tidak ada koordinator, tampilkan semua secara flat seperti biasa
+                  if (coordinators.length === 0) {
+                    return level7Members.map(m => (
+                      <div key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all">
+                        <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-sm shrink-0">
+                          <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight truncate">{m.name}</h4>
+                          <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{m.role}</p>
+                        </div>
+                      </div>
+                    ));
+                  }
+
+                  // 3. Render per Bidang
+                  return coordinators.map(coord => {
+                    // Ambil nama bidang (misal dari "Koordinator Bidang Humas" ambil "Humas")
+                    const bidangName = coord.role.toLowerCase().split('bidang')[1]?.trim() || "";
+                    
+                    // Cari anggota yang punya nama bidang yang sama di jabatannya
+                    const matchingStaff = staff.filter(s => 
+                      bidangName && s.role.toLowerCase().includes(bidangName)
+                    );
+
+                    return (
+                      <div key={coord.id} className="flex flex-col items-center gap-4 p-6 bg-slate-50/50 rounded-[3rem] border border-slate-100">
+                        {/* KARTU KOORDINATOR (HEAD) */}
+                        <div className="bg-white p-4 rounded-[2rem] shadow-md border-2 border-blue-500/20 flex items-center gap-4 w-80">
+                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-blue-600 border-2 border-white shadow-sm shrink-0">
+                            <img src={coord.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(coord.name)}`} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <div className="bg-blue-600 text-white text-[7px] font-black px-2 py-0.5 rounded-full w-fit mb-1 uppercase tracking-tighter">Leader</div>
+                            <h4 className="font-black text-slate-900 text-[12px] uppercase italic leading-tight">{coord.name}</h4>
+                            <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{coord.role}</p>
+                          </div>
+                        </div>
+
+                        {/* GARIS PENGHUBUNG KECIL */}
+                        {matchingStaff.length > 0 && <div className="w-[2px] h-4 bg-blue-200"></div>}
+
+                        {/* LIST ANGGOTA (DIBAWAHNYA) */}
+                        <div className="flex flex-col gap-3">
+                          {matchingStaff.map(s => (
+                            <div key={s.id} className="bg-white/80 backdrop-blur-sm p-3 rounded-[1.5rem] shadow-sm border border-slate-100 flex items-center gap-3 w-72 ml-6 hover:translate-x-2 transition-transform">
+                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-white shadow-sm shrink-0">
+                                <img src={s.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}`} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <h4 className="font-black text-slate-800 text-[10px] uppercase italic leading-tight truncate">{s.name}</h4>
+                                <p className="text-slate-400 font-bold text-[7px] uppercase tracking-widest">{s.role}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
-          </div>
-        </div>
         
         <div className="py-20 text-center">
           <div className="inline-flex items-center gap-4 px-6 py-2 bg-slate-100 rounded-full">

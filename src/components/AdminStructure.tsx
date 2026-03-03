@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { 
   Plus, Trash2, Shield, Edit3, X, Upload, Loader2, 
-  Image as ImageIcon, Search, ChevronLeft, ChevronRight, 
+  ImageIcon, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, Save, GripVertical, Eye,
   Award, ShieldCheck, Users, ChevronDown, Star, Briefcase, Target
 } from 'lucide-react';
@@ -130,14 +130,23 @@ export default function AdminStructure() {
       ctx?.drawImage(image, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 500, 500);
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
       if (!blob) throw new Error("Gagal membuat blob");
-      const fileName = `admin-${Date.now()}.jpg`;
-      const filePath = `photos/${fileName}`;
-      const { error: upErr } = await supabase.storage.from('avatars').upload(filePath, blob);
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      setFormData(prev => ({ ...prev, photo_url: data.publicUrl }));
-      setImageSrc(null);
-      setToast({ msg: 'FOTO BERHASIL DIPROSES', type: 'success' });
+      
+      // LOGIKA UPLOAD BRIDGE KE MYDOMAINESIA (Sesuai diskusi sebelumnya)
+      const formDataUpload = new FormData();
+      formDataUpload.append('photo', blob, 'pbus_profil.jpg');
+      const response = await fetch('https://pbus162.com/assets/struktur/upload.php', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setFormData(prev => ({ ...prev, photo_url: result.url }));
+        setImageSrc(null);
+        setToast({ msg: 'FOTO TERSIMPAN DI HOSTING', type: 'success' });
+      } else {
+        throw new Error(result.message);
+      }
     } catch (err) { setToast({ msg: 'GAGAL UPLOAD FOTO', type: 'error' }); } finally { setUploading(false); }
   };
 
@@ -199,6 +208,28 @@ export default function AdminStructure() {
       setIsSavingOrder(false); 
     }
   };
+
+  // --- LOGIKA GROUPING BIDANG LEVEL 7 ---
+  const level7Members = members.filter(m => m.level === 7);
+  const groupedFields: { [key: string]: any[] } = {};
+  
+  level7Members.forEach(m => {
+    const role = m.role.toLowerCase();
+    let fieldName = "Lainnya";
+    
+    // Deteksi Bidang berdasarkan Kata Kunci
+    if (role.includes("humas")) fieldName = "Bidang Humas";
+    else if (role.includes("pertandingan") || role.includes("wasit")) fieldName = "Bidang Pertandingan";
+    else if (role.includes("sarana") || role.includes("prasarana")) fieldName = "Bidang Sarpras";
+    else if (role.includes("prestasi") || role.includes("binpres")) fieldName = "Bidang Pembinaan Prestasi";
+    else if (role.includes("pendanaan") || role.includes("usaha")) fieldName = "Bidang Dana & Usaha";
+    else if (role.includes("organisasi")) fieldName = "Bidang Organisasi";
+    else if (role.includes("umum")) fieldName = "Bidang Umum";
+    else if (role.includes("kesehatan") || role.includes("medis")) fieldName = "Bidang Kesehatan";
+
+    if (!groupedFields[fieldName]) groupedFields[fieldName] = [];
+    groupedFields[fieldName].push(m);
+  });
 
   const filteredMembers = members.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -339,7 +370,7 @@ export default function AdminStructure() {
         </div>
       </div>
 
-      {/* --- PANEL KANAN: LIVE PREVIEW (STRUKTUR BERJENJANG VERTIKAL) --- */}
+      {/* --- PANEL KANAN: LIVE PREVIEW --- */}
       <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative">
         <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
             <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3">
@@ -379,6 +410,8 @@ export default function AdminStructure() {
               </div>
             </div>
 
+            {/* LEVEL 2-6 (KODE LAMA TETAP SAMA) */}
+            {/* ... [LEVEL 2 SAMPAI LEVEL 6 DIHAPUS UNTUK RINGKASAN, TAPI TETAP ADA DI KODE ASLI] ... */}
             {/* LEVEL 2: PENASEHAT */}
             <div className="relative z-10 flex flex-col items-center mb-24 w-full">
               <div className="bg-blue-600 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-blue-600/10 flex items-center gap-3">
@@ -444,27 +477,55 @@ export default function AdminStructure() {
               </div>
             </div>
 
-            {/* LEVEL 7: KOORDINATOR & ANGGOTA BIDANG */}
+            {/* --- LEVEL 7: KOORDINATOR & ANGGOTA (PERBAIKAN GROUPING) --- */}
             <div className="relative z-10 flex flex-col items-center w-full">
-              <div className="bg-slate-400 text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-slate-400/10 flex items-center gap-3">
+              <div className="bg-slate-400 text-white p-3 rounded-2xl mb-20 shadow-xl ring-8 ring-slate-400/10 flex items-center gap-3">
                 <Users size={20} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Koordinator & Anggota Bidang</span>
               </div>
-              <div className="flex flex-wrap justify-center gap-6 px-4 max-w-6xl">
-                {members.filter(m => m.level === 7).map(m => (
-                  <div key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all">
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-sm shrink-0">
-                      <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+              
+              <div className="space-y-32 w-full flex flex-col items-center">
+                {Object.entries(groupedFields).map(([fieldName, fieldMembers]) => {
+                  const coordinator = fieldMembers.find(m => m.role.toLowerCase().includes("koordinator"));
+                  const staffs = fieldMembers.filter(m => !m.role.toLowerCase().includes("koordinator"));
+
+                  return (
+                    <div key={fieldName} className="flex flex-col items-center w-full">
+                      {/* Judul Bidang */}
+                      <div className="bg-white px-8 py-2 rounded-full border border-slate-200 shadow-sm mb-12">
+                        <h2 className="text-blue-600 font-black italic uppercase text-[12px] tracking-[0.2em]">{fieldName}</h2>
+                      </div>
+
+                      {/* Koordinator */}
+                      {coordinator && (
+                        <div className="mb-16 relative">
+                          <MemberCard member={coordinator} />
+                          {staffs.length > 0 && (
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-[2px] h-16 bg-blue-100"></div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Anggota (Staff) */}
+                      <div className="flex flex-wrap justify-center gap-6 px-4 max-w-6xl">
+                        {staffs.map(m => (
+                          <div key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all hover:-translate-y-1">
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-sm shrink-0">
+                              <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight truncate">{m.name}</h4>
+                              <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{m.role}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex flex-col min-w-0">
-                      <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight truncate">{m.name}</h4>
-                      <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{m.role}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
-          </div> 
+          </div>
         </div>
         
         <div className="py-20 text-center">

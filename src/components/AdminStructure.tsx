@@ -4,7 +4,8 @@ import {
   Plus, Trash2, Shield, Edit3, X, Upload, Loader2, 
   ImageIcon, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, Save, GripVertical, Eye,
-  Award, ShieldCheck, Users, ChevronDown, Star, Briefcase, Target
+  Award, ShieldCheck, Users, ChevronDown, Star, Briefcase, Target,
+  Eraser
 } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 
@@ -106,6 +107,28 @@ export default function AdminStructure() {
     }
   };
 
+  // --- FUNGSI BARU: CLEANER PHP TRIGGER ---
+  const runCleaner = async () => {
+    if (!confirm("Hapus semua file foto lama yang berukuran besar (>500KB) di server MyDomainesia?")) return;
+    
+    setLoading(true);
+    try {
+      // Ganti URL ini dengan URL file cleaner.php yang Anda upload ke cPanel
+      const response = await fetch('https://pbus162.com/assets/struktur/cleaner.php?pass=pbus162_aman');
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setToast({ msg: result.message, type: 'success' });
+      } else {
+        setToast({ msg: 'GAGAL MEMBERSIHKAN SERVER', type: 'error' });
+      }
+    } catch (err) {
+      setToast({ msg: 'KONEKSI KE CLEANER GAGAL', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -117,7 +140,6 @@ export default function AdminStructure() {
 
   const onCropComplete = useCallback((_: any, pixels: any) => { setCroppedAreaPixels(pixels); }, []);
 
-  // --- FUNGSI PROSES GAMBAR (SUDAH DIOPTIMASI KOMPRESI) ---
   const handleProcessImage = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
     setUploading(true);
@@ -128,7 +150,6 @@ export default function AdminStructure() {
       await new Promise((resolve) => (image.onload = resolve));
       const ctx = canvas.getContext('2d');
       
-      // OPTIMASI 1: Set resolusi maksimal 400x400 agar hemat bandwidth namun tetap tajam
       canvas.width = 400; 
       canvas.height = 400;
 
@@ -141,13 +162,11 @@ export default function AdminStructure() {
         0, 0, 400, 400
       );
 
-      // OPTIMASI 2: Kompresi JPEG ke 0.6 (60%) kualitas - Target file 50KB-150KB
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.6));
       
       if (!blob) throw new Error("Gagal membuat blob");
       
       const formDataUpload = new FormData();
-      // Gunakan nama file unik dengan timestamp agar cache browser diperbarui
       formDataUpload.append('photo', blob, `pbus-member-${Date.now()}.jpg`);
 
       const response = await fetch('https://pbus162.com/assets/struktur/upload.php', {
@@ -230,7 +249,6 @@ export default function AdminStructure() {
     }
   };
 
-  // --- LOGIKA GROUPING BIDANG LEVEL 7 ---
   const level7Members = members.filter(m => m.level === 7);
   const groupedFields: { [key: string]: any[] } = {};
   
@@ -253,7 +271,6 @@ export default function AdminStructure() {
 
   const filteredMembers = members.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // --- KOMPONEN KARTU LANDING PAGE ---
   const MemberCard = ({ member, size = 'md' }: { member: any, size?: 'lg' | 'md' | 'sm' }) => (
     <div className={`bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-blue-50/50 flex flex-col items-center p-8 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${size === 'lg' ? 'w-80' : 'w-72'}`}>
       <div className={`${size === 'lg' ? 'w-36 h-36' : 'w-28 h-28'} rounded-[2.2rem] overflow-hidden mb-6 bg-slate-50 border-[6px] border-white shadow-inner`}>
@@ -363,9 +380,19 @@ export default function AdminStructure() {
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-4 px-2">
               <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Urutan Management</h3>
-              <button onClick={saveNewOrder} disabled={isSavingOrder || loading} className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 transition-all">
-                {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Sequence'}
-              </button>
+              <div className="flex gap-2">
+                {/* TOMBOL CLEANER BARU */}
+                <button 
+                  onClick={runCleaner} 
+                  title="Bersihkan File Sampah di Hosting"
+                  className="p-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full hover:bg-red-500 hover:text-white transition-all"
+                >
+                  <Eraser size={12} />
+                </button>
+                <button onClick={saveNewOrder} disabled={isSavingOrder || loading} className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 transition-all">
+                  {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Sequence'}
+                </button>
+              </div>
           </div>
           
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -414,7 +441,6 @@ export default function AdminStructure() {
           </div>
 
           <div className="relative flex flex-col items-center">
-            {/* Jalur Konektor Sentral */}
             <div className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 via-blue-200 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
 
             {/* LEVEL 1: PENANGGUNG JAWAB */}
@@ -495,7 +521,7 @@ export default function AdminStructure() {
               </div>
             </div>
 
-            {/* --- LEVEL 7: KOORDINATOR & ANGGOTA --- */}
+            {/* LEVEL 7: KOORDINATOR & ANGGOTA BIDANG */}
             <div className="relative z-10 flex flex-col items-center w-full">
               <div className="bg-slate-400 text-white p-3 rounded-2xl mb-20 shadow-xl ring-8 ring-slate-400/10 flex items-center gap-3">
                 <Users size={20} />

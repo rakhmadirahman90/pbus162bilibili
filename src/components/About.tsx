@@ -20,6 +20,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     sejarah: `Didirikan dengan semangat dedikasi tinggi, organisasi kami telah melangkah jauh sejak hari pertama. Berawal dari komunitas kecil yang memiliki visi besar untuk membawa perubahan positif di masyarakat.
 
 Melalui perjalanan panjang yang penuh tantangan, kami terus bertransformasi menjadi institusi yang solid. Fokus kami bukan hanya pada pencapaian, tetapi pada bagaimana setiap langkah yang kami ambil dapat memberikan dampak nyata bagi pengembangan bakat dan prestasi generasi muda di Indonesia.`,
+    sejarah_image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070", // Default image
     visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi, berkarakter kuat, dan mampu bersaing di kancah nasional maupun internasional.",
     misi: "Mengembangkan potensi anggota secara maksimal melalui pembinaan berkelanjutan.\nMembangun sinergi yang kuat antar pengurus dan anggota.\nMenyelenggarakan kegiatan yang inovatif dan edukatif.\nMengutamakan integritas dan sportivitas dalam setiap pencapaian.",
     fasilitas_list: [
@@ -207,8 +208,9 @@ Melalui perjalanan panjang yang penuh tantangan, kami terus bertransformasi menj
               <div className="flex flex-col md:flex-row gap-8 items-start">
                 <div className="w-full md:w-1/3 shrink-0">
                   <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl rotate-3">
+                    {/* PERBAIKAN: Menggunakan dynamicContent.sejarah_image */}
                     <img 
-                      src="https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070" 
+                      src={dynamicContent.sejarah_image || "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070"} 
                       className="w-full h-full object-cover" 
                       alt="Sejarah" 
                     />

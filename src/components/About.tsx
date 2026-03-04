@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'; 
 import { 
-  Target, Rocket, Shield, Users2, ArrowRight, CheckCircle2
+  Target, Rocket, Shield, Award, 
+  CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
+  ChevronDown, Star, GraduationCap
 } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
@@ -40,10 +42,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   const fetchOrganizationalStructure = async () => {
     try {
+      // Mengambil data urut berdasarkan level (1-7) dan urutan input
       const { data, error } = await supabase
         .from('organizational_structure')
         .select('*')
-        .order('level', { ascending: true });
+        .order('level', { ascending: true })
+        .order('created_at', { ascending: true });
 
       if (!error && data) {
         setOrgData(data);
@@ -67,14 +71,15 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     { id: 'fasilitas', label: 'Fasilitas' }
   ];
 
-  // Helper untuk menentukan warna badge sesuai jabatan (Mirip AdminStructure)
-  const getBadgeColor = (role: string) => {
-    const r = role.toLowerCase();
-    if (r.includes('penanggung jawab')) return 'bg-amber-500';
-    if (r.includes('pembina')) return 'bg-orange-500';
-    if (r.includes('ketua')) return 'bg-emerald-600';
-    if (r.includes('sekretaris') || r.includes('bendahara')) return 'bg-blue-600';
-    return 'bg-blue-500';
+  // Helper untuk mendapatkan warna label berdasarkan level (Mirip Admin)
+  const getLevelColor = (level: number) => {
+    switch(level) {
+      case 1: return 'bg-amber-500'; // Penanggung Jawab
+      case 2: return 'bg-emerald-500'; // Pembina/Penasehat
+      case 3: return 'bg-blue-600'; // Ketua
+      case 4: return 'bg-purple-600'; // Sekretaris/Bendahara
+      default: return 'bg-slate-500'; // Anggota
+    }
   };
 
   return (
@@ -121,7 +126,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         </div>
 
         {/* 3. Kotak Konten Utama */}
-        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative ${activeTab === 'organisasi' ? 'overflow-y-auto custom-scrollbar' : 'overflow-hidden'}`}>
+        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative transition-all duration-500 ${activeTab === 'organisasi' ? 'overflow-y-auto custom-scrollbar' : 'overflow-hidden'}`}>
           
           {/* TAB SEJARAH */}
           {activeTab === 'sejarah' && (
@@ -199,59 +204,92 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* TAB STRUKTUR - DIADAPTASI PENUH DARI AdminStructure.tsx */}
+          {/* TAB ORGANISASI - Hierarki Linear Level 1-7 */}
           {activeTab === 'organisasi' && (
-            <div className="w-full flex flex-col items-center gap-12 py-8 animate-in slide-in-from-bottom-5 duration-500 pb-32">
+            <div className="w-full flex flex-col items-center gap-12 py-6 animate-in slide-in-from-bottom-5 duration-700 pb-32">
               
-              {/* Level 1: Penanggung Jawab / Pimpinan Utama */}
-              <div className="flex flex-wrap justify-center gap-8 w-full">
-                {orgData.filter(m => m.level === 1).map(p => (
-                   <div key={p.id} className="relative group">
-                    <div className="bg-white p-5 rounded-[2.5rem] border-2 border-amber-100 shadow-xl text-center w-64 transform transition-all duration-500 hover:scale-105 hover:shadow-amber-100/50">
+              {/* Level 1: Penanggung Jawab (Top Spotlight) */}
+              <div className="flex flex-col items-center gap-4 w-full">
+                <span className="px-4 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100">Level 1: Management</span>
+                <div className="flex flex-wrap justify-center gap-6">
+                  {orgData.filter(m => m.level === 1).map(p => (
+                    <div key={p.id} className="group bg-white p-5 rounded-[2.5rem] border-2 border-amber-200 shadow-2xl text-center w-64 transform transition-all hover:scale-105">
                       <div className="relative w-32 h-32 mx-auto mb-4">
                         <div className="absolute inset-0 bg-amber-500 rounded-3xl rotate-6 group-hover:rotate-12 transition-transform opacity-10"></div>
-                        {p.photo_url ? (
-                          <img src={p.photo_url} className="relative w-full h-full rounded-3xl object-cover border-4 border-white shadow-lg" alt={p.name} />
-                        ) : (
-                          <div className="relative w-full h-full rounded-3xl bg-amber-500 flex items-center justify-center text-white text-3xl font-black border-4 border-white shadow-lg">
-                            {p.name.substring(0, 2).toUpperCase()}
-                          </div>
-                        )}
+                        <img 
+                          src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f59e0b&color=fff&size=128`} 
+                          className="relative w-full h-full rounded-3xl object-cover border-4 border-white shadow-lg" 
+                          alt={p.name}
+                        />
                       </div>
-                      <p className="font-black text-sm uppercase italic text-slate-900 leading-tight mb-2 px-2">{p.name}</p>
-                      <span className={`text-[9px] ${getBadgeColor(p.role)} text-white px-4 py-1.5 rounded-full font-black uppercase tracking-wider shadow-sm`}>
+                      <p className="font-black text-sm uppercase italic text-slate-900 leading-tight mb-2">{p.name}</p>
+                      <span className="text-[9px] bg-amber-500 text-white px-4 py-1.5 rounded-xl font-black uppercase tracking-tighter shadow-sm">
                         {p.role}
                       </span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              {/* Garis Hierarki Sederhana */}
+              {/* Garis Pemisah Antar Level */}
               <div className="w-px h-12 bg-gradient-to-b from-amber-200 to-blue-200"></div>
 
-              {/* Level 2 ke bawah: Pengurus Inti & Anggota (Grid System) */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 w-full max-w-6xl px-4">
-                {orgData.filter(m => m.level > 1).map(p => (
-                  <div key={p.id} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl transition-all duration-300 text-center flex flex-col items-center group">
-                    <div className="w-20 h-20 mb-3 relative">
-                      <div className="absolute inset-0 bg-blue-600 rounded-2xl rotate-3 opacity-0 group-hover:opacity-5 transition-opacity"></div>
-                      {p.photo_url ? (
-                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-sm transition-transform group-hover:scale-105" alt={p.name} />
-                      ) : (
-                        <div className="w-full h-full rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xl font-black border-2 border-slate-50 shadow-sm">
-                          {p.name.substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
+              {/* Level 2 & 3: Pembina & Ketua (Mid Spotlight) */}
+              <div className="flex flex-col items-center gap-8 w-full">
+                <div className="flex flex-wrap justify-center gap-4 md:gap-8">
+                  {orgData.filter(m => m.level === 2 || m.level === 3).map(p => (
+                    <div key={p.id} className="bg-white p-4 rounded-[2rem] border border-blue-100 shadow-xl text-center w-48 transition-all hover:shadow-2xl">
+                      <div className="w-20 h-20 mx-auto mb-3">
+                        <img 
+                          src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=3b82f6&color=fff`} 
+                          className="w-full h-full rounded-2xl object-cover border-2 border-white shadow-md" 
+                          alt={p.name}
+                        />
+                      </div>
+                      <p className="font-black text-[11px] uppercase italic text-slate-800 leading-tight mb-2">{p.name}</p>
+                      <span className={`text-[8px] text-white px-3 py-1 rounded-lg font-bold uppercase ${getLevelColor(p.level)}`}>
+                        {p.role}
+                      </span>
                     </div>
-                    <p className="font-bold text-[10px] uppercase text-slate-800 leading-tight mb-2 h-8 flex items-center justify-center line-clamp-2 italic">
-                      {p.name}
-                    </p>
-                    <span className={`text-[7.5px] ${getBadgeColor(p.role)} text-white px-3 py-1 rounded-lg font-black uppercase tracking-tight w-full truncate`}>
-                      {p.role}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+
+              {/* Level 4 - 7: Pengurus & Anggota (Grid System) */}
+              <div className="w-full max-w-6xl space-y-12">
+                {[4, 5, 6, 7].map(lvl => {
+                  const members = orgData.filter(m => m.level === lvl);
+                  if (members.length === 0) return null;
+                  
+                  return (
+                    <div key={lvl} className="space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="h-px flex-1 bg-slate-200"></div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Hierarki Level {lvl}</span>
+                        <div className="h-px flex-1 bg-slate-200"></div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {members.map(p => (
+                          <div key={p.id} className="bg-white/80 backdrop-blur-sm p-3 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col items-center">
+                            <div className="w-14 h-14 mb-2">
+                              <img 
+                                src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=64748b&color=fff`} 
+                                className="w-full h-full rounded-xl object-cover border border-white shadow-sm" 
+                                alt={p.name}
+                              />
+                            </div>
+                            <p className="font-bold text-[9px] uppercase text-slate-800 text-center leading-tight min-h-[1.5rem] flex items-center">
+                              {p.name}
+                            </p>
+                            <p className="text-blue-500 font-black text-[7px] uppercase mt-1 text-center tracking-tighter">
+                              {p.role}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
             </div>
@@ -261,8 +299,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.02); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
         
         .overflow-y-auto {

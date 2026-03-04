@@ -69,35 +69,35 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     { id: 'fasilitas', label: 'Fasilitas' }
   ];
 
-  // Helper untuk memfilter person berdasarkan role (case insensitive)
   const getByRole = (roleName: string) => 
     orgData.filter(m => m.role.toLowerCase().includes(roleName.toLowerCase()));
 
   return (
-    <section id="tentang-kami" className="relative w-full h-auto bg-white pt-16 pb-12 flex flex-col items-center overflow-hidden font-sans">
-      <div className="max-w-7xl mx-auto px-4 w-full flex flex-col">
+    // PERBAIKAN: Menggunakan h-screen dan overflow-hidden untuk mencegah scroll body
+    <section id="tentang-kami" className="relative w-full h-screen bg-white pt-10 pb-6 flex flex-col items-center overflow-hidden font-sans">
+      <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col">
         
-        {/* Header Section */}
-        <div className="text-center mb-8 shrink-0">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full mb-4">
-            <Users2 size={16} className="animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Profil Organisasi</span>
+        {/* Header Section - Shrink-0 agar tidak tertekan */}
+        <div className="text-center mb-6 shrink-0">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full mb-2">
+            <Users2 size={14} className="animate-pulse" />
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Profil Organisasi</span>
           </div>
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase leading-none italic">
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-2 tracking-tight uppercase leading-none italic">
             Tentang <span className="text-blue-600">Kami</span>
           </h2>
-          <div className="w-20 h-1.5 bg-blue-600 mx-auto rounded-full shadow-sm"></div>
+          <div className="w-16 h-1 bg-blue-600 mx-auto rounded-full shadow-sm"></div>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex flex-wrap justify-center gap-2 md:gap-4 mb-10 shrink-0">
+        {/* Tab Switcher - Shrink-0 */}
+        <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-6 shrink-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`px-6 md:px-10 py-3 rounded-2xl font-bold text-[11px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 ${
+              className={`px-6 md:px-8 py-2.5 rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 ${
                 activeTab === tab.id 
-                ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-200 scale-105' 
+                ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-105' 
                 : 'bg-white text-slate-400 border-slate-100 hover:border-blue-200 hover:text-blue-500'
               }`}
             >
@@ -107,41 +107,45 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           
           <button
             onClick={() => handleTabChange('organisasi')}
-            className={`px-6 md:px-10 py-3 rounded-2xl font-bold text-[11px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 flex items-center gap-2 group shadow-xl ${
+            className={`px-6 md:px-8 py-2.5 rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 flex items-center gap-2 group ${
               activeTab === 'organisasi'
               ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200 scale-105'
               : 'bg-slate-900 text-white border-slate-900 hover:bg-blue-700 hover:border-blue-700'
             }`}
           >
             Struktur Organisasi
-            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
-        {/* Tab Content Box */}
-        <div className="bg-slate-50/50 rounded-[2.5rem] md:rounded-[4rem] p-6 md:p-16 border border-slate-100 shadow-sm min-h-[600px] transition-all duration-500">
+        {/* Tab Content Box - PERBAIKAN: flex-grow dan overflow-hidden agar pas layar */}
+        <div className="flex-grow bg-slate-50/50 rounded-[2rem] md:rounded-[3.5rem] p-6 md:p-12 border border-slate-100 shadow-sm overflow-hidden relative transition-all duration-500">
           
-          {/* CONTENT: SEJARAH, VISI MISI, FASILITAS (Tetap Sama) */}
+          {/* SEJARAH - FULL HEIGHT CONTAINER */}
           {activeTab === 'sejarah' && (
-             <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
-                <div className="relative group hidden md:block">
-                  <div className="absolute -inset-4 bg-blue-100/50 rounded-[3rem] blur-2xl group-hover:bg-blue-200/50 transition-colors"></div>
-                  <img src={dynamicContent.sejarah_img || "photo_2026-02-03_00-32-07.jpg"} className="relative w-full h-[450px] object-cover rounded-[2.5rem] shadow-2xl border-4 border-white transition-transform duration-700 group-hover:scale-[1.02]" alt="Sejarah" />
+             <div className="h-full w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="grid lg:grid-cols-2 gap-10 items-center h-full">
+                <div className="relative group hidden lg:block h-full py-4">
+                  <div className="absolute inset-0 bg-blue-100/30 rounded-[2.5rem] blur-xl"></div>
+                  <img 
+                    src={dynamicContent.sejarah_img || "photo_2026-02-03_00-32-07.jpg"} 
+                    className="relative w-full h-full object-cover rounded-[2.5rem] shadow-2xl border-4 border-white" 
+                    alt="Sejarah" 
+                  />
                 </div>
-                <div className="space-y-6">
-                  <div className="inline-block px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest">Legacy & Spirit</div>
-                  <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase leading-[1.1]">
+                <div className="space-y-4 flex flex-col justify-center h-full">
+                  <div className="inline-block w-fit px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[9px] font-black uppercase tracking-widest">Legacy & Spirit</div>
+                  <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase leading-none italic">
                     {dynamicContent.sejarah_title || "MEMBINA"} <span className="text-blue-600">{dynamicContent.sejarah_accent || "LEGENDA"}</span> MASA DEPAN
                   </h3>
-                  <p className="text-slate-500 text-base md:text-lg leading-relaxed font-medium">
+                  <p className="text-slate-500 text-sm md:text-base leading-relaxed font-medium">
                     {dynamicContent.sejarah_desc || "PB US 162 hadir sebagai pusat keunggulan bulutangkis yang mengintegrasikan sport-science dengan disiplin tinggi."}
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                    {["Sport-science intensif", "GOR Standar BWF", "Karier Profesional", "Klasemen Digital"].map((item, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
-                        <CheckCircle2 size={18} className="text-blue-600 shrink-0" />
-                        <span className="text-xs font-bold text-slate-700 uppercase">{item}</span>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    {["Sport-science", "GOR Standar BWF", "Karier Pro", "Klasemen Digital"].map((item, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2.5 bg-white rounded-xl shadow-sm border border-slate-100">
+                        <CheckCircle2 size={14} className="text-blue-600 shrink-0" />
+                        <span className="text-[9px] font-black text-slate-700 uppercase">{item}</span>
                       </div>
                     ))}
                   </div>
@@ -150,22 +154,23 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
+          {/* VISI MISI - FULL HEIGHT FLEX */}
           {activeTab === 'visi-misi' && (
-            <div className="w-full animate-in fade-in duration-700 grid lg:grid-cols-2 gap-8 items-stretch">
-              <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
-                <div className="absolute -top-10 -right-10 opacity-5 text-blue-600 transition-transform duration-700 group-hover:scale-110"><Target size={250} /></div>
-                <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-200"><Target size={32} /></div>
-                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Visi Utama</span>
-                <p className="text-slate-800 text-2xl md:text-3xl font-bold leading-tight italic relative z-10">"{dynamicContent.vision || "Menjadi klub rujukan nasional yang mencetak atlet berprestasi dunia."}"</p>
+            <div className="h-full w-full animate-in fade-in duration-700 grid lg:grid-cols-2 gap-6 items-stretch">
+              <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden group flex flex-col justify-center">
+                <div className="absolute -top-10 -right-10 opacity-5 text-blue-600"><Target size={200} /></div>
+                <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg"><Target size={28} /></div>
+                <span className="text-blue-600 font-black block mb-2 tracking-[0.2em] text-[10px] uppercase italic">Visi Utama</span>
+                <p className="text-slate-800 text-xl md:text-3xl font-bold leading-tight italic relative z-10">"{dynamicContent.vision || "Menjadi klub rujukan nasional yang mencetak atlet berprestasi dunia."}"</p>
               </div>
-              <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
-                <div className="absolute -top-10 -right-10 opacity-5 text-slate-900 transition-transform duration-700 group-hover:scale-110"><Rocket size={250} /></div>
-                <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg"><Rocket size={32} /></div>
-                <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Misi Strategis</span>
-                <ul className="space-y-4 relative z-10">
+              <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden group flex flex-col justify-center">
+                <div className="absolute -top-10 -right-10 opacity-5 text-slate-900"><Rocket size={200} /></div>
+                <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg"><Rocket size={28} /></div>
+                <span className="text-blue-600 font-black block mb-2 tracking-[0.2em] text-[10px] uppercase italic">Misi Strategis</span>
+                <ul className="space-y-3 relative z-10">
                   {(dynamicContent.missions || ["Latihan terstruktur", "Fasilitas internasional", "Kompetisi rutin"]).map((misi: string, i: number) => (
-                    <li key={i} className="flex items-center gap-4 text-slate-700 font-bold text-sm md:text-base italic group/item">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full group-hover/item:scale-150 transition-transform"></div>{misi}
+                    <li key={i} className="flex items-center gap-3 text-slate-700 font-bold text-xs md:text-sm italic group/item">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full shrink-0"></div>{misi}
                     </li>
                   ))}
                 </ul>
@@ -173,182 +178,144 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
+          {/* FASILITAS - GRID LAYOUT LOCK */}
           {activeTab === 'fasilitas' && (
-            <div className="w-full animate-in fade-in duration-500 grid lg:grid-cols-2 gap-12 items-center">
-               <div className="space-y-8">
+            <div className="h-full w-full animate-in fade-in duration-500 grid lg:grid-cols-2 gap-8 items-center">
+               <div className="space-y-6 flex flex-col justify-center">
                 <div>
-                  <h3 className="text-3xl font-black text-slate-900 uppercase mb-2">Fasilitas Unggulan</h3>
-                  <p className="text-slate-500 font-medium italic">Standardisasi Internasional (BWF)</p>
+                  <h3 className="text-3xl font-black text-slate-900 uppercase mb-1">Fasilitas Unggulan</h3>
+                  <p className="text-xs text-slate-400 font-bold italic tracking-widest">STANDARDISASI INTERNASIONAL (BWF)</p>
                 </div>
-                <div className="grid grid-cols-1 gap-4">
-                  {['Lapangan karpet standar BWF', 'Pencahayaan LED anti-silau', 'Fitness center', 'Asrama atlet'].map((item, index) => (
-                    <div key={index} className="flex items-center gap-5 p-5 bg-white rounded-[1.5rem] border border-slate-100 shadow-sm hover:border-blue-500 hover:shadow-md transition-all group">
-                      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shrink-0"><Shield size={22} /></div>
-                      <span className="text-sm md:text-base font-black text-slate-700 uppercase tracking-tight">{item}</span>
+                <div className="grid grid-cols-1 gap-3">
+                  {['Lapangan Karpet BWF', 'LED Anti-Silau', 'Fitness Center', 'Asrama Atlet'].map((item, index) => (
+                    <div key={index} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm group">
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0"><Shield size={18} /></div>
+                      <span className="text-[10px] md:text-xs font-black text-slate-700 uppercase tracking-tighter">{item}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 h-[400px]">
-                <img src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-[2.5rem] shadow-lg border-2 border-white" alt="Arena" />
-                <div className="grid grid-rows-2 gap-4">
-                   <img src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-[2rem] shadow-md border-2 border-white" alt="Gym" />
-                   <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" className="w-full h-full object-cover rounded-[2rem] shadow-md border-2 border-white" alt="Equipment" />
+              <div className="grid grid-cols-2 gap-3 h-full max-h-[450px]">
+                <img src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-[2rem] shadow-lg border-2 border-white" alt="Arena" />
+                <div className="grid grid-rows-2 gap-3">
+                   <img src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-[1.5rem] shadow-md border-2 border-white" alt="Gym" />
+                   <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" className="w-full h-full object-cover rounded-[1.5rem] shadow-md border-2 border-white" alt="Equipment" />
                 </div>
               </div>
             </div>
           )}
 
-          {/* 4. STRUKTUR ORGANISASI (HIERARKI LENGKAP) */}
+          {/* ORGANISASI - SPECIAL CASE: Membutuhkan Scroll Internal karena jumlah person banyak */}
           {activeTab === 'organisasi' && (
-            <div className="w-full animate-in fade-in slide-in-from-bottom-10 duration-1000 relative">
-              {/* Garis Tengah Visual */}
+            <div className="h-full w-full overflow-y-auto pr-4 custom-scrollbar animate-in fade-in slide-in-from-bottom-10 duration-1000 relative">
               <div className="absolute top-24 bottom-24 w-0.5 bg-gradient-to-b from-amber-200 via-blue-100 to-transparent left-1/2 -translate-x-1/2 hidden lg:block opacity-30"></div>
-
-              <div className="relative flex flex-col items-center gap-16">
+              <div className="relative flex flex-col items-center gap-16 pb-12">
                 
-                {/* 1. PENANGGUNG JAWAB (PUNCAK) */}
+                {/* 1. PENANGGUNG JAWAB */}
                 <div className="flex flex-col items-center">
                   {getByRole('penanggung jawab').map(person => (
-                    <div key={person.id} className="bg-white p-8 rounded-[3.5rem] border-2 border-amber-200 shadow-[0_25px_60px_rgba(245,158,11,0.15)] text-center w-80 group">
-                      <div className="w-36 h-36 mx-auto mb-6 rounded-[2.5rem] overflow-hidden border-4 border-amber-50 shadow-inner group-hover:scale-105 transition-transform duration-500">
+                    <div key={person.id} className="bg-white p-6 rounded-[2.5rem] border-2 border-amber-200 shadow-xl text-center w-64 group">
+                      <div className="w-28 h-28 mx-auto mb-4 rounded-3xl overflow-hidden border-4 border-amber-50">
                         <img src={person.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}`} className="w-full h-full object-cover" />
                       </div>
-                      <h4 className="font-black text-slate-900 text-xl italic uppercase mb-2">{person.name}</h4>
-                      <span className="px-5 py-2 bg-amber-500 text-white text-[11px] font-black uppercase rounded-xl italic">{person.role}</span>
+                      <h4 className="font-black text-slate-900 text-base italic uppercase mb-1">{person.name}</h4>
+                      <span className="px-4 py-1.5 bg-amber-500 text-white text-[9px] font-black uppercase rounded-lg italic">{person.role}</span>
                     </div>
                   ))}
                 </div>
 
-                {/* 2. PENASEHAT (BARIS KEDUA) */}
+                {/* 2. PENASEHAT */}
                 <div className="w-full">
-                  <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] mb-8">Jajaran Penasehat</p>
-                  <div className="flex flex-wrap justify-center gap-8">
+                  <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[9px] mb-6">Jajaran Penasehat</p>
+                  <div className="flex flex-wrap justify-center gap-6">
                     {getByRole('penasehat').map(person => (
-                      <div key={person.id} className="bg-white p-6 rounded-[2.5rem] border border-amber-100 shadow-xl text-center w-64 group">
-                        <div className="w-24 h-24 mx-auto mb-4 rounded-[1.8rem] overflow-hidden border-2 border-amber-50">
+                      <div key={person.id} className="bg-white p-4 rounded-[2rem] border border-amber-100 shadow-lg text-center w-52">
+                        <div className="w-20 h-20 mx-auto mb-3 rounded-2xl overflow-hidden border-2 border-amber-50">
                           <img src={person.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}`} className="w-full h-full object-cover" />
                         </div>
-                        <h4 className="font-black text-slate-800 text-sm italic uppercase leading-tight mb-2">{person.name}</h4>
-                        <span className="text-amber-600 font-black text-[9px] uppercase italic">{person.role}</span>
+                        <h4 className="font-black text-slate-800 text-[11px] italic uppercase leading-tight">{person.name}</h4>
+                        <span className="text-amber-600 font-black text-[8px] uppercase">{person.role}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* 3. PEMBINA (BARIS KETIGA) */}
-                <div className="w-full">
-                  <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] mb-8">Jajaran Pembina</p>
-                  <div className="flex flex-wrap justify-center gap-8">
-                    {getByRole('pembina').map(person => (
-                      <div key={person.id} className="bg-white p-6 rounded-[2.5rem] border border-blue-100 shadow-xl text-center w-64 group">
-                        <div className="w-24 h-24 mx-auto mb-4 rounded-[1.8rem] overflow-hidden border-2 border-blue-50">
-                          <img src={person.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}`} className="w-full h-full object-cover" />
-                        </div>
-                        <h4 className="font-black text-slate-800 text-sm italic uppercase mb-2">{person.name}</h4>
-                        <span className="text-blue-600 font-black text-[9px] uppercase italic">{person.role}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 4. KETUA UMUM (SENDIRI) */}
+                {/* 4. KETUA UMUM */}
                 <div className="flex flex-col items-center">
-                  <ChevronDown className="text-slate-300 mb-8 animate-bounce" />
+                  <ChevronDown className="text-slate-300 mb-6 animate-bounce" />
                   {getByRole('ketua umum').map(person => (
-                    <div key={person.id} className="bg-white p-8 rounded-[3.5rem] border-2 border-blue-600 shadow-2xl text-center w-80 group">
-                      <div className="w-32 h-32 mx-auto mb-6 rounded-[2.5rem] overflow-hidden border-4 border-blue-50 group-hover:scale-105 transition-transform duration-500">
+                    <div key={person.id} className="bg-white p-6 rounded-[2.5rem] border-2 border-blue-600 shadow-2xl text-center w-64">
+                      <div className="w-24 h-24 mx-auto mb-4 rounded-3xl overflow-hidden border-4 border-blue-50">
                         <img src={person.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}`} className="w-full h-full object-cover" />
                       </div>
-                      <h4 className="font-black text-slate-900 text-lg italic uppercase mb-2">{person.name}</h4>
-                      <span className="px-5 py-2 bg-blue-600 text-white text-[11px] font-black uppercase rounded-xl italic shadow-lg shadow-blue-200">{person.role}</span>
+                      <h4 className="font-black text-slate-900 text-base italic uppercase mb-1">{person.name}</h4>
+                      <span className="px-4 py-1.5 bg-blue-600 text-white text-[9px] font-black uppercase rounded-lg shadow-lg shadow-blue-200 italic">{person.role}</span>
                     </div>
                   ))}
-                </div>
-
-                {/* 5. PENGURUS INTI (HORIZONTAL) */}
-                <div className="w-full">
-                   <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] mb-8">Dewan Pengurus Inti</p>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-                    {orgData.filter(m => m.level === 2 && !m.role.toLowerCase().includes('ketua umum') && !m.role.toLowerCase().includes('pelatih')).map(person => (
-                      <div key={person.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-lg text-center group hover:border-blue-400 transition-all">
-                        <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden border-2 border-slate-50 group-hover:scale-105 transition-transform">
-                          <img src={person.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}`} className="w-full h-full object-cover" />
-                        </div>
-                        <h4 className="font-black text-slate-900 text-[13px] italic uppercase leading-tight mb-2">{person.name}</h4>
-                        <span className="text-blue-600 font-black text-[9px] uppercase tracking-widest">{person.role}</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
                 {/* 6. KEPALA PELATIH */}
                 <div className="flex flex-col items-center">
-                   <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] mb-8">Bidang Teknis</p>
+                   <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[9px] mb-6">Bidang Teknis</p>
                    {getByRole('kepala pelatih').map(person => (
-                    <div key={person.id} className="bg-slate-900 p-8 rounded-[3.5rem] shadow-2xl text-center w-80 group">
-                      <div className="w-32 h-32 mx-auto mb-6 rounded-[2.5rem] overflow-hidden border-4 border-blue-600 group-hover:scale-105 transition-transform duration-500">
+                    <div key={person.id} className="bg-slate-900 p-6 rounded-[2.5rem] shadow-2xl text-center w-64">
+                      <div className="w-24 h-24 mx-auto mb-4 rounded-3xl overflow-hidden border-4 border-blue-600">
                         <img src={person.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}`} className="w-full h-full object-cover" />
                       </div>
-                      <h4 className="font-black text-white text-lg italic uppercase mb-2">{person.name}</h4>
-                      <div className="flex items-center justify-center gap-2 px-5 py-2 bg-blue-600 text-white text-[11px] font-black uppercase rounded-xl italic">
-                         <GraduationCap size={16} /> {person.role}
+                      <h4 className="font-black text-white text-base italic uppercase mb-1">{person.name}</h4>
+                      <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-blue-600 text-white text-[9px] font-black uppercase rounded-lg italic">
+                         <GraduationCap size={14} /> {person.role}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* 7. BIDANG/KOORDINATOR & ANGGOTA (SISTEM KARTU GRUP) */}
+                {/* 7. BIDANG/KOORDINATOR */}
                 <div className="w-full">
-                  <div className="flex items-center gap-4 mb-10">
-                    <div className="h-[1px] flex-1 bg-slate-200"></div>
-                    <span className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px]">Koordinator & Anggota Bidang</span>
-                    <div className="h-[1px] flex-1 bg-slate-200"></div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {/* Logika: Ambil semua Koordinator di Level 3 sebagai Head of Group */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                     {orgData.filter(m => m.level === 3 && m.role.toLowerCase().includes('koordinator')).map(koor => {
-                      // Filter anggota yang memiliki kata kunci role yang sama (Misal: 'Humas' atau 'Perlengkapan')
                       const category = koor.role.split(' ').pop(); 
                       const members = orgData.filter(m => m.level === 3 && m.role.toLowerCase().includes(category?.toLowerCase()) && m.id !== koor.id);
-
                       return (
-                        <div key={koor.id} className="bg-white rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col group">
-                          {/* Header Group (Koordinator) */}
-                          <div className="bg-blue-600 p-6 text-center">
-                            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden border-4 border-white/20 shadow-lg">
+                        <div key={koor.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col">
+                          <div className="bg-blue-600 p-5 text-center">
+                            <div className="w-16 h-16 mx-auto mb-2 rounded-xl overflow-hidden border-2 border-white/20 shadow-md">
                               <img src={koor.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(koor.name)}`} className="w-full h-full object-cover" />
                             </div>
-                            <h4 className="text-white font-black text-sm italic uppercase leading-tight mb-1">{koor.name}</h4>
-                            <p className="text-blue-100 font-black text-[9px] uppercase tracking-widest">{koor.role}</p>
+                            <h4 className="text-white font-black text-xs italic uppercase leading-none mb-1">{koor.name}</h4>
+                            <p className="text-blue-100 font-black text-[8px] uppercase tracking-widest">{koor.role}</p>
                           </div>
-                          {/* List Anggota */}
-                          <div className="p-6 space-y-4 flex-1 bg-slate-50/50">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Daftar Anggota:</p>
-                            {members.length > 0 ? members.map(mem => (
-                              <div key={mem.id} className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-slate-100 group/item hover:border-blue-300 transition-all">
-                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-slate-50">
+                          <div className="p-5 space-y-3 flex-1 bg-slate-50/30">
+                            {members.map(mem => (
+                              <div key={mem.id} className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-50">
+                                <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border">
                                   <img src={mem.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(mem.name)}`} className="w-full h-full object-cover" />
                                 </div>
                                 <div>
-                                   <p className="font-black text-slate-800 text-[10px] uppercase italic leading-none">{mem.name}</p>
-                                   <p className="text-blue-500 font-bold text-[8px] uppercase mt-1">{mem.role}</p>
+                                   <p className="font-black text-slate-800 text-[9px] uppercase italic leading-none">{mem.name}</p>
+                                   <p className="text-blue-500 font-bold text-[7px] uppercase mt-0.5">{mem.role}</p>
                                 </div>
                               </div>
-                            )) : <p className="text-center text-[9px] text-slate-300 italic">Belum ada anggota</p>}
+                            ))}
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* CSS Khusus untuk scrollbar internal organisasi saja */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+      `}</style>
     </section>
   );
 }

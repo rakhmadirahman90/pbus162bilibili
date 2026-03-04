@@ -74,55 +74,60 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
-  // --- LOGIKA BARU: MENGELOMPOKKAN ANGGOTA BERDASARKAN BIDANG KOORDINATOR ---
-  const renderDepartmentGroups = () => {
-    const coordinators = orgData.filter(m => m.level === 6);
-    const allMembers = orgData.filter(m => m.level === 7);
+  // --- FUNGSI BARU UNTUK MENGELOMPOKKAN BIDANG ---
+  const renderStructureByBidang = () => {
+    const koordinatorList = orgData.filter(m => m.level === 6);
+    const anggotaList = orgData.filter(m => m.level === 7);
 
-    return coordinators.map(coord => {
-      // Mengambil nama bidang dari role koordinator (misal: "Koordinator Humas" -> "Humas")
-      const bidangName = coord.role.toLowerCase().replace('koordinator', '').trim();
-      // Mencari anggota yang rolenya mengandung nama bidang tersebut
-      const matchedMembers = allMembers.filter(mem => 
-        mem.role.toLowerCase().includes(bidangName)
+    return koordinatorList.map(koor => {
+      // Ambil kata kunci bidang (misal: "Humas" dari "Koordinator Bidang Humas")
+      const bidangKey = koor.role.toLowerCase()
+        .replace('koordinator', '')
+        .replace('bidang', '')
+        .replace('kadiv', '')
+        .trim();
+
+      // Cari anggota yang memiliki kata kunci bidang tersebut di role-nya
+      const matchedAnggota = anggotaList.filter(ang => 
+        ang.role.toLowerCase().includes(bidangKey)
       );
 
       return (
-        <div key={coord.id} className="flex flex-col items-center w-full mb-12">
-          {/* Garis Komando ke Koordinator */}
-          <div className="w-0.5 h-8 bg-slate-200"></div>
+        <div key={koor.id} className="flex flex-col items-center w-full">
+          {/* Garis ke Koordinator */}
+          <div className="w-px h-8 bg-slate-200"></div>
           
-          {/* Kartu Koordinator */}
-          <div className="bg-white p-4 rounded-[1.5rem] border-2 border-blue-400 shadow-md w-48 md:w-56 text-center z-10 transition-transform hover:scale-105">
-            <div className="w-16 h-16 mx-auto mb-2">
+          {/* Box Koordinator */}
+          <div className="bg-white p-4 rounded-2xl border-2 border-blue-500 shadow-md w-44 md:w-52 text-center z-10">
+            <div className="w-14 h-14 mx-auto mb-2">
               <img 
-                src={coord.photo_url || `https://ui-avatars.com/api/?name=${coord.name}&background=3b82f6&color=fff`} 
-                className="w-full h-full rounded-xl object-cover border-2 border-slate-50" 
-                alt={coord.name} 
+                src={koor.photo_url || `https://ui-avatars.com/api/?name=${koor.name}&background=3b82f6&color=fff`} 
+                className="w-full h-full rounded-xl object-cover border border-slate-100" 
+                alt={koor.name} 
               />
             </div>
-            <p className="font-black text-[10px] uppercase text-slate-800 leading-tight">{coord.name}</p>
-            <span className="text-[7px] bg-blue-600 text-white px-3 py-1 rounded-full font-black mt-2 inline-block uppercase italic">
-              {coord.role}
-            </span>
+            <p className="font-black text-[9px] uppercase text-slate-900 leading-tight">{koor.name}</p>
+            <p className="text-[7px] bg-blue-600 text-white px-2 py-0.5 rounded-full mt-1.5 font-bold uppercase inline-block italic">
+              {koor.role}
+            </p>
           </div>
 
           {/* Garis Cabang ke Anggota */}
-          {matchedMembers.length > 0 && (
-            <div className="flex flex-col items-center w-full mt-4">
-              <div className="w-0.5 h-6 bg-blue-100"></div>
-              <div className="flex flex-wrap justify-center gap-3 px-4">
-                {matchedMembers.map(mem => (
-                  <div key={mem.id} className="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm w-32 text-center hover:shadow-md transition-all">
-                    <div className="w-12 h-12 mx-auto mb-1.5">
+          {matchedAnggota.length > 0 && (
+            <div className="flex flex-col items-center mt-4 w-full">
+              <div className="w-px h-4 bg-blue-200"></div>
+              <div className="flex flex-wrap justify-center gap-2 max-w-4xl">
+                {matchedAnggota.map(ang => (
+                  <div key={ang.id} className="bg-slate-50 p-2 rounded-xl border border-slate-200 w-28 text-center">
+                    <div className="w-10 h-10 mx-auto mb-1">
                       <img 
-                        src={mem.photo_url || `https://ui-avatars.com/api/?name=${mem.name}&background=f1f5f9&color=64748b`} 
-                        className="w-full h-full rounded-lg object-cover grayscale hover:grayscale-0" 
-                        alt={mem.name} 
+                        src={ang.photo_url || `https://ui-avatars.com/api/?name=${ang.name}&background=cbd5e1&color=64748b`} 
+                        className="w-full h-full rounded-lg object-cover grayscale" 
+                        alt={ang.name} 
                       />
                     </div>
-                    <p className="font-bold text-[8px] text-slate-700 leading-tight">{mem.name}</p>
-                    <p className="text-[6px] text-blue-500 font-bold uppercase mt-1">{mem.role}</p>
+                    <p className="font-bold text-[8px] text-slate-700 leading-none truncate px-1">{ang.name}</p>
+                    <p className="text-[6px] text-slate-400 font-bold uppercase mt-0.5">{ang.role}</p>
                   </div>
                 ))}
               </div>
@@ -137,7 +142,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
       <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-4">
         
-        {/* Header & Tabs */}
+        {/* Header Section */}
         <div className="text-center mb-2 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full mb-1">
             <Users2 size={10} className="animate-pulse" />
@@ -148,6 +153,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </h2>
         </div>
 
+        {/* Tab Navigation */}
         <div className="flex flex-wrap justify-center gap-1.5 mb-3 shrink-0">
           {['sejarah', 'visi-misi', 'fasilitas'].map((id) => (
             <button
@@ -170,84 +176,78 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </button>
         </div>
 
-        {/* Kotak Konten Utama */}
+        {/* Content Box */}
         <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative ${activeTab === 'organisasi' ? 'overflow-y-auto custom-scrollbar' : 'overflow-hidden'}`}>
           
-          {activeTab === 'sejarah' && <div className="animate-in fade-in italic text-center py-20 text-slate-400">Memuat Konten Sejarah...</div>}
-          {activeTab === 'visi-misi' && <div className="animate-in fade-in italic text-center py-20 text-slate-400">Memuat Konten Visi Misi...</div>}
-          {activeTab === 'fasilitas' && <div className="animate-in fade-in italic text-center py-20 text-slate-400">Memuat Konten Fasilitas...</div>}
+          {activeTab !== 'organisasi' && (
+             <div className="animate-in fade-in italic text-center py-20 text-slate-400 uppercase font-black tracking-widest">
+                Memuat Konten {activeTab.replace('-', ' ')}...
+             </div>
+          )}
 
-          {/* TAB ORGANISASI - STRUKTUR YANG TELAH DIPERBAIKI */}
           {activeTab === 'organisasi' && (
             <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
               
-              {/* LEVEL 1: PENANGGUNG JAWAB (CENTERED) */}
+              {/* LEVEL 1: PENANGGUNG JAWAB */}
               <div className="relative flex flex-col items-center mb-12">
                 {orgData.filter(m => m.level === 1).map(p => (
                   <div key={p.id} className="relative z-10 flex flex-col items-center">
-                    <div className="bg-white p-4 rounded-[2rem] border-4 border-amber-400 shadow-2xl text-center w-56 md:w-64 transform transition-all hover:scale-105">
+                    <div className="bg-white p-4 rounded-[2rem] border-4 border-amber-400 shadow-2xl text-center w-56 md:w-64">
                       <div className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-3">
-                        <img 
-                          src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f59e0b&color=fff`} 
-                          className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-md" 
-                          alt={p.name}
-                        />
+                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-md" alt={p.name} />
                       </div>
                       <p className="font-black text-[10px] md:text-xs uppercase italic text-slate-900 leading-tight mb-2">{p.name}</p>
-                      <span className="text-[8px] bg-amber-500 text-white px-4 py-1 rounded-full font-black uppercase tracking-tighter">
-                        {p.role}
-                      </span>
+                      <span className="text-[8px] bg-amber-500 text-white px-4 py-1 rounded-full font-black uppercase">{p.role}</span>
                     </div>
                     <div className="w-1 h-12 bg-gradient-to-b from-amber-400 to-blue-400"></div>
                   </div>
                 ))}
               </div>
 
-              {/* LEVEL 2-4: PEMBINA & PENGURUS INTI (HORIZONTAL LAYOUT) */}
-              <div className="relative flex flex-col items-center w-full mb-16">
-                <div className="absolute top-0 h-0.5 bg-blue-100 w-2/3 left-1/6 right-1/6 hidden md:block"></div>
-                <div className="flex flex-wrap justify-center gap-4 md:gap-8 relative z-10">
-                  {orgData.filter(m => m.level >= 2 && m.level <= 4).map(p => (
-                    <div key={p.id} className="flex flex-col items-center">
-                      <div className="w-0.5 h-4 bg-blue-100 hidden md:block"></div>
-                      <div className="bg-white p-3 rounded-2xl border-2 border-slate-100 shadow-lg text-center w-40 md:w-44">
-                        <div className="w-16 h-16 mx-auto mb-2">
-                          <img src={p.photo_url} className="w-full h-full rounded-xl object-cover" alt={p.name} />
-                        </div>
-                        <p className="font-bold text-[9px] uppercase text-slate-800 leading-tight mb-1">{p.name}</p>
-                        <span className={`text-[7px] text-white px-3 py-0.5 rounded-md font-bold uppercase ${getLevelColor(p.level)}`}>
-                          {p.role}
-                        </span>
-                      </div>
+              {/* LEVEL 2, 3, 4: PEMBINA, PENASEHAT, KETUA UMUM */}
+              <div className="relative flex flex-wrap justify-center gap-6 mb-12 w-full max-w-4xl">
+                {orgData.filter(m => m.level >= 2 && m.level <= 4).map(p => (
+                  <div key={p.id} className="bg-white p-3 rounded-2xl border-2 border-slate-100 shadow-lg text-center w-40 md:w-48">
+                    <div className="w-16 h-16 mx-auto mb-2">
+                      <img src={p.photo_url} className="w-full h-full rounded-xl object-cover" alt={p.name} />
                     </div>
-                  ))}
-                </div>
-                <div className="w-0.5 h-12 bg-slate-200"></div>
+                    <p className="font-bold text-[9px] uppercase text-slate-800 leading-tight mb-1">{p.name}</p>
+                    <span className={`text-[7px] text-white px-3 py-0.5 rounded-md font-bold uppercase ${getLevelColor(p.level)}`}>
+                      {p.role}
+                    </span>
+                  </div>
+                ))}
               </div>
 
-              {/* LEVEL 5: KEPALA PELATIH (FIXED CENTER) */}
-              <div className="relative flex flex-col items-center mb-4 w-full">
-                {orgData.filter(m => m.level === 5 || m.role.toLowerCase().includes('kepala pelatih')).map(p => (
-                  <div key={p.id} className="flex flex-col items-center">
-                    <div className="bg-slate-900 p-5 rounded-[2.2rem] shadow-2xl text-center w-52 md:w-60 border-4 border-blue-500 relative transform transition-all hover:scale-105">
-                      <div className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-3 relative">
-                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover border-2 border-white shadow-lg" alt={p.name} />
-                        <div className="absolute -bottom-2 -right-2 bg-blue-600 p-2 rounded-xl text-white shadow-xl">
-                           <GraduationCap size={14} className="animate-pulse" />
-                        </div>
-                      </div>
-                      <p className="font-black text-[11px] uppercase text-white leading-tight mb-1">{p.name}</p>
-                      <span className="text-[8px] bg-blue-600 text-white px-4 py-1.5 rounded-full font-black mt-1 inline-block uppercase tracking-widest">
-                         {p.role}
-                      </span>
+              {/* LEVEL 5: KEPALA PELATIH (DIPINDAHKAN KE TENGAH) */}
+              <div className="relative flex flex-col items-center mb-8 w-full">
+                <div className="w-px h-10 bg-slate-300"></div>
+                {orgData.filter(m => m.level === 5).map(p => (
+                  <div key={p.id} className="bg-slate-900 p-5 rounded-[2.5rem] shadow-2xl text-center w-52 md:w-60 border-4 border-blue-500 transform transition-all hover:scale-105">
+                    <div className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-3">
+                      <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover border-2 border-blue-400" alt={p.name} />
+                    </div>
+                    <p className="font-black text-[11px] uppercase text-white leading-tight mb-1">{p.name}</p>
+                    <div className="flex items-center justify-center gap-1.5 text-blue-400">
+                       <GraduationCap size={12} />
+                       <span className="text-[8px] font-black uppercase tracking-widest">{p.role}</span>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* GRUP BIDANG: KOORDINATOR + ANGGOTA (DYNAMIC LOGIC) */}
-              <div className="w-full max-w-6xl flex flex-col items-center">
-                {renderDepartmentGroups()}
+              {/* LEVEL 6 & 7: KOORDINATOR BIDANG & ANGGOTA (SISTEM GRUP) */}
+              <div className="w-full max-w-6xl space-y-4">
+                 <div className="flex items-center gap-4 mb-4">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Bidang & Departemen</span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
+                 </div>
+                 
+                 {/* GRID UNTUK BIDANG-BIDANG */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 items-start">
+                    {renderStructureByBidang()}
+                 </div>
               </div>
 
             </div>

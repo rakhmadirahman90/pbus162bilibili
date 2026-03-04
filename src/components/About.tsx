@@ -69,6 +69,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     { id: 'fasilitas', label: 'Fasilitas' }
   ];
 
+  // Fungsi helper untuk filter role
   const getByRole = (roleName: string) => 
     orgData.filter(m => m.role.toLowerCase().includes(roleName.toLowerCase()));
 
@@ -116,12 +117,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         </div>
 
         {/* 3. Kotak Konten Utama */}
-        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative overflow-hidden transition-all">
+        {/* PERBAIKAN: Jika tab organisasi, biarkan overflow-y-auto aktif untuk scroll panjang */}
+        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative ${activeTab === 'organisasi' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
           
-          {/* SEJARAH - Perbaikan Fokus pada Logo agar tidak memotong */}
+          {/* TAB SEJARAH */}
           {activeTab === 'sejarah' && (
             <div className="h-full w-full flex flex-col lg:flex-row items-center justify-center gap-4 animate-in fade-in duration-700">
-              {/* Container Logo dengan batasan tinggi ketat */}
               <div className="w-full lg:w-1/2 flex items-center justify-center shrink-0">
                 <img 
                   src={dynamicContent.sejarah_img || "photo_2026-02-03_00-32-07.jpg"} 
@@ -129,9 +130,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   alt="Sejarah" 
                 />
               </div>
-              
-              {/* Teks Deskripsi */}
-              <div className="w-full lg:w-1/2 flex flex-col justify-center space-y-2 overflow-y-auto max-h-full">
+              <div className="w-full lg:w-1/2 flex flex-col justify-center space-y-2">
                 <span className="text-blue-600 font-black text-[8px] uppercase tracking-widest">Legacy & Spirit</span>
                 <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase leading-none italic">
                   {dynamicContent.sejarah_title || "MEMBINA"} <span className="text-blue-600">LEGENDA</span>
@@ -151,7 +150,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* VISI MISI */}
+          {/* TAB VISI MISI */}
           {activeTab === 'visi-misi' && (
             <div className="h-full w-full grid lg:grid-cols-2 gap-3 items-stretch animate-in fade-in duration-500">
               <div className="bg-white p-4 md:p-6 rounded-[1.5rem] border border-slate-100 flex flex-col justify-center relative overflow-hidden">
@@ -175,74 +174,91 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* FASILITAS - Perbaikan Fokus pada Gambar agar tidak memotong */}
+          {/* TAB FASILITAS */}
           {activeTab === 'fasilitas' && (
             <div className="h-full w-full flex flex-col lg:flex-row gap-4 animate-in fade-in duration-500 items-center justify-center">
-              {/* Kolom Teks */}
               <div className="w-full lg:w-1/3 flex flex-col justify-center space-y-2 lg:order-1 order-2">
                 <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase">Fasilitas <span className="text-blue-600">Pro</span></h3>
                 <div className="space-y-1.5">
                   {['Karpet BWF', 'LED Anti-Silau', 'Gym Center'].map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 shadow-sm transition-all hover:border-blue-300">
+                    <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 shadow-sm">
                       <Shield size={12} className="text-blue-600 shrink-0" />
                       <span className="text-[8px] md:text-[10px] font-black uppercase text-slate-700">{f}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Grid Gambar - Kunci Tinggi max-h-[35vh] lg:order-2 order-1 untuk mobile */}
               <div className="w-full lg:w-2/3 grid grid-cols-2 grid-rows-2 gap-2 max-h-[35vh] lg:max-h-[50vh] min-h-0 shrink-0 lg:order-2 order-1">
-                <img 
-                  src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} 
-                  className="w-full h-full object-contain col-span-1 row-span-2 rounded-xl border-2 border-white shadow-md bg-white p-1" 
-                  alt="Fasilitas 1" 
-                />
-                <img 
-                  src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} 
-                  className="w-full h-full object-cover rounded-xl border-2 border-white shadow-sm" 
-                  alt="Fasilitas 2" 
-                />
-                <img 
-                  src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400" 
-                  className="w-full h-full object-cover rounded-xl border-2 border-white shadow-sm" 
-                  alt="Fasilitas 3" 
-                />
+                <img src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-contain col-span-1 row-span-2 rounded-xl border-2 border-white shadow-md bg-white p-1" alt="F1" />
+                <img src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-xl border-2 border-white shadow-sm" alt="F2" />
+                <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400" className="w-full h-full object-cover rounded-xl border-2 border-white shadow-sm" alt="F3" />
               </div>
             </div>
           )}
 
-          {/* ORGANISASI */}
+          {/* TAB ORGANISASI - Scrollable & Menyesuaikan Preview Admin */}
           {activeTab === 'organisasi' && (
-            <div className="h-full w-full overflow-y-auto pr-2 custom-scrollbar animate-in slide-in-from-bottom-5">
-              <div className="flex flex-col items-center gap-6 py-2">
+            <div className="w-full flex flex-col items-center gap-8 py-4 animate-in slide-in-from-bottom-5 duration-500 pb-20">
+              
+              {/* Tingkat 1: Penanggung Jawab */}
+              <div className="flex justify-center w-full">
                 {getByRole('penanggung jawab').map(p => (
-                  <div key={p.id} className="bg-white p-3 rounded-[1.5rem] border-2 border-amber-100 shadow-md text-center w-40 shrink-0">
-                    <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-16 h-16 mx-auto rounded-xl object-cover mb-1 border-2 border-amber-50" />
-                    <p className="font-black text-[9px] uppercase italic text-slate-900 leading-tight">{p.name}</p>
-                    <p className="text-[6px] bg-amber-500 text-white inline-block px-2 py-0.5 rounded-md font-black uppercase mt-1">{p.role}</p>
+                  <div key={p.id} className="group relative bg-white p-4 rounded-[2rem] border-2 border-amber-100 shadow-xl text-center w-52 transform transition-all hover:scale-105">
+                    <div className="relative w-24 h-24 mx-auto mb-3">
+                      <div className="absolute inset-0 bg-amber-500 rounded-2xl rotate-6 group-hover:rotate-12 transition-transform opacity-20"></div>
+                      <img 
+                        src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f59e0b&color=fff`} 
+                        className="relative w-full h-full rounded-2xl object-cover border-2 border-white shadow-md" 
+                        alt={p.name}
+                      />
+                    </div>
+                    <p className="font-black text-xs uppercase italic text-slate-900 leading-tight mb-1">{p.name}</p>
+                    <span className="text-[8px] bg-amber-500 text-white px-3 py-1 rounded-full font-black uppercase tracking-tighter">
+                      {p.role}
+                    </span>
                   </div>
                 ))}
-                <div className="flex flex-wrap justify-center gap-3">
-                  {orgData.filter(m => m.level >= 2).map(p => (
-                    <div key={p.id} className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm text-center w-28 shrink-0">
-                      <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-10 h-10 mx-auto rounded-lg object-cover mb-1" />
-                      <p className="font-black text-[7px] uppercase italic text-slate-800 leading-tight">{p.name}</p>
-                      <p className="text-blue-600 font-black text-[6px] uppercase mt-1">{p.role}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
+
+              {/* Garis Penghubung Sederhana */}
+              <div className="w-px h-8 bg-slate-200"></div>
+
+              {/* Tingkat 2: Pengurus Inti & Anggota (Grid Responsive) */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 w-full px-2">
+                {orgData.filter(m => m.level >= 2).map(p => (
+                  <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow text-center flex flex-col items-center">
+                    <div className="w-16 h-16 mb-2">
+                      <img 
+                        src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=3b82f6&color=fff`} 
+                        className="w-full h-full rounded-xl object-cover border border-slate-50 shadow-sm" 
+                        alt={p.name}
+                      />
+                    </div>
+                    <p className="font-bold text-[9px] uppercase text-slate-800 leading-tight h-7 flex items-center justify-center">
+                      {p.name}
+                    </p>
+                    <p className="text-blue-600 font-black text-[7px] uppercase mt-1 tracking-tighter">
+                      {p.role}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
             </div>
           )}
         </div>
       </div>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+        
+        /* Smooth scrolling untuk tab organisasi */
+        .overflow-y-auto {
+          scroll-behavior: smooth;
+        }
       `}</style>
     </section>
   );

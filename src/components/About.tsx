@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Target, Rocket, Shield, Award, 
   CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
-  ChevronDown, Star, GraduationCap, Briefcase, Users
+  ChevronDown, Star, GraduationCap, Briefcase, History, Eye, Map
 } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
@@ -44,7 +44,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchOrganizationalStructure = async () => {
     setLoading(true);
     try {
-      // Menggunakan sort_order agar urutan drag-and-drop dari admin terjaga
       const { data, error } = await supabase
         .from('organizational_structure')
         .select('*')
@@ -80,7 +79,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
-  // Logika Grouping Bidang Level 7 (Sinkron dengan Admin)
   const renderAllDepartments = () => {
     const level7Members = orgData.filter(m => m.level === 7);
     const groupedFields: { [key: string]: any[] } = {};
@@ -94,8 +92,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       else if (role.includes("sarana") || role.includes("prasarana")) fieldName = "Bidang Sarpras";
       else if (role.includes("prestasi") || role.includes("binpres")) fieldName = "Bidang Pembinaan Prestasi";
       else if (role.includes("pendanaan") || role.includes("usaha")) fieldName = "Bidang Dana & Usaha";
-      else if (role.includes("organisasi")) fieldName = "Bidang Organisasi";
-      else if (role.includes("kesehatan") || role.includes("medis")) fieldName = "Bidang Kesehatan";
 
       if (!groupedFields[fieldName]) groupedFields[fieldName] = [];
       groupedFields[fieldName].push(m);
@@ -106,44 +102,31 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       const staffs = members.filter(m => !m.role.toLowerCase().includes("koordinator"));
 
       return (
-        <div key={title} className="w-full mb-20">
-          <div className="flex items-center gap-4 mb-10">
+        <div key={title} className="w-full mb-16">
+          <div className="flex items-center gap-4 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-            <span className="text-[11px] font-black text-blue-600 uppercase tracking-[0.4em] italic">{title}</span>
+            <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">{title}</span>
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
           </div>
-
           {coordinator && (
-            <div className="flex flex-col items-center mb-10">
-              <div className="bg-white p-5 rounded-[2.5rem] border-2 border-amber-400 shadow-xl text-center w-56 transform hover:scale-105 transition-transform">
-                <div className="w-24 h-24 mx-auto mb-3">
-                  <img 
-                    src={coordinator.photo_url || `https://ui-avatars.com/api/?name=${coordinator.name}&background=f59e0b&color=fff`} 
-                    className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-sm" 
-                    alt={coordinator.name}
-                  />
+            <div className="flex flex-col items-center mb-8">
+              <div className="bg-white p-4 rounded-[2rem] border-2 border-amber-400 shadow-lg text-center w-48 md:w-56">
+                <div className="w-20 h-20 mx-auto mb-3">
+                  <img src={coordinator.photo_url} className="w-full h-full rounded-2xl object-cover" alt={coordinator.name} />
                 </div>
-                <p className="font-black text-[10px] uppercase italic text-slate-900 leading-tight mb-2">{coordinator.name}</p>
-                <span className="text-[8px] bg-amber-500 text-white px-4 py-1.5 rounded-full font-black uppercase tracking-tighter">
-                  {coordinator.role}
-                </span>
+                <p className="font-black text-[9px] uppercase text-slate-900 leading-tight mb-2">{coordinator.name}</p>
+                <span className="text-[7px] bg-amber-500 text-white px-3 py-1 rounded-full font-black uppercase">{coordinator.role}</span>
               </div>
-              <div className="w-0.5 h-10 bg-gradient-to-b from-amber-400 to-slate-200"></div>
             </div>
           )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
             {staffs.map(p => (
-              <div key={p.id} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                <div className="w-14 h-14 md:w-16 md:h-16 mb-3">
-                  <img 
-                    src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f1f5f9&color=64748b`} 
-                    className="w-full h-full rounded-2xl object-cover border border-slate-50" 
-                    alt={p.name}
-                  />
+              <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center">
+                <div className="w-12 h-12 md:w-14 md:h-14 mb-2">
+                  <img src={p.photo_url} className="w-full h-full rounded-xl object-cover" alt={p.name} />
                 </div>
-                <p className="font-black text-[9px] uppercase text-slate-800 leading-tight mb-1">{p.name}</p>
-                <p className="text-blue-500 font-bold text-[7px] uppercase tracking-widest">{p.role}</p>
+                <p className="font-bold text-[8px] md:text-[9px] uppercase text-slate-800">{p.name}</p>
+                <p className="text-blue-500 font-bold text-[6px] md:text-[7px] uppercase mt-1">{p.role}</p>
               </div>
             ))}
           </div>
@@ -156,7 +139,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
       <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-4">
         
-        {/* Header & Tabs */}
+        {/* Header Section */}
         <div className="text-center mb-2 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full mb-1">
             <Users2 size={10} className="animate-pulse" />
@@ -167,6 +150,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </h2>
         </div>
 
+        {/* Navigation Tabs */}
         <div className="flex flex-wrap justify-center gap-1.5 mb-3 shrink-0">
           {['sejarah', 'visi-misi', 'fasilitas'].map((id) => (
             <button
@@ -189,12 +173,89 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </button>
         </div>
 
-        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative ${activeTab === 'organisasi' ? 'overflow-y-auto custom-scrollbar' : 'overflow-hidden'}`}>
+        {/* Content Container */}
+        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar`}>
           
+          {/* RENDER TAB: SEJARAH */}
+          {activeTab === 'sejarah' && (
+            <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200">
+                  <History size={24} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 uppercase italic">Sejarah Organisasi</h3>
+              </div>
+              <div className="prose prose-slate max-w-none">
+                <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line">
+                  {dynamicContent.sejarah || "Konten sejarah belum tersedia."}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* RENDER TAB: VISI-MISI */}
+          {activeTab === 'visi-misi' && (
+            <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-amber-500 text-white rounded-xl">
+                      <Eye size={20} />
+                    </div>
+                    <h4 className="font-black text-slate-900 uppercase italic">Visi</h4>
+                  </div>
+                  <p className="text-slate-600 text-sm leading-relaxed">{dynamicContent.visi || "Visi belum diatur."}</p>
+                </div>
+                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-emerald-500 text-white rounded-xl">
+                      <Rocket size={20} />
+                    </div>
+                    <h4 className="font-black text-slate-900 uppercase italic">Misi</h4>
+                  </div>
+                  <ul className="space-y-3">
+                    {dynamicContent.misi?.split('\n').map((item: string, i: number) => (
+                      <li key={i} className="flex gap-3 text-sm text-slate-600">
+                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    )) || <li>Misi belum diatur.</li>}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* RENDER TAB: FASILITAS */}
+          {activeTab === 'fasilitas' && (
+            <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
+                  <Map size={24} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 uppercase italic">Fasilitas & Sarana</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {dynamicContent.fasilitas_list?.map((f: any, i: number) => (
+                  <div key={i} className="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all">
+                    <div className="aspect-video bg-slate-200 relative overflow-hidden">
+                       <img src={f.image || 'https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={f.title} />
+                    </div>
+                    <div className="p-5">
+                      <h5 className="font-black text-slate-900 uppercase text-xs mb-2">{f.title}</h5>
+                      <p className="text-slate-500 text-[10px] leading-relaxed">{f.desc}</p>
+                    </div>
+                  </div>
+                )) || <p className="text-slate-500">Daftar fasilitas belum ditambahkan.</p>}
+              </div>
+            </div>
+          )}
+
+          {/* RENDER TAB: ORGANISASI (STRUKTUR) */}
           {activeTab === 'organisasi' && (
             <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
-              
-              {/* LEVEL 1: PENANGGUNG JAWAB */}
+              {/* Konten Struktur Organisasi seperti sebelumnya */}
+              {/* Level 1 s/d Level 7 */}
               <div className="relative flex flex-col items-center mb-16">
                 {orgData.filter(m => m.level === 1).map(p => (
                   <div key={p.id} className="relative z-10 flex flex-col items-center">
@@ -205,87 +266,50 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       <p className="font-black text-[12px] md:text-[15px] uppercase italic text-slate-900 leading-tight mb-2">{p.name}</p>
                       <span className="text-[10px] bg-amber-500 text-white px-6 py-2 rounded-full font-black uppercase tracking-widest">{p.role}</span>
                     </div>
-                    <div className="w-1 h-16 bg-gradient-to-b from-amber-400 via-blue-200 to-transparent"></div>
+                    <div className="w-1 h-16 bg-gradient-to-b from-amber-400 to-transparent"></div>
                   </div>
                 ))}
               </div>
 
-              {/* LEVEL 2 & 3: PEMBINA / PENASEHAT */}
               <div className="relative flex flex-col items-center w-full mb-16">
-                <div className="flex flex-wrap justify-center gap-4 md:gap-8 relative z-10">
+                <div className="flex flex-wrap justify-center gap-4 relative z-10">
                   {orgData.filter(m => m.level === 2 || m.level === 3).map(p => (
                     <div key={p.id} className="bg-white p-4 rounded-3xl border border-emerald-100 shadow-xl text-center w-44 md:w-52">
-                      <div className="w-20 h-20 mx-auto mb-3">
-                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover shadow-sm" alt={p.name} />
-                      </div>
-                      <p className="font-bold text-[10px] md:text-[11px] uppercase italic text-slate-800 leading-tight mb-2">{p.name}</p>
-                      <span className={`text-[8px] text-white px-4 py-1 rounded-lg font-black uppercase tracking-tighter ${getLevelColor(p.level)}`}>{p.role}</span>
+                      <p className="font-bold text-[10px] uppercase italic text-slate-800 mb-2">{p.name}</p>
+                      <span className={`text-[8px] text-white px-4 py-1 rounded-lg font-black uppercase ${getLevelColor(p.level)}`}>{p.role}</span>
                     </div>
                   ))}
                 </div>
                 <div className="w-0.5 h-12 bg-blue-100"></div>
               </div>
 
-              {/* LEVEL 4: KETUA UMUM */}
               <div className="relative flex flex-col items-center mb-10 w-full">
                  {orgData.filter(m => m.level === 4).map(p => (
                   <div key={p.id} className="flex flex-col items-center">
                     <div className="bg-blue-600 p-5 rounded-[2.5rem] shadow-2xl text-center w-56 md:w-64 transform border-4 border-white">
-                      <div className="w-28 h-28 mx-auto mb-3">
-                        <img src={p.photo_url} className="w-full h-full rounded-3xl object-cover border-2 border-blue-400 shadow-md" alt={p.name} />
+                      <div className="w-24 h-24 mx-auto mb-3">
+                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover" alt={p.name} />
                       </div>
-                      <p className="font-black text-[12px] uppercase text-white leading-tight mb-2 tracking-tighter">{p.name}</p>
-                      <span className="text-[9px] bg-white text-blue-600 px-5 py-1.5 rounded-full font-black uppercase tracking-widest shadow-sm">{p.role}</span>
+                      <p className="font-black text-white uppercase mb-2">{p.name}</p>
+                      <span className="text-[9px] bg-white text-blue-600 px-5 py-1 rounded-full font-black uppercase">{p.role}</span>
                     </div>
                     <div className="w-0.5 h-12 bg-slate-200"></div>
                   </div>
                 ))}
               </div>
 
-              {/* LEVEL 5: PENGURUS INTI */}
               <div className="w-full max-w-5xl mb-20">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 justify-center items-center">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   {orgData.filter(m => m.level === 5).map(p => (
-                    <div key={p.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform">
-                      <div className="w-16 h-16 md:w-20 md:h-20 mb-3">
-                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover border border-slate-50 shadow-inner" alt={p.name} />
-                      </div>
-                      <p className="font-black text-[10px] md:text-[11px] uppercase text-slate-900 leading-tight mb-1">{p.name}</p>
-                      <p className="text-rose-500 font-black text-[8px] uppercase tracking-widest">{p.role}</p>
+                    <div key={p.id} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center">
+                      <p className="font-black text-[10px] uppercase text-slate-900 leading-tight mb-1">{p.name}</p>
+                      <p className="text-rose-500 font-black text-[8px] uppercase">{p.role}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* LEVEL 6: KEPALA PELATIH */}
-              <div className="w-full max-w-2xl mb-20">
-                <div className="flex flex-wrap justify-center gap-6">
-                   {orgData.filter(m => m.level === 6).map(p => (
-                    <div key={p.id} className="bg-white p-4 rounded-3xl border-2 border-orange-100 shadow-lg flex flex-col items-center text-center w-48">
-                      <div className="w-20 h-20 mb-3">
-                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover" alt={p.name} />
-                      </div>
-                      <p className="font-black text-[10px] uppercase text-slate-900 leading-tight">{p.name}</p>
-                      <p className="text-orange-600 font-bold text-[8px] uppercase mt-1 italic tracking-widest">{p.role}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* LEVEL 7: BIDANG-BIDANG SECARA OTOMATIS */}
-              <div className="w-full max-w-6xl px-4">
-                {renderAllDepartments()}
-              </div>
-
-            </div>
-          )}
-
-          {/* Fallback untuk tab lain */}
-          {activeTab !== 'organisasi' && (
-            <div className="p-4 md:p-10">
-               {/* Konten Sejarah/Visi Misi/Fasilitas sesuai dynamicContent */}
-               <h3 className="text-slate-900 font-black uppercase italic mb-4">{activeTab.replace('-', ' ')}</h3>
-               <p className="text-slate-500 text-xs leading-relaxed">Konten sedang dalam pembaharuan...</p>
+              {renderAllDepartments()}
             </div>
           )}
         </div>

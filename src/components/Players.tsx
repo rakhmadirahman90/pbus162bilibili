@@ -12,8 +12,8 @@ import {
   Star, Target, ShieldCheck, TrendingUp
 } from 'lucide-react';
 
-const Players: React.FC = () => {
-  const [currentAgeGroup, setCurrentAgeGroup] = useState('Semua'); 
+const Players: React.FC<{ initialFilter?: string }> = ({ initialFilter = 'Semua' }) => {
+  const [currentAgeGroup, setCurrentAgeGroup] = useState(initialFilter); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<any | null>(null);
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
@@ -22,10 +22,28 @@ const Players: React.FC = () => {
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
+  /**
+   * KODE BARU: Listener untuk menangkap event filter dari Navbar/App
+   */
+  useEffect(() => {
+    const handleFilterEvent = (event: any) => {
+      const category = event.detail; // Mendapatkan 'Senior' atau 'Muda'
+      if (category) {
+        // Memastikan format huruf (Capitalize) agar cocok dengan state
+        const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+        setCurrentAgeGroup(formattedCategory);
+      }
+    };
+
+    window.addEventListener('filterAtlet', handleFilterEvent);
+    return () => {
+      window.removeEventListener('filterAtlet', handleFilterEvent);
+    };
+  }, []);
+
   const fetchPlayersFromDB = async () => {
     try {
       setIsLoading(true);
-      // --- PERBAIKAN KODE: Menambahkan kategori_atlet dalam select ---
       const { data, error } = await supabase
         .from('atlet_stats')
         .select(`
@@ -62,16 +80,12 @@ const Players: React.FC = () => {
       const name = info.nama || "Atlet PB US";
       const photo = info.foto_url || null;
       
-      // --- KODE BARU: Mengambil kategori dari kolom kategori_atlet database ---
-      // Kita memprioritaskan kolom database, jika kosong baru fallback ke logika string
       const dbCategory = info.kategori_atlet; 
       let ageGroup = 'Senior';
 
       if (dbCategory) {
-        // Mengubah 'MUDA' menjadi 'Muda' dan 'SENIOR' menjadi 'Senior' untuk sinkronisasi UI
         ageGroup = dbCategory.charAt(0).toUpperCase() + dbCategory.slice(1).toLowerCase();
       } else {
-        // Fallback jika kolom kategori_atlet di DB masih kosong
         const categoryRaw = (info.kategori || "").toUpperCase();
         if (categoryRaw.includes('MUDA') || 
             ['U-9', 'U-11', 'U-13', 'U-15', 'U-17', 'U-19'].some(u => categoryRaw.includes(u))) {
@@ -129,7 +143,6 @@ const Players: React.FC = () => {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-transparent to-transparent" />
                 
-                {/* Ranking Floating Badge */}
                 <div className="absolute top-8 left-8 bg-blue-600 px-6 py-2 rounded-2xl border border-white/20 shadow-xl">
                   <p className="text-[10px] font-black uppercase tracking-tighter text-blue-100">Global Rank</p>
                   <p className="text-3xl font-black italic">#{processedPlayers.findIndex(x => x.id === selectedPlayer.id) + 1}</p>
@@ -161,7 +174,6 @@ const Players: React.FC = () => {
                   <p className="text-zinc-400 text-lg italic leading-relaxed pl-4">"{selectedPlayer.bio}"</p>
                 </div>
 
-                {/* Grid Statistik */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] group hover:border-blue-500/50 transition-all">
                     <Trophy className="text-yellow-500 mb-3" size={24} />
@@ -283,7 +295,6 @@ const Players: React.FC = () => {
               </div>
             )}
             
-            {/* Custom Navigation */}
             <button ref={prevRef} className="absolute -left-6 top-1/2 -translate-y-1/2 z-20 w-14 h-14 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-all hover:bg-blue-600 hover:scale-110 text-white shadow-xl">
               <ChevronLeft size={28} />
             </button>

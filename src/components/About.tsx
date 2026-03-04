@@ -3,7 +3,7 @@ import {
   Target, Rocket, Shield, Award, 
   CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
   ChevronDown, Star, GraduationCap, History, Eye, Map,
-  CheckCircle
+  CheckCircle, Zap
 } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
@@ -171,103 +171,125 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </button>
         </div>
 
-        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar`}>
+        {/* Dynamic Content Container */}
+        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar`}>
           
-          {/* CONTENT: SEJARAH */}
+          {/* TAB: SEJARAH */}
           {activeTab === 'sejarah' && (
-            <div className="max-w-4xl mx-auto py-4 md:py-8 animate-in fade-in slide-in-from-bottom-4">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100">
-                  <History size={20} />
+            <div className="max-w-4xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col md:flex-row gap-8 items-start">
+                <div className="w-full md:w-1/3 shrink-0">
+                  <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl rotate-3">
+                    <img 
+                      src="https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070" 
+                      className="w-full h-full object-cover" 
+                      alt="Sejarah" 
+                    />
+                    <div className="absolute inset-0 bg-blue-600/10 mix-blend-multiply" />
+                  </div>
+                  <div className="mt-6 flex items-center gap-2 px-4">
+                    <div className="h-px flex-1 bg-slate-200"></div>
+                    <History size={16} className="text-blue-600" />
+                    <div className="h-px flex-1 bg-slate-200"></div>
+                  </div>
                 </div>
-                <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase italic">Sejarah PB US 162</h3>
-              </div>
-              <div className="bg-white p-6 md:p-10 rounded-[2rem] border border-slate-100 shadow-sm">
-                <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line">
-                  {dynamicContent.sejarah || "Konten sejarah sedang dimuat..."}
-                </p>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-4 flex items-center gap-2">
+                    <Zap className="text-amber-500" size={20} /> Jejak Langkah Kami
+                  </h3>
+                  <div className="prose prose-slate max-w-none">
+                    <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium">
+                      {dynamicContent.sejarah || "Memuat konten sejarah..."}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* CONTENT: VISI MISI */}
+          {/* TAB: VISI MISI */}
           {activeTab === 'visi-misi' && (
-            <div className="max-w-5xl mx-auto py-4 md:py-8 animate-in fade-in slide-in-from-bottom-4">
-              <div className="grid md:grid-cols-2 gap-6 md:gap-10">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
+            <div className="max-w-5xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid md:grid-cols-2 gap-10">
+                {/* Visi Section */}
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg shadow-amber-100">
                       <Eye size={20} />
                     </div>
-                    <h3 className="text-xl font-black text-slate-900 uppercase italic">Visi Kami</h3>
+                    <h3 className="text-xl font-black text-slate-900 uppercase italic">Visi Utama</h3>
                   </div>
-                  <div className="bg-white p-6 md:p-8 rounded-[2rem] border-2 border-amber-50 shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
-                      <Star size={60} className="text-amber-500" />
+                  <div className="bg-white p-8 rounded-[2.5rem] border-2 border-amber-50 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-6 opacity-5">
+                      <Star size={100} className="text-amber-500" />
                     </div>
-                    <p className="text-slate-700 font-bold italic leading-relaxed relative z-10">
-                      "{dynamicContent.visi || "Mewujudkan organisasi yang unggul dan berprestasi."}"
+                    <p className="text-slate-700 font-black italic text-lg leading-relaxed relative z-10">
+                      "{dynamicContent.visi || "Mewujudkan prestasi gemilang di setiap generasi."}"
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
+                {/* Misi Section */}
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-100">
                       <Rocket size={20} />
                     </div>
                     <h3 className="text-xl font-black text-slate-900 uppercase italic">Misi Kami</h3>
                   </div>
-                  <div className="space-y-3">
-                    {dynamicContent.misi?.split('\n').filter((m: string) => m.trim() !== '').map((item: string, i: number) => (
-                      <div key={i} className="flex items-start gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-colors">
-                        <div className="mt-1">
-                          <CheckCircle size={16} className="text-emerald-500" />
+                  <div className="space-y-4">
+                    {dynamicContent.misi?.split('\n').filter((t: string) => t.trim() !== '').map((item: string, i: number) => (
+                      <div key={i} className="group flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-all duration-300 hover:translate-x-2">
+                        <div className="mt-1 bg-emerald-50 p-1 rounded-full group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                          <CheckCircle size={14} />
                         </div>
-                        <p className="text-slate-600 text-sm font-medium">{item}</p>
+                        <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">{item}</p>
                       </div>
-                    )) || <p className="text-slate-400 italic">Misi sedang dimuat...</p>}
+                    )) || <p className="text-slate-400 italic">Memuat daftar misi...</p>}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* CONTENT: FASILITAS */}
+          {/* TAB: FASILITAS */}
           {activeTab === 'fasilitas' && (
-            <div className="max-w-6xl mx-auto py-4 md:py-8 animate-in fade-in slide-in-from-bottom-4">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100">
-                  <Map size={20} />
+            <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center gap-3 mb-10">
+                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
+                  <Map size={24} />
                 </div>
-                <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase italic">Sarana & Fasilitas</h3>
+                <h3 className="text-2xl font-black text-slate-900 uppercase italic">Fasilitas Pendukung</h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {dynamicContent.fasilitas_list?.map((f: any, i: number) => (
-                  <div key={i} className="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300">
-                    <div className="aspect-video relative overflow-hidden bg-slate-100">
+                  <div key={i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-2xl transition-all duration-500">
+                    <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
                       <img 
                         src={f.image || 'https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070'} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                         alt={f.title} 
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity" />
+                      <div className="absolute bottom-0 left-0 p-6">
+                        <span className="bg-blue-600 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full tracking-[0.2em]">Fasilitas {i+1}</span>
+                      </div>
                     </div>
                     <div className="p-6">
                       <h4 className="font-black text-slate-900 uppercase text-sm mb-2 group-hover:text-blue-600 transition-colors">{f.title}</h4>
-                      <p className="text-slate-500 text-xs leading-relaxed line-clamp-2">{f.desc}</p>
+                      <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.desc}</p>
                     </div>
                   </div>
                 )) || (
-                  <div className="col-span-full text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
-                    <p className="text-slate-400 italic">Data fasilitas belum tersedia.</p>
+                  <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem]">
+                    <p className="text-slate-400 italic">Daftar fasilitas belum ditambahkan.</p>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* CONTENT: ORGANISASI (STRUKTUR) */}
+          {/* TAB: ORGANISASI (STRUKTUR) */}
           {activeTab === 'organisasi' && (
             <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
               

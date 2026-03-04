@@ -50,19 +50,61 @@ const KelolaHero: React.FC = () => {
     setIsLoading(false);
   };
 
+  // --- FITUR BARU: KOMPRESI GAMBAR OTOMATIS ---
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Batasi lebar maksimal 1280px (HD sudah cukup untuk web)
+          const MAX_WIDTH = 1280;
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Kompresi ke format JPEG dengan kualitas 0.7 (70%)
+          canvas.toBlob(
+            (blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error('Gagal melakukan kompresi.'));
+            },
+            'image/jpeg',
+            0.7
+          );
+        };
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `hero-${Date.now()}.${fileExt}`;
+      // Jalankan kompresi sebelum upload
+      const compressedBlob = await compressImage(file);
+      
+      const fileName = `hero-${Date.now()}.jpg`; // Selalu simpan sebagai .jpg hasil kompresi
       const filePath = `hero-sliders/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('assets')
-        .upload(filePath, file);
+        .upload(filePath, compressedBlob);
 
       if (uploadError) throw uploadError;
 
@@ -75,7 +117,6 @@ const KelolaHero: React.FC = () => {
     }
   };
 
-  // PERBAIKAN: Menghapus kolom 'label' yang tidak ada di skema database
   const saveToDatabase = async (updatedSlides: any[], updatedSettings = sliderSettings) => {
     const payload = {
       slides: updatedSlides,
@@ -85,10 +126,11 @@ const KelolaHero: React.FC = () => {
     const { error } = await supabase
       .from('site_settings')
       .upsert({ 
+        // ID di bawah disesuaikan dengan baris hero_config di database kamu
+        id: '6d9e09d9-acc2-46e9-9a73-87bc05444018',
         key: 'hero_config', 
         value: payload
-        // Kolom 'label' dihapus untuk menghindari schema error
-      });
+      }, { onConflict: 'id' }); // Menggunakan 'id' sebagai acuan konflik agar tidak duplikat
 
     if (!error) {
       setSlides(updatedSlides);
@@ -108,12 +150,10 @@ const KelolaHero: React.FC = () => {
 
     let updatedSlides;
     if (editingId) {
-      // Logika Update Slide yang sudah ada
       updatedSlides = slides.map(s => 
         s.id === editingId ? { ...s, title, subtitle, image: imageUrl } : s
       );
     } else {
-      // Logika Tambah Slide baru
       const newSlide = {
         id: Date.now(),
         title,
@@ -176,7 +216,7 @@ const KelolaHero: React.FC = () => {
               HERO <span className="text-blue-600">ENGINE</span>
             </h1>
             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3">
-              Manajemen Visual & Pengaturan Animasi Slider
+              Manajemen Visual & Kompresi Aset Otomatis
             </p>
           </div>
           <button 
@@ -190,10 +230,9 @@ const KelolaHero: React.FC = () => {
 
         <div className="grid lg:grid-cols-12 gap-10">
           
-          {/* SISI KIRI: SETTINGS & FORM */}
+          {/* SISI KIRI */}
           <div className="lg:col-span-4 space-y-6">
             
-            {/* Global Settings Card */}
             <div className="bg-blue-600 p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(37,99,235,0.3)] relative overflow-hidden group">
                <Settings2 className="absolute -right-4 -bottom-4 text-white/10 w-32 h-32 rotate-12 group-hover:rotate-0 transition-transform duration-700" />
                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-2 text-white/90">
@@ -218,17 +257,9 @@ const KelolaHero: React.FC = () => {
                      <span>15s</span>
                    </div>
                  </div>
-
-                 <button 
-                   onClick={() => saveToDatabase(slides, sliderSettings)}
-                   className="w-full bg-black/20 hover:bg-black/40 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10"
-                 >
-                   Update Animation Settings
-                 </button>
                </div>
             </div>
 
-            {/* Form Tambah/Edit */}
             <div className={`bg-zinc-900/50 border ${editingId ? 'border-blue-600/50 shadow-[0_0_30px_rgba(37,99,235,0.1)]' : 'border-white/10'} p-8 rounded-[2.5rem] backdrop-blur-xl transition-all`}>
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-500">
@@ -250,7 +281,7 @@ const KelolaHero: React.FC = () => {
                   ) : (
                     <div className="text-center">
                       <ImageIcon size={32} className="mx-auto text-zinc-700 mb-3" />
-                      <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Select Visual Asset</p>
+                      <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Select & Compress Visual</p>
                     </div>
                   )}
                   {isUploading && <div className="absolute inset-0 bg-black/80 flex items-center justify-center"><RefreshCcw className="animate-spin text-blue-500" /></div>}
@@ -284,7 +315,7 @@ const KelolaHero: React.FC = () => {
             </div>
           </div>
 
-          {/* SISI KANAN: LIST ASSETS */}
+          {/* SISI KANAN */}
           <div className="lg:col-span-8 space-y-4">
             {slides.length === 0 ? (
               <div className="text-center py-40 border-2 border-dashed border-zinc-900 rounded-[3rem] opacity-30">
@@ -315,18 +346,8 @@ const KelolaHero: React.FC = () => {
                       <button onClick={() => moveSlide(index, 'down')} className="p-2 text-zinc-500 hover:text-white transition-colors"><MoveDown size={18}/></button>
                     </div>
                     <div className="flex gap-2">
-                      <button 
-                        onClick={() => startEdit(slide)}
-                        className="flex-1 p-4 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"
-                      >
-                        <Edit3 size={20} />
-                      </button>
-                      <button 
-                        onClick={() => deleteSlide(slide.id)}
-                        className="flex-1 p-4 bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"
-                      >
-                        <Trash2 size={20} />
-                      </button>
+                      <button onClick={() => startEdit(slide)} className="flex-1 p-4 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"><Edit3 size={20} /></button>
+                      <button onClick={() => deleteSlide(slide.id)} className="flex-1 p-4 bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"><Trash2 size={20} /></button>
                     </div>
                   </div>
                 </div>
@@ -340,7 +361,7 @@ const KelolaHero: React.FC = () => {
       <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 transition-all duration-1000 z-[100] ${showSuccess ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20 pointer-events-none'}`}>
         <div className="bg-blue-600 px-10 py-5 rounded-full flex items-center gap-4 shadow-[0_30px_60px_rgba(37,99,235,0.4)] border border-white/20">
           <div className="bg-white/20 p-2 rounded-full text-white"><CheckCircle2 size={20} /></div>
-          <span className="font-black uppercase text-[11px] tracking-[0.3em]">Cloud System Synced</span>
+          <span className="font-black uppercase text-[11px] tracking-[0.3em]">System Synced & Optimized</span>
         </div>
       </div>
     </div>

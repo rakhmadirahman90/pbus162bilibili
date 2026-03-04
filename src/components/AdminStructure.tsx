@@ -107,13 +107,11 @@ export default function AdminStructure() {
     }
   };
 
-  // --- FUNGSI BARU: CLEANER PHP TRIGGER ---
   const runCleaner = async () => {
     if (!confirm("Hapus semua file foto lama yang berukuran besar (>500KB) di server MyDomainesia?")) return;
     
     setLoading(true);
     try {
-      // Ganti URL ini dengan URL file cleaner.php yang Anda upload ke cPanel
       const response = await fetch('https://pbus162.com/assets/struktur/cleaner.php?pass=pbus162_aman');
       const result = await response.json();
       
@@ -140,6 +138,7 @@ export default function AdminStructure() {
 
   const onCropComplete = useCallback((_: any, pixels: any) => { setCroppedAreaPixels(pixels); }, []);
 
+  // --- LOGIKA KOMPRESI GAMBAR (SOLUSI KUOTA PENUH) ---
   const handleProcessImage = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
     setUploading(true);
@@ -150,6 +149,7 @@ export default function AdminStructure() {
       await new Promise((resolve) => (image.onload = resolve));
       const ctx = canvas.getContext('2d');
       
+      // Paksa ukuran 400x400 (Cukup tajam tapi file sangat kecil)
       canvas.width = 400; 
       canvas.height = 400;
 
@@ -162,6 +162,7 @@ export default function AdminStructure() {
         0, 0, 400, 400
       );
 
+      // Simpan sebagai JPEG dengan kualitas 0.6 (Kompresi Tinggi)
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.6));
       
       if (!blob) throw new Error("Gagal membuat blob");
@@ -249,6 +250,7 @@ export default function AdminStructure() {
     }
   };
 
+  // Logika Grouping Level 7
   const level7Members = members.filter(m => m.level === 7);
   const groupedFields: { [key: string]: any[] } = {};
   
@@ -381,7 +383,6 @@ export default function AdminStructure() {
           <div className="flex items-center justify-between mb-4 px-2">
               <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Urutan Management</h3>
               <div className="flex gap-2">
-                {/* TOMBOL CLEANER BARU */}
                 <button 
                   onClick={runCleaner} 
                   title="Bersihkan File Sampah di Hosting"

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Target, Rocket, Shield, Award, 
   CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
-  ChevronDown, Star, GraduationCap
+  ChevronDown, Star, GraduationCap, History, Eye, Map, Zap
 } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
@@ -69,9 +69,17 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     { id: 'fasilitas', label: 'Fasilitas' }
   ];
 
-  // Helper untuk memfilter person berdasarkan role (case insensitive)
   const getByRole = (roleName: string) => 
     orgData.filter(m => m.role.toLowerCase().includes(roleName.toLowerCase()));
+
+  const getLevelColor = (level: number) => {
+    switch(level) {
+      case 1: return 'bg-amber-500'; 
+      case 2: return 'bg-emerald-500'; 
+      case 3: return 'bg-blue-600'; 
+      default: return 'bg-slate-500';
+    }
+  };
 
   return (
     <section id="tentang-kami" className="relative w-full h-auto bg-white pt-16 pb-12 flex flex-col items-center overflow-hidden font-sans">
@@ -121,7 +129,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         {/* Tab Content Box */}
         <div className="bg-slate-50/50 rounded-[2.5rem] md:rounded-[4rem] p-6 md:p-16 border border-slate-100 shadow-sm min-h-[600px] transition-all duration-500">
           
-          {/* CONTENT: SEJARAH, VISI MISI, FASILITAS (Tetap Sama) */}
+          {/* 1. CONTENT: SEJARAH */}
           {activeTab === 'sejarah' && (
              <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -130,15 +138,17 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   <img src={dynamicContent.sejarah_img || "photo_2026-02-03_00-32-07.jpg"} className="relative w-full h-[450px] object-cover rounded-[2.5rem] shadow-2xl border-4 border-white transition-transform duration-700 group-hover:scale-[1.02]" alt="Sejarah" />
                 </div>
                 <div className="space-y-6">
-                  <div className="inline-block px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest">Legacy & Spirit</div>
+                  <div className="inline-block px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 w-fit">
+                    <History size={14} /> Legacy & Spirit
+                  </div>
                   <h3 className="text-3xl md:text-5xl font-black text-slate-900 uppercase leading-[1.1]">
                     {dynamicContent.sejarah_title || "MEMBINA"} <span className="text-blue-600">{dynamicContent.sejarah_accent || "LEGENDA"}</span> MASA DEPAN
                   </h3>
-                  <p className="text-slate-500 text-base md:text-lg leading-relaxed font-medium">
-                    {dynamicContent.sejarah_desc || "PB US 162 hadir sebagai pusat keunggulan bulutangkis yang mengintegrasikan sport-science dengan disiplin tinggi."}
+                  <p className="text-slate-500 text-base md:text-lg leading-relaxed font-medium whitespace-pre-line">
+                    {dynamicContent.sejarah || dynamicContent.sejarah_desc || "PB US 162 hadir sebagai pusat keunggulan bulutangkis yang mengintegrasikan sport-science dengan disiplin tinggi."}
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                    {["Sport-science intensif", "GOR Standar BWF", "Karier Profesional", "Klasemen Digital"].map((item, index) => (
+                    {(dynamicContent.sejarah_points || ["Sport-science intensif", "GOR Standar BWF", "Karier Profesional", "Klasemen Digital"]).map((item: string, index: number) => (
                       <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-2xl shadow-sm border border-slate-100">
                         <CheckCircle2 size={18} className="text-blue-600 shrink-0" />
                         <span className="text-xs font-bold text-slate-700 uppercase">{item}</span>
@@ -150,20 +160,23 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
+          {/* 2. CONTENT: VISI MISI */}
           {activeTab === 'visi-misi' && (
             <div className="w-full animate-in fade-in duration-700 grid lg:grid-cols-2 gap-8 items-stretch">
               <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
                 <div className="absolute -top-10 -right-10 opacity-5 text-blue-600 transition-transform duration-700 group-hover:scale-110"><Target size={250} /></div>
-                <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-200"><Target size={32} /></div>
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-blue-200"><Eye size={32} /></div>
                 <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Visi Utama</span>
-                <p className="text-slate-800 text-2xl md:text-3xl font-bold leading-tight italic relative z-10">"{dynamicContent.vision || "Menjadi klub rujukan nasional yang mencetak atlet berprestasi dunia."}"</p>
+                <p className="text-slate-800 text-2xl md:text-3xl font-bold leading-tight italic relative z-10">
+                  "{dynamicContent.visi || dynamicContent.vision || "Menjadi klub rujukan nasional yang mencetak atlet berprestasi dunia."}"
+                </p>
               </div>
               <div className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden group">
                 <div className="absolute -top-10 -right-10 opacity-5 text-slate-900 transition-transform duration-700 group-hover:scale-110"><Rocket size={250} /></div>
                 <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-8 shadow-lg"><Rocket size={32} /></div>
                 <span className="text-blue-600 font-black block mb-4 tracking-[0.2em] text-xs uppercase italic">Misi Strategis</span>
                 <ul className="space-y-4 relative z-10">
-                  {(dynamicContent.missions || ["Latihan terstruktur", "Fasilitas internasional", "Kompetisi rutin"]).map((misi: string, i: number) => (
+                  {(dynamicContent.misi?.split('\n') || dynamicContent.missions || ["Latihan terstruktur", "Fasilitas internasional", "Kompetisi rutin"]).map((misi: string, i: number) => (
                     <li key={i} className="flex items-center gap-4 text-slate-700 font-bold text-sm md:text-base italic group/item">
                       <div className="w-2 h-2 bg-blue-500 rounded-full group-hover/item:scale-150 transition-transform"></div>{misi}
                     </li>
@@ -173,15 +186,20 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
+          {/* 3. CONTENT: FASILITAS */}
           {activeTab === 'fasilitas' && (
             <div className="w-full animate-in fade-in duration-500 grid lg:grid-cols-2 gap-12 items-center">
                <div className="space-y-8">
                 <div>
-                  <h3 className="text-3xl font-black text-slate-900 uppercase mb-2">Fasilitas Unggulan</h3>
-                  <p className="text-slate-500 font-medium italic">Standardisasi Internasional (BWF)</p>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg mb-4">
+                    <Map size={16} />
+                    <span className="text-[10px] font-black uppercase">Fasilitas & Sarana</span>
+                  </div>
+                  <h3 className="text-3xl font-black text-slate-900 uppercase mb-2">Standardisasi Internasional</h3>
+                  <p className="text-slate-500 font-medium italic">Sesuai regulasi Federasi Bulutangkis Dunia (BWF)</p>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
-                  {['Lapangan karpet standar BWF', 'Pencahayaan LED anti-silau', 'Fitness center', 'Asrama atlet'].map((item, index) => (
+                  {(dynamicContent.fasilitas_list_simple || ['Lapangan karpet standar BWF', 'Pencahayaan LED anti-silau', 'Fitness center', 'Asrama atlet']).map((item: string, index: number) => (
                     <div key={index} className="flex items-center gap-5 p-5 bg-white rounded-[1.5rem] border border-slate-100 shadow-sm hover:border-blue-500 hover:shadow-md transition-all group">
                       <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shrink-0"><Shield size={22} /></div>
                       <span className="text-sm md:text-base font-black text-slate-700 uppercase tracking-tight">{item}</span>
@@ -193,21 +211,20 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 <img src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-[2.5rem] shadow-lg border-2 border-white" alt="Arena" />
                 <div className="grid grid-rows-2 gap-4">
                    <img src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-[2rem] shadow-md border-2 border-white" alt="Gym" />
-                   <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80" className="w-full h-full object-cover rounded-[2rem] shadow-md border-2 border-white" alt="Equipment" />
+                   <img src={dynamicContent.fasilitas_img3 || "https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400&q=80"} className="w-full h-full object-cover rounded-[2rem] shadow-md border-2 border-white" alt="Equipment" />
                 </div>
               </div>
             </div>
           )}
 
-          {/* 4. STRUKTUR ORGANISASI (HIERARKI LENGKAP) */}
+          {/* 4. STRUKTUR ORGANISASI (HIERARKI LENGKAP) - Tetap Dipertahankan */}
           {activeTab === 'organisasi' && (
             <div className="w-full animate-in fade-in slide-in-from-bottom-10 duration-1000 relative">
-              {/* Garis Tengah Visual */}
               <div className="absolute top-24 bottom-24 w-0.5 bg-gradient-to-b from-amber-200 via-blue-100 to-transparent left-1/2 -translate-x-1/2 hidden lg:block opacity-30"></div>
 
               <div className="relative flex flex-col items-center gap-16">
                 
-                {/* 1. PENANGGUNG JAWAB (PUNCAK) */}
+                {/* 1. PENANGGUNG JAWAB */}
                 <div className="flex flex-col items-center">
                   {getByRole('penanggung jawab').map(person => (
                     <div key={person.id} className="bg-white p-8 rounded-[3.5rem] border-2 border-amber-200 shadow-[0_25px_60px_rgba(245,158,11,0.15)] text-center w-80 group">
@@ -220,7 +237,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   ))}
                 </div>
 
-                {/* 2. PENASEHAT (BARIS KEDUA) */}
+                {/* 2. PENASEHAT */}
                 <div className="w-full">
                   <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] mb-8">Jajaran Penasehat</p>
                   <div className="flex flex-wrap justify-center gap-8">
@@ -236,7 +253,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   </div>
                 </div>
 
-                {/* 3. PEMBINA (BARIS KETIGA) */}
+                {/* 3. PEMBINA */}
                 <div className="w-full">
                   <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] mb-8">Jajaran Pembina</p>
                   <div className="flex flex-wrap justify-center gap-8">
@@ -252,7 +269,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   </div>
                 </div>
 
-                {/* 4. KETUA UMUM (SENDIRI) */}
+                {/* 4. KETUA UMUM */}
                 <div className="flex flex-col items-center">
                   <ChevronDown className="text-slate-300 mb-8 animate-bounce" />
                   {getByRole('ketua umum').map(person => (
@@ -266,7 +283,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   ))}
                 </div>
 
-                {/* 5. PENGURUS INTI (HORIZONTAL) */}
+                {/* 5. PENGURUS INTI */}
                 <div className="w-full">
                    <p className="text-center text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] mb-8">Dewan Pengurus Inti</p>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -298,7 +315,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   ))}
                 </div>
 
-                {/* 7. BIDANG/KOORDINATOR & ANGGOTA (SISTEM KARTU GRUP) */}
+                {/* 7. BIDANG/KOORDINATOR */}
                 <div className="w-full">
                   <div className="flex items-center gap-4 mb-10">
                     <div className="h-[1px] flex-1 bg-slate-200"></div>
@@ -307,15 +324,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {/* Logika: Ambil semua Koordinator di Level 3 sebagai Head of Group */}
                     {orgData.filter(m => m.level === 3 && m.role.toLowerCase().includes('koordinator')).map(koor => {
-                      // Filter anggota yang memiliki kata kunci role yang sama (Misal: 'Humas' atau 'Perlengkapan')
                       const category = koor.role.split(' ').pop(); 
                       const members = orgData.filter(m => m.level === 3 && m.role.toLowerCase().includes(category?.toLowerCase()) && m.id !== koor.id);
 
                       return (
                         <div key={koor.id} className="bg-white rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col group">
-                          {/* Header Group (Koordinator) */}
                           <div className="bg-blue-600 p-6 text-center">
                             <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden border-4 border-white/20 shadow-lg">
                               <img src={koor.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(koor.name)}`} className="w-full h-full object-cover" />
@@ -323,7 +337,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                             <h4 className="text-white font-black text-sm italic uppercase leading-tight mb-1">{koor.name}</h4>
                             <p className="text-blue-100 font-black text-[9px] uppercase tracking-widest">{koor.role}</p>
                           </div>
-                          {/* List Anggota */}
                           <div className="p-6 space-y-4 flex-1 bg-slate-50/50">
                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Daftar Anggota:</p>
                             {members.length > 0 ? members.map(mem => (
@@ -351,4 +364,4 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       </div>
     </section>
   );
-} 
+}

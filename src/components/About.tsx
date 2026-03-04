@@ -116,7 +116,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         </div>
 
         {/* 3. Kotak Konten Utama */}
-        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative overflow-hidden transition-all">
           
           {/* SEJARAH - Perbaikan Fokus pada Logo agar tidak memotong */}
           {activeTab === 'sejarah' && (
@@ -162,7 +162,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
               </div>
               <div className="bg-white p-4 md:p-6 rounded-[1.5rem] border border-slate-100 flex flex-col justify-center relative overflow-hidden">
                 <div className="absolute -top-4 -right-4 opacity-5 text-slate-900"><Rocket size={100} /></div>
-                <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center mb-2"><Rocket size={16} /></div>
+                <div className="w-8 h-8 bg-slate-900 text-white rounded-xl flex items-center justify-center mb-2"><Rocket size={16} /></div>
                 <h4 className="text-blue-600 font-black text-[8px] uppercase mb-1">Misi</h4>
                 <ul className="space-y-1">
                   {(dynamicContent.missions || ["Latihan terstruktur", "Fasilitas internasional", "Kompetisi rutin"]).map((m, i) => (
@@ -175,24 +175,39 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* FASILITAS */}
+          {/* FASILITAS - Perbaikan Fokus pada Gambar agar tidak memotong */}
           {activeTab === 'fasilitas' && (
-            <div className="h-full w-full flex flex-col lg:flex-row gap-4 animate-in fade-in duration-500">
-              <div className="w-full lg:w-1/3 flex flex-col justify-center space-y-2">
+            <div className="h-full w-full flex flex-col lg:flex-row gap-4 animate-in fade-in duration-500 items-center justify-center">
+              {/* Kolom Teks */}
+              <div className="w-full lg:w-1/3 flex flex-col justify-center space-y-2 lg:order-1 order-2">
                 <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase">Fasilitas <span className="text-blue-600">Pro</span></h3>
                 <div className="space-y-1.5">
                   {['Karpet BWF', 'LED Anti-Silau', 'Gym Center'].map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100">
-                      <Shield size={12} className="text-blue-600" />
+                    <div key={i} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-100 shadow-sm transition-all hover:border-blue-300">
+                      <Shield size={12} className="text-blue-600 shrink-0" />
                       <span className="text-[8px] md:text-[10px] font-black uppercase text-slate-700">{f}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="w-full lg:w-2/3 grid grid-cols-2 grid-rows-2 gap-2 h-full min-h-0">
-                <img src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-xl col-span-1 row-span-2 border-2 border-white shadow-md" alt="F1" />
-                <img src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} className="w-full h-full object-cover rounded-xl border-2 border-white shadow-md" alt="F2" />
-                <img src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400" className="w-full h-full object-cover rounded-xl border-2 border-white shadow-md" alt="F3" />
+
+              {/* Grid Gambar - Kunci Tinggi max-h-[35vh] lg:order-2 order-1 untuk mobile */}
+              <div className="w-full lg:w-2/3 grid grid-cols-2 grid-rows-2 gap-2 max-h-[35vh] lg:max-h-[50vh] min-h-0 shrink-0 lg:order-2 order-1">
+                <img 
+                  src={dynamicContent.fasilitas_img1 || "dpnkwabotttfihp7gf3r.jpg"} 
+                  className="w-full h-full object-contain col-span-1 row-span-2 rounded-xl border-2 border-white shadow-md bg-white p-1" 
+                  alt="Fasilitas 1" 
+                />
+                <img 
+                  src={dynamicContent.fasilitas_img2 || "dpnkwabotttfihp7gf3r.jpg"} 
+                  className="w-full h-full object-cover rounded-xl border-2 border-white shadow-sm" 
+                  alt="Fasilitas 2" 
+                />
+                <img 
+                  src="https://images.unsplash.com/photo-1521537634581-0dced2fee2ef?w=400" 
+                  className="w-full h-full object-cover rounded-xl border-2 border-white shadow-sm" 
+                  alt="Fasilitas 3" 
+                />
               </div>
             </div>
           )}

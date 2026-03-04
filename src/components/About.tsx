@@ -14,7 +14,33 @@ interface AboutProps {
 
 export default function About({ activeTab: propsActiveTab, onTabChange }: AboutProps) {
   const [internalTab, setInternalTab] = useState('sejarah');
-  const [dynamicContent, setDynamicContent] = useState<Record<string, any>>({});
+  
+  // Menambahkan default content agar tidak kosong saat loading atau jika database kosong
+  const [dynamicContent, setDynamicContent] = useState<Record<string, any>>({
+    sejarah: `Didirikan dengan semangat dedikasi tinggi, organisasi kami telah melangkah jauh sejak hari pertama. Berawal dari komunitas kecil yang memiliki visi besar untuk membawa perubahan positif di masyarakat.
+
+Melalui perjalanan panjang yang penuh tantangan, kami terus bertransformasi menjadi institusi yang solid. Fokus kami bukan hanya pada pencapaian, tetapi pada bagaimana setiap langkah yang kami ambil dapat memberikan dampak nyata bagi pengembangan bakat dan prestasi generasi muda di Indonesia.`,
+    visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi, berkarakter kuat, dan mampu bersaing di kancah nasional maupun internasional.",
+    misi: "Mengembangkan potensi anggota secara maksimal melalui pembinaan berkelanjutan.\nMembangun sinergi yang kuat antar pengurus dan anggota.\nMenyelenggarakan kegiatan yang inovatif dan edukatif.\nMengutamakan integritas dan sportivitas dalam setiap pencapaian.",
+    fasilitas_list: [
+      {
+        title: "Ruang Pertemuan Modern",
+        desc: "Dilengkapi dengan teknologi terkini untuk mendukung koordinasi dan brainstorming tim.",
+        image: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069"
+      },
+      {
+        title: "Area Latihan Terintegrasi",
+        desc: "Fasilitas fisik yang lengkap untuk menunjang pengembangan bakat dan latihan rutin.",
+        image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070"
+      },
+      {
+        title: "Pusat Media & IT",
+        desc: "Infrastruktur digital untuk mendukung dokumentasi, publikasi, dan inovasi teknologi.",
+        image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070"
+      }
+    ]
+  });
+  
   const [orgData, setOrgData] = useState<any[]>([]);
   
   const activeTab = propsActiveTab || internalTab;
@@ -34,7 +60,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       
       if (!error && data) {
         const val = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-        setDynamicContent(val);
+        // Gunakan spread operator untuk menggabungkan data dari DB dengan default
+        setDynamicContent(prev => ({ ...prev, ...val }));
       }
     } catch (err) {
       console.error("Error fetching about content:", err);
@@ -199,7 +226,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   </h3>
                   <div className="prose prose-slate max-w-none">
                     <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium">
-                      {dynamicContent.sejarah || "Memuat konten sejarah..."}
+                      {dynamicContent.sejarah}
                     </p>
                   </div>
                 </div>
@@ -211,7 +238,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           {activeTab === 'visi-misi' && (
             <div className="max-w-5xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="grid md:grid-cols-2 gap-10">
-                {/* Visi Section */}
                 <div className="relative">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg shadow-amber-100">
@@ -224,12 +250,11 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       <Star size={100} className="text-amber-500" />
                     </div>
                     <p className="text-slate-700 font-black italic text-lg leading-relaxed relative z-10">
-                      "{dynamicContent.visi || "Mewujudkan prestasi gemilang di setiap generasi."}"
+                      "{dynamicContent.visi}"
                     </p>
                   </div>
                 </div>
 
-                {/* Misi Section */}
                 <div className="relative">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-100">
@@ -245,7 +270,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                         </div>
                         <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">{item}</p>
                       </div>
-                    )) || <p className="text-slate-400 italic">Memuat daftar misi...</p>}
+                    ))}
                   </div>
                 </div>
               </div>
@@ -266,7 +291,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   <div key={i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-2xl transition-all duration-500">
                     <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
                       <img 
-                        src={f.image || 'https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070'} 
+                        src={f.image} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                         alt={f.title} 
                       />
@@ -280,11 +305,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.desc}</p>
                     </div>
                   </div>
-                )) || (
-                  <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem]">
-                    <p className="text-slate-400 italic">Daftar fasilitas belum ditambahkan.</p>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           )}

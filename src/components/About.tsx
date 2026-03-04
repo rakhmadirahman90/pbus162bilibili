@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'; 
 import { 
-  Target, Rocket, Shield, Award, 
-  CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
-  ChevronDown, Star, GraduationCap
+  Target, Rocket, Shield, Users2, ArrowRight, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '../supabase'; 
 
@@ -69,9 +67,15 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     { id: 'fasilitas', label: 'Fasilitas' }
   ];
 
-  // Fungsi helper untuk filter role
-  const getByRole = (roleName: string) => 
-    orgData.filter(m => m.role.toLowerCase().includes(roleName.toLowerCase()));
+  // Helper untuk menentukan warna badge sesuai jabatan (Mirip AdminStructure)
+  const getBadgeColor = (role: string) => {
+    const r = role.toLowerCase();
+    if (r.includes('penanggung jawab')) return 'bg-amber-500';
+    if (r.includes('pembina')) return 'bg-orange-500';
+    if (r.includes('ketua')) return 'bg-emerald-600';
+    if (r.includes('sekretaris') || r.includes('bendahara')) return 'bg-blue-600';
+    return 'bg-blue-500';
+  };
 
   return (
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
@@ -117,8 +121,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         </div>
 
         {/* 3. Kotak Konten Utama */}
-        {/* PERBAIKAN: Jika tab organisasi, biarkan overflow-y-auto aktif untuk scroll panjang */}
-        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative ${activeTab === 'organisasi' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative ${activeTab === 'organisasi' ? 'overflow-y-auto custom-scrollbar' : 'overflow-hidden'}`}>
           
           {/* TAB SEJARAH */}
           {activeTab === 'sejarah' && (
@@ -196,50 +199,57 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* TAB ORGANISASI - Scrollable & Menyesuaikan Preview Admin */}
+          {/* TAB STRUKTUR - DIADAPTASI PENUH DARI AdminStructure.tsx */}
           {activeTab === 'organisasi' && (
-            <div className="w-full flex flex-col items-center gap-8 py-4 animate-in slide-in-from-bottom-5 duration-500 pb-20">
+            <div className="w-full flex flex-col items-center gap-12 py-8 animate-in slide-in-from-bottom-5 duration-500 pb-32">
               
-              {/* Tingkat 1: Penanggung Jawab */}
-              <div className="flex justify-center w-full">
-                {getByRole('penanggung jawab').map(p => (
-                  <div key={p.id} className="group relative bg-white p-4 rounded-[2rem] border-2 border-amber-100 shadow-xl text-center w-52 transform transition-all hover:scale-105">
-                    <div className="relative w-24 h-24 mx-auto mb-3">
-                      <div className="absolute inset-0 bg-amber-500 rounded-2xl rotate-6 group-hover:rotate-12 transition-transform opacity-20"></div>
-                      <img 
-                        src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f59e0b&color=fff`} 
-                        className="relative w-full h-full rounded-2xl object-cover border-2 border-white shadow-md" 
-                        alt={p.name}
-                      />
+              {/* Level 1: Penanggung Jawab / Pimpinan Utama */}
+              <div className="flex flex-wrap justify-center gap-8 w-full">
+                {orgData.filter(m => m.level === 1).map(p => (
+                   <div key={p.id} className="relative group">
+                    <div className="bg-white p-5 rounded-[2.5rem] border-2 border-amber-100 shadow-xl text-center w-64 transform transition-all duration-500 hover:scale-105 hover:shadow-amber-100/50">
+                      <div className="relative w-32 h-32 mx-auto mb-4">
+                        <div className="absolute inset-0 bg-amber-500 rounded-3xl rotate-6 group-hover:rotate-12 transition-transform opacity-10"></div>
+                        {p.photo_url ? (
+                          <img src={p.photo_url} className="relative w-full h-full rounded-3xl object-cover border-4 border-white shadow-lg" alt={p.name} />
+                        ) : (
+                          <div className="relative w-full h-full rounded-3xl bg-amber-500 flex items-center justify-center text-white text-3xl font-black border-4 border-white shadow-lg">
+                            {p.name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <p className="font-black text-sm uppercase italic text-slate-900 leading-tight mb-2 px-2">{p.name}</p>
+                      <span className={`text-[9px] ${getBadgeColor(p.role)} text-white px-4 py-1.5 rounded-full font-black uppercase tracking-wider shadow-sm`}>
+                        {p.role}
+                      </span>
                     </div>
-                    <p className="font-black text-xs uppercase italic text-slate-900 leading-tight mb-1">{p.name}</p>
-                    <span className="text-[8px] bg-amber-500 text-white px-3 py-1 rounded-full font-black uppercase tracking-tighter">
-                      {p.role}
-                    </span>
                   </div>
                 ))}
               </div>
 
-              {/* Garis Penghubung Sederhana */}
-              <div className="w-px h-8 bg-slate-200"></div>
+              {/* Garis Hierarki Sederhana */}
+              <div className="w-px h-12 bg-gradient-to-b from-amber-200 to-blue-200"></div>
 
-              {/* Tingkat 2: Pengurus Inti & Anggota (Grid Responsive) */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 w-full px-2">
-                {orgData.filter(m => m.level >= 2).map(p => (
-                  <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow text-center flex flex-col items-center">
-                    <div className="w-16 h-16 mb-2">
-                      <img 
-                        src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=3b82f6&color=fff`} 
-                        className="w-full h-full rounded-xl object-cover border border-slate-50 shadow-sm" 
-                        alt={p.name}
-                      />
+              {/* Level 2 ke bawah: Pengurus Inti & Anggota (Grid System) */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 w-full max-w-6xl px-4">
+                {orgData.filter(m => m.level > 1).map(p => (
+                  <div key={p.id} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl transition-all duration-300 text-center flex flex-col items-center group">
+                    <div className="w-20 h-20 mb-3 relative">
+                      <div className="absolute inset-0 bg-blue-600 rounded-2xl rotate-3 opacity-0 group-hover:opacity-5 transition-opacity"></div>
+                      {p.photo_url ? (
+                        <img src={p.photo_url} className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-sm transition-transform group-hover:scale-105" alt={p.name} />
+                      ) : (
+                        <div className="w-full h-full rounded-2xl bg-blue-600 flex items-center justify-center text-white text-xl font-black border-2 border-slate-50 shadow-sm">
+                          {p.name.substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
                     </div>
-                    <p className="font-bold text-[9px] uppercase text-slate-800 leading-tight h-7 flex items-center justify-center">
+                    <p className="font-bold text-[10px] uppercase text-slate-800 leading-tight mb-2 h-8 flex items-center justify-center line-clamp-2 italic">
                       {p.name}
                     </p>
-                    <p className="text-blue-600 font-black text-[7px] uppercase mt-1 tracking-tighter">
+                    <span className={`text-[7.5px] ${getBadgeColor(p.role)} text-white px-3 py-1 rounded-lg font-black uppercase tracking-tight w-full truncate`}>
                       {p.role}
-                    </p>
+                    </span>
                   </div>
                 ))}
               </div>
@@ -250,12 +260,11 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       </div>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f8fafc; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
         
-        /* Smooth scrolling untuk tab organisasi */
         .overflow-y-auto {
           scroll-behavior: smooth;
         }

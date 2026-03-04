@@ -22,7 +22,7 @@ const KelolaHero: React.FC = () => {
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null); // Fitur Baru: Edit State
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +75,7 @@ const KelolaHero: React.FC = () => {
     }
   };
 
+  // PERBAIKAN: Menghapus kolom 'label' yang tidak ada di skema database
   const saveToDatabase = async (updatedSlides: any[], updatedSettings = sliderSettings) => {
     const payload = {
       slides: updatedSlides,
@@ -85,8 +86,8 @@ const KelolaHero: React.FC = () => {
       .from('site_settings')
       .upsert({ 
         key: 'hero_config', 
-        value: payload,
-        label: 'Konfigurasi Slider Hero Utama'
+        value: payload
+        // Kolom 'label' dihapus untuk menghindari schema error
       });
 
     if (!error) {
@@ -107,11 +108,12 @@ const KelolaHero: React.FC = () => {
 
     let updatedSlides;
     if (editingId) {
-      // Fitur Baru: Logika Update Slide
+      // Logika Update Slide yang sudah ada
       updatedSlides = slides.map(s => 
         s.id === editingId ? { ...s, title, subtitle, image: imageUrl } : s
       );
     } else {
+      // Logika Tambah Slide baru
       const newSlide = {
         id: Date.now(),
         title,
@@ -125,7 +127,6 @@ const KelolaHero: React.FC = () => {
     resetForm();
   };
 
-  // Fitur Baru: Masuk ke Mode Edit
   const startEdit = (slide: any) => {
     setEditingId(slide.id);
     setTitle(slide.title);
@@ -135,7 +136,6 @@ const KelolaHero: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Fitur Baru: Reset Form
   const resetForm = () => {
     setEditingId(null);
     setTitle('');
@@ -147,7 +147,7 @@ const KelolaHero: React.FC = () => {
   const deleteSlide = async (id: number) => {
     if (!window.confirm("Hapus foto ini?")) return;
     const updatedSlides = slides.filter(s => s.id !== id);
-    if (editingId === id) resetForm(); // Reset jika yang sedang diedit dihapus
+    if (editingId === id) resetForm();
     await saveToDatabase(updatedSlides);
   };
 

@@ -73,15 +73,14 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     orgData.filter(m => m.role.toLowerCase().includes(roleName.toLowerCase()));
 
   return (
-    // PERBAIKAN: Gunakan h-screen dengan padding vertikal minimal (py-2)
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
       <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-4">
         
-        {/* 1. Header Section - Dibuat lebih tipis */}
+        {/* 1. Header Section */}
         <div className="text-center mb-2 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full mb-1">
             <Users2 size={10} className="animate-pulse" />
-            <span className="text-[7px] font-black uppercase tracking-[0.2em]">Profil</span>
+            <span className="text-[7px] font-black uppercase tracking-[0.2em]">Profil Organisasi</span>
           </div>
           <h2 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight uppercase leading-none italic">
             Tentang <span className="text-blue-600">Kami</span>
@@ -89,7 +88,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           <div className="w-10 h-0.5 bg-blue-600 mx-auto mt-1 rounded-full opacity-50"></div>
         </div>
 
-        {/* 2. Tab Switcher - Ukuran tombol dikurangi vertikalnya */}
+        {/* 2. Tab Switcher */}
         <div className="flex flex-wrap justify-center gap-1.5 mb-3 shrink-0">
           {tabs.map((tab) => (
             <button
@@ -108,33 +107,36 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             onClick={() => handleTabChange('organisasi')}
             className={`px-3 md:px-5 py-1.5 rounded-lg font-bold text-[8px] md:text-xs uppercase border-2 flex items-center gap-1.5 transition-all ${
               activeTab === 'organisasi' 
-              ? 'bg-blue-600 text-white border-blue-600' 
-              : 'bg-slate-900 text-white border-slate-900 hover:bg-blue-700'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+              : 'bg-slate-900 text-white border-slate-900'
             }`}
           >
             Struktur <ArrowRight size={10} />
           </button>
         </div>
 
-        {/* 3. Kotak Konten Utama - Flex-1 dengan min-h-0 sangat krusial */}
-        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative overflow-hidden transition-all">
+        {/* 3. Kotak Konten Utama */}
+        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 border border-slate-100 shadow-sm relative overflow-hidden">
           
-          {/* SEJARAH - Gunakan h-full flex agar gambar mengecil otomatis */}
+          {/* SEJARAH - Perbaikan Fokus pada Logo agar tidak memotong */}
           {activeTab === 'sejarah' && (
-            <div className="h-full w-full flex flex-col lg:flex-row items-center gap-4 animate-in fade-in duration-700">
-              <div className="w-full lg:w-1/2 h-2/5 lg:h-full flex items-center justify-center">
+            <div className="h-full w-full flex flex-col lg:flex-row items-center justify-center gap-4 animate-in fade-in duration-700">
+              {/* Container Logo dengan batasan tinggi ketat */}
+              <div className="w-full lg:w-1/2 flex items-center justify-center shrink-0">
                 <img 
                   src={dynamicContent.sejarah_img || "photo_2026-02-03_00-32-07.jpg"} 
-                  className="max-w-full max-h-full object-contain rounded-xl shadow-lg border-2 border-white" 
+                  className="max-h-[35vh] lg:max-h-[50vh] w-auto object-contain drop-shadow-2xl rounded-2xl" 
                   alt="Sejarah" 
                 />
               </div>
+              
+              {/* Teks Deskripsi */}
               <div className="w-full lg:w-1/2 flex flex-col justify-center space-y-2 overflow-y-auto max-h-full">
-                <span className="text-blue-600 font-black text-[8px] uppercase tracking-widest">Legacy</span>
+                <span className="text-blue-600 font-black text-[8px] uppercase tracking-widest">Legacy & Spirit</span>
                 <h3 className="text-xl md:text-3xl font-black text-slate-900 uppercase leading-none italic">
                   {dynamicContent.sejarah_title || "MEMBINA"} <span className="text-blue-600">LEGENDA</span>
                 </h3>
-                <p className="text-slate-500 text-[10px] md:text-xs font-medium leading-relaxed">
+                <p className="text-slate-500 text-[10px] md:text-sm font-medium leading-relaxed">
                   {dynamicContent.sejarah_desc || "PB US 162 hadir sebagai pusat keunggulan bulutangkis yang mengintegrasikan sport-science dengan disiplin tinggi."}
                 </p>
                 <div className="grid grid-cols-2 gap-1.5 pt-1">
@@ -149,7 +151,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* VISI MISI - Grid Lock */}
+          {/* VISI MISI */}
           {activeTab === 'visi-misi' && (
             <div className="h-full w-full grid lg:grid-cols-2 gap-3 items-stretch animate-in fade-in duration-500">
               <div className="bg-white p-4 md:p-6 rounded-[1.5rem] border border-slate-100 flex flex-col justify-center relative overflow-hidden">
@@ -173,7 +175,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* FASILITAS - Layout Locking */}
+          {/* FASILITAS */}
           {activeTab === 'fasilitas' && (
             <div className="h-full w-full flex flex-col lg:flex-row gap-4 animate-in fade-in duration-500">
               <div className="w-full lg:w-1/3 flex flex-col justify-center space-y-2">
@@ -195,7 +197,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             </div>
           )}
 
-          {/* ORGANISASI - Scrollable Internal */}
+          {/* ORGANISASI */}
           {activeTab === 'organisasi' && (
             <div className="h-full w-full overflow-y-auto pr-2 custom-scrollbar animate-in slide-in-from-bottom-5">
               <div className="flex flex-col items-center gap-6 py-2">

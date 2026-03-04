@@ -4,7 +4,7 @@ import {
   Plus, Trash2, MoveUp, MoveDown, 
   Image as ImageIcon, Upload, RefreshCcw, 
   CheckCircle2, AlertCircle, Clock, Zap,
-  Layers, Settings2
+  Layers, Settings2, Edit3, X
 } from 'lucide-react';
 
 const KelolaHero: React.FC = () => {
@@ -22,6 +22,7 @@ const KelolaHero: React.FC = () => {
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null); // Fitur Baru: Edit State
   const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,12 +40,10 @@ const KelolaHero: React.FC = () => {
 
     if (!error && data?.value) {
       const val = data.value;
-      // Jika format baru (objek dengan slides dan settings)
       if (val.slides) {
         setSlides(val.slides);
         setSliderSettings(val.settings || { duration: 6, effect: 'fade' });
       } else {
-        // Fallback jika format lama (hanya array slides)
         setSlides(Array.isArray(val) ? val : []);
       }
     }
@@ -106,16 +105,39 @@ const KelolaHero: React.FC = () => {
       return;
     }
 
-    const newSlide = {
-      id: Date.now(),
-      title,
-      subtitle,
-      image: imageUrl,
-    };
+    let updatedSlides;
+    if (editingId) {
+      // Fitur Baru: Logika Update Slide
+      updatedSlides = slides.map(s => 
+        s.id === editingId ? { ...s, title, subtitle, image: imageUrl } : s
+      );
+    } else {
+      const newSlide = {
+        id: Date.now(),
+        title,
+        subtitle,
+        image: imageUrl,
+      };
+      updatedSlides = [...slides, newSlide];
+    }
 
-    const updatedSlides = [...slides, newSlide];
     await saveToDatabase(updatedSlides);
-    
+    resetForm();
+  };
+
+  // Fitur Baru: Masuk ke Mode Edit
+  const startEdit = (slide: any) => {
+    setEditingId(slide.id);
+    setTitle(slide.title);
+    setSubtitle(slide.subtitle);
+    setImageUrl(slide.image);
+    setFormError(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Fitur Baru: Reset Form
+  const resetForm = () => {
+    setEditingId(null);
     setTitle('');
     setSubtitle('');
     setImageUrl('');
@@ -125,6 +147,7 @@ const KelolaHero: React.FC = () => {
   const deleteSlide = async (id: number) => {
     if (!window.confirm("Hapus foto ini?")) return;
     const updatedSlides = slides.filter(s => s.id !== id);
+    if (editingId === id) resetForm(); // Reset jika yang sedang diedit dihapus
     await saveToDatabase(updatedSlides);
   };
 
@@ -205,11 +228,17 @@ const KelolaHero: React.FC = () => {
                </div>
             </div>
 
-            {/* Form Tambah */}
-            <div className="bg-zinc-900/50 border border-white/10 p-8 rounded-[2.5rem] backdrop-blur-xl">
-              <h3 className="text-[10px] font-black uppercase tracking-widest mb-8 flex items-center gap-2 text-blue-500">
-                <Plus size={16} /> Register New Slide
-              </h3>
+            {/* Form Tambah/Edit */}
+            <div className={`bg-zinc-900/50 border ${editingId ? 'border-blue-600/50 shadow-[0_0_30px_rgba(37,99,235,0.1)]' : 'border-white/10'} p-8 rounded-[2.5rem] backdrop-blur-xl transition-all`}>
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-500">
+                  {editingId ? <Edit3 size={16} /> : <Plus size={16} />} 
+                  {editingId ? 'Modify Hero Slide' : 'Register New Slide'}
+                </h3>
+                {editingId && (
+                  <button onClick={resetForm} className="text-zinc-500 hover:text-white"><X size={16}/></button>
+                )}
+              </div>
               
               <form onSubmit={handleAddSlide} className="space-y-5">
                 <div 
@@ -231,19 +260,26 @@ const KelolaHero: React.FC = () => {
                 <input 
                   type="text" placeholder="Title Line" 
                   value={title} onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-black border border-white/5 rounded-xl px-5 py-4 text-xs font-bold focus:border-blue-600 outline-none"
+                  className="w-full bg-black border border-white/5 rounded-xl px-5 py-4 text-xs font-bold focus:border-blue-600 outline-none transition-colors"
                 />
                 <textarea 
                   placeholder="Subtitle detail description..." 
                   value={subtitle} onChange={(e) => setSubtitle(e.target.value)}
-                  className="w-full bg-black border border-white/5 rounded-xl px-5 py-4 text-xs font-bold focus:border-blue-600 outline-none h-28 resize-none"
+                  className="w-full bg-black border border-white/5 rounded-xl px-5 py-4 text-xs font-bold focus:border-blue-600 outline-none h-28 resize-none transition-colors"
                 />
 
                 {formError && <p className="text-red-500 text-[9px] font-black uppercase tracking-tighter flex items-center gap-2"><AlertCircle size={14}/> {formError}</p>}
 
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl active:scale-95">
-                  Publish to Hero
-                </button>
+                <div className="flex gap-3">
+                  {editingId && (
+                    <button type="button" onClick={resetForm} className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95">
+                      Cancel
+                    </button>
+                  )}
+                  <button type="submit" className={`flex-[2] ${editingId ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl active:scale-95`}>
+                    {editingId ? 'Save Changes' : 'Publish to Hero'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -259,7 +295,7 @@ const KelolaHero: React.FC = () => {
               slides.map((slide, index) => (
                 <div 
                   key={slide.id} 
-                  className="group flex flex-col md:flex-row items-center gap-6 bg-zinc-900 border border-white/5 p-6 rounded-[2.5rem] hover:border-blue-600/40 transition-all relative overflow-hidden"
+                  className={`group flex flex-col md:flex-row items-center gap-6 bg-zinc-900 border ${editingId === slide.id ? 'border-blue-600' : 'border-white/5'} p-6 rounded-[2.5rem] hover:border-blue-600/40 transition-all relative overflow-hidden`}
                 >
                   <div className="relative w-full md:w-56 h-36 rounded-[1.5rem] overflow-hidden flex-shrink-0 shadow-2xl">
                     <img src={slide.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
@@ -278,12 +314,20 @@ const KelolaHero: React.FC = () => {
                       <button onClick={() => moveSlide(index, 'up')} className="p-2 text-zinc-500 hover:text-white transition-colors"><MoveUp size={18}/></button>
                       <button onClick={() => moveSlide(index, 'down')} className="p-2 text-zinc-500 hover:text-white transition-colors"><MoveDown size={18}/></button>
                     </div>
-                    <button 
-                      onClick={() => deleteSlide(slide.id)}
-                      className="p-4 bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => startEdit(slide)}
+                        className="flex-1 p-4 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"
+                      >
+                        <Edit3 size={20} />
+                      </button>
+                      <button 
+                        onClick={() => deleteSlide(slide.id)}
+                        className="flex-1 p-4 bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))

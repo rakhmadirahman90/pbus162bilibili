@@ -4,7 +4,7 @@ import {
   CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
   ChevronDown, Star, GraduationCap, History, Eye, Map,
   CheckCircle, Zap
-} from 'lucide-center'; // Pastikan library lucide-react terpasang
+} from 'lucide-react'; // Pastikan library lucide-react terpasang
 import { supabase } from '../supabase'; 
 
 interface AboutProps {

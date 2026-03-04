@@ -3,7 +3,7 @@ import {
   Target, Rocket, Shield, Award, 
   CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
   ChevronDown, Star, GraduationCap
-} from 'lucide-center';
+} from 'lucide-react';
 import { supabase } from '../supabase'; 
 
 interface AboutProps {

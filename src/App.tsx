@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { supabase } from './supabase'; 
 
 // --- TAMBAHAN KODE: IMPORT FALLBACK DATA ---
-// Pastikan file-file ini sudah Anda buat di src/data/ sesuai instruksi sebelumnya
 import popupFallback from './data/konfigurasi_popup.json';
 
 // Import Komponen Landing Page
@@ -39,12 +38,22 @@ import KelolaHero from './components/KelolaHero';
 import AdminPopup from './components/AdminPopup'; 
 import AdminFooter from './components/AdminFooter'; 
 import AdminAbout from './components/AdminAbout';
+// PASTIKAN: AdminStructure merujuk pada file yang berisi kode editor 2 panel tadi
 import AdminStructure from './components/AdminStructure'; 
 
 import { KelolaSurat } from './components/KelolaSurat'; 
 
-import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink } from 'lucide-center';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// HELPER: Auto Scroll ke atas setiap pindah route
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 /**
  * FIXED POPUP COMPONENT WITH FALLBACK
@@ -68,7 +77,6 @@ function ImagePopup() {
           setPromoImages(data);
           setTimeout(() => setIsOpen(true), 1000);
         } else {
-          // --- TAMBAHAN: Gunakan Fallback Jika Supabase Kosong/Error ---
           const activeFallbacks = (popupFallback as any[]).filter(p => p.is_active);
           if (activeFallbacks.length > 0) {
             setPromoImages(activeFallbacks);
@@ -97,7 +105,6 @@ function ImagePopup() {
           }
         }, 45);
       }, 3500);
-
       return () => {
         clearInterval(scrollInterval);
         clearTimeout(startTimeout);
@@ -108,7 +115,6 @@ function ImagePopup() {
   const renderCleanDescription = (text: string) => {
     if (!text) return null;
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
-
     return text.split('\n').map((line, i) => {
       if (line.trim() === "") return <div key={i} className="h-4" />;
       return (
@@ -199,34 +205,24 @@ export default function App() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
     }
-
     setShowStruktur(false);
-
     if (sectionId === 'tentang-kami' || ['sejarah', 'visi-misi', 'fasilitas'].includes(subPath || '')) {
       if (subPath) setActiveAboutTab(subPath);
     }
-
     if (sectionId === 'atlet' || sectionId === 'players') {
       const filterValue = subPath ? subPath.toLowerCase() : 'all';
       setActiveAthleteFilter(filterValue);
       window.dispatchEvent(new CustomEvent('filterAtlet', { detail: filterValue }));
     }
-    
     setTimeout(() => {
       const targetId = (sectionId === 'atlet' || sectionId === 'players') ? 'atlet' : (subPath || sectionId);
       const element = document.getElementById(targetId);
-      
       if (element) {
         const offset = 80; 
         const bodyRect = document.body.getBoundingClientRect().top;
         const elementRect = element.getBoundingClientRect().top;
-        const elementPosition = elementRect - bodyRect;
-        const offsetPosition = elementPosition - offset;
-
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: 'smooth'
-        });
+        const offsetPosition = (elementRect - bodyRect) - offset;
+        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
       }
     }, 150);
   };
@@ -242,6 +238,7 @@ export default function App() {
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={
           <div className="min-h-screen bg-white selection:bg-blue-600 selection:text-white w-full overflow-x-hidden">
@@ -280,6 +277,7 @@ export default function App() {
           </div>
         } />
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} />
+        {/* DASHBOARD ADMIN ROUTE */}
         <Route path="/admin/*" element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} />
       </Routes>
     </Router>
@@ -319,6 +317,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="popup" element={<AdminPopup />} /> 
             <Route path="footer" element={<AdminFooter />} />
             <Route path="about" element={<AdminAbout />} />
+            {/* INI ADALAH ROUTE EDITOR URUTAN (AdminStructure) */}
             <Route path="struktur" element={<AdminStructure />} /> 
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>

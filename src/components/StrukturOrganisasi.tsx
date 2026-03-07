@@ -50,7 +50,11 @@ function SortableMemberItem({ member }: { member: Member }) {
         <GripVertical size={16} />
       </button>
       <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-slate-600">
-        <img src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`} className="w-full h-full object-cover" alt="" />
+        <img 
+          src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`} 
+          className="w-full h-full object-cover" 
+          alt="" 
+        />
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="text-[10px] font-bold text-white uppercase truncate">{member.name}</h4>
@@ -73,13 +77,16 @@ export default function StrukturOrganisasi() {
   // --- FETCH DATA: MUTLAK MENGGUNAKAN SORT_ORDER ---
   const fetchMembers = async () => {
     try {
+      // Ambil data terbaru dari Supabase
       const { data, error } = await supabase
         .from('organizational_structure')
         .select('*')
         .order('sort_order', { ascending: true }); // Penentu utama tampilan
       
       if (error) throw error;
-      if (data) setMembers(data);
+      if (data) {
+        setMembers(data);
+      }
     } catch (err) { 
       console.error("Fetch Error:", err); 
     } finally { 
@@ -90,19 +97,22 @@ export default function StrukturOrganisasi() {
   useEffect(() => {
     fetchMembers();
     
-    // Realtime Sync agar Admin & Database selalu sinkron
+    // Sinkronisasi Realtime: Sangat penting agar Landing Page update otomatis
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('organizational_changes')
       .on('postgres_changes', { 
         event: '*', 
         table: 'organizational_structure', 
         schema: 'public' 
       }, () => {
+        console.log("Database changed, refetching...");
         fetchMembers();
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
   }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -120,7 +130,7 @@ export default function StrukturOrganisasi() {
   const handlePublish = async () => {
     setIsSaving(true);
     try {
-      // PERBAIKAN: Hanya update ID dan Sort Order untuk menghindari konflik data level/role
+      // PERBAIKAN: Hanya update ID dan Sort Order agar tidak konflik dengan data lain
       const updates = members.map((m, index) => ({ 
         id: m.id,
         sort_order: index 
@@ -142,7 +152,7 @@ export default function StrukturOrganisasi() {
         color: '#fff' 
       });
 
-      // Fetch ulang untuk memastikan state lokal sama dengan DB
+      // Fetch ulang untuk memastikan state lokal sinkron dengan server
       fetchMembers();
     } catch (err: any) { 
       Swal.fire('Gagal Update', err.message, 'error'); 
@@ -154,7 +164,7 @@ export default function StrukturOrganisasi() {
   // --- LOGIKA PENGELOMPOKAN BIDANG (LEVEL 7) ---
   const groupedFields = useMemo(() => {
     const fields: { [key: string]: Member[] } = {};
-    // Tetap filter berdasarkan level 7, tapi urutan mengikuti sort_order
+    // Mengelompokkan member level 7 berdasarkan keyword di Role
     members.filter(m => m.level === 7).forEach(m => {
       const role = m.role.toLowerCase();
       let fieldName = "Lainnya";
@@ -206,7 +216,7 @@ export default function StrukturOrganisasi() {
   return (
     <div className="flex h-screen bg-[#0F172A] overflow-hidden font-sans">
       
-      {/* LEFT PANEL: DATABASE MANAGEMENT */}
+      {/* LEFT PANEL: DATABASE MANAGEMENT (EDITOR) */}
       <div className="w-85 border-r border-slate-800 flex flex-col bg-[#0A0F1E] p-6 overflow-hidden shadow-2xl z-10">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500"><Settings size={20} /></div>
@@ -234,10 +244,10 @@ export default function StrukturOrganisasi() {
             disabled={isSaving}
             className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-lg shadow-blue-500/20 transition-all active:scale-95 group"
           >
-            {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save className="group-hover:rotate-12 transition-transform" size={16} />}
+            {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
             Publish Change
           </button>
-          <p className="text-center text-[7px] text-slate-500 uppercase mt-3 tracking-widest font-bold">Data akan langsung terupdate di Landing Page</p>
+          <p className="text-center text-[7px] text-slate-500 uppercase mt-3 tracking-widest font-bold italic">Landing page akan mengikuti urutan ini</p>
         </div>
       </div>
 
@@ -277,7 +287,7 @@ export default function StrukturOrganisasi() {
               {members.some(m => m.level === 5) && <div className="h-16 w-[2px] bg-slate-200 mx-auto mt-8" />}
             </div>
 
-            {/* LEVEL 7: DEPARTEMEN & BIDANG */}
+            {/* LEVEL 7: DEPARTEMEN & BIDANG DENGAN GROUPING */}
             <div className="w-full space-y-24">
               {Object.entries(groupedFields).map(([fieldName, fieldMembers]) => (
                 <div key={fieldName} className="flex flex-col items-center">

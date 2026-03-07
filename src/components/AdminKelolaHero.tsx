@@ -50,7 +50,7 @@ export default function HeroAdmin() {
     }
   };
 
-  // 1. Fungsi Pilih Gambar & Trigger Modal Crop (DIPERBAIKI)
+  // --- PERBAIKAN 1: FUNGSI PILIH FILE (HANYA UNTUK MODAL) ---
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -61,18 +61,15 @@ export default function HeroAdmin() {
       }
 
       const reader = new FileReader();
-      // Menggunakan onloadend untuk memastikan data siap
       reader.onload = () => {
-        const result = reader.result as string;
-        setImageSrc(result);
-        setShowCropper(true); 
+        setImageSrc(reader.result as string);
+        setShowCropper(true); // Memunculkan modal pemotong
         setZoom(1);
         setCrop({ x: 0, y: 0 });
-        console.log("Image source loaded, modal triggered.");
       };
       reader.readAsDataURL(file);
       
-      // Penting: Reset input agar file yang sama bisa dipilih kembali
+      // Reset input agar file yang sama bisa dipilih kembali
       e.target.value = "";
     }
   };
@@ -81,17 +78,19 @@ export default function HeroAdmin() {
     setCroppedAreaPixels(clippedPixels);
   }, []);
 
-  // 2. Proses Pemotongan, Kompresi, dan Upload
+  // --- PERBAIKAN 2: FUNGSI PROSES & UPLOAD (DIPANGGIL OLEH TOMBOL MODAL) ---
   const processAndUpload = async () => {
+    // Validasi sebelum lanjut
     if (!imageSrc || !croppedAreaPixels) return;
-    if (!newTitle) {
-      alert("Harap isi Judul Slide sebelum menyimpan!");
+    if (!newTitle.trim()) {
+      alert("Harap isi Judul Slide terlebih dahulu di form sebelum memproses gambar!");
+      setShowCropper(false); // Tutup cropper agar user bisa isi judul
       return;
     }
 
     setUploading(true);
     try {
-      // PROSES CROP (Menggunakan Canvas)
+      // 1. PROSES CROP (Menggunakan Canvas)
       const image = new Image();
       image.src = imageSrc;
       await new Promise((res) => (image.onload = res));
@@ -114,18 +113,17 @@ export default function HeroAdmin() {
         croppedAreaPixels.height
       );
 
-      // Konversi Canvas ke Blob
+      // 2. Konversi Canvas ke Blob
       const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.9));
       
-      // PROSES KOMPRESI (Max 500KB)
-      const compressionOptions = {
+      // 3. PROSES KOMPRESI
+      const compressedFile = await imageCompression(new File([blob], "hero_slide.jpg"), {
         maxSizeMB: 0.5,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
-      };
-      const compressedFile = await imageCompression(new File([blob], "hero_slide.jpg"), compressionOptions);
+      });
 
-      // UPLOAD KE STORAGE
+      // 4. UPLOAD KE STORAGE
       const fileName = `hero-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('assets')
@@ -137,7 +135,7 @@ export default function HeroAdmin() {
         .from('assets')
         .getPublicUrl(`hero/${fileName}`);
 
-      // UPDATE DATABASE (Upsert)
+      // 5. UPDATE DATABASE (Upsert)
       const newSlide: HeroSlide = {
         id: Date.now(),
         title: newTitle,
@@ -148,7 +146,7 @@ export default function HeroAdmin() {
       const updatedSlides = [...slides, newSlide];
       await saveToDatabase(updatedSlides);
 
-      // Reset State
+      // 6. Reset State
       setShowCropper(false);
       setImageSrc(null);
       setNewTitle('');
@@ -191,25 +189,21 @@ export default function HeroAdmin() {
   return (
     <div className="max-w-6xl mx-auto p-6 bg-black text-white min-h-screen">
       
-      {/* MODAL CROPPER (DIPERBAIKI: Z-Index Inline & Container Size) */}
+      {/* MODAL CROPPER - Z-Index 99999 agar pasti muncul di atas */}
       {showCropper && imageSrc && (
         <div 
           className="fixed inset-0 flex flex-col bg-black"
-          style={{ zIndex: 99999 }} // Memastikan di atas segalanya
+          style={{ zIndex: 99999 }}
         >
           <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800">
             <h3 className="font-bold flex items-center gap-2 text-blue-400 text-lg uppercase tracking-tighter italic">
               <ImageIcon size={20} /> Crop Image 16:9
             </h3>
-            <button 
-              onClick={() => setShowCropper(false)} 
-              className="p-2 hover:bg-red-600 rounded-full transition-colors"
-            >
+            <button onClick={() => setShowCropper(false)} className="p-2 hover:bg-red-600 rounded-full transition-colors">
               <X size={28} />
             </button>
           </div>
           
-          {/* AREA CROPPER: Harus memiliki tinggi yang terdefinisi */}
           <div className="relative flex-grow bg-zinc-950 w-full">
             <Cropper
               image={imageSrc}
@@ -222,15 +216,12 @@ export default function HeroAdmin() {
             />
           </div>
 
-          {/* KONTROL ZOOM & ACTION */}
           <div className="p-8 bg-zinc-900 flex flex-col items-center gap-6 border-t border-zinc-800 shadow-2xl">
             <div className="flex items-center gap-6 w-full max-w-lg">
               <ZoomOut size={24} className="text-zinc-500" />
               <input
                 type="range"
-                min={1}
-                max={3}
-                step={0.1}
+                min={1} max={3} step={0.1}
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
                 className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
@@ -258,7 +249,7 @@ export default function HeroAdmin() {
       )}
 
       <header className="mb-10 border-b border-zinc-800 pb-6">
-        <h1 className="text-4xl font-black uppercase tracking-tighter italic italic">Hero Admin Pro</h1>
+        <h1 className="text-4xl font-black uppercase tracking-tighter italic">Hero Admin Pro</h1>
         <p className="text-zinc-500 text-sm mt-1">Sistem manajemen slider beranda dengan kompresi cerdas.</p>
       </header>
 
@@ -272,7 +263,7 @@ export default function HeroAdmin() {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-5 py-4 outline-none focus:border-blue-500 transition-all"
-                placeholder="Masukkan judul slide..."
+                placeholder="Isi judul dulu sebelum pilih gambar..."
               />
             </div>
             <div>
@@ -289,17 +280,12 @@ export default function HeroAdmin() {
           <div className="flex flex-col justify-end">
             <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Image Source</label>
             <label className="group border-2 border-dashed border-zinc-800 rounded-3xl p-10 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-600/5 transition-all h-full">
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={onFileChange} 
-                className="hidden" 
-              />
+              <input type="file" accept="image/*" onChange={onFileChange} className="hidden" />
               <div className="bg-zinc-800 p-5 rounded-full group-hover:bg-blue-600 transition-all mb-4">
                 <ImageIcon className="text-zinc-400 group-hover:text-white" size={36} />
               </div>
               <p className="text-base font-semibold text-zinc-400 group-hover:text-zinc-200">Klik untuk Pilih Foto</p>
-              <p className="text-[11px] text-zinc-600 mt-2 italic text-center">Rasio 16:9 akan dipaksa melalui editor.</p>
+              <p className="text-[11px] text-zinc-600 mt-2 italic text-center leading-relaxed">Format didukung: JPG, PNG, WEBP.<br/>Editor potong akan terbuka otomatis.</p>
             </label>
           </div>
         </div>
@@ -342,15 +328,13 @@ export default function HeroAdmin() {
             <div className="flex md:flex-col gap-3 justify-center">
               <button 
                 onClick={() => handleUpdateSlideText(slide.id, slide.title, slide.subtitle)} 
-                className="p-4 bg-zinc-800 hover:bg-green-600/20 hover:text-green-500 rounded-2xl transition-all"
-                title="Save Changes"
+                className="p-4 bg-zinc-800 hover:bg-green-600/20 hover:text-green-500 rounded-2xl transition-all shadow-lg"
               >
                 <Save size={20} />
               </button>
               <button 
                 onClick={() => handleDeleteSlide(slide.id)} 
-                className="p-4 bg-zinc-800 hover:bg-red-600/20 hover:text-red-500 rounded-2xl transition-all"
-                title="Delete Slide"
+                className="p-4 bg-zinc-800 hover:bg-red-600/20 hover:text-red-500 rounded-2xl transition-all shadow-lg"
               >
                 <Trash2 size={20} />
               </button>

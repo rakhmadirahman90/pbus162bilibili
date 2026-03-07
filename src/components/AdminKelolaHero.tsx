@@ -84,7 +84,7 @@ export default function HeroAdmin() {
     if (!imageSrc || !croppedAreaPixels) return;
     if (!newTitle.trim()) {
       alert("Harap isi Judul Slide terlebih dahulu di form sebelum memproses gambar!");
-      setShowCropper(false); // Tutup cropper agar user bisa isi judul
+      setShowCropper(false); 
       return;
     }
 
@@ -187,24 +187,29 @@ export default function HeroAdmin() {
   if (loading) return <div className="p-10 text-white flex justify-center"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-black text-white min-h-screen">
+    <div className="relative max-w-6xl mx-auto p-6 bg-black text-white min-h-screen">
       
-      {/* MODAL CROPPER - Z-Index 99999 agar pasti muncul di atas */}
+      {/* MODAL CROPPER - Diletakkan paling atas secara hirarki dan menggunakan fixed inset-0 */}
       {showCropper && imageSrc && (
         <div 
-          className="fixed inset-0 flex flex-col bg-black"
-          style={{ zIndex: 99999 }}
+          className="fixed inset-0 flex flex-col bg-black overflow-hidden"
+          style={{ zIndex: 999999 }} // Z-index super tinggi
         >
-          <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800">
+          {/* Header Modal */}
+          <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800 z-10">
             <h3 className="font-bold flex items-center gap-2 text-blue-400 text-lg uppercase tracking-tighter italic">
               <ImageIcon size={20} /> Crop Image 16:9
             </h3>
-            <button onClick={() => setShowCropper(false)} className="p-2 hover:bg-red-600 rounded-full transition-colors">
-              <X size={28} />
+            <button 
+              onClick={() => { setShowCropper(false); setImageSrc(null); }} 
+              className="p-2 hover:bg-red-600 rounded-full transition-colors text-white"
+            >
+              <X size={32} />
             </button>
           </div>
           
-          <div className="relative flex-grow bg-zinc-950 w-full">
+          {/* Area Cropper: Dibungkus dengan div yang memiliki height & width pasti */}
+          <div className="relative flex-grow bg-zinc-950 w-full overflow-hidden">
             <Cropper
               image={imageSrc}
               crop={crop}
@@ -213,10 +218,14 @@ export default function HeroAdmin() {
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onCropComplete={onCropComplete}
+              style={{
+                containerStyle: { width: '100%', height: '100%', position: 'relative' }
+              }}
             />
           </div>
 
-          <div className="p-8 bg-zinc-900 flex flex-col items-center gap-6 border-t border-zinc-800 shadow-2xl">
+          {/* Kontrol Panel */}
+          <div className="p-8 bg-zinc-900 flex flex-col items-center gap-6 border-t border-zinc-800 shadow-2xl z-10">
             <div className="flex items-center gap-6 w-full max-w-lg">
               <ZoomOut size={24} className="text-zinc-500" />
               <input
@@ -231,7 +240,7 @@ export default function HeroAdmin() {
             
             <div className="flex gap-4 w-full max-w-lg">
               <button
-                onClick={() => setShowCropper(false)}
+                onClick={() => { setShowCropper(false); setImageSrc(null); }}
                 className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-4 rounded-2xl font-bold text-zinc-300 transition-all border border-zinc-700"
               >
                 Cancel
@@ -248,6 +257,7 @@ export default function HeroAdmin() {
         </div>
       )}
 
+      {/* DASHBOARD UI */}
       <header className="mb-10 border-b border-zinc-800 pb-6">
         <h1 className="text-4xl font-black uppercase tracking-tighter italic">Hero Admin Pro</h1>
         <p className="text-zinc-500 text-sm mt-1">Sistem manajemen slider beranda dengan kompresi cerdas.</p>
@@ -341,12 +351,6 @@ export default function HeroAdmin() {
             </div>
           </div>
         ))}
-        
-        {slides.length === 0 && (
-          <div className="text-center py-24 bg-zinc-900/20 border-2 border-dashed border-zinc-800 rounded-[40px]">
-            <p className="text-zinc-600 font-medium italic">No active slides. Upload your first image above.</p>
-          </div>
-        )}
       </div>
     </div>
   );

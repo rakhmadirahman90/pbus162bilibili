@@ -1,370 +1,397 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 import { 
-  Target, Rocket, Shield, Award, 
-  CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
-  ChevronDown, Star, GraduationCap, History, Eye, Map,
-  CheckCircle, Zap
-} from 'lucide-react'; 
-import { supabase } from '../supabase'; 
+  Save, 
+  BookOpen, 
+  Target, 
+  Rocket, 
+  Award, 
+  Loader2, 
+  Plus, 
+  Trash2,
+  Type,
+  Image as ImageIcon,
+  Upload,
+  X
+} from 'lucide-react';
+import Swal from 'sweetalert2';
 
-// --- TAMBAHAN KODE: IMPORT FALLBACK DATA ---
-import pageFallback from '../data/page_contents.json';
-import orgFallback from '../data/org_fallback.json';
-import siteFallback from '../data/site_fallback.json';
-
-interface AboutProps {
-  activeTab?: string;
-  onTabChange?: (id: string) => void;
-}
-
-export default function About({ activeTab: propsActiveTab, onTabChange }: AboutProps) {
-  const [internalTab, setInternalTab] = useState('sejarah');
+export default function AdminAbout() {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
   
-  const [dynamicContent, setDynamicContent] = useState<Record<string, any>>({
-    sejarah: `Didirikan dengan semangat dedikasi tinggi...`,
-    sejarah_image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070",
-    visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi...",
-    misi: "Mengembangkan potensi anggota secara maksimal.\nMembangun sinergi yang kuat.\nInovatif dan edukatif.\nIntegritas dan sportivitas.",
-    fasilitas_list: [] 
+  const [content, setContent] = useState({
+    sejarah_title: '',
+    sejarah_accent: '',
+    sejarah_desc: '',
+    sejarah_img: '', 
+    vision: '',
+    missions: [] as string[],
+    fasilitas_title: '',
+    fasilitas_img1: '', 
+    fasilitas_img2: '', 
+    fasilitas_img3: '', 
   });
-  
-  const [orgData, setOrgData] = useState<any[]>([]);
-  
-  // Sinkronisasi tab antara internal state dan props dari Navbar/App.tsx
-  const activeTab = propsActiveTab || internalTab;
+
+  const [newMission, setNewMission] = useState('');
 
   useEffect(() => {
-    fetchAllData();
+    fetchAboutData();
   }, []);
 
-  const fetchAllData = async () => {
-    setLoading(true);
+  const fetchAboutData = async () => {
     try {
-      // 1. Ambil Konten dari page_contents (Sumber utama dari AdminAbout)
-      const { data: pagesData, error: pagesError } = await supabase
-        .from('page_contents')
-        .select('*');
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'about_content')
+        .maybeSingle();
 
-      if (!pagesError && pagesData && pagesData.length > 0) {
-        const mappedContent: any = { ...dynamicContent };
-        pagesData.forEach(page => {
-          const title = page.title?.toLowerCase() || "";
-          // Pencarian konten berdasarkan judul yang diinput Admin
-          if (title.includes('sejarah')) {
-            mappedContent.sejarah = page.content;
-            mappedContent.sejarah_image = page.image_url || page.image;
-          } else if (title.includes('visi')) {
-            mappedContent.visi = page.content;
-          } else if (title.includes('misi')) {
-            mappedContent.misi = page.content;
-          }
+      if (error) throw error;
+      
+      if (data) {
+        const val = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        setContent({
+          sejarah_title: val.sejarah_title || '',
+          sejarah_accent: val.sejarah_accent || '',
+          sejarah_desc: val.sejarah_desc || '',
+          sejarah_img: val.sejarah_img || '',
+          vision: val.vision || '',
+          missions: Array.isArray(val.missions) ? val.missions : [],
+          fasilitas_title: val.fasilitas_title || '',
+          fasilitas_img1: val.fasilitas_img1 || '',
+          fasilitas_img2: val.fasilitas_img2 || '',
+          fasilitas_img3: val.fasilitas_img3 || '',
         });
-        setDynamicContent(prev => ({ ...prev, ...mappedContent }));
-      } else if (pageFallback) {
-        // Fallback jika database kosong
-        const fbSejarah = (pageFallback as any[]).find((p: any) => p.title?.toLowerCase().includes('sejarah'));
-        if (fbSejarah) {
-          setDynamicContent(prev => ({ 
-            ...prev, 
-            sejarah: fbSejarah.content,
-            sejarah_image: fbSejarah.image_url || fbSejarah.image
-          }));
-        }
       }
-
-      // 2. Ambil Data Fasilitas (Mengambil dari kategori 'fasilitas' di tabel gallery/galeri)
-      const { data: facilitiesData } = await supabase
-        .from('galeri') // Mencoba tabel galeri (sesuai CSV)
-        .select('*')
-        .or('category.ilike.%fasilitas%,title.ilike.%fasilitas%');
-
-      if (facilitiesData && facilitiesData.length > 0) {
-        setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
-      } else {
-        // Jika tabel 'galeri' kosong, coba tabel 'gallery'
-        const { data: galleryAlt } = await supabase.from('gallery').select('*').filter('category', 'ilike', '%fasilitas%');
-        if (galleryAlt) setDynamicContent(prev => ({ ...prev, fasilitas_list: galleryAlt }));
-      }
-
-      // 3. Ambil Struktur Organisasi
-      const { data: structData, error: orgError } = await supabase
-        .from('organizational_structure')
-        .select('*')
-        .order('level', { ascending: true })
-        .order('sort_order', { ascending: true });
-
-      if (!orgError && structData) {
-        setOrgData(structData);
-      } else {
-        setOrgData(orgFallback || []);
-      }
-
-    } catch (err) {
-      console.error("Error connecting to database:", err);
+    } catch (error) {
+      console.error('Error loading settings:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTabChange = (id: string) => {
-    if (onTabChange) {
-      onTabChange(id);
-    } else {
-      setInternalTab(id);
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(field);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `about/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('uploads') 
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(filePath);
+
+      setContent(prev => ({ ...prev, [field]: publicUrl }));
+      
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Gambar berhasil diunggah',
+        showConfirmButton: false,
+        timer: 2000,
+        background: '#1E293B',
+        color: '#fff'
+      });
+    } catch (error: any) {
+      Swal.fire({ icon: 'error', title: 'Gagal Upload', text: error.message });
+    } finally {
+      setUploading(null);
     }
   };
 
-  const getLevelColor = (level: number) => {
-    switch(level) {
-      case 1: return 'bg-amber-500'; 
-      case 2: return 'bg-emerald-500'; 
-      case 3: return 'bg-blue-600'; 
-      case 4: return 'bg-indigo-600'; 
-      case 5: return 'bg-rose-500';
-      default: return 'bg-slate-500';
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // 1. Simpan ke site_settings (Struktur JSON - Untuk backup/legacy)
+      const { error: errorSettings } = await supabase
+        .from('site_settings')
+        .upsert({ 
+          key: 'about_content', 
+          value: content 
+        }, { onConflict: 'key' });
+
+      if (errorSettings) throw errorSettings;
+
+      // 2. --- KODE BARU: SINKRONISASI KE page_contents ---
+      // Agar About.tsx bisa membaca data secara individual
+      const pageEntries = [
+        { 
+          title: 'Sejarah', 
+          content: content.sejarah_desc, 
+          image_url: content.sejarah_img,
+          updated_at: new Date()
+        },
+        { 
+          title: 'Visi', 
+          content: content.vision, 
+          updated_at: new Date()
+        },
+        { 
+          title: 'Misi', 
+          content: content.missions.join('\n'), 
+          updated_at: new Date()
+        }
+      ];
+
+      // Lakukan Upsert ke page_contents berdasarkan judul
+      const { error: errorPages } = await supabase
+        .from('page_contents')
+        .upsert(pageEntries, { onConflict: 'title' });
+
+      if (errorPages) throw errorPages;
+
+      Swal.fire({
+        icon: 'success',
+        title: 'BERHASIL DISIMPAN',
+        text: 'Konten telah disinkronkan ke Landing Page.',
+        background: '#0F172A',
+        color: '#fff',
+        confirmButtonColor: '#2563eb'
+      });
+    } catch (error: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'GAGAL MENYIMPAN',
+        text: error.message,
+        background: '#0F172A',
+        color: '#fff'
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const renderDepartment = (title: string, roleKey: string) => {
-    const coordinator = orgData.find(m => 
-      m.level === 6 && 
-      m.role.toLowerCase().includes(roleKey.toLowerCase())
-    );
-    const members = orgData.filter(m => 
-      m.level === 7 && 
-      m.role.toLowerCase().includes(roleKey.toLowerCase())
-    );
+  const addMission = () => {
+    if (newMission.trim()) {
+      setContent({ ...content, missions: [...content.missions, newMission.trim()] });
+      setNewMission('');
+    }
+  };
 
-    if (!coordinator && members.length === 0) return null;
+  const removeMission = (index: number) => {
+    const filtered = content.missions.filter((_, i) => i !== index);
+    setContent({ ...content, missions: filtered });
+  };
 
+  if (loading) {
     return (
-      <div className="w-full mb-16">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-          <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">{title}</span>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-        </div>
-
-        {coordinator && (
-          <div className="flex flex-col items-center mb-8">
-            <div className="bg-white p-4 rounded-[2rem] border-2 border-amber-400 shadow-lg text-center w-48 md:w-56">
-              <div className="w-20 h-20 mx-auto mb-3">
-                <img 
-                  src={coordinator.photo_url || `https://ui-avatars.com/api/?name=${coordinator.name}&background=f59e0b&color=fff`} 
-                  className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-sm" 
-                  alt={coordinator.name}
-                />
-              </div>
-              <p className="font-black text-[9px] md:text-[10px] uppercase italic text-slate-900 leading-tight mb-2">{coordinator.name}</p>
-              <span className="text-[7px] bg-amber-500 text-white px-3 py-1 rounded-full font-black uppercase tracking-tighter">
-                {coordinator.role}
-              </span>
-            </div>
-            <div className="w-0.5 h-8 bg-slate-200"></div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-          {members.map(p => (
-            <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 md:w-14 md:h-14 mb-2">
-                <img 
-                  src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f1f5f9&color=64748b`} 
-                  className="w-full h-full rounded-xl object-cover" 
-                  alt={p.name}
-                />
-              </div>
-              <p className="font-bold text-[8px] md:text-[9px] uppercase text-slate-800 leading-tight">{p.name}</p>
-              <p className="text-blue-500 font-bold text-[6px] md:text-[7px] uppercase mt-1">{p.role}</p>
-            </div>
-          ))}
-        </div>
+      <div className="flex h-screen items-center justify-center bg-[#050505]">
+        <Loader2 className="animate-spin text-blue-500" size={40} />
       </div>
     );
-  };
+  }
 
   return (
-    <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
-      <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-4">
-        
-        {/* Header & Tabs */}
-        <div className="text-center mb-2 shrink-0">
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full mb-1">
-            <Users2 size={10} className="animate-pulse" />
-            <span className="text-[7px] font-black uppercase tracking-[0.2em]">Profil Organisasi</span>
-          </div>
-          <h2 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight uppercase leading-none italic">
-            Tentang <span className="text-blue-600">Kami</span>
-          </h2>
+    <div className="p-4 md:p-8 bg-[#050505] min-h-screen text-white pb-24 font-sans">
+      {/* HEADER */}
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+        <div>
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter">
+            KELOLA <span className="text-blue-500">TENTANG KAMI</span>
+          </h1>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.4em] mt-2">Integrasi Multimedia & Narasi Website</p>
         </div>
-
-        <div className="flex flex-wrap justify-center gap-1.5 mb-3 shrink-0">
-          {['sejarah', 'visi-misi', 'fasilitas'].map((id) => (
-            <button
-              key={id}
-              onClick={() => handleTabChange(id)}
-              className={`px-3 md:px-5 py-1.5 rounded-lg font-bold text-[8px] md:text-xs uppercase border-2 transition-all ${
-                activeTab === id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-100'
-              }`}
-            >
-              {id.replace('-', ' ')}
-            </button>
-          ))}
-          <button
-            onClick={() => handleTabChange('organisasi')}
-            className={`px-3 md:px-5 py-1.5 rounded-lg font-bold text-[8px] md:text-xs uppercase border-2 flex items-center gap-1.5 transition-all ${
-              activeTab === 'organisasi' ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-900 text-white border-slate-900'
-            }`}
-          >
-            Struktur <ArrowRight size={10} />
-          </button>
-        </div>
-
-        {/* Content Container */}
-        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar`}>
-          
-          {loading ? (
-              <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-          ) : (
-            <>
-              {activeTab === 'sejarah' && (
-                <div className="max-w-4xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex flex-col md:flex-row gap-8 items-start">
-                    <div className="w-full md:w-1/3 shrink-0">
-                      <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl rotate-3">
-                        <img 
-                          src={dynamicContent.sejarah_image || "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070"} 
-                          className="w-full h-full object-cover" 
-                          alt="Sejarah" 
-                        />
-                        <div className="absolute inset-0 bg-blue-600/10 mix-blend-multiply" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-4 flex items-center gap-2">
-                        <Zap className="text-amber-500" size={20} /> Jejak Langkah Kami
-                      </h3>
-                      <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium">
-                        {dynamicContent.sejarah}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'visi-misi' && (
-                <div className="max-w-5xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="grid md:grid-cols-2 gap-10">
-                    <div className="relative">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg">
-                          <Eye size={20} />
-                        </div>
-                        <h3 className="text-xl font-black text-slate-900 uppercase italic">Visi Utama</h3>
-                      </div>
-                      <div className="bg-white p-8 rounded-[2.5rem] border-2 border-amber-50 shadow-sm">
-                        <p className="text-slate-700 font-black italic text-lg leading-relaxed">
-                          "{dynamicContent.visi}"
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-3 bg-emerald-500 text-white rounded-2xl shadow-lg">
-                          <Rocket size={20} />
-                        </div>
-                        <h3 className="text-xl font-black text-slate-900 uppercase italic">Misi Kami</h3>
-                      </div>
-                      <div className="space-y-4">
-                        {dynamicContent.misi?.split('\n').filter((t: string) => t.trim() !== '').map((item: string, i: number) => (
-                          <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="mt-1 text-emerald-500">
-                              <CheckCircle size={16} />
-                            </div>
-                            <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">{item}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'fasilitas' && (
-                <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex items-center gap-3 mb-10">
-                    <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
-                      <Map size={24} />
-                    </div>
-                    <h3 className="text-2xl font-black text-slate-900 uppercase italic">Fasilitas Pendukung</h3>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {dynamicContent.fasilitas_list?.length > 0 ? (
-                      dynamicContent.fasilitas_list.map((f: any, i: number) => (
-                        <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
-                          <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
-                            <img src={f.image_url || f.image || f.url_gambar} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title || f.judul} />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-60" />
-                            <div className="absolute bottom-0 left-0 p-6">
-                              <span className="bg-blue-600 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full">Fasilitas</span>
-                            </div>
-                          </div>
-                          <div className="p-6">
-                            <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title || f.judul}</h4>
-                            <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.desc || f.deskripsi}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-20 text-slate-400 font-bold uppercase tracking-widest italic">
-                        Belum ada data fasilitas
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'organisasi' && (
-                <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
-                  {[1, 2, 3, 4, 5].map(lvl => (
-                    <div key={lvl} className={`flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full`}>
-                      {orgData.filter(m => m.level === lvl).map(p => (
-                        <div key={p.id} className="relative flex flex-col items-center">
-                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 4 ? 'w-52 md:w-64 border-blue-500' : 'w-40 md:w-48 border-slate-100'}`}>
-                            <div className={`${lvl === 4 ? 'w-24 h-24' : 'w-16 h-16'} mx-auto mb-2`}>
-                              <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-full h-full rounded-xl object-cover shadow-sm" alt={p.name} />
-                            </div>
-                            <p className="font-bold text-[9px] md:text-[11px] uppercase italic text-slate-800 leading-tight mb-1">{p.name}</p>
-                            <span className={`text-[7px] text-white px-3 py-0.5 rounded-md font-bold uppercase ${getLevelColor(p.level)}`}>{p.role}</span>
-                          </div>
-                          <div className="w-0.5 h-12 bg-slate-100"></div>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-
-                  <div className="w-full max-w-6xl px-2">
-                    {renderDepartment("Bidang Pertandingan", "Pertandingan")}
-                    {renderDepartment("Bidang Pembinaan Prestasi", "Binpres")}
-                    {renderDepartment("Bidang Humas", "Humas")}
-                    {renderDepartment("Bidang Rohani & Sarpras", "Rohani")}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full md:w-auto flex items-center justify-center gap-3 px-10 py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] transition-all shadow-[0_0_40px_rgba(37,99,235,0.3)] active:scale-95 disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+          {saving ? 'PROSES...' : 'SIMPAN PERUBAHAN'}
+        </button>
       </div>
 
+      <div className="max-w-6xl mx-auto space-y-12">
+        
+        {/* SECTION 1: SEJARAH */}
+        <div className="bg-[#0F172A] border border-white/5 rounded-[3rem] p-8 md:p-10 shadow-2xl">
+          <div className="flex items-center gap-4 mb-8 text-blue-500 border-b border-white/5 pb-6">
+            <BookOpen size={28} />
+            <h2 className="text-2xl font-black uppercase italic tracking-tight">Evolusi & Sejarah</h2>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-10">
+            <div className="space-y-4">
+               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Visual Sejarah (1 Foto)</label>
+               <div className="relative group aspect-video bg-black/40 rounded-[2rem] overflow-hidden border-2 border-dashed border-white/10 flex flex-col items-center justify-center transition-all hover:border-blue-500/50">
+                  {content.sejarah_img ? (
+                    <>
+                      <img src={content.sejarah_img} className="w-full h-full object-cover" alt="Preview" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-3">
+                        <label className="cursor-pointer p-3 bg-blue-600 rounded-full hover:scale-110 transition-transform">
+                          <Upload size={20} />
+                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'sejarah_img')} />
+                        </label>
+                        <button onClick={() => setContent({...content, sejarah_img: ''})} className="p-3 bg-red-600 rounded-full hover:scale-110 transition-transform">
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center cursor-pointer">
+                      <ImageIcon size={40} className="text-slate-600 mb-2" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Klik untuk Upload Gambar</span>
+                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'sejarah_img')} />
+                    </label>
+                  )}
+                  {uploading === 'sejarah_img' && <div className="absolute inset-0 bg-black/80 flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>}
+               </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Judul Utama</label>
+                  <input 
+                    type="text"
+                    value={content.sejarah_title}
+                    onChange={(e) => setContent({...content, sejarah_title: e.target.value})}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:border-blue-500 outline-none font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest ml-1">Judul Aksen</label>
+                  <input 
+                    type="text"
+                    value={content.sejarah_accent}
+                    onChange={(e) => setContent({...content, sejarah_accent: e.target.value})}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-blue-500 focus:border-blue-500 outline-none font-bold"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Narasi Sejarah</label>
+                <textarea
+                  value={content.sejarah_desc}
+                  onChange={(e) => setContent({...content, sejarah_desc: e.target.value})}
+                  className="w-full h-40 bg-black/40 border border-white/10 rounded-xl p-4 text-slate-300 focus:border-blue-500 outline-none resize-none leading-relaxed"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: VISI & MISI */}
+        <div className="grid lg:grid-cols-2 gap-10">
+          <div className="bg-[#0F172A] border border-white/5 rounded-[3rem] p-8 md:p-10 shadow-2xl">
+            <div className="flex items-center gap-4 mb-8 text-purple-500 border-b border-white/5 pb-6">
+              <Target size={28} />
+              <h2 className="text-2xl font-black uppercase italic tracking-tight">Visi Klub</h2>
+            </div>
+            <textarea
+              placeholder="Masukkan visi..."
+              value={content.vision}
+              onChange={(e) => setContent({...content, vision: e.target.value})}
+              className="w-full h-44 bg-black/40 border border-white/10 rounded-2xl p-6 text-slate-300 focus:border-purple-500 outline-none resize-none italic font-medium text-lg"
+            />
+          </div>
+
+          <div className="bg-[#0F172A] border border-white/5 rounded-[3rem] p-8 md:p-10 shadow-2xl">
+            <div className="flex items-center gap-4 mb-8 text-emerald-500 border-b border-white/5 pb-6">
+              <Rocket size={28} />
+              <h2 className="text-2xl font-black uppercase italic tracking-tight">Misi Strategis</h2>
+            </div>
+            <div className="flex gap-2 mb-6">
+              <input 
+                type="text"
+                placeholder="Tambah misi..."
+                value={newMission}
+                onChange={(e) => setNewMission(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addMission()}
+                className="flex-1 bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-sm text-white focus:border-emerald-500 outline-none"
+              />
+              <button onClick={addMission} className="p-3 bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all"><Plus size={20}/></button>
+            </div>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+              {content.missions.map((m, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5 group">
+                  <span className="text-xs text-slate-400 italic">{m}</span>
+                  <button onClick={() => removeMission(idx)} className="text-slate-600 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: FASILITAS (3 FOTO) */}
+        <div className="bg-[#0F172A] border border-white/5 rounded-[3rem] p-8 md:p-10 shadow-2xl">
+          <div className="flex items-center gap-4 mb-8 text-amber-500 border-b border-white/5 pb-6">
+            <Award size={28} />
+            <h2 className="text-2xl font-black uppercase italic tracking-tight">Galeri & Nama Fasilitas</h2>
+          </div>
+          
+          <div className="grid lg:grid-cols-3 gap-6 mb-10">
+            <div className="space-y-3">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Foto Utama (Besar)</span>
+              <ImageUploadBox field="fasilitas_img1" url={content.fasilitas_img1} onUpload={handleImageUpload} onClear={() => setContent({...content, fasilitas_img1: ''})} uploading={uploading === 'fasilitas_img1'} />
+            </div>
+            <div className="space-y-3">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detail 1 (Kanan Atas)</span>
+              <ImageUploadBox field="fasilitas_img2" url={content.fasilitas_img2} onUpload={handleImageUpload} onClear={() => setContent({...content, fasilitas_img2: ''})} uploading={uploading === 'fasilitas_img2'} />
+            </div>
+            <div className="space-y-3">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detail 2 (Kanan Bawah)</span>
+              <ImageUploadBox field="fasilitas_img3" url={content.fasilitas_img3} onUpload={handleImageUpload} onClear={() => setContent({...content, fasilitas_img3: ''})} uploading={uploading === 'fasilitas_img3'} />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest ml-1 italic">Judul Section Fasilitas</label>
+            <input 
+              type="text"
+              value={content.fasilitas_title}
+              onChange={(e) => setContent({...content, fasilitas_title: e.target.value})}
+              className="w-full bg-black/40 border border-white/10 rounded-2xl p-5 text-white focus:border-amber-500 outline-none font-bold"
+            />
+          </div>
+        </div>
+      </div>
+      
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
       `}</style>
-    </section>
+    </div>
+  );
+}
+
+function ImageUploadBox({ field, url, onUpload, onClear, uploading }: any) {
+  return (
+    <div className="relative group aspect-square bg-black/40 rounded-[1.5rem] overflow-hidden border-2 border-dashed border-white/10 flex flex-col items-center justify-center transition-all hover:border-amber-500/50">
+      {url ? (
+        <>
+          <img src={url} className="w-full h-full object-cover" alt="Preview" />
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-3">
+            <label className="cursor-pointer p-2 bg-amber-600 rounded-full hover:scale-110 transition-transform">
+              <Upload size={16} />
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => onUpload(e, field)} />
+            </label>
+            <button onClick={onClear} className="p-2 bg-red-600 rounded-full hover:scale-110 transition-transform">
+              <X size={16} />
+            </button>
+          </div>
+        </>
+      ) : (
+        <label className="flex flex-col items-center cursor-pointer">
+          <Upload size={24} className="text-slate-600 mb-2" />
+          <span className="text-[9px] font-bold text-slate-500 uppercase">Upload</span>
+          <input type="file" className="hidden" accept="image/*" onChange={(e) => onUpload(e, field)} />
+        </label>
+      )}
+      {uploading && <div className="absolute inset-0 bg-black/80 flex items-center justify-center"><Loader2 className="animate-spin text-amber-500" /></div>}
+    </div>
   );
 }

@@ -27,7 +27,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     sejarah: `Didirikan dengan semangat dedikasi tinggi...`,
     sejarah_image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070",
     visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi...",
-    misi: "Mengembangkan potensi anggota secara maksimal.\nMembangun sinergi yang kuat.\nInovatif dan edukatif.\nIntegritas dan sportivitas.",
+    misi: [], // Diubah menjadi array agar lebih fleksibel
     fasilitas_title: "Fasilitas Unggulan",
     fasilitas_main_image: "",
     fasilitas_img1: "",
@@ -45,46 +45,69 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten dari site_settings (SUMBER MASTER DARI ADMIN)
+      // 1. Ambil Konten dari site_settings (SUMBER UTAMA ADMIN)
       const { data: settingsData } = await supabase
         .from('site_settings')
         .select('value')
         .eq('key', 'about_content')
         .maybeSingle();
 
+      // 2. Ambil data cadangan dari page_contents
+      const { data: pagesData } = await supabase.from('page_contents').select('*');
+
+      let finalMisi: any[] = [];
+      let mappedSettings: any = {};
+
+      // Proses data dari Admin (Site Settings)
       if (settingsData && settingsData.value) {
         const val = typeof settingsData.value === 'string' ? JSON.parse(settingsData.value) : settingsData.value;
         
-        setDynamicContent(prev => ({
-          ...prev,
-          sejarah_title: val.sejarah_title || prev.sejarah_title,
-          sejarah_accent: val.sejarah_accent || "",
-          sejarah: val.sejarah_desc || prev.sejarah,
-          sejarah_image: val.sejarah_img || prev.sejarah_image,
-          visi: val.vision || prev.visi,
-          // PERBAIKAN: Menangani misi baik dalam bentuk Array (Admin) maupun String (Legacy)
-          misi: Array.isArray(val.missions) ? val.missions.join('\n') : (val.misi || val.missions || prev.misi),
-          fasilitas_title: val.fasilitas_title || prev.fasilitas_title,
-          fasilitas_main_image: val.fasilitas_img1 || prev.fasilitas_main_image,
-          fasilitas_img1: val.fasilitas_img2 || prev.fasilitas_img1,
-          fasilitas_img2: val.fasilitas_img3 || prev.fasilitas_img2,
-        }));
-      } else {
-        // Fallback ke page_contents jika site_settings kosong
-        const { data: pagesData } = await supabase.from('page_contents').select('*');
-        if (pagesData) {
-          const mapped: any = {};
-          pagesData.forEach(p => {
-            const t = p.title.toLowerCase();
-            if (t.includes('sejarah')) { mapped.sejarah = p.content; mapped.sejarah_image = p.image_url; }
-            if (t.includes('visi')) mapped.visi = p.content;
-            if (t.includes('misi')) mapped.misi = p.content;
-          });
-          setDynamicContent(prev => ({ ...prev, ...mapped }));
+        // Handle Misi (Bisa dari .missions atau .misi)
+        const rawMissions = val.missions || val.misi;
+        if (Array.isArray(rawMissions)) {
+          finalMisi = rawMissions;
+        } else if (typeof rawMissions === 'string') {
+          finalMisi = rawMissions.split('\n').filter(m => m.trim() !== '');
         }
+
+        mappedSettings = {
+          sejarah_title: val.sejarah_title,
+          sejarah_accent: val.sejarah_accent,
+          sejarah: val.sejarah_desc,
+          sejarah_image: val.sejarah_img,
+          visi: val.vision || val.visi,
+          misi: finalMisi,
+          fasilitas_title: val.fasilitas_title,
+          fasilitas_main_image: val.fasilitas_img1,
+          fasilitas_img1: val.fasilitas_img2,
+          fasilitas_img2: val.fasilitas_img3,
+        };
       }
 
-      // 2. Ambil Data Fasilitas List (Galeri Pendukung)
+      // Jika site_settings tidak lengkap, isi dengan page_contents
+      if (pagesData) {
+        pagesData.forEach(p => {
+          const t = p.title.toLowerCase();
+          if (!mappedSettings.sejarah && t.includes('sejarah')) {
+             mappedSettings.sejarah = p.content; 
+             mappedSettings.sejarah_image = p.image_url;
+          }
+          if (!mappedSettings.visi && t.includes('visi')) mappedSettings.visi = p.content;
+          if ((!mappedSettings.misi || mappedSettings.misi.length === 0) && t.includes('misi')) {
+            mappedSettings.misi = p.content.split('\n').filter((m: string) => m.trim() !== '');
+          }
+        });
+      }
+
+      // Gabungkan ke state
+      setDynamicContent(prev => ({
+        ...prev,
+        ...mappedSettings,
+        // Pastikan misi selalu berbentuk array
+        misi: Array.isArray(mappedSettings.misi) ? mappedSettings.misi : prev.misi
+      }));
+
+      // 3. Ambil Data Fasilitas List (Galeri)
       const { data: facilitiesData } = await supabase
         .from('galeri')
         .select('*')
@@ -94,7 +117,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
       }
 
-      // 3. Ambil Struktur Organisasi
+      // 4. Ambil Struktur Organisasi
       const { data: structData, error: orgError } = await supabase
         .from('organizational_structure')
         .select('*')
@@ -272,19 +295,23 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     <div>
                       <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Misi Kami</h3>
                       <div className="space-y-4">
-                        {/* PERBAIKAN: Logika sanitasi misi agar selalu merender Array dari string yang di-split */}
-                        {(dynamicContent.misi || "")
-                          .toString()
-                          .split('\n')
-                          .filter((t: string) => t.trim() !== '')
-                          .map((item: string, i: number) => (
-                            <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                              <CheckCircle size={16} className="text-emerald-500 mt-1 shrink-0" />
-                              <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">
-                                {item.replace(/^[0-9.-]+\s*/, '')}
-                              </p>
-                            </div>
-                        ))}
+                        {/* PERBAIKAN UTAMA: Mapping Misi yang sudah diproses menjadi Array */}
+                        {Array.isArray(dynamicContent.misi) && dynamicContent.misi.length > 0 ? (
+                          dynamicContent.misi.map((item: any, i: number) => {
+                            const textContent = typeof item === 'object' ? item.text || item.content : item;
+                            if (!textContent) return null;
+                            return (
+                              <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                                <CheckCircle size={16} className="text-emerald-500 mt-1 shrink-0" />
+                                <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">
+                                  {textContent.replace(/^[0-9.-]+\s*/, '')}
+                                </p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-10 text-slate-400 italic">Belum ada data misi.</div>
+                        )}
                       </div>
                     </div>
                   </div>

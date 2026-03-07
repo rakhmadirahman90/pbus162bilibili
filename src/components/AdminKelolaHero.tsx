@@ -61,14 +61,18 @@ export default function HeroAdmin() {
       }
 
       const reader = new FileReader();
+      // Menggunakan onloadend untuk memastikan data siap
       reader.onload = () => {
-        setImageSrc(reader.result as string);
-        setShowCropper(true); // Pastikan ini terpanggil setelah reader selesai
+        const result = reader.result as string;
+        setImageSrc(result);
+        setShowCropper(true); 
         setZoom(1);
+        setCrop({ x: 0, y: 0 });
+        console.log("Image source loaded, modal triggered.");
       };
       reader.readAsDataURL(file);
       
-      // Reset input value agar jika user pilih file yang sama lagi, event onFileChange tetap trigger
+      // Penting: Reset input agar file yang sama bisa dipilih kembali
       e.target.value = "";
     }
   };
@@ -187,23 +191,26 @@ export default function HeroAdmin() {
   return (
     <div className="max-w-6xl mx-auto p-6 bg-black text-white min-h-screen">
       
-      {/* MODAL CROPPER (Layer paling atas) */}
+      {/* MODAL CROPPER (DIPERBAIKI: Z-Index Inline & Container Size) */}
       {showCropper && imageSrc && (
-        <div className="fixed inset-0 z-[10000] bg-black flex flex-col overflow-hidden">
+        <div 
+          className="fixed inset-0 flex flex-col bg-black"
+          style={{ zIndex: 99999 }} // Memastikan di atas segalanya
+        >
           <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800">
-            <h3 className="font-bold flex items-center gap-2 text-blue-400 text-lg">
-              <ImageIcon size={20} /> Potong Gambar (16:9)
+            <h3 className="font-bold flex items-center gap-2 text-blue-400 text-lg uppercase tracking-tighter italic">
+              <ImageIcon size={20} /> Crop Image 16:9
             </h3>
             <button 
               onClick={() => setShowCropper(false)} 
-              className="p-2 hover:bg-zinc-800 rounded-full transition-colors"
+              className="p-2 hover:bg-red-600 rounded-full transition-colors"
             >
               <X size={28} />
             </button>
           </div>
           
-          {/* Container Cropper dengan tinggi tetap */}
-          <div className="relative flex-grow bg-zinc-950 w-full overflow-hidden">
+          {/* AREA CROPPER: Harus memiliki tinggi yang terdefinisi */}
+          <div className="relative flex-grow bg-zinc-950 w-full">
             <Cropper
               image={imageSrc}
               crop={crop}
@@ -215,6 +222,7 @@ export default function HeroAdmin() {
             />
           </div>
 
+          {/* KONTROL ZOOM & ACTION */}
           <div className="p-8 bg-zinc-900 flex flex-col items-center gap-6 border-t border-zinc-800 shadow-2xl">
             <div className="flex items-center gap-6 w-full max-w-lg">
               <ZoomOut size={24} className="text-zinc-500" />
@@ -233,16 +241,16 @@ export default function HeroAdmin() {
             <div className="flex gap-4 w-full max-w-lg">
               <button
                 onClick={() => setShowCropper(false)}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-4 rounded-2xl font-bold text-zinc-300 transition-all"
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-4 rounded-2xl font-bold text-zinc-300 transition-all border border-zinc-700"
               >
-                Batal
+                Cancel
               </button>
               <button
                 onClick={processAndUpload}
                 disabled={uploading}
                 className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 py-4 rounded-2xl font-bold flex justify-center items-center gap-2 transition-all shadow-xl shadow-blue-900/20"
               >
-                {uploading ? <Loader2 className="animate-spin" size={20} /> : <><Check size={22} /> Terapkan & Simpan</>}
+                {uploading ? <Loader2 className="animate-spin" size={20} /> : <><Check size={22} /> Save & Upload</>}
               </button>
             </div>
           </div>
@@ -251,35 +259,35 @@ export default function HeroAdmin() {
 
       <header className="mb-10 border-b border-zinc-800 pb-6">
         <h1 className="text-4xl font-black uppercase tracking-tighter italic italic">Hero Admin Pro</h1>
-        <p className="text-zinc-500 text-sm mt-1">Kelola slider beranda dengan optimasi gambar otomatis.</p>
+        <p className="text-zinc-500 text-sm mt-1">Sistem manajemen slider beranda dengan kompresi cerdas.</p>
       </header>
 
       {/* FORM INPUT UTAMA */}
-      <section className="mb-12 bg-zinc-900/40 p-8 rounded-3xl border border-white/5 backdrop-blur-sm">
+      <section className="mb-12 bg-zinc-900/40 p-8 rounded-3xl border border-white/5 backdrop-blur-sm shadow-2xl">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="space-y-5">
             <div>
-              <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Judul Slide</label>
+              <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Slide Title</label>
               <input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full bg-black/60 border border-zinc-800 rounded-2xl px-5 py-4 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                placeholder="Contoh: Promo Spesial Akhir Tahun"
+                className="w-full bg-black border border-zinc-800 rounded-2xl px-5 py-4 outline-none focus:border-blue-500 transition-all"
+                placeholder="Masukkan judul slide..."
               />
             </div>
             <div>
-              <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Sub-judul / Deskripsi</label>
+              <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Slide Subtitle</label>
               <textarea
                 value={newSubtitle}
                 onChange={(e) => setNewSubtitle(e.target.value)}
-                className="w-full bg-black/60 border border-zinc-800 rounded-2xl px-5 py-4 outline-none h-28 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
-                placeholder="Masukkan deskripsi singkat yang menarik..."
+                className="w-full bg-black border border-zinc-800 rounded-2xl px-5 py-4 outline-none h-28 focus:border-blue-500 transition-all resize-none"
+                placeholder="Masukkan deskripsi singkat..."
               />
             </div>
           </div>
           
           <div className="flex flex-col justify-end">
-            <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Media Latar</label>
+            <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Image Source</label>
             <label className="group border-2 border-dashed border-zinc-800 rounded-3xl p-10 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-600/5 transition-all h-full">
               <input 
                 type="file" 
@@ -287,11 +295,11 @@ export default function HeroAdmin() {
                 onChange={onFileChange} 
                 className="hidden" 
               />
-              <div className="bg-zinc-800 p-5 rounded-full group-hover:bg-blue-600 group-hover:scale-110 transition-all mb-4">
+              <div className="bg-zinc-800 p-5 rounded-full group-hover:bg-blue-600 transition-all mb-4">
                 <ImageIcon className="text-zinc-400 group-hover:text-white" size={36} />
               </div>
-              <p className="text-base font-semibold text-zinc-400 group-hover:text-zinc-200">Pilih Gambar</p>
-              <p className="text-[11px] text-zinc-600 mt-2 italic text-center leading-relaxed">Format didukung: JPG, PNG, WEBP.<br/>Editor potong akan terbuka otomatis.</p>
+              <p className="text-base font-semibold text-zinc-400 group-hover:text-zinc-200">Klik untuk Pilih Foto</p>
+              <p className="text-[11px] text-zinc-600 mt-2 italic text-center">Rasio 16:9 akan dipaksa melalui editor.</p>
             </label>
           </div>
         </div>
@@ -299,25 +307,22 @@ export default function HeroAdmin() {
 
       {/* DAFTAR SLIDE AKTIF */}
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-xl font-bold flex items-center gap-3">
-          Slide Aktif 
-          <span className="bg-blue-600/10 text-blue-500 text-xs px-3 py-1 rounded-full border border-blue-500/20">{slides.length} Terdaftar</span>
+        <h2 className="text-xl font-bold flex items-center gap-3 italic uppercase tracking-tighter">
+          Current Slides 
+          <span className="bg-blue-600/10 text-blue-500 text-xs px-3 py-1 rounded-full border border-blue-500/20 not-italic font-medium">{slides.length}</span>
         </h2>
       </div>
 
       <div className="grid grid-cols-1 gap-5">
         {slides.map((slide) => (
           <div key={slide.id} className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 flex flex-col md:flex-row gap-8 hover:border-zinc-600 transition-all group overflow-hidden">
-            <div className="w-full md:w-64 h-36 flex-shrink-0 overflow-hidden rounded-2xl bg-black border border-white/5 relative shadow-inner">
+            <div className="w-full md:w-64 h-36 flex-shrink-0 overflow-hidden rounded-2xl bg-black border border-white/5 shadow-inner">
               <img src={slide.image} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" alt="Hero" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                <span className="text-[10px] text-white/70 uppercase font-bold tracking-widest">Preview Mode</span>
-              </div>
             </div>
             
             <div className="flex-grow space-y-4 py-1">
               <div className="space-y-1">
-                <label className="text-[9px] text-zinc-600 uppercase font-bold">Judul</label>
+                <label className="text-[9px] text-zinc-600 uppercase font-bold">Title</label>
                 <input
                   defaultValue={slide.title}
                   onBlur={(e) => (slide.title = e.target.value)}
@@ -325,7 +330,7 @@ export default function HeroAdmin() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] text-zinc-600 uppercase font-bold">Deskripsi</label>
+                <label className="text-[9px] text-zinc-600 uppercase font-bold">Description</label>
                 <textarea
                   defaultValue={slide.subtitle}
                   onBlur={(e) => (slide.subtitle = e.target.value)}
@@ -337,15 +342,15 @@ export default function HeroAdmin() {
             <div className="flex md:flex-col gap-3 justify-center">
               <button 
                 onClick={() => handleUpdateSlideText(slide.id, slide.title, slide.subtitle)} 
-                className="p-4 bg-zinc-800 hover:bg-green-600/20 hover:text-green-500 rounded-2xl transition-all flex items-center justify-center shadow-lg"
-                title="Simpan Teks"
+                className="p-4 bg-zinc-800 hover:bg-green-600/20 hover:text-green-500 rounded-2xl transition-all"
+                title="Save Changes"
               >
                 <Save size={20} />
               </button>
               <button 
                 onClick={() => handleDeleteSlide(slide.id)} 
-                className="p-4 bg-zinc-800 hover:bg-red-600/20 hover:text-red-500 rounded-2xl transition-all flex items-center justify-center shadow-lg"
-                title="Hapus Slide"
+                className="p-4 bg-zinc-800 hover:bg-red-600/20 hover:text-red-500 rounded-2xl transition-all"
+                title="Delete Slide"
               >
                 <Trash2 size={20} />
               </button>
@@ -355,10 +360,7 @@ export default function HeroAdmin() {
         
         {slides.length === 0 && (
           <div className="text-center py-24 bg-zinc-900/20 border-2 border-dashed border-zinc-800 rounded-[40px]">
-            <div className="mb-4 flex justify-center text-zinc-700">
-                <Plus size={48} />
-            </div>
-            <p className="text-zinc-600 font-medium">Belum ada slide aktif. Tambahkan slide pertama Anda di atas.</p>
+            <p className="text-zinc-600 font-medium italic">No active slides. Upload your first image above.</p>
           </div>
         )}
       </div>

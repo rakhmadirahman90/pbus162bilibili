@@ -10,15 +10,14 @@ import {
 const KelolaHero: React.FC = () => {
   const [slides, setSlides] = useState<any[]>([]);
   const [sliderSettings, setSliderSettings] = useState({
-    duration: 6, // Default 6 detik
-    effect: 'fade' // Default efek fade
+    duration: 6,
+    effect: 'fade'
   });
   
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  // State Form
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -26,33 +25,44 @@ const KelolaHero: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ID unik untuk konfigurasi hero
+  const HERO_CONFIG_ID = '6d9e09d9-acc2-46e9-9a73-87bc05444018';
+
   useEffect(() => {
     fetchHeroData();
   }, []);
 
   const fetchHeroData = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('site_settings')
-      .select('value')
-      .eq('key', 'hero_config')
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'hero_config')
+        .maybeSingle();
 
-    if (!error && data?.value) {
-      const val = data.value;
-      if (val.slides) {
-        setSlides(val.slides);
+      if (error) throw error;
+
+      if (data?.value) {
+        const val = data.value;
+        setSlides(val.slides || []);
         setSliderSettings(val.settings || { duration: 6, effect: 'fade' });
-      } else {
-        setSlides(Array.isArray(val) ? val : []);
       }
+    } catch (err: any) {
+      console.error("Error fetching hero data:", err.message);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  // --- FITUR BARU: KOMPRESI GAMBAR OTOMATIS ---
+  // --- KOMPRESI GAMBAR OTOMATIS (DITINGKATKAN) ---
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) {
+        reject(new Error('File harus berupa gambar (PNG, JPG, WEBP).'));
+        return;
+      }
+
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
@@ -63,8 +73,8 @@ const KelolaHero: React.FC = () => {
           let width = img.width;
           let height = img.height;
 
-          // Batasi lebar maksimal 1280px (HD sudah cukup untuk web)
-          const MAX_WIDTH = 1280;
+          // Standar resolusi Hero Web (1920px lebar maksimal)
+          const MAX_WIDTH = 1920; 
           if (width > MAX_WIDTH) {
             height *= MAX_WIDTH / width;
             width = MAX_WIDTH;
@@ -73,16 +83,21 @@ const KelolaHero: React.FC = () => {
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Background putih untuk menjaga kualitas JPEG jika source PNG transparan
+          if (ctx) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+          }
 
-          // Kompresi ke format JPEG dengan kualitas 0.7 (70%)
           canvas.toBlob(
             (blob) => {
               if (blob) resolve(blob);
               else reject(new Error('Gagal melakukan kompresi.'));
             },
             'image/jpeg',
-            0.7
+            0.8 // Kualitas 80% (Seimbang antara size dan ketajaman)
           );
         };
       };
@@ -95,56 +110,62 @@ const KelolaHero: React.FC = () => {
     if (!file) return;
 
     setIsUploading(true);
+    setFormError(null);
+
     try {
-      // Jalankan kompresi sebelum upload
       const compressedBlob = await compressImage(file);
-      
-      const fileName = `hero-${Date.now()}.jpg`; // Selalu simpan sebagai .jpg hasil kompresi
+      const fileName = `hero-${Date.now()}.jpg`;
       const filePath = `hero-sliders/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('assets')
-        .upload(filePath, compressedBlob);
+        .upload(filePath, compressedBlob, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
 
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('assets').getPublicUrl(filePath);
+      
+      // Jika sedang edit, hapus file lama dari storage (opsional/advanced)
       setImageUrl(data.publicUrl);
     } catch (err: any) {
-      alert("Gagal upload: " + err.message);
+      setFormError(err.message);
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const saveToDatabase = async (updatedSlides: any[], updatedSettings = sliderSettings) => {
     const payload = {
       slides: updatedSlides,
-      settings: updatedSettings
+      settings: updatedSettings,
+      updated_at: new Date().toISOString()
     };
 
     const { error } = await supabase
       .from('site_settings')
       .upsert({ 
-        // ID di bawah disesuaikan dengan baris hero_config di database kamu
-        id: '6d9e09d9-acc2-46e9-9a73-87bc05444018',
+        id: HERO_CONFIG_ID,
         key: 'hero_config', 
         value: payload
-      }, { onConflict: 'id' }); // Menggunakan 'id' sebagai acuan konflik agar tidak duplikat
+      }, { onConflict: 'id' });
 
     if (!error) {
       setSlides(updatedSlides);
       setSliderSettings(updatedSettings);
       triggerSuccess();
     } else {
-      alert("Gagal menyimpan: " + error.message);
+      alert("Database Error: " + error.message);
     }
   };
 
   const handleAddSlide = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageUrl || !title) {
-      setFormError("Foto dan Judul wajib ada");
+    if (!imageUrl || !title.trim()) {
+      setFormError("Judul dan Gambar tidak boleh kosong");
       return;
     }
 
@@ -156,8 +177,8 @@ const KelolaHero: React.FC = () => {
     } else {
       const newSlide = {
         id: Date.now(),
-        title,
-        subtitle,
+        title: title.trim(),
+        subtitle: subtitle.trim(),
         image: imageUrl,
       };
       updatedSlides = [...slides, newSlide];
@@ -165,6 +186,30 @@ const KelolaHero: React.FC = () => {
 
     await saveToDatabase(updatedSlides);
     resetForm();
+  };
+
+  // Fungsi untuk membersihkan file di storage saat slide dihapus
+  const deleteFromStorage = async (url: string) => {
+    try {
+      const path = url.split('/public/assets/')[1];
+      if (path) {
+        await supabase.storage.from('assets').remove([path]);
+      }
+    } catch (err) {
+      console.error("Cleanup error:", err);
+    }
+  };
+
+  const deleteSlide = async (id: number) => {
+    const target = slides.find(s => s.id === id);
+    if (!target || !window.confirm("Hapus slide ini secara permanen?")) return;
+
+    // Bersihkan storage
+    await deleteFromStorage(target.image);
+
+    const updatedSlides = slides.filter(s => s.id !== id);
+    if (editingId === id) resetForm();
+    await saveToDatabase(updatedSlides);
   };
 
   const startEdit = (slide: any) => {
@@ -182,13 +227,6 @@ const KelolaHero: React.FC = () => {
     setSubtitle('');
     setImageUrl('');
     setFormError(null);
-  };
-
-  const deleteSlide = async (id: number) => {
-    if (!window.confirm("Hapus foto ini?")) return;
-    const updatedSlides = slides.filter(s => s.id !== id);
-    if (editingId === id) resetForm();
-    await saveToDatabase(updatedSlides);
   };
 
   const moveSlide = async (index: number, direction: 'up' | 'down') => {
@@ -221,7 +259,8 @@ const KelolaHero: React.FC = () => {
           </div>
           <button 
             onClick={fetchHeroData}
-            className="flex items-center gap-3 px-8 py-4 bg-zinc-900 rounded-2xl border border-white/5 hover:bg-zinc-800 transition-all active:scale-95 shadow-2xl"
+            disabled={isLoading}
+            className="flex items-center gap-3 px-8 py-4 bg-zinc-900 rounded-2xl border border-white/5 hover:bg-zinc-800 transition-all active:scale-95 shadow-2xl disabled:opacity-50"
           >
             <RefreshCcw size={18} className={isLoading ? 'animate-spin text-blue-500' : 'text-zinc-400'} />
             <span className="text-[10px] font-black uppercase tracking-widest">Resync Data</span>
@@ -230,9 +269,10 @@ const KelolaHero: React.FC = () => {
 
         <div className="grid lg:grid-cols-12 gap-10">
           
-          {/* SISI KIRI */}
+          {/* SISI KIRI: CONFIG & FORM */}
           <div className="lg:col-span-4 space-y-6">
             
+            {/* Slider Settings */}
             <div className="bg-blue-600 p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(37,99,235,0.3)] relative overflow-hidden group">
                <Settings2 className="absolute -right-4 -bottom-4 text-white/10 w-32 h-32 rotate-12 group-hover:rotate-0 transition-transform duration-700" />
                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-2 text-white/90">
@@ -260,6 +300,7 @@ const KelolaHero: React.FC = () => {
                </div>
             </div>
 
+            {/* Form Register/Edit */}
             <div className={`bg-zinc-900/50 border ${editingId ? 'border-blue-600/50 shadow-[0_0_30px_rgba(37,99,235,0.1)]' : 'border-white/10'} p-8 rounded-[2.5rem] backdrop-blur-xl transition-all`}>
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-500">
@@ -267,14 +308,16 @@ const KelolaHero: React.FC = () => {
                   {editingId ? 'Modify Hero Slide' : 'Register New Slide'}
                 </h3>
                 {editingId && (
-                  <button onClick={resetForm} className="text-zinc-500 hover:text-white"><X size={16}/></button>
+                  <button onClick={resetForm} className="text-zinc-500 hover:text-white transition-colors">
+                    <X size={16}/>
+                  </button>
                 )}
               </div>
               
               <form onSubmit={handleAddSlide} className="space-y-5">
                 <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="group relative w-full h-44 bg-black border-2 border-dashed border-zinc-800 rounded-[2rem] flex flex-col items-center justify-center cursor-pointer hover:border-blue-600/50 transition-all overflow-hidden"
+                  onClick={() => !isUploading && fileInputRef.current?.click()}
+                  className={`group relative w-full h-44 bg-black border-2 border-dashed ${isUploading ? 'border-blue-600' : 'border-zinc-800'} rounded-[2rem] flex flex-col items-center justify-center cursor-pointer hover:border-blue-600/50 transition-all overflow-hidden`}
                 >
                   {imageUrl ? (
                     <img src={imageUrl} alt="Preview" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
@@ -284,7 +327,12 @@ const KelolaHero: React.FC = () => {
                       <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Select & Compress Visual</p>
                     </div>
                   )}
-                  {isUploading && <div className="absolute inset-0 bg-black/80 flex items-center justify-center"><RefreshCcw className="animate-spin text-blue-500" /></div>}
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2">
+                      <RefreshCcw className="animate-spin text-blue-500" />
+                      <span className="text-[8px] font-black uppercase tracking-tighter">Optimizing...</span>
+                    </div>
+                  )}
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
 
@@ -299,15 +347,27 @@ const KelolaHero: React.FC = () => {
                   className="w-full bg-black border border-white/5 rounded-xl px-5 py-4 text-xs font-bold focus:border-blue-600 outline-none h-28 resize-none transition-colors"
                 />
 
-                {formError && <p className="text-red-500 text-[9px] font-black uppercase tracking-tighter flex items-center gap-2"><AlertCircle size={14}/> {formError}</p>}
+                {formError && (
+                  <p className="text-red-500 text-[9px] font-black uppercase tracking-tighter flex items-center gap-2">
+                    <AlertCircle size={14}/> {formError}
+                  </p>
+                )}
 
                 <div className="flex gap-3">
                   {editingId && (
-                    <button type="button" onClick={resetForm} className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95">
+                    <button 
+                      type="button" 
+                      onClick={resetForm} 
+                      className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95"
+                    >
                       Cancel
                     </button>
                   )}
-                  <button type="submit" className={`flex-[2] ${editingId ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl active:scale-95`}>
+                  <button 
+                    type="submit" 
+                    disabled={isUploading}
+                    className={`flex-[2] ${editingId ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50`}
+                  >
                     {editingId ? 'Save Changes' : 'Publish to Hero'}
                   </button>
                 </div>
@@ -315,7 +375,7 @@ const KelolaHero: React.FC = () => {
             </div>
           </div>
 
-          {/* SISI KANAN */}
+          {/* SISI KANAN: LIST SLIDES */}
           <div className="lg:col-span-8 space-y-4">
             {slides.length === 0 ? (
               <div className="text-center py-40 border-2 border-dashed border-zinc-900 rounded-[3rem] opacity-30">
@@ -357,7 +417,7 @@ const KelolaHero: React.FC = () => {
         </div>
       </div>
 
-      {/* Success Notification */}
+      {/* Success Notification Overlay */}
       <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 transition-all duration-1000 z-[100] ${showSuccess ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20 pointer-events-none'}`}>
         <div className="bg-blue-600 px-10 py-5 rounded-full flex items-center gap-4 shadow-[0_30px_60px_rgba(37,99,235,0.4)] border border-white/20">
           <div className="bg-white/20 p-2 rounded-full text-white"><CheckCircle2 size={20} /></div>

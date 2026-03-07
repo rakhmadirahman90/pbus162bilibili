@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabase'; 
 
+// --- TAMBAHAN KODE: IMPORT FALLBACK DATA ---
+// Pastikan file-file ini sudah Anda buat di src/data/ sesuai instruksi sebelumnya
+import popupFallback from './data/konfigurasi_popup.json';
+
 // Import Komponen Landing Page
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -43,7 +47,7 @@ import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLin
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * FIXED POPUP COMPONENT
+ * FIXED POPUP COMPONENT WITH FALLBACK
  */
 function ImagePopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,6 +67,13 @@ function ImagePopup() {
         if (!error && data && data.length > 0) {
           setPromoImages(data);
           setTimeout(() => setIsOpen(true), 1000);
+        } else {
+          // --- TAMBAHAN: Gunakan Fallback Jika Supabase Kosong/Error ---
+          const activeFallbacks = (popupFallback as any[]).filter(p => p.is_active);
+          if (activeFallbacks.length > 0) {
+            setPromoImages(activeFallbacks);
+            setTimeout(() => setIsOpen(true), 1000);
+          }
         }
       } catch (err) {
         console.error("Gagal memuat pop-up:", err);
@@ -182,43 +193,31 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  /**
-   * PERBAIKAN LOGIKA NAVIGASI:
-   * Menghubungkan Menu Atlet Senior/Muda ke Filter di Landing Page
-   */
   const handleNavigate = (sectionId: string, subPath?: string) => {
-    // 1. Cek jika mengarah ke Struktur Organisasi
     if (sectionId === 'struktur' || subPath === 'organisasi' || sectionId === 'organization') {
         setShowStruktur(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
     }
 
-    // Kembali ke landing page jika sebelumnya di halaman struktur
     setShowStruktur(false);
 
-    // 2. Logika Tab Tentang Kami
     if (sectionId === 'tentang-kami' || ['sejarah', 'visi-misi', 'fasilitas'].includes(subPath || '')) {
       if (subPath) setActiveAboutTab(subPath);
     }
 
-    // 3. Logika Filter Atlet (Senior / Muda)
     if (sectionId === 'atlet' || sectionId === 'players') {
       const filterValue = subPath ? subPath.toLowerCase() : 'all';
       setActiveAthleteFilter(filterValue);
-      
-      // Mengirimkan event ke komponen Athletes agar filter berubah secara reaktif
       window.dispatchEvent(new CustomEvent('filterAtlet', { detail: filterValue }));
     }
     
-    // 4. Smooth Scroll ke ID section
     setTimeout(() => {
-      // Prioritaskan scroll ke section 'atlet' jika subPath adalah kategori atlet
       const targetId = (sectionId === 'atlet' || sectionId === 'players') ? 'atlet' : (subPath || sectionId);
       const element = document.getElementById(targetId);
       
       if (element) {
-        const offset = 80; // Offset navbar
+        const offset = 80; 
         const bodyRect = document.body.getBoundingClientRect().top;
         const elementRect = element.getBoundingClientRect().top;
         const elementPosition = elementRect - bodyRect;
@@ -254,7 +253,6 @@ export default function App() {
                   <Hero />
                   <About activeTab={activeAboutTab} onTabChange={(id) => setActiveAboutTab(id)} />
                   <News />
-                  {/* Bagian Atlet dengan ID yang konsisten untuk scroll */}
                   <section id="atlet">
                     <Athletes initialFilter={activeAthleteFilter} />
                   </section>

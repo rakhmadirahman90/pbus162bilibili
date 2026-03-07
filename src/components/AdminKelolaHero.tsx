@@ -97,9 +97,8 @@ export default function HeroAdmin() {
   };
 
   /**
-   * PERBAIKAN LOGIKA PENYIMPANAN (FINAL SOLUTION)
-   * Menggunakan strategi Delete-then-Insert untuk menghindari error Unique Constraint.
-   * Ini akan membersihkan record lama secara total sebelum menulis yang baru.
+   * PERBAIKAN LOGIKA PENYIMPANAN (ULTIMATE HYBRID SOLUTION)
+   * Karena Primary Key adalah UUID (bukan 'key'), kita gunakan Update-First approach.
    */
   const saveToDatabase = async (updatedSlides: HeroSlide[]) => {
     const contentValue = { 
@@ -107,29 +106,44 @@ export default function HeroAdmin() {
       slides: updatedSlides 
     };
 
+    const payload = {
+      value: contentValue,
+      updated_at: new Date().toISOString()
+    };
+
     try {
-      // 1. Hapus record lama dengan key 'hero_config'
-      // Ini akan memastikan tidak ada konflik "duplicate key" saat insert nanti
-      await supabase
+      // Langkah 1: Coba UPDATE baris yang memiliki key 'hero_config'
+      const { data: updateData, error: updateError } = await supabase
         .from('site_settings')
-        .delete()
-        .eq('key', 'hero_config');
+        .update(payload)
+        .eq('key', 'hero_config')
+        .select();
 
-      // 2. Masukkan record baru
-      const { error: insertError } = await supabase
-        .from('site_settings')
-        .insert({
+      // Langkah 2: Jika baris belum ada (updateData kosong), lakukan INSERT
+      if (!updateError && (!updateData || updateData.length === 0)) {
+        const { error: insertError } = await supabase
+          .from('site_settings')
+          .insert({
+            key: 'hero_config',
+            ...payload
+          });
+        
+        if (insertError) throw insertError;
+      } else if (updateError) {
+        // Langkah 3: Jika error karena constraint, lakukan metode Hard Reset (Delete & Insert)
+        console.warn("Update failed, performing forced reset...");
+        await supabase.from('site_settings').delete().eq('key', 'hero_config');
+        const { error: finalError } = await supabase.from('site_settings').insert({
           key: 'hero_config',
-          value: contentValue,
-          updated_at: new Date().toISOString()
+          ...payload
         });
-
-      if (insertError) throw insertError;
+        if (finalError) throw finalError;
+      }
       
       setSlides(updatedSlides);
     } catch (err: any) {
       console.error("Save failed:", err);
-      alert("Gagal menyimpan ke database: " + err.message);
+      alert("Sistem gagal menyimpan. Pesan: " + err.message);
     }
   };
 
@@ -204,7 +218,7 @@ export default function HeroAdmin() {
                   defaultValue={slide.title}
                   onBlur={(e) => {
                     const val = e.target.value;
-                    slide.title = val; // update ref
+                    slide.title = val; 
                     setSlides(prev => prev.map(s => s.id === slide.id ? {...s, title: val} : s));
                   }}
                   className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none font-bold"
@@ -213,7 +227,7 @@ export default function HeroAdmin() {
                   defaultValue={slide.subtitle}
                   onBlur={(e) => {
                     const val = e.target.value;
-                    slide.subtitle = val; // update ref
+                    slide.subtitle = val;
                     setSlides(prev => prev.map(s => s.id === slide.id ? {...s, subtitle: val} : s));
                   }}
                   className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:border-blue-500 outline-none h-16 text-zinc-400"

@@ -78,21 +78,21 @@ export default function Hero() {
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            {/* KUNCI PERBAIKAN:
-               1. h-full w-full + object-cover: Memastikan gambar menutup layar HP secara penuh (Full Screen).
-               2. object-top: Memastikan bagian wajah (atas) diprioritaskan agar tidak terpotong.
-               3. scale-110 ke scale-125: Memberikan efek pergerakan membesar yang sinematik.
+            {/* PERBAIKAN FOKUS WAJAH:
+                1. object-[center_15%]: Ini kunci agar wajah turun sedikit dari notch HP dan tidak terpotong.
+                2. md:object-center: Kembali ke tengah otomatis saat di layar lebar/laptop.
+                3. scale-110 ke scale-120: Mengecilkan sedikit rentang zoom agar wajah tidak terpotong saat membesar.
             */}
             <img
               src={slide.image}
               alt=""
-              className={`w-full h-full object-cover object-top md:object-center transition-transform duration-[20000ms] ease-out
-                ${index === currentSlide ? 'scale-125' : 'scale-110'}
+              className={`w-full h-full object-cover object-[center_15%] md:object-center transition-transform duration-[20000ms] ease-out
+                ${index === currentSlide ? 'scale-120' : 'scale-110'}
               `}
             />
 
-            {/* Overlay Gradient: Diperhalus agar area wajah tetap bersih namun UI navigasi terbaca */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/80 z-20" />
+            {/* Overlay Gradient: Membuat bagian bawah gelap untuk teks, tapi atas tetap terang untuk wajah */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent via-40% to-black/80 z-20" />
           </div>
         ))}
       </div>

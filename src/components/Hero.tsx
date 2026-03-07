@@ -59,7 +59,6 @@ export default function Hero() {
     setTimeout(() => setIsTransitioning(false), 1500);
   };
 
-  // FUNGSI SCROLL YANG HILANG
   const scrollToAbout = () => {
     const nextSection = document.getElementById('tentang-kami') || document.getElementById('about');
     if (nextSection) {
@@ -79,18 +78,21 @@ export default function Hero() {
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            {/* AGAR FULLSCREEN TANPA HITAM & WAJAH DI TENGAH:
-                - object-cover: Menghilangkan area hitam (Full Screen).
-                - object-[center_25%]: Memastikan wajah/objek di atas-tengah tidak terpotong di HP.
+            {/* KUNCI PERBAIKAN WAJAH:
+              - object-cover: Fullscreen.
+              - object-[center_15%]: Menggeser posisi gambar agar area wajah (atas) 
+                mendapat porsi lebih banyak di layar HP yang sempit.
+              - scale-105: Zoom dikurangi agar wajah tidak cepat 'keluar' dari layar saat animasi.
             */}
             <img
               src={slide.image}
               alt=""
-              className={`w-full h-full object-cover object-[center_25%] md:object-center transition-transform duration-[20000ms] ease-out 
-                ${index === currentSlide ? 'scale-110' : 'scale-100'}
+              className={`w-full h-full object-cover object-[center_15%] md:object-center transition-transform duration-[20000ms] ease-out 
+                ${index === currentSlide ? 'scale-105' : 'scale-100'}
               `}
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/80 z-10" />
+            {/* Overlay gradasi yang lebih halus agar tidak menutupi wajah */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent via-60% to-black/90 z-10" />
           </div>
         ))}
       </div>
@@ -108,10 +110,8 @@ export default function Hero() {
         ))}
       </div>
 
-      {/* Main Controls - Navigation & Scroll Discovery */}
+      {/* Main Controls */}
       <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col items-center gap-10 z-30">
-        
-        {/* Navigasi Kiri Kanan */}
         <div className="w-full flex items-center justify-between max-w-7xl">
           <div className="flex items-center gap-4">
             <div className="flex items-center bg-black/30 backdrop-blur-xl rounded-full border border-white/10 p-1">
@@ -123,13 +123,10 @@ export default function Hero() {
                 <ChevronRight size={22} />
               </button>
             </div>
-            <span className="text-white/40 font-mono text-[10px] tracking-widest hidden xs:inline">
-              0{currentSlide + 1} / 0{slides.length}
-            </span>
           </div>
         </div>
 
-        {/* TOMBOL SCROLL DISCOVERY (DI TENGAH) */}
+        {/* Scroll Discovery */}
         <button 
           onClick={scrollToAbout}
           className="group flex flex-col items-center gap-3 transition-all hover:opacity-100 opacity-60 pb-4"
@@ -143,7 +140,7 @@ export default function Hero() {
         </button>
       </div>
 
-      {/* Loading Screen */}
+      {/* Loading */}
       {loading && (
         <div className="fixed inset-0 bg-black z-[200] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-white/5 border-t-blue-500 rounded-full animate-spin" />

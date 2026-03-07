@@ -114,7 +114,7 @@ export default function AdminAbout() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // 1. Simpan ke site_settings (Struktur JSON - Master Data)
+      // 1. Simpan ke site_settings (Master JSON)
       const { error: errorSettings } = await supabase
         .from('site_settings')
         .upsert({ 
@@ -124,59 +124,59 @@ export default function AdminAbout() {
 
       if (errorSettings) throw errorSettings;
 
-      // 2. --- KODE BARU: SINKRONISASI LENGKAP KE page_contents ---
-      // Menambahkan metadata 'section' agar query di Landing Page lebih terarah
+      // 2. SINKRONISASI KE page_contents (Individual Rows)
+      // Menggunakan data yang sudah dibersihkan untuk menghindari error ON CONFLICT
       const pageEntries = [
         { 
           title: 'Sejarah', 
-          content: content.sejarah_desc, 
-          image_url: content.sejarah_img,
-          updated_at: new Date()
+          content: content.sejarah_desc || '', 
+          image_url: content.sejarah_img || null,
+          updated_at: new Date().toISOString()
         },
         { 
           title: 'Visi', 
-          content: content.vision, 
-          updated_at: new Date()
+          content: content.vision || '', 
+          image_url: null,
+          updated_at: new Date().toISOString()
         },
         { 
           title: 'Misi', 
-          content: content.missions.join('\n'), 
-          updated_at: new Date()
+          content: (content.missions || []).join('\n'), 
+          image_url: null,
+          updated_at: new Date().toISOString()
         },
-        // Tambahan sinkronisasi Fasilitas
         {
           title: 'Fasilitas',
-          content: content.fasilitas_title,
-          image_url: content.fasilitas_img1, // Foto utama
-          updated_at: new Date()
+          content: content.fasilitas_title || '',
+          image_url: content.fasilitas_img1 || null,
+          updated_at: new Date().toISOString()
         }
       ];
 
-      // Lakukan Upsert ke page_contents berdasarkan judul (Unique Constraint)
+      // Melakukan upsert satu per satu atau sekaligus berdasarkan unique constraint 'title'
       const { error: errorPages } = await supabase
         .from('page_contents')
-        .upsert(pageEntries, { onConflict: 'title' });
+        .upsert(pageEntries, { 
+          onConflict: 'title',
+          ignoreDuplicates: false 
+        });
 
       if (errorPages) throw errorPages;
 
       Swal.fire({
         icon: 'success',
         title: 'BERHASIL DISIMPAN',
-        text: 'Konten Tentang Kami dan Fasilitas telah diperbarui.',
+        text: 'Seluruh konten berhasil disinkronkan ke database.',
         background: '#0F172A',
         color: '#fff',
         confirmButtonColor: '#2563eb'
       });
     } catch (error: any) {
-      // Menangani error spesifik jika constraint UNIQUE belum dibuat
-      const errorMessage = error.message.includes('unique constraint') 
-        ? "Gagal Sinkron: Pastikan kolom 'title' di tabel page_contents sudah diatur sebagai UNIQUE di SQL Editor."
-        : error.message;
-
+      console.error("Save Error:", error);
       Swal.fire({
         icon: 'error',
         title: 'GAGAL MENYIMPAN',
-        text: errorMessage,
+        text: `Terjadi kendala: ${error.message}. Pastikan koneksi stabil.`,
         background: '#0F172A',
         color: '#fff'
       });
@@ -337,7 +337,7 @@ export default function AdminAbout() {
           </div>
         </div>
 
-        {/* SECTION 3: FASILITAS (3 FOTO) */}
+        {/* SECTION 3: FASILITAS */}
         <div className="bg-[#0F172A] border border-white/5 rounded-[3rem] p-8 md:p-10 shadow-2xl">
           <div className="flex items-center gap-4 mb-8 text-amber-500 border-b border-white/5 pb-6">
             <Award size={28} />
@@ -350,11 +350,11 @@ export default function AdminAbout() {
               <ImageUploadBox field="fasilitas_img1" url={content.fasilitas_img1} onUpload={handleImageUpload} onClear={() => setContent({...content, fasilitas_img1: ''})} uploading={uploading === 'fasilitas_img1'} />
             </div>
             <div className="space-y-3">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detail 1 (Kanan Atas)</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detail 1</span>
               <ImageUploadBox field="fasilitas_img2" url={content.fasilitas_img2} onUpload={handleImageUpload} onClear={() => setContent({...content, fasilitas_img2: ''})} uploading={uploading === 'fasilitas_img2'} />
             </div>
             <div className="space-y-3">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detail 2 (Kanan Bawah)</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Detail 2</span>
               <ImageUploadBox field="fasilitas_img3" url={content.fasilitas_img3} onUpload={handleImageUpload} onClear={() => setContent({...content, fasilitas_img3: ''})} uploading={uploading === 'fasilitas_img3'} />
             </div>
           </div>
@@ -399,7 +399,6 @@ function ImageUploadBox({ field, url, onUpload, onClear, uploading }: any) {
       ) : (
         <label className="flex flex-col items-center cursor-pointer">
           <Upload size={24} className="text-slate-600 mb-2" />
-          <span className="text-[9px] font-bold text-slate-500 uppercase">Upload</span>
           <input type="file" className="hidden" accept="image/*" onChange={(e) => onUpload(e, field)} />
         </label>
       )}

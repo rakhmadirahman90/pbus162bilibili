@@ -27,12 +27,8 @@ export default function Hero() {
 
         if (data?.value) {
           const config = data.value;
-          if (config.slides && Array.isArray(config.slides)) {
-            setSlides(config.slides);
-            setSettings(config.settings || { duration: 7 });
-          } else if (Array.isArray(config)) {
-            setSlides(config);
-          }
+          setSlides(config.slides || config);
+          setSettings(config.settings || { duration: 7 });
         }
       } catch (err) {
         console.error("Error fetching hero data:", err);
@@ -64,83 +60,71 @@ export default function Hero() {
   };
 
   return (
-    <section id="home" className="relative w-full h-[100dvh] bg-[#0a0a0a] flex flex-col overflow-hidden">
+    <section id="home" className="relative w-full h-[100dvh] overflow-hidden bg-black">
       
-      {/* Container Gambar Utama */}
-      <div className="relative flex-grow flex items-center justify-center z-0">
+      {/* Background Visual Layer */}
+      <div className="absolute inset-0 z-0">
         {slides.map((slide, index) => (
           <div
             key={slide.id || index}
-            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-[2000ms] ease-in-out ${
+            className={`absolute inset-0 transition-opacity duration-[2000ms] ease-in-out ${
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            {/* SOLUSI FINAL: 
-              - Di HP: Menggunakan 'object-contain' agar seluruh bidang 16:9 (termasuk wajah) 
-                tampil UTUH tanpa terpotong sisi kiri/kanannya.
-              - Di Desktop: Tetap 'object-cover' untuk kemewahan layar lebar.
+            {/* PERBAIKAN FINAL UNTUK FULLSCREEN & WAJAH TENGAH:
+              1. object-cover: Wajib agar tidak ada warna hitam di atas/bawah (Full Screen).
+              2. object-[center_20%]: Menggeser titik potong. 
+                 - 'center' memastikan sisi kiri-kanan terpotong seimbang (objek tetap di tengah).
+                 - '20%' memastikan bagian ATAS gambar (wajah) diprioritaskan agar tidak hilang di layar HP yang tinggi.
             */}
             <img
               src={slide.image}
               alt=""
-              className={`w-full h-full md:object-cover object-contain transition-transform duration-[20000ms] ease-out
-                ${index === currentSlide ? 'scale-105 md:scale-110' : 'scale-100'}
+              className={`w-full h-full object-cover object-[center_20%] md:object-center transition-transform duration-[20000ms] ease-out 
+                ${index === currentSlide ? 'scale-110' : 'scale-100'}
               `}
             />
             
-            {/* Background Blur Effect agar bagian kosong di atas/bawah HP tidak terlihat mati */}
-            <div 
-              className="absolute inset-0 -z-10 opacity-30 blur-2xl md:hidden"
-              style={{ backgroundImage: `url(${slide.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-            />
-
-            {/* Overlay Gradasi halus */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 z-10" />
+            {/* Overlay Gradient untuk visibilitas navigasi */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 z-10" />
           </div>
         ))}
       </div>
 
-      {/* Navigasi Samping (Dots) */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-30">
+      {/* Kontrol Navigasi Samping */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-30">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => !isTransitioning && setCurrentSlide(index)}
-            className={`transition-all duration-700 rounded-full ${
-              index === currentSlide 
-                ? 'h-8 md:h-10 w-1 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]' 
-                : 'h-1.5 w-1 bg-white/10 hover:bg-white/40'
+            className={`transition-all duration-500 rounded-full ${
+              index === currentSlide ? 'h-8 w-1 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'h-1.5 w-1 bg-white/20'
             }`}
           />
         ))}
       </div>
 
       {/* Kontrol Navigasi Bawah */}
-      <div className="absolute bottom-6 left-0 right-0 px-6 flex items-center justify-between z-30">
+      <div className="absolute bottom-10 left-0 right-0 px-6 flex items-center justify-between z-30">
         <div className="flex items-center gap-4">
-          <div className="flex items-center bg-black/40 backdrop-blur-2xl rounded-full border border-white/5 p-1">
-            <button onClick={handlePrev} className="p-3 text-white/60 hover:text-white transition-all active:scale-75">
+          <div className="flex items-center bg-black/30 backdrop-blur-md rounded-full border border-white/10 p-1">
+            <button onClick={handlePrev} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
               <ChevronLeft size={20} />
             </button>
             <div className="w-[1px] h-4 bg-white/10" />
-            <button onClick={handleNext} className="p-3 text-white/60 hover:text-white transition-all active:scale-75">
+            <button onClick={handleNext} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
               <ChevronRight size={20} />
             </button>
           </div>
-          <span className="text-[10px] text-white/30 font-mono tracking-widest">
+          <span className="text-[10px] text-white/50 font-mono tracking-widest">
             {String(currentSlide + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}
           </span>
         </div>
-        
-        <div className="hidden sm:block text-[8px] text-white/10 tracking-[0.5em] uppercase font-bold italic">
-          PB US 162 <span className="text-blue-500/30">AUTHORITY</span>
-        </div>
       </div>
 
-      {/* Loading Overlay */}
       {loading && (
-        <div className="fixed inset-0 bg-[#050505] z-[200] flex items-center justify-center">
-          <div className="w-8 h-8 border border-white/5 border-t-blue-600 rounded-full animate-spin" />
+        <div className="fixed inset-0 bg-black z-[200] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-white/5 border-t-blue-500 rounded-full animate-spin" />
         </div>
       )}
     </section>

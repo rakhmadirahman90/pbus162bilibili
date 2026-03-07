@@ -111,11 +111,11 @@ export default function AdminAbout() {
     }
   };
 
-  // --- BAGIAN YANG DIPERBAIKI (LOGIKA SAVE TANGGUH) ---
+  // --- LOGIKA SAVE YANG DIPERBAIKI UNTUK MENGHUBUNGKAN FASILITAS KE LANDING PAGE ---
   const handleSave = async () => {
     setSaving(true);
     try {
-      // 1. Simpan ke site_settings (Master JSON)
+      // 1. Simpan ke site_settings (Master JSON untuk Admin)
       const { error: errorSettings } = await supabase
         .from('site_settings')
         .upsert({ 
@@ -125,16 +125,33 @@ export default function AdminAbout() {
 
       if (errorSettings) throw errorSettings;
 
-      // 2. Sinkronisasi ke page_contents menggunakan metode Update-atau-Insert
+      // 2. Persiapkan data untuk sinkronisasi ke page_contents (Untuk Landing Page)
       const sections = [
-        { title: 'Sejarah', content: content.sejarah_desc, img: content.sejarah_img },
-        { title: 'Visi', content: content.vision, img: null },
-        { title: 'Misi', content: content.missions.join('\n'), img: null },
-        { title: 'Fasilitas', content: content.fasilitas_title, img: content.fasilitas_img1 }
+        { 
+            title: 'Sejarah', 
+            content: content.sejarah_desc, 
+            image_url: content.sejarah_img 
+        },
+        { 
+            title: 'Visi', 
+            content: content.vision, 
+            image_url: null 
+        },
+        { 
+            title: 'Misi', 
+            content: (content.missions || []).join('\n'), 
+            image_url: null 
+        },
+        { 
+            title: 'Fasilitas', 
+            content: content.fasilitas_title, 
+            // Mengirimkan image_url utama, detail lainnya tersimpan di Master JSON site_settings
+            image_url: content.fasilitas_img1 
+        }
       ];
 
+      // 3. Eksekusi Sinkronisasi per baris agar tidak gagal karena constraint ID
       for (const item of sections) {
-        // Cek apakah data sudah ada berdasarkan 'title'
         const { data: existing } = await supabase
           .from('page_contents')
           .select('id')
@@ -142,24 +159,24 @@ export default function AdminAbout() {
           .maybeSingle();
 
         if (existing) {
-          // Jika ada, UPDATE (Tanpa menyentuh kolom id)
+          // UPDATE jika data sudah ada
           const { error: updErr } = await supabase
             .from('page_contents')
             .update({
               content: item.content || '',
-              image_url: item.img || null,
+              image_url: item.image_url || null,
               updated_at: new Date().toISOString()
             })
             .eq('id', existing.id);
           if (updErr) throw updErr;
         } else {
-          // Jika tidak ada, INSERT (Biarkan DB generate id sendiri)
+          // INSERT jika data belum ada
           const { error: insErr } = await supabase
             .from('page_contents')
             .insert({
               title: item.title,
               content: item.content || '',
-              image_url: item.img || null,
+              image_url: item.image_url || null,
               updated_at: new Date().toISOString()
             });
           if (insErr) throw insErr;
@@ -169,7 +186,7 @@ export default function AdminAbout() {
       Swal.fire({
         icon: 'success',
         title: 'BERHASIL DISIMPAN',
-        text: 'Data telah diperbarui dan disinkronkan.',
+        text: 'Konten Sejarah dan Fasilitas telah terhubung ke Landing Page.',
         background: '#0F172A',
         color: '#fff',
         confirmButtonColor: '#2563eb'

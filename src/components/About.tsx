@@ -8,7 +8,6 @@ import {
 import { supabase } from '../supabase'; 
 
 // --- TAMBAHAN KODE: IMPORT FALLBACK DATA ---
-// Pastikan Anda sudah membuat file-file ini di folder src/data/
 import pageFallback from '../data/page_contents.json';
 import orgFallback from '../data/org_fallback.json';
 import siteFallback from '../data/site_fallback.json';
@@ -31,6 +30,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   });
   
   const [orgData, setOrgData] = useState<any[]>([]);
+  
+  // Sinkronisasi tab antara internal state dan props dari Navbar/App.tsx
   const activeTab = propsActiveTab || internalTab;
 
   useEffect(() => {
@@ -40,69 +41,50 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten dari site_settings (Branding)
-      const { data: settingsData } = await supabase
-        .from('site_settings')
-        .select('key, value');
-
-      if (settingsData) {
-        const content: any = {};
-        settingsData.forEach(item => {
-          if (item.key === 'about_content') {
-            const val = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
-            Object.assign(content, val);
-          }
-        });
-        setDynamicContent(prev => ({ ...prev, ...content }));
-      } else if (siteFallback) {
-          // Fallback Site Settings
-          const fb = siteFallback.find((i: any) => i.key === 'about_content');
-          if (fb) setDynamicContent(prev => ({ ...prev, ...fb.value }));
-      }
-
-      // --- PERBAIKAN: Ambil Konten Sejarah & Fasilitas dari page_contents ---
+      // 1. Ambil Konten dari page_contents (Sumber utama dari AdminAbout)
       const { data: pagesData, error: pagesError } = await supabase
         .from('page_contents')
         .select('*');
 
-      if (!pagesError && pagesData) {
-        const mappedContent: any = {};
+      if (!pagesError && pagesData && pagesData.length > 0) {
+        const mappedContent: any = { ...dynamicContent };
         pagesData.forEach(page => {
-          // Logika pencarian fleksibel (berdasarkan title karena slug tidak ada)
           const title = page.title?.toLowerCase() || "";
+          // Pencarian konten berdasarkan judul yang diinput Admin
           if (title.includes('sejarah')) {
             mappedContent.sejarah = page.content;
             mappedContent.sejarah_image = page.image_url || page.image;
-          }
-          if (title.includes('visi')) mappedContent.visi = page.content;
-          if (title.includes('misi')) mappedContent.misi = page.content;
-          
-          // Jika fasilitas ada di page_contents
-          if (title.includes('fasilitas') && !mappedContent.fasilitas_list) {
-              // Jika formatnya list, bisa diproses di sini
+          } else if (title.includes('visi')) {
+            mappedContent.visi = page.content;
+          } else if (title.includes('misi')) {
+            mappedContent.misi = page.content;
           }
         });
         setDynamicContent(prev => ({ ...prev, ...mappedContent }));
-      } else {
-        // Fallback dari JSON GitHub jika Supabase Error
-        const fbSejarah = pageFallback?.find((p: any) => p.title?.toLowerCase().includes('sejarah'));
+      } else if (pageFallback) {
+        // Fallback jika database kosong
+        const fbSejarah = (pageFallback as any[]).find((p: any) => p.title?.toLowerCase().includes('sejarah'));
         if (fbSejarah) {
-            setDynamicContent(prev => ({ 
-                ...prev, 
-                sejarah: fbSejarah.content,
-                sejarah_image: fbSejarah.image_url || fbSejarah.image
-            }));
+          setDynamicContent(prev => ({ 
+            ...prev, 
+            sejarah: fbSejarah.content,
+            sejarah_image: fbSejarah.image_url || fbSejarah.image
+          }));
         }
       }
 
-      // 2. Ambil Data Fasilitas (Tabel Mandiri)
+      // 2. Ambil Data Fasilitas (Mengambil dari kategori 'fasilitas' di tabel gallery/galeri)
       const { data: facilitiesData } = await supabase
-        .from('gallery') // Berdasarkan CSV Anda, fasilitas sering masuk ke gallery atau galeri
+        .from('galeri') // Mencoba tabel galeri (sesuai CSV)
         .select('*')
-        .filter('category', 'ilike', '%fasilitas%');
+        .or('category.ilike.%fasilitas%,title.ilike.%fasilitas%');
 
       if (facilitiesData && facilitiesData.length > 0) {
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
+      } else {
+        // Jika tabel 'galeri' kosong, coba tabel 'gallery'
+        const { data: galleryAlt } = await supabase.from('gallery').select('*').filter('category', 'ilike', '%fasilitas%');
+        if (galleryAlt) setDynamicContent(prev => ({ ...prev, fasilitas_list: galleryAlt }));
       }
 
       // 3. Ambil Struktur Organisasi
@@ -125,7 +107,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
-  // --- KODE LAMA TETAP DIPERTAHANKAN (UI & RENDER) ---
   const handleTabChange = (id: string) => {
     if (onTabChange) {
       onTabChange(id);
@@ -326,15 +307,15 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       dynamicContent.fasilitas_list.map((f: any, i: number) => (
                         <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
                           <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
-                            <img src={f.image_url || f.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title} />
+                            <img src={f.image_url || f.image || f.url_gambar} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title || f.judul} />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-60" />
                             <div className="absolute bottom-0 left-0 p-6">
                               <span className="bg-blue-600 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full">Fasilitas</span>
                             </div>
                           </div>
                           <div className="p-6">
-                            <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title}</h4>
-                            <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.desc}</p>
+                            <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title || f.judul}</h4>
+                            <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.desc || f.deskripsi}</p>
                           </div>
                         </div>
                       ))

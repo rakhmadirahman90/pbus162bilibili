@@ -111,6 +111,7 @@ export default function AdminAbout() {
     }
   };
 
+  // --- BAGIAN YANG DIPERBAIKI (LOGIKA SAVE TANGGUH) ---
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -124,49 +125,51 @@ export default function AdminAbout() {
 
       if (errorSettings) throw errorSettings;
 
-      // 2. SINKRONISASI KE page_contents (Individual Rows)
-      // Menggunakan data yang sudah dibersihkan untuk menghindari error ON CONFLICT
-      const pageEntries = [
-        { 
-          title: 'Sejarah', 
-          content: content.sejarah_desc || '', 
-          image_url: content.sejarah_img || null,
-          updated_at: new Date().toISOString()
-        },
-        { 
-          title: 'Visi', 
-          content: content.vision || '', 
-          image_url: null,
-          updated_at: new Date().toISOString()
-        },
-        { 
-          title: 'Misi', 
-          content: (content.missions || []).join('\n'), 
-          image_url: null,
-          updated_at: new Date().toISOString()
-        },
-        {
-          title: 'Fasilitas',
-          content: content.fasilitas_title || '',
-          image_url: content.fasilitas_img1 || null,
-          updated_at: new Date().toISOString()
-        }
+      // 2. Sinkronisasi ke page_contents menggunakan metode Update-atau-Insert
+      const sections = [
+        { title: 'Sejarah', content: content.sejarah_desc, img: content.sejarah_img },
+        { title: 'Visi', content: content.vision, img: null },
+        { title: 'Misi', content: content.missions.join('\n'), img: null },
+        { title: 'Fasilitas', content: content.fasilitas_title, img: content.fasilitas_img1 }
       ];
 
-      // Melakukan upsert satu per satu atau sekaligus berdasarkan unique constraint 'title'
-      const { error: errorPages } = await supabase
-        .from('page_contents')
-        .upsert(pageEntries, { 
-          onConflict: 'title',
-          ignoreDuplicates: false 
-        });
+      for (const item of sections) {
+        // Cek apakah data sudah ada berdasarkan 'title'
+        const { data: existing } = await supabase
+          .from('page_contents')
+          .select('id')
+          .eq('title', item.title)
+          .maybeSingle();
 
-      if (errorPages) throw errorPages;
+        if (existing) {
+          // Jika ada, UPDATE (Tanpa menyentuh kolom id)
+          const { error: updErr } = await supabase
+            .from('page_contents')
+            .update({
+              content: item.content || '',
+              image_url: item.img || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existing.id);
+          if (updErr) throw updErr;
+        } else {
+          // Jika tidak ada, INSERT (Biarkan DB generate id sendiri)
+          const { error: insErr } = await supabase
+            .from('page_contents')
+            .insert({
+              title: item.title,
+              content: item.content || '',
+              image_url: item.img || null,
+              updated_at: new Date().toISOString()
+            });
+          if (insErr) throw insErr;
+        }
+      }
 
       Swal.fire({
         icon: 'success',
         title: 'BERHASIL DISIMPAN',
-        text: 'Seluruh konten berhasil disinkronkan ke database.',
+        text: 'Data telah diperbarui dan disinkronkan.',
         background: '#0F172A',
         color: '#fff',
         confirmButtonColor: '#2563eb'
@@ -176,7 +179,7 @@ export default function AdminAbout() {
       Swal.fire({
         icon: 'error',
         title: 'GAGAL MENYIMPAN',
-        text: `Terjadi kendala: ${error.message}. Pastikan koneksi stabil.`,
+        text: error.message,
         background: '#0F172A',
         color: '#fff'
       });

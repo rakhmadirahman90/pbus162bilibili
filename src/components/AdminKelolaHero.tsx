@@ -97,43 +97,52 @@ export default function HeroAdmin() {
   };
 
   /**
-   * PERBAIKAN TOTAL: saveToDatabase
-   * Menggunakan strategi Hybrid untuk memaksa penyimpanan data
+   * PERBAIKAN LOGIKA PENYIMPANAN
+   * Menggunakan Update-First Strategy untuk menghindari Unique Constraint Error
    */
   const saveToDatabase = async (updatedSlides: HeroSlide[]) => {
-    const payload = {
-      key: 'hero_config',
-      value: { 
-        settings: { duration: 7 }, 
-        slides: updatedSlides 
-      },
-      updated_at: new Date().toISOString()
+    const contentValue = { 
+      settings: { duration: 7 }, 
+      slides: updatedSlides 
     };
 
-    // Strategi 1: Coba Upsert (Standard)
-    const { error: upsertError } = await supabase
+    // 1. Coba UPDATE dulu berdasarkan 'key'
+    const { data: updateData, error: updateError } = await supabase
       .from('site_settings')
-      .upsert(payload, { onConflict: 'key' });
+      .update({ 
+        value: contentValue,
+        updated_at: new Date().toISOString()
+      })
+      .eq('key', 'hero_config')
+      .select();
 
-    // Strategi 2: Jika Upsert gagal karena Unique Constraint (Error 23505)
-    // Kita lakukan Delete lalu Insert secara manual
-    if (upsertError) {
-      console.warn("Upsert failed, attempting manual override (Delete-then-Insert)...");
+    // 2. Jika UPDATE tidak mengenai baris apapun (data belum ada) 
+    // atau jika terjadi error constraint, gunakan UPSERT dengan parameter eksplisit
+    if (updateError || !updateData || updateData.length === 0) {
+      console.log("Update failed or row doesn't exist, attempting upsert...");
       
-      // Hapus data lama yang bikin konflik
-      await supabase
+      const { error: upsertError } = await supabase
         .from('site_settings')
-        .delete()
-        .eq('key', 'hero_config');
+        .upsert(
+          { 
+            key: 'hero_config', 
+            value: contentValue,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: 'key' }
+        );
 
-      // Masukkan data baru
-      const { error: insertError } = await supabase
-        .from('site_settings')
-        .insert(payload);
-
-      if (insertError) {
-        console.error("Manual insert failed:", insertError);
-        throw insertError;
+      if (upsertError) {
+        // 3. Fallback terakhir: Hapus paksa dan masukkan baru
+        console.warn("Upsert failed, forcing hard reset...");
+        await supabase.from('site_settings').delete().eq('key', 'hero_config');
+        const { error: finalError } = await supabase.from('site_settings').insert({
+          key: 'hero_config',
+          value: contentValue,
+          updated_at: new Date().toISOString()
+        });
+        
+        if (finalError) throw finalError;
       }
     }
     
@@ -209,12 +218,18 @@ export default function HeroAdmin() {
               <div className="flex-grow space-y-4">
                 <input 
                   defaultValue={slide.title}
-                  onBlur={(e) => (slide.title = e.target.value)}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    setSlides(prev => prev.map(s => s.id === slide.id ? {...s, title: val} : s));
+                  }}
                   className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none font-bold"
                 />
                 <textarea 
                   defaultValue={slide.subtitle}
-                  onBlur={(e) => (slide.subtitle = e.target.value)}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    setSlides(prev => prev.map(s => s.id === slide.id ? {...s, subtitle: val} : s));
+                  }}
                   className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:border-blue-500 outline-none h-16 text-zinc-400"
                 />
               </div>

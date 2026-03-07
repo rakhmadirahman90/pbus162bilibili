@@ -22,6 +22,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const [loading, setLoading] = useState(true);
   
   const [dynamicContent, setDynamicContent] = useState<Record<string, any>>({
+    sejarah_title: "Jejak Langkah Kami",
+    sejarah_accent: "",
     sejarah: `Didirikan dengan semangat dedikasi tinggi...`,
     sejarah_image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070",
     visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi...",
@@ -43,37 +45,42 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten dari page_contents (SUMBER DARI ADMIN)
-      const { data: pagesData, error: pagesError } = await supabase
-        .from('page_contents')
-        .select('*');
+      // 1. Ambil Konten dari site_settings (SUMBER MASTER DARI ADMIN)
+      const { data: settingsData } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'about_content')
+        .maybeSingle();
 
-      if (!pagesError && pagesData && pagesData.length > 0) {
-        const mappedContent: any = { ...dynamicContent };
-        pagesData.forEach(page => {
-          // Normalisasi title untuk pengecekan
-          const title = page.title?.toLowerCase().trim() || "";
-          
-          if (title.includes('sejarah')) {
-            mappedContent.sejarah = page.content;
-            mappedContent.sejarah_image = page.image_url || page.image;
-          } else if (title.includes('visi')) {
-            mappedContent.visi = page.content;
-          } else if (title.includes('misi')) {
-            mappedContent.misi = page.content;
-          } 
-          
-          // PERBAIKAN LOGIKA PEMETAAN FASILITAS (3 GAMBAR)
-          else if (title === 'fasilitas') {
-            mappedContent.fasilitas_title = page.content;
-            mappedContent.fasilitas_main_image = page.image_url;
-          } else if (title === 'fasilitas_detail_1' || title.includes('detail_1')) {
-            mappedContent.fasilitas_img1 = page.image_url;
-          } else if (title === 'fasilitas_detail_2' || title.includes('detail_2')) {
-            mappedContent.fasilitas_img2 = page.image_url;
-          }
-        });
-        setDynamicContent(prev => ({ ...prev, ...mappedContent }));
+      if (settingsData && settingsData.value) {
+        const val = typeof settingsData.value === 'string' ? JSON.parse(settingsData.value) : settingsData.value;
+        
+        setDynamicContent(prev => ({
+          ...prev,
+          sejarah_title: val.sejarah_title || prev.sejarah_title,
+          sejarah_accent: val.sejarah_accent || "",
+          sejarah: val.sejarah_desc || prev.sejarah,
+          sejarah_image: val.sejarah_img || prev.sejarah_image,
+          visi: val.vision || prev.visi,
+          misi: Array.isArray(val.missions) ? val.missions.join('\n') : (val.misi || prev.misi),
+          fasilitas_title: val.fasilitas_title || prev.fasilitas_title,
+          fasilitas_main_image: val.fasilitas_img1 || prev.fasilitas_main_image,
+          fasilitas_img1: val.fasilitas_img2 || prev.fasilitas_img1,
+          fasilitas_img2: val.fasilitas_img3 || prev.fasilitas_img2,
+        }));
+      } else {
+        // Fallback ke page_contents jika site_settings kosong
+        const { data: pagesData } = await supabase.from('page_contents').select('*');
+        if (pagesData) {
+          const mapped: any = {};
+          pagesData.forEach(p => {
+            const t = p.title.toLowerCase();
+            if (t === 'sejarah') { mapped.sejarah = p.content; mapped.sejarah_image = p.image_url; }
+            if (t === 'visi') mapped.visi = p.content;
+            if (t === 'misi') mapped.misi = p.content;
+          });
+          setDynamicContent(prev => ({ ...prev, ...mapped }));
+        }
       }
 
       // 2. Ambil Data Fasilitas List (Galeri Pendukung)
@@ -240,8 +247,10 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       </div>
                     </div>
                     <div className="flex-1">
+                      {/* PERBAIKAN: MENAMPILKAN JUDUL UTAMA & AKSEN DARI ADMIN */}
                       <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-4 flex items-center gap-2">
-                        <Zap className="text-amber-500" size={20} /> Jejak Langkah Kami
+                        <Zap className="text-amber-500" size={20} /> 
+                        {dynamicContent.sejarah_title} <span className="text-blue-600">{dynamicContent.sejarah_accent}</span>
                       </h3>
                       <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium">
                         {dynamicContent.sejarah}
@@ -263,7 +272,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     <div>
                       <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Misi Kami</h3>
                       <div className="space-y-4">
-                        {dynamicContent.misi?.split('\n').filter((t: string) => t.trim() !== '').map((item: string, i: number) => (
+                        {/* PERBAIKAN: SPLIT MISI DENGAN LEBIH AMAN */}
+                        {String(dynamicContent.misi || "").split('\n').filter((t: string) => t.trim() !== '').map((item: string, i: number) => (
                           <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                             <CheckCircle size={16} className="text-emerald-500 mt-1" />
                             <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">{item}</p>
@@ -275,7 +285,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
               )}
 
-              {/* TAMPILAN FASILITAS LENGKAP (3 GAMBAR DISINKRONKAN DENGAN ADMIN) */}
               {activeTab === 'fasilitas' && (
                 <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex flex-col items-center text-center mb-10">
@@ -287,9 +296,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     </h3>
                   </div>
 
-                  {/* Grid 3 Gambar - SEKARANG DISESUAIKAN DENGAN INPUT ADMIN */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    {/* Foto Utama */}
                     <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
                       <img 
                         src={dynamicContent.fasilitas_main_image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070"} 
@@ -297,7 +304,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                         alt="Fasilitas Utama" 
                       />
                     </div>
-                    {/* Detail 1 */}
                     <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
                       <img 
                         src={dynamicContent.fasilitas_img1 || "https://images.unsplash.com/photo-1571902901105-d8c8d330bd46?q=80&w=1967"} 
@@ -305,7 +311,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                         alt="Detail Fasilitas 1" 
                       />
                     </div>
-                    {/* Detail 2 */}
                     <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
                       <img 
                         src={dynamicContent.fasilitas_img2 || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070"} 
@@ -315,7 +320,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     </div>
                   </div>
 
-                  {/* Galeri Tambahan (Kategori Fasilitas) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                     {dynamicContent.fasilitas_list?.length > 0 && dynamicContent.fasilitas_list.map((f: any, i: number) => (
                       <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">

@@ -78,21 +78,20 @@ export default function Hero() {
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            {/* KUNCI PERBAIKAN WAJAH:
-              - object-cover: Fullscreen.
-              - object-[center_15%]: Menggeser posisi gambar agar area wajah (atas) 
-                mendapat porsi lebih banyak di layar HP yang sempit.
-              - scale-105: Zoom dikurangi agar wajah tidak cepat 'keluar' dari layar saat animasi.
+            {/* STRATEGI BARU: 
+              - Kita hilangkan 'scale-110' di mobile agar gambar tidak terlalu "gemuk" dan memotong wajah.
+              - Gunakan 'object-[center_10%]' untuk benar-benar menarik area kepala ke bawah notch HP.
+              - Gunakan 'h-[105%]' sedikit lebih tinggi dari layar untuk memberi ruang gerak.
             */}
             <img
               src={slide.image}
               alt=""
-              className={`w-full h-full object-cover object-[center_15%] md:object-center transition-transform duration-[20000ms] ease-out 
-                ${index === currentSlide ? 'scale-105' : 'scale-100'}
+              className={`w-full h-full object-cover object-[center_10%] md:object-center transition-transform duration-[20000ms] ease-out 
+                ${index === currentSlide ? 'scale-100 md:scale-110' : 'scale-100'}
               `}
             />
-            {/* Overlay gradasi yang lebih halus agar tidak menutupi wajah */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent via-60% to-black/90 z-10" />
+            {/* Overlay Gradient yang lebih transparan di atas (agar wajah bersih) */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent via-40% to-black/80 z-10" />
           </div>
         ))}
       </div>

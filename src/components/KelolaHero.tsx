@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from "../supabase";
 import { 
   Plus, Trash2, MoveUp, MoveDown, 
-  Image as ImageIcon, Upload, RefreshCcw, 
+  Image as ImageIcon, RefreshCcw, 
   CheckCircle2, AlertCircle, Clock, Zap,
-  Layers, Settings2, Edit3, X
+  Layers, Settings2, Edit3, X, ZoomIn, ZoomOut
 } from 'lucide-react';
+import Cropper from 'react-easy-crop';
 
 const KelolaHero: React.FC = () => {
   const [slides, setSlides] = useState<any[]>([]);
@@ -25,7 +26,13 @@ const KelolaHero: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ID unik untuk konfigurasi hero
+  // --- STATE BARU: IMAGE CROPPER ---
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+
   const HERO_CONFIG_ID = '6d9e09d9-acc2-46e9-9a73-87bc05444018';
 
   useEffect(() => {
@@ -55,85 +62,81 @@ const KelolaHero: React.FC = () => {
     }
   };
 
-  // --- KOMPRESI GAMBAR OTOMATIS (DITINGKATKAN) ---
-  const compressImage = (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
-        reject(new Error('File harus berupa gambar (PNG, JPG, WEBP).'));
-        return;
-      }
+  // --- LOGIKA CROP & KOMPRESI ---
+  const onCropComplete = useCallback((_ : any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
       const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        setImageToCrop(reader.result as string);
+        setShowCropModal(true);
+      });
       reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          // Standar resolusi Hero Web (1920px lebar maksimal)
-          const MAX_WIDTH = 1920; 
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          
-          // Background putih untuk menjaga kualitas JPEG jika source PNG transparan
-          if (ctx) {
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-          }
-
-          canvas.toBlob(
-            (blob) => {
-              if (blob) resolve(blob);
-              else reject(new Error('Gagal melakukan kompresi.'));
-            },
-            'image/jpeg',
-            0.8 // Kualitas 80% (Seimbang antara size dan ketajaman)
-          );
-        };
-      };
-      reader.onerror = (err) => reject(err);
-    });
+    }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processAndUploadImage = async () => {
+    if (!imageToCrop || !croppedAreaPixels) return;
 
     setIsUploading(true);
-    setFormError(null);
+    setShowCropModal(false);
 
     try {
-      const compressedBlob = await compressImage(file);
+      // 1. Create Image Object
+      const image = new Image();
+      image.src = imageToCrop;
+      await new Promise((resolve) => (image.onload = resolve));
+
+      // 2. Create Canvas for Cropping & Compression
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Set output resolution (HD 16:9)
+      const targetWidth = 1920;
+      const targetHeight = 1080;
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      if (ctx) {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+        ctx.drawImage(
+          image,
+          croppedAreaPixels.x, croppedAreaPixels.y,
+          croppedAreaPixels.width, croppedAreaPixels.height,
+          0, 0, targetWidth, targetHeight
+        );
+      }
+
+      // 3. Convert to Blob (Compress to JPEG 0.8)
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.8);
+      });
+
+      if (!blob) throw new Error("Gagal mengolah gambar.");
+
+      // 4. Upload to Supabase
       const fileName = `hero-${Date.now()}.jpg`;
       const filePath = `hero-sliders/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('assets')
-        .upload(filePath, compressedBlob, {
-          contentType: 'image/jpeg',
-          upsert: true
-        });
+        .upload(filePath, blob, { contentType: 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('assets').getPublicUrl(filePath);
-      
-      // Jika sedang edit, hapus file lama dari storage (opsional/advanced)
       setImageUrl(data.publicUrl);
+
     } catch (err: any) {
       setFormError(err.message);
     } finally {
       setIsUploading(false);
+      setImageToCrop(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -188,7 +191,6 @@ const KelolaHero: React.FC = () => {
     resetForm();
   };
 
-  // Fungsi untuk membersihkan file di storage saat slide dihapus
   const deleteFromStorage = async (url: string) => {
     try {
       const path = url.split('/public/assets/')[1];
@@ -203,10 +205,7 @@ const KelolaHero: React.FC = () => {
   const deleteSlide = async (id: number) => {
     const target = slides.find(s => s.id === id);
     if (!target || !window.confirm("Hapus slide ini secara permanen?")) return;
-
-    // Bersihkan storage
     await deleteFromStorage(target.image);
-
     const updatedSlides = slides.filter(s => s.id !== id);
     if (editingId === id) resetForm();
     await saveToDatabase(updatedSlides);
@@ -233,7 +232,6 @@ const KelolaHero: React.FC = () => {
     const newSlides = [...slides];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= newSlides.length) return;
-
     [newSlides[index], newSlides[targetIndex]] = [newSlides[targetIndex], newSlides[index]];
     await saveToDatabase(newSlides);
   };
@@ -245,8 +243,68 @@ const KelolaHero: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 font-sans selection:bg-blue-500/30">
+      
+      {/* MODAL CROPPER - NEW FEATURE */}
+      {showCropModal && imageToCrop && (
+        <div className="fixed inset-0 z-[999] bg-black/95 flex flex-col items-center justify-center p-4 md:p-10 backdrop-blur-xl">
+          <div className="w-full max-w-4xl bg-zinc-900 rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl">
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-zinc-900/50">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 flex items-center gap-3">
+                <ImageIcon size={16} /> Precision Visual Cropping
+              </h3>
+              <button onClick={() => setShowCropModal(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="relative h-[50vh] w-full bg-black">
+              <Cropper
+                image={imageToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={16 / 9}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+
+            <div className="p-8 space-y-6 bg-zinc-900">
+              <div className="flex items-center gap-6">
+                <ZoomOut size={16} className="text-zinc-500" />
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-labelledby="Zoom"
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="flex-grow h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <ZoomIn size={16} className="text-zinc-500" />
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowCropModal(false)}
+                  className="flex-1 py-4 bg-zinc-800 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={processAndUploadImage}
+                  className="flex-[2] py-4 bg-blue-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all shadow-[0_10px_30px_rgba(37,99,235,0.3)]"
+                >
+                  Apply Crop & Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
-        
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div>
@@ -268,17 +326,13 @@ const KelolaHero: React.FC = () => {
         </div>
 
         <div className="grid lg:grid-cols-12 gap-10">
-          
-          {/* SISI KIRI: CONFIG & FORM */}
+          {/* SISI KIRI */}
           <div className="lg:col-span-4 space-y-6">
-            
-            {/* Slider Settings */}
             <div className="bg-blue-600 p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(37,99,235,0.3)] relative overflow-hidden group">
                <Settings2 className="absolute -right-4 -bottom-4 text-white/10 w-32 h-32 rotate-12 group-hover:rotate-0 transition-transform duration-700" />
                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-2 text-white/90">
                  <Zap size={16} /> Slider Behavior
                </h3>
-               
                <div className="space-y-6 relative z-10">
                  <div>
                    <label className="text-[9px] font-black uppercase text-blue-100 flex items-center gap-2 mb-3">
@@ -300,18 +354,13 @@ const KelolaHero: React.FC = () => {
                </div>
             </div>
 
-            {/* Form Register/Edit */}
             <div className={`bg-zinc-900/50 border ${editingId ? 'border-blue-600/50 shadow-[0_0_30px_rgba(37,99,235,0.1)]' : 'border-white/10'} p-8 rounded-[2.5rem] backdrop-blur-xl transition-all`}>
               <div className="flex justify-between items-center mb-8">
                 <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 text-blue-500">
                   {editingId ? <Edit3 size={16} /> : <Plus size={16} />} 
                   {editingId ? 'Modify Hero Slide' : 'Register New Slide'}
                 </h3>
-                {editingId && (
-                  <button onClick={resetForm} className="text-zinc-500 hover:text-white transition-colors">
-                    <X size={16}/>
-                  </button>
-                )}
+                {editingId && <button onClick={resetForm} className="text-zinc-500 hover:text-white"><X size={16}/></button>}
               </div>
               
               <form onSubmit={handleAddSlide} className="space-y-5">
@@ -324,7 +373,7 @@ const KelolaHero: React.FC = () => {
                   ) : (
                     <div className="text-center">
                       <ImageIcon size={32} className="mx-auto text-zinc-700 mb-3" />
-                      <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Select & Compress Visual</p>
+                      <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Select Visual</p>
                     </div>
                   )}
                   {isUploading && (
@@ -334,7 +383,7 @@ const KelolaHero: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
 
                 <input 
                   type="text" placeholder="Title Line" 
@@ -355,18 +404,14 @@ const KelolaHero: React.FC = () => {
 
                 <div className="flex gap-3">
                   {editingId && (
-                    <button 
-                      type="button" 
-                      onClick={resetForm} 
-                      className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95"
-                    >
+                    <button type="button" onClick={resetForm} className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all">
                       Cancel
                     </button>
                   )}
                   <button 
                     type="submit" 
                     disabled={isUploading}
-                    className={`flex-[2] ${editingId ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50`}
+                    className={`flex-[2] ${editingId ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'} py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl disabled:opacity-50`}
                   >
                     {editingId ? 'Save Changes' : 'Publish to Hero'}
                   </button>
@@ -375,7 +420,7 @@ const KelolaHero: React.FC = () => {
             </div>
           </div>
 
-          {/* SISI KANAN: LIST SLIDES */}
+          {/* SISI KANAN */}
           <div className="lg:col-span-8 space-y-4">
             {slides.length === 0 ? (
               <div className="text-center py-40 border-2 border-dashed border-zinc-900 rounded-[3rem] opacity-30">
@@ -384,30 +429,25 @@ const KelolaHero: React.FC = () => {
               </div>
             ) : (
               slides.map((slide, index) => (
-                <div 
-                  key={slide.id} 
-                  className={`group flex flex-col md:flex-row items-center gap-6 bg-zinc-900 border ${editingId === slide.id ? 'border-blue-600' : 'border-white/5'} p-6 rounded-[2.5rem] hover:border-blue-600/40 transition-all relative overflow-hidden`}
-                >
+                <div key={slide.id} className={`group flex flex-col md:flex-row items-center gap-6 bg-zinc-900 border ${editingId === slide.id ? 'border-blue-600' : 'border-white/5'} p-6 rounded-[2.5rem] hover:border-blue-600/40 transition-all relative overflow-hidden`}>
                   <div className="relative w-full md:w-56 h-36 rounded-[1.5rem] overflow-hidden flex-shrink-0 shadow-2xl">
                     <img src={slide.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                    <div className="absolute top-4 left-4 bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shadow-xl">
+                    <div className="absolute top-4 left-4 bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black">
                       {index + 1}
                     </div>
                   </div>
-                  
                   <div className="flex-grow">
                     <h4 className="font-black uppercase italic text-lg tracking-tighter text-white mb-2">{slide.title}</h4>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase leading-relaxed line-clamp-2">{slide.subtitle}</p>
                   </div>
-
                   <div className="flex md:flex-col gap-2">
                     <div className="flex bg-black p-1.5 rounded-2xl border border-white/5">
-                      <button onClick={() => moveSlide(index, 'up')} className="p-2 text-zinc-500 hover:text-white transition-colors"><MoveUp size={18}/></button>
-                      <button onClick={() => moveSlide(index, 'down')} className="p-2 text-zinc-500 hover:text-white transition-colors"><MoveDown size={18}/></button>
+                      <button onClick={() => moveSlide(index, 'up')} className="p-2 text-zinc-500 hover:text-white"><MoveUp size={18}/></button>
+                      <button onClick={() => moveSlide(index, 'down')} className="p-2 text-zinc-500 hover:text-white"><MoveDown size={18}/></button>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => startEdit(slide)} className="flex-1 p-4 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"><Edit3 size={20} /></button>
-                      <button onClick={() => deleteSlide(slide.id)} className="flex-1 p-4 bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl transition-all shadow-lg active:scale-95"><Trash2 size={20} /></button>
+                      <button onClick={() => startEdit(slide)} className="flex-1 p-4 bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white rounded-2xl transition-all"><Edit3 size={20} /></button>
+                      <button onClick={() => deleteSlide(slide.id)} className="flex-1 p-4 bg-red-600/10 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl transition-all"><Trash2 size={20} /></button>
                     </div>
                   </div>
                 </div>
@@ -417,9 +457,8 @@ const KelolaHero: React.FC = () => {
         </div>
       </div>
 
-      {/* Success Notification Overlay */}
       <div className={`fixed bottom-12 left-1/2 -translate-x-1/2 transition-all duration-1000 z-[100] ${showSuccess ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20 pointer-events-none'}`}>
-        <div className="bg-blue-600 px-10 py-5 rounded-full flex items-center gap-4 shadow-[0_30px_60px_rgba(37,99,235,0.4)] border border-white/20">
+        <div className="bg-blue-600 px-10 py-5 rounded-full flex items-center gap-4 shadow-2xl border border-white/20">
           <div className="bg-white/20 p-2 rounded-full text-white"><CheckCircle2 size={20} /></div>
           <span className="font-black uppercase text-[11px] tracking-[0.3em]">System Synced & Optimized</span>
         </div>

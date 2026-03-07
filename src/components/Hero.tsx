@@ -29,7 +29,6 @@ export default function Hero() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [settings, setSettings] = useState({ duration: 7 });
 
-  // FETCHING DATA: Mengambil konfigurasi dinamis dari Supabase
   useEffect(() => {
     const fetchHeroData = async () => {
       try {
@@ -58,7 +57,6 @@ export default function Hero() {
     fetchHeroData();
   }, []);
 
-  // Timer Auto-slide dinamis
   useEffect(() => {
     if (slides.length <= 1) return;
     const timer = setInterval(() => {
@@ -67,12 +65,11 @@ export default function Hero() {
     return () => clearInterval(timer);
   }, [slides, currentSlide, settings.duration]);
 
-  // Fungsi Navigasi Manual
   const handleNext = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
     setCurrentSlide((prev) => (prev + 1) % slides.length);
-    setTimeout(() => setIsTransitioning(false), 1500); 
+    setTimeout(() => setIsTransitioning(false), 1500);
   };
 
   const handlePrev = () => {
@@ -83,15 +80,10 @@ export default function Hero() {
   };
 
   return (
-    <section 
-      id="home" 
-      className="relative w-full h-screen h-[100dvh] overflow-hidden bg-black"
-    >
-      {/* h-[100dvh] (Dynamic Viewport Height) adalah kunci agar di HP 
-        tampilan tetap Full Screen meskipun ada bar URL browser.
-      */}
+    // Menggunakan h-[100dvh] agar benar-benar memenuhi 1 layar penuh di HP (Dynamic Viewport Height)
+    <section id="home" className="relative w-full h-[100dvh] overflow-hidden bg-black">
       
-      {/* Background Section (Slide Gambar) */}
+      {/* Container Gambar Utama */}
       <div className="absolute inset-0 z-0">
         {slides.map((slide, index) => (
           <div
@@ -100,74 +92,76 @@ export default function Hero() {
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            <div className="relative w-full h-full">
-              <img
-                src={slide.image}
-                alt="" 
-                className={`w-full h-full object-cover object-center transition-transform duration-[12000ms] ease-out ${
-                  index === currentSlide ? 'scale-110' : 'scale-100'
-                }`}
-              />
-              
-              {/* Overlay gelap halus agar gambar tidak terlalu mentah */}
-              <div className="absolute inset-0 bg-black/10 z-10" />
-            </div>
+            {/* PENTING: 
+               object-cover memastikan gambar memenuhi layar.
+               object-center memastikan fokus cropping tengah yang Anda buat di admin tetap terjaga.
+            */}
+            <img
+              src={slide.image}
+              alt=""
+              className={`w-full h-full object-cover object-center transition-transform duration-[15000ms] ease-out ${
+                index === currentSlide ? 'scale-110' : 'scale-100'
+              }`}
+            />
+            
+            {/* Overlay Gradasi agar transisi ke section bawah lebih halus */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 z-10" />
           </div>
         ))}
       </div>
 
-      {/* Side Navigation Dots - Diatur agar presisi di tengah vertikal */}
-      <div className="absolute right-4 md:right-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-30">
+      {/* Navigasi Titik Samping (Desktop & Mobile) */}
+      <div className="absolute right-5 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-30">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => !isTransitioning && setCurrentSlide(index)}
-            className={`w-1 md:w-1.5 rounded-full transition-all duration-500 ${
+            className={`transition-all duration-500 rounded-full ${
               index === currentSlide 
-                ? 'h-8 md:h-12 bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]' 
-                : 'h-1.5 bg-white/30 hover:bg-white/60'
+                ? 'h-10 w-1.5 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]' 
+                : 'h-1.5 w-1.5 bg-white/30 hover:bg-white/60'
             }`}
           />
         ))}
       </div>
 
-      {/* Bottom Navigation Area - Diatur agar aman dari 'Home Bar' HP */}
-      <div className="absolute bottom-10 left-6 right-6 md:left-12 flex items-end justify-between z-30">
+      {/* Kontrol Navigasi Bawah */}
+      <div className="absolute bottom-10 left-6 right-6 md:left-12 flex items-center justify-between z-30">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-black/30 backdrop-blur-2xl rounded-2xl border border-white/10 p-1.5">
+          <div className="flex items-center bg-black/30 backdrop-blur-xl rounded-full border border-white/10 p-1.5">
             <button 
               onClick={handlePrev} 
-              className="p-3.5 hover:bg-white/10 text-white rounded-xl transition-all active:scale-90"
+              className="p-3 text-white/80 hover:text-white transition-all active:scale-75"
             >
               <ChevronLeft size={24} />
             </button>
-            <div className="w-[1px] h-5 bg-white/10 mx-1" />
+            <div className="w-[1px] h-5 bg-white/10" />
             <button 
               onClick={handleNext} 
-              className="p-3.5 hover:bg-white/10 text-white rounded-xl transition-all active:scale-90"
+              className="p-3 text-white/80 hover:text-white transition-all active:scale-75"
             >
               <ChevronRight size={24} />
             </button>
           </div>
           
-          {/* Slide Indicator Simple */}
-          <div className="ml-2 font-mono text-[11px] tracking-widest text-white/50">
+          {/* Indikator Angka */}
+          <span className="text-white/50 font-mono text-xs tracking-tighter">
             <span className="text-white">0{currentSlide + 1}</span> / 0{slides.length}
-          </div>
+          </span>
         </div>
 
-        {/* Branding Tipis (Sembunyi di HP agar bersih) */}
-        <div className="hidden lg:block">
-           <p className="text-[9px] font-bold uppercase tracking-[0.6em] text-white/20 italic">
-             PB US 162 <span className="opacity-50">ENGINE</span>
+        {/* Branding (Disembunyikan di HP sangat kecil) */}
+        <div className="hidden sm:block">
+           <p className="text-[8px] font-bold uppercase tracking-[0.5em] text-white/30">
+             PB US 162 AUTHORITY
            </p>
         </div>
       </div>
 
-      {/* Loading Overlay */}
+      {/* Loading Screen */}
       {loading && (
         <div className="fixed inset-0 bg-black z-[200] flex items-center justify-center">
-          <div className="w-10 h-10 border-2 border-white/5 border-t-white rounded-full animate-spin" />
+          <div className="w-10 h-10 border-2 border-white/5 border-t-blue-500 rounded-full animate-spin" />
         </div>
       )}
     </section>

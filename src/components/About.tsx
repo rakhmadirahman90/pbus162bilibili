@@ -4,8 +4,14 @@ import {
   CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
   ChevronDown, Star, GraduationCap, History, Eye, Map,
   CheckCircle, Zap
-} from 'lucide-react'; // Pastikan library lucide-react terpasang
+} from 'lucide-react'; 
 import { supabase } from '../supabase'; 
+
+// --- TAMBAHAN KODE: IMPORT FALLBACK DATA ---
+// Pastikan Anda sudah membuat file-file ini di folder src/data/
+import pageFallback from '../data/page_contents.json';
+import orgFallback from '../data/org_fallback.json';
+import siteFallback from '../data/site_fallback.json';
 
 interface AboutProps {
   activeTab?: string;
@@ -16,13 +22,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const [internalTab, setInternalTab] = useState('sejarah');
   const [loading, setLoading] = useState(true);
   
-  // Default content sebagai pengaman jika database kosong
   const [dynamicContent, setDynamicContent] = useState<Record<string, any>>({
     sejarah: `Didirikan dengan semangat dedikasi tinggi...`,
     sejarah_image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070",
     visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi...",
     misi: "Mengembangkan potensi anggota secara maksimal.\nMembangun sinergi yang kuat.\nInovatif dan edukatif.\nIntegritas dan sportivitas.",
-    fasilitas_list: [] // Akan diisi dari database
+    fasilitas_list: [] 
   });
   
   const [orgData, setOrgData] = useState<any[]>([]);
@@ -35,7 +40,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten Teks (Sejarah, Visi, Misi)
+      // 1. Ambil Konten dari site_settings (Branding)
       const { data: settingsData } = await supabase
         .from('site_settings')
         .select('key, value');
@@ -49,28 +54,70 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           }
         });
         setDynamicContent(prev => ({ ...prev, ...content }));
+      } else if (siteFallback) {
+          // Fallback Site Settings
+          const fb = siteFallback.find((i: any) => i.key === 'about_content');
+          if (fb) setDynamicContent(prev => ({ ...prev, ...fb.value }));
       }
 
-      // 2. Ambil Data Fasilitas secara spesifik (Jika ada tabel terpisah)
+      // --- PERBAIKAN: Ambil Konten Sejarah & Fasilitas dari page_contents ---
+      const { data: pagesData, error: pagesError } = await supabase
+        .from('page_contents')
+        .select('*');
+
+      if (!pagesError && pagesData) {
+        const mappedContent: any = {};
+        pagesData.forEach(page => {
+          // Logika pencarian fleksibel (berdasarkan title karena slug tidak ada)
+          const title = page.title?.toLowerCase() || "";
+          if (title.includes('sejarah')) {
+            mappedContent.sejarah = page.content;
+            mappedContent.sejarah_image = page.image_url || page.image;
+          }
+          if (title.includes('visi')) mappedContent.visi = page.content;
+          if (title.includes('misi')) mappedContent.misi = page.content;
+          
+          // Jika fasilitas ada di page_contents
+          if (title.includes('fasilitas') && !mappedContent.fasilitas_list) {
+              // Jika formatnya list, bisa diproses di sini
+          }
+        });
+        setDynamicContent(prev => ({ ...prev, ...mappedContent }));
+      } else {
+        // Fallback dari JSON GitHub jika Supabase Error
+        const fbSejarah = pageFallback?.find((p: any) => p.title?.toLowerCase().includes('sejarah'));
+        if (fbSejarah) {
+            setDynamicContent(prev => ({ 
+                ...prev, 
+                sejarah: fbSejarah.content,
+                sejarah_image: fbSejarah.image_url || fbSejarah.image
+            }));
+        }
+      }
+
+      // 2. Ambil Data Fasilitas (Tabel Mandiri)
       const { data: facilitiesData } = await supabase
-        .from('facilities')
+        .from('gallery') // Berdasarkan CSV Anda, fasilitas sering masuk ke gallery atau galeri
         .select('*')
-        .order('created_at', { ascending: true });
+        .filter('category', 'ilike', '%fasilitas%');
 
       if (facilitiesData && facilitiesData.length > 0) {
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
       }
 
       // 3. Ambil Struktur Organisasi
-      const { data: structData } = await supabase
+      const { data: structData, error: orgError } = await supabase
         .from('organizational_structure')
         .select('*')
         .order('level', { ascending: true })
-        .order('sort_order', { ascending: true }); // Menggunakan sort_order agar urutan sesuai admin
+        .order('sort_order', { ascending: true });
 
-      if (structData) {
+      if (!orgError && structData) {
         setOrgData(structData);
+      } else {
+        setOrgData(orgFallback || []);
       }
+
     } catch (err) {
       console.error("Error connecting to database:", err);
     } finally {
@@ -78,6 +125,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
+  // --- KODE LAMA TETAP DIPERTAHANKAN (UI & RENDER) ---
   const handleTabChange = (id: string) => {
     if (onTabChange) {
       onTabChange(id);
@@ -195,136 +243,138 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         {/* Content Container */}
         <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar`}>
           
-          {/* TAB: SEJARAH */}
-          {activeTab === 'sejarah' && (
-            <div className="max-w-4xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex flex-col md:flex-row gap-8 items-start">
-                <div className="w-full md:w-1/3 shrink-0">
-                  <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl rotate-3">
-                    <img 
-                      src={dynamicContent.sejarah_image} 
-                      className="w-full h-full object-cover" 
-                      alt="Sejarah" 
-                    />
-                    <div className="absolute inset-0 bg-blue-600/10 mix-blend-multiply" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-4 flex items-center gap-2">
-                    <Zap className="text-amber-500" size={20} /> Jejak Langkah Kami
-                  </h3>
-                  <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium">
-                    {dynamicContent.sejarah}
-                  </p>
-                </div>
+          {loading ? (
+              <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
-            </div>
-          )}
-
-          {/* TAB: VISI MISI */}
-          {activeTab === 'visi-misi' && (
-            <div className="max-w-5xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="grid md:grid-cols-2 gap-10">
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg">
-                      <Eye size={20} />
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 uppercase italic">Visi Utama</h3>
-                  </div>
-                  <div className="bg-white p-8 rounded-[2.5rem] border-2 border-amber-50 shadow-sm">
-                    <p className="text-slate-700 font-black italic text-lg leading-relaxed">
-                      "{dynamicContent.visi}"
-                    </p>
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-emerald-500 text-white rounded-2xl shadow-lg">
-                      <Rocket size={20} />
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 uppercase italic">Misi Kami</h3>
-                  </div>
-                  <div className="space-y-4">
-                    {dynamicContent.misi?.split('\n').filter((t: string) => t.trim() !== '').map((item: string, i: number) => (
-                      <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <div className="mt-1 text-emerald-500">
-                          <CheckCircle size={16} />
-                        </div>
-                        <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">{item}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: FASILITAS - TERHUBUNG DINAMIS */}
-          {activeTab === 'fasilitas' && (
-            <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center gap-3 mb-10">
-                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
-                  <Map size={24} />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900 uppercase italic">Fasilitas Pendukung</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {dynamicContent.fasilitas_list?.length > 0 ? (
-                  dynamicContent.fasilitas_list.map((f: any, i: number) => (
-                    <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
-                      <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
-                        <img src={f.image_url || f.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title} />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-60" />
-                        <div className="absolute bottom-0 left-0 p-6">
-                          <span className="bg-blue-600 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full">Fasilitas</span>
-                        </div>
-                      </div>
-                      <div className="p-6">
-                        <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title}</h4>
-                        <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.desc}</p>
+          ) : (
+            <>
+              {activeTab === 'sejarah' && (
+                <div className="max-w-4xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="w-full md:w-1/3 shrink-0">
+                      <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl rotate-3">
+                        <img 
+                          src={dynamicContent.sejarah_image || "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070"} 
+                          className="w-full h-full object-cover" 
+                          alt="Sejarah" 
+                        />
+                        <div className="absolute inset-0 bg-blue-600/10 mix-blend-multiply" />
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-full text-center py-20 text-slate-400 font-bold uppercase tracking-widest italic">
-                    Belum ada data fasilitas
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-4 flex items-center gap-2">
+                        <Zap className="text-amber-500" size={20} /> Jejak Langkah Kami
+                      </h3>
+                      <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium">
+                        {dynamicContent.sejarah}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                </div>
+              )}
 
-          {/* TAB: ORGANISASI (STRUKTUR) - TERHUBUNG DINAMIS */}
-          {activeTab === 'organisasi' && (
-            <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
-              {/* Filter data berdasarkan level dan tampilkan secara hierarki */}
-              {[1, 2, 3, 4, 5].map(lvl => (
-                <div key={lvl} className={`flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full`}>
-                  {orgData.filter(m => m.level === lvl).map(p => (
-                    <div key={p.id} className="relative flex flex-col items-center">
-                      <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 4 ? 'w-52 md:w-64 border-blue-500' : 'w-40 md:w-48 border-slate-100'}`}>
-                        <div className={`${lvl === 4 ? 'w-24 h-24' : 'w-16 h-16'} mx-auto mb-2`}>
-                          <img src={p.photo_url} className="w-full h-full rounded-xl object-cover shadow-sm" alt={p.name} />
+              {activeTab === 'visi-misi' && (
+                <div className="max-w-5xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="grid md:grid-cols-2 gap-10">
+                    <div className="relative">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg">
+                          <Eye size={20} />
                         </div>
-                        <p className="font-bold text-[9px] md:text-[11px] uppercase italic text-slate-800 leading-tight mb-1">{p.name}</p>
-                        <span className={`text-[7px] text-white px-3 py-0.5 rounded-md font-bold uppercase ${getLevelColor(p.level)}`}>{p.role}</span>
+                        <h3 className="text-xl font-black text-slate-900 uppercase italic">Visi Utama</h3>
                       </div>
-                      <div className="w-0.5 h-12 bg-slate-100"></div>
+                      <div className="bg-white p-8 rounded-[2.5rem] border-2 border-amber-50 shadow-sm">
+                        <p className="text-slate-700 font-black italic text-lg leading-relaxed">
+                          "{dynamicContent.visi}"
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-3 bg-emerald-500 text-white rounded-2xl shadow-lg">
+                          <Rocket size={20} />
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 uppercase italic">Misi Kami</h3>
+                      </div>
+                      <div className="space-y-4">
+                        {dynamicContent.misi?.split('\n').filter((t: string) => t.trim() !== '').map((item: string, i: number) => (
+                          <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                            <div className="mt-1 text-emerald-500">
+                              <CheckCircle size={16} />
+                            </div>
+                            <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">{item}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'fasilitas' && (
+                <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-3 mb-10">
+                    <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg">
+                      <Map size={24} />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase italic">Fasilitas Pendukung</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {dynamicContent.fasilitas_list?.length > 0 ? (
+                      dynamicContent.fasilitas_list.map((f: any, i: number) => (
+                        <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
+                          <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
+                            <img src={f.image_url || f.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-60" />
+                            <div className="absolute bottom-0 left-0 p-6">
+                              <span className="bg-blue-600 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full">Fasilitas</span>
+                            </div>
+                          </div>
+                          <div className="p-6">
+                            <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title}</h4>
+                            <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.desc}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center py-20 text-slate-400 font-bold uppercase tracking-widest italic">
+                        Belum ada data fasilitas
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'organisasi' && (
+                <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
+                  {[1, 2, 3, 4, 5].map(lvl => (
+                    <div key={lvl} className={`flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full`}>
+                      {orgData.filter(m => m.level === lvl).map(p => (
+                        <div key={p.id} className="relative flex flex-col items-center">
+                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 4 ? 'w-52 md:w-64 border-blue-500' : 'w-40 md:w-48 border-slate-100'}`}>
+                            <div className={`${lvl === 4 ? 'w-24 h-24' : 'w-16 h-16'} mx-auto mb-2`}>
+                              <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-full h-full rounded-xl object-cover shadow-sm" alt={p.name} />
+                            </div>
+                            <p className="font-bold text-[9px] md:text-[11px] uppercase italic text-slate-800 leading-tight mb-1">{p.name}</p>
+                            <span className={`text-[7px] text-white px-3 py-0.5 rounded-md font-bold uppercase ${getLevelColor(p.level)}`}>{p.role}</span>
+                          </div>
+                          <div className="w-0.5 h-12 bg-slate-100"></div>
+                        </div>
+                      ))}
                     </div>
                   ))}
-                </div>
-              ))}
 
-              {/* Bidang-Bidang (Level 6 & 7) */}
-              <div className="w-full max-w-6xl px-2">
-                {renderDepartment("Bidang Pertandingan", "Pertandingan")}
-                {renderDepartment("Bidang Pembinaan Prestasi", "Binpres")}
-                {renderDepartment("Bidang Humas", "Humas")}
-                {renderDepartment("Bidang Rohani & Sarpras", "Rohani")}
-              </div>
-            </div>
+                  <div className="w-full max-w-6xl px-2">
+                    {renderDepartment("Bidang Pertandingan", "Pertandingan")}
+                    {renderDepartment("Bidang Pembinaan Prestasi", "Binpres")}
+                    {renderDepartment("Bidang Humas", "Humas")}
+                    {renderDepartment("Bidang Rohani & Sarpras", "Rohani")}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -111,11 +111,11 @@ export default function AdminAbout() {
     }
   };
 
-  // --- LOGIKA SAVE YANG DIPERBAIKI UNTUK MENGHUBUNGKAN FASILITAS KE LANDING PAGE ---
+  // --- LOGIKA SAVE YANG DIPERBAIKI: MENGIRIM 3 GAMBAR FASILITAS KE LANDING PAGE ---
   const handleSave = async () => {
     setSaving(true);
     try {
-      // 1. Simpan ke site_settings (Master JSON untuk Admin)
+      // 1. Simpan ke site_settings (Master Data Admin)
       const { error: errorSettings } = await supabase
         .from('site_settings')
         .upsert({ 
@@ -125,7 +125,8 @@ export default function AdminAbout() {
 
       if (errorSettings) throw errorSettings;
 
-      // 2. Persiapkan data untuk sinkronisasi ke page_contents (Untuk Landing Page)
+      // 2. Persiapkan data lengkap untuk page_contents (Landing Page)
+      // Kita pecah fasilitas menjadi 3 baris agar Landing Page bisa membaca ketiganya
       const sections = [
         { 
             title: 'Sejarah', 
@@ -145,12 +146,21 @@ export default function AdminAbout() {
         { 
             title: 'Fasilitas', 
             content: content.fasilitas_title, 
-            // Mengirimkan image_url utama, detail lainnya tersimpan di Master JSON site_settings
-            image_url: content.fasilitas_img1 
+            image_url: content.fasilitas_img1 // Gambar Utama
+        },
+        { 
+            title: 'fasilitas_detail_1', 
+            content: 'Detail 1', 
+            image_url: content.fasilitas_img2 // Gambar Detail 1
+        },
+        { 
+            title: 'fasilitas_detail_2', 
+            content: 'Detail 2', 
+            image_url: content.fasilitas_img3 // Gambar Detail 2
         }
       ];
 
-      // 3. Eksekusi Sinkronisasi per baris agar tidak gagal karena constraint ID
+      // 3. Jalankan Sinkronisasi per Section
       for (const item of sections) {
         const { data: existing } = await supabase
           .from('page_contents')
@@ -159,8 +169,7 @@ export default function AdminAbout() {
           .maybeSingle();
 
         if (existing) {
-          // UPDATE jika data sudah ada
-          const { error: updErr } = await supabase
+          await supabase
             .from('page_contents')
             .update({
               content: item.content || '',
@@ -168,10 +177,8 @@ export default function AdminAbout() {
               updated_at: new Date().toISOString()
             })
             .eq('id', existing.id);
-          if (updErr) throw updErr;
         } else {
-          // INSERT jika data belum ada
-          const { error: insErr } = await supabase
+          await supabase
             .from('page_contents')
             .insert({
               title: item.title,
@@ -179,14 +186,13 @@ export default function AdminAbout() {
               image_url: item.image_url || null,
               updated_at: new Date().toISOString()
             });
-          if (insErr) throw insErr;
         }
       }
 
       Swal.fire({
         icon: 'success',
         title: 'BERHASIL DISIMPAN',
-        text: 'Konten Sejarah dan Fasilitas telah terhubung ke Landing Page.',
+        text: 'Data Admin dan 3 Gambar Fasilitas telah sinkron dengan Landing Page.',
         background: '#0F172A',
         color: '#fff',
         confirmButtonColor: '#2563eb'

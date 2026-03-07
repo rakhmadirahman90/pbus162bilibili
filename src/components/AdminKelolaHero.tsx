@@ -190,12 +190,13 @@ export default function HeroAdmin() {
   return (
     <div className="relative max-w-6xl mx-auto p-6 bg-black text-white min-h-screen">
       
-      {/* --- PERBAIKAN 3: MODAL DENGAN ISOLASI Z-INDEX --- */}
+      {/* --- PERBAIKAN: MODAL CROP DENGAN TINGGI EKSPLISIT --- */}
       {showCropper && imageSrc && (
         <div className="fixed inset-0 z-[999999] flex flex-col bg-black">
+          {/* Header Modal */}
           <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800 z-50">
             <h3 className="font-bold flex items-center gap-2 text-blue-400 uppercase italic">
-              <ImageIcon size={20} /> Crop Gambar (16:9)
+              <ImageIcon size={20} /> Potong Gambar (16:9)
             </h3>
             <button 
               type="button"
@@ -206,7 +207,8 @@ export default function HeroAdmin() {
             </button>
           </div>
           
-          <div className="relative flex-grow bg-zinc-950">
+          {/* Area Kerja Cropper (Diberi W&H 100% agar muncul) */}
+          <div className="relative flex-grow bg-zinc-950 overflow-hidden">
             <Cropper
               image={imageSrc}
               crop={crop}
@@ -216,11 +218,13 @@ export default function HeroAdmin() {
               onZoomChange={setZoom}
               onCropComplete={onCropComplete}
               style={{
-                containerStyle: { width: '100%', height: '100%', position: 'absolute' }
+                containerStyle: { width: '100%', height: '100%', position: 'absolute' },
+                cropAreaStyle: { border: '2px solid #3b82f6' }
               }}
             />
           </div>
 
+          {/* Kontrol Zoom & Simpan */}
           <div className="p-8 bg-zinc-900 border-t border-zinc-800 flex flex-col items-center gap-6 z-50">
             <div className="flex items-center gap-6 w-full max-w-lg">
               <ZoomOut size={24} className="text-zinc-500" />
@@ -238,7 +242,7 @@ export default function HeroAdmin() {
               <button
                 type="button"
                 onClick={() => { setShowCropper(false); setImageSrc(null); }}
-                className="flex-1 bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700"
+                className="flex-1 bg-zinc-800 py-4 rounded-2xl font-bold border border-zinc-700 hover:bg-zinc-700 transition-all"
               >
                 Batal
               </button>
@@ -246,9 +250,13 @@ export default function HeroAdmin() {
                 type="button"
                 onClick={processAndUpload}
                 disabled={uploading}
-                className="flex-[2] bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold flex justify-center items-center gap-2 shadow-lg disabled:opacity-50"
+                className="flex-[2] bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold flex justify-center items-center gap-2 shadow-xl shadow-blue-900/20 transition-all disabled:opacity-50"
               >
-                {uploading ? <Loader2 className="animate-spin" /> : <><Check size={22} /> Simpan & Upload</>}
+                {uploading ? (
+                  <><Loader2 className="animate-spin" /> Memproses...</>
+                ) : (
+                  <><Check size={22} /> Simpan & Upload</>
+                )}
               </button>
             </div>
           </div>
@@ -289,7 +297,7 @@ export default function HeroAdmin() {
             <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Pilih Gambar</label>
             <div 
               onClick={() => {
-                if(!newTitle.trim()) alert("Isi judul dulu!");
+                if(!newTitle.trim()) alert("Mohon isi judul terlebih dahulu!");
                 else document.getElementById('file-input')?.click();
               }}
               className="group border-2 border-dashed border-zinc-800 rounded-3xl p-10 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-600/5 transition-all h-full"

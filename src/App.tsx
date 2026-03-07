@@ -16,6 +16,8 @@ import Gallery from './components/Gallery';
 import RegistrationForm from './components/RegistrationForm'; 
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
+
+// Komponen yang tampil di depan (Landing Page)
 import StrukturOrganisasi from './components/StrukturOrganisasi'; 
 
 // Import Komponen Admin
@@ -38,7 +40,7 @@ import KelolaHero from './components/KelolaHero';
 import AdminPopup from './components/AdminPopup'; 
 import AdminFooter from './components/AdminFooter'; 
 import AdminAbout from './components/AdminAbout';
-// PASTIKAN: AdminStructure merujuk pada file yang berisi kode editor 2 panel tadi
+// Komponen yang digunakan untuk mengedit urutan (Admin)
 import AdminStructure from './components/AdminStructure'; 
 
 import { KelolaSurat } from './components/KelolaSurat'; 
@@ -262,6 +264,7 @@ export default function App() {
                 </motion.div>
               ) : (
                 <motion.div key="struktur" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="pt-20 bg-slate-50 min-h-screen w-full">
+                  {/* Komponen Landing Page ini harus sinkron mengambil .order('sort_order') */}
                   <StrukturOrganisasi />
                   <motion.button 
                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -317,7 +320,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="popup" element={<AdminPopup />} /> 
             <Route path="footer" element={<AdminFooter />} />
             <Route path="about" element={<AdminAbout />} />
-            {/* INI ADALAH ROUTE EDITOR URUTAN (AdminStructure) */}
+            {/* ROUTE ADMIN: Editor Urutan Menggunakan AdminStructure */}
             <Route path="struktur" element={<AdminStructure />} /> 
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>

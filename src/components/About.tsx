@@ -26,12 +26,14 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     sejarah_image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070",
     visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi...",
     misi: "Mengembangkan potensi anggota secara maksimal.\nMembangun sinergi yang kuat.\nInovatif dan edukatif.\nIntegritas dan sportivitas.",
-    fasilitas_title: "Fasilitas Unggulan", // Tambahan untuk judul fasilitas
+    fasilitas_title: "Fasilitas Unggulan",
+    fasilitas_main_image: "",
+    fasilitas_img1: "",
+    fasilitas_img2: "",
     fasilitas_list: [] 
   });
   
   const [orgData, setOrgData] = useState<any[]>([]);
-  
   const activeTab = propsActiveTab || internalTab;
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten dari page_contents (Sumber utama dari AdminAbout)
+      // 1. Ambil Konten dari page_contents
       const { data: pagesData, error: pagesError } = await supabase
         .from('page_contents')
         .select('*');
@@ -58,10 +60,13 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             mappedContent.visi = page.content;
           } else if (title.includes('misi')) {
             mappedContent.misi = page.content;
-          } else if (title.includes('fasilitas')) {
-            // MENGAMBIL DATA FASILITAS DARI ADMINABOUT (page_contents)
-            mappedContent.fasilitas_title = page.content; // Judul Fasilitas
-            mappedContent.fasilitas_main_image = page.image_url; // Gambar Utama
+          } else if (title === 'fasilitas') {
+            mappedContent.fasilitas_title = page.content;
+            mappedContent.fasilitas_main_image = page.image_url;
+          } else if (title === 'fasilitas_detail_1') {
+            mappedContent.fasilitas_img1 = page.image_url;
+          } else if (title === 'fasilitas_detail_2') {
+            mappedContent.fasilitas_img2 = page.image_url;
           }
         });
         setDynamicContent(prev => ({ ...prev, ...mappedContent }));
@@ -75,12 +80,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
       if (facilitiesData && facilitiesData.length > 0) {
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
-      } else {
-        const { data: galleryAlt } = await supabase.from('gallery').select('*').filter('category', 'ilike', '%fasilitas%');
-        if (galleryAlt) setDynamicContent(prev => ({ ...prev, fasilitas_list: galleryAlt }));
       }
 
-      // 3. Ambil Struktur Organisasi
+      // 3. Ambil Struktur Organisasi (Menghubungkan kembali ke Admin)
       const { data: structData, error: orgError } = await supabase
         .from('organizational_structure')
         .select('*')
@@ -119,14 +121,13 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
+  // FUNGSI RENDER BIDANG / DEPARTEMEN (MENGHUBUNGKAN STRUKTUR)
   const renderDepartment = (title: string, roleKey: string) => {
     const coordinator = orgData.find(m => 
-      m.level === 6 && 
-      m.role.toLowerCase().includes(roleKey.toLowerCase())
+      m.level === 6 && m.role.toLowerCase().includes(roleKey.toLowerCase())
     );
     const members = orgData.filter(m => 
-      m.level === 7 && 
-      m.role.toLowerCase().includes(roleKey.toLowerCase())
+      m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase())
     );
 
     if (!coordinator && members.length === 0) return null;
@@ -138,7 +139,41 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">{title}</span>
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
         </div>
-        {/* ... (render logic sama seperti kode Anda) */}
+
+        {coordinator && (
+          <div className="flex flex-col items-center mb-8">
+            <div className="bg-white p-4 rounded-[2rem] border-2 border-amber-400 shadow-lg text-center w-48 md:w-56">
+              <div className="w-20 h-20 mx-auto mb-3">
+                <img 
+                  src={coordinator.photo_url || `https://ui-avatars.com/api/?name=${coordinator.name}&background=f59e0b&color=fff`} 
+                  className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-sm" 
+                  alt={coordinator.name}
+                />
+              </div>
+              <p className="font-black text-[9px] md:text-[10px] uppercase italic text-slate-900 leading-tight mb-2">{coordinator.name}</p>
+              <span className="text-[7px] bg-amber-500 text-white px-3 py-1 rounded-full font-black uppercase tracking-tighter">
+                {coordinator.role}
+              </span>
+            </div>
+            <div className="w-0.5 h-8 bg-slate-200"></div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          {members.map(p => (
+            <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 md:w-14 md:h-14 mb-2">
+                <img 
+                  src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f1f5f9&color=64748b`} 
+                  className="w-full h-full rounded-xl object-cover" 
+                  alt={p.name}
+                />
+              </div>
+              <p className="font-bold text-[8px] md:text-[9px] uppercase text-slate-800 leading-tight">{p.name}</p>
+              <p className="text-blue-500 font-bold text-[6px] md:text-[7px] uppercase mt-1">{p.role}</p>
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -237,7 +272,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
               )}
 
-              {/* TAMPILAN FASILITAS LENGKAP */}
+              {/* TAMPILAN FASILITAS LENGKAP (3 GAMBAR DARI ADMIN) */}
               {activeTab === 'fasilitas' && (
                 <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex flex-col items-center text-center mb-10">
@@ -249,45 +284,63 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     </h3>
                   </div>
 
-                  {/* Gambar Utama (Jika ada di page_contents) */}
-                  {dynamicContent.fasilitas_main_image && (
-                    <div className="w-full h-48 md:h-80 rounded-[2.5rem] overflow-hidden mb-10 shadow-2xl border-4 border-white">
-                      <img 
-                        src={dynamicContent.fasilitas_main_image} 
-                        className="w-full h-full object-cover" 
-                        alt="Main Facility" 
-                      />
+                  {/* Grid 3 Gambar dari Admin */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
+                      <img src={dynamicContent.fasilitas_main_image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070"} className="w-full h-full object-cover" alt="Fasilitas 1" />
                     </div>
-                  )}
+                    <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
+                      <img src={dynamicContent.fasilitas_img1 || "https://images.unsplash.com/photo-1571902901105-d8c8d330bd46?q=80&w=1967"} className="w-full h-full object-cover" alt="Fasilitas 2" />
+                    </div>
+                    <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
+                      <img src={dynamicContent.fasilitas_img2 || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070"} className="w-full h-full object-cover" alt="Fasilitas 3" />
+                    </div>
+                  </div>
 
+                  {/* Galeri Tambahan */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {dynamicContent.fasilitas_list?.length > 0 ? (
-                      dynamicContent.fasilitas_list.map((f: any, i: number) => (
-                        <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
-                          <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
-                            <img src={f.image_url || f.image || f.url_gambar} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title} />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-60" />
-                          </div>
-                          <div className="p-6">
-                            <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title || f.judul}</h4>
-                            <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.deskripsi}</p>
-                          </div>
+                    {dynamicContent.fasilitas_list?.map((f: any, i: number) => (
+                      <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
+                        <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
+                          <img src={f.image_url || f.image || f.url_gambar} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title} />
                         </div>
-                      ))
-                    ) : (
-                      // Jika Galeri Fasilitas kosong, tampilkan placeholder/instruksi
-                      <div className="col-span-full bg-white p-10 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-center">
-                        <p className="text-slate-400 font-black uppercase tracking-widest italic mb-2">Belum ada Galeri Fasilitas</p>
-                        <p className="text-[10px] text-slate-400">Tambahkan foto dengan kategori 'Fasilitas' di menu Galeri Admin</p>
+                        <div className="p-6">
+                          <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title || f.judul}</h4>
+                          <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.deskripsi}</p>
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}
 
               {activeTab === 'organisasi' && (
                 <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
-                  {/* ... (render logic organisasi tetap sama) */}
+                  {/* LEVEL 1 - 5 (PENGURUS INTI) */}
+                  {[1, 2, 3, 4, 5].map(lvl => (
+                    <div key={lvl} className={`flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full`}>
+                      {orgData.filter(m => m.level === lvl).map(p => (
+                        <div key={p.id} className="relative flex flex-col items-center">
+                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 1 ? 'w-52 md:w-64 border-amber-500' : 'w-40 md:w-48 border-slate-100'}`}>
+                            <div className={`${lvl === 1 ? 'w-24 h-24' : 'w-16 h-16'} mx-auto mb-2`}>
+                              <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-full h-full rounded-xl object-cover shadow-sm" alt={p.name} />
+                            </div>
+                            <p className="font-bold text-[9px] md:text-[11px] uppercase italic text-slate-800 leading-tight mb-1">{p.name}</p>
+                            <span className={`text-[7px] text-white px-3 py-0.5 rounded-md font-bold uppercase ${getLevelColor(p.level)}`}>{p.role}</span>
+                          </div>
+                          <div className="w-0.5 h-12 bg-slate-100"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+
+                  {/* BIDANG-BIDANG (LEVEL 6 & 7) */}
+                  <div className="w-full max-w-6xl px-2">
+                    {renderDepartment("Bidang Pertandingan", "Pertandingan")}
+                    {renderDepartment("Bidang Pembinaan Prestasi", "Binpres")}
+                    {renderDepartment("Bidang Humas", "Humas")}
+                    {renderDepartment("Bidang Rohani & Sarpras", "Rohani")}
+                  </div>
                 </div>
               )}
             </>

@@ -90,7 +90,10 @@ export default function HeroAdmin() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!imageSrc || !croppedAreaPixels) return;
+    if (!imageSrc || !croppedAreaPixels) {
+      alert("Gambar belum siap atau area potong belum ditentukan.");
+      return;
+    }
 
     setUploading(true);
     try {
@@ -190,11 +193,11 @@ export default function HeroAdmin() {
   return (
     <div className="relative max-w-6xl mx-auto p-6 bg-black text-white min-h-screen">
       
-      {/* --- PERBAIKAN: MODAL CROP DENGAN TINGGI EKSPLISIT --- */}
+      {/* --- PERBAIKAN: MODAL CROP DENGAN TINGGI EKSPLISIT DAN OVERLAY --- */}
       {showCropper && imageSrc && (
-        <div className="fixed inset-0 z-[999999] flex flex-col bg-black">
+        <div className="fixed inset-0 z-[999999] flex flex-col bg-black/95 backdrop-blur-sm">
           {/* Header Modal */}
-          <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800 z-50">
+          <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800 z-[100]">
             <h3 className="font-bold flex items-center gap-2 text-blue-400 uppercase italic">
               <ImageIcon size={20} /> Potong Gambar (16:9)
             </h3>
@@ -207,8 +210,8 @@ export default function HeroAdmin() {
             </button>
           </div>
           
-          {/* Area Kerja Cropper (Diberi W&H 100% agar muncul) */}
-          <div className="relative flex-grow bg-zinc-950 overflow-hidden">
+          {/* Area Kerja Cropper - KRUSIAL: Tinggi harus diatur secara fleksibel atau fixed */}
+          <div className="relative flex-grow bg-zinc-950">
             <Cropper
               image={imageSrc}
               crop={crop}
@@ -219,13 +222,14 @@ export default function HeroAdmin() {
               onCropComplete={onCropComplete}
               style={{
                 containerStyle: { width: '100%', height: '100%', position: 'absolute' },
-                cropAreaStyle: { border: '2px solid #3b82f6' }
+                cropAreaStyle: { border: '2px solid #3b82f6' },
+                mediaStyle: { display: 'block', maxWidth: '100%', maxHeight: '100%' }
               }}
             />
           </div>
 
           {/* Kontrol Zoom & Simpan */}
-          <div className="p-8 bg-zinc-900 border-t border-zinc-800 flex flex-col items-center gap-6 z-50">
+          <div className="p-8 bg-zinc-900 border-t border-zinc-800 flex flex-col items-center gap-6 z-[100]">
             <div className="flex items-center gap-6 w-full max-w-lg">
               <ZoomOut size={24} className="text-zinc-500" />
               <input

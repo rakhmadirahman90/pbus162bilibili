@@ -114,7 +114,7 @@ export default function AdminAbout() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // 1. Simpan ke site_settings (Struktur JSON - Untuk backup/legacy)
+      // 1. Simpan ke site_settings (Struktur JSON - Master Data)
       const { error: errorSettings } = await supabase
         .from('site_settings')
         .upsert({ 
@@ -124,8 +124,8 @@ export default function AdminAbout() {
 
       if (errorSettings) throw errorSettings;
 
-      // 2. --- KODE BARU: SINKRONISASI KE page_contents ---
-      // Agar About.tsx bisa membaca data secara individual
+      // 2. --- KODE BARU: SINKRONISASI LENGKAP KE page_contents ---
+      // Menambahkan metadata 'section' agar query di Landing Page lebih terarah
       const pageEntries = [
         { 
           title: 'Sejarah', 
@@ -142,10 +142,17 @@ export default function AdminAbout() {
           title: 'Misi', 
           content: content.missions.join('\n'), 
           updated_at: new Date()
+        },
+        // Tambahan sinkronisasi Fasilitas
+        {
+          title: 'Fasilitas',
+          content: content.fasilitas_title,
+          image_url: content.fasilitas_img1, // Foto utama
+          updated_at: new Date()
         }
       ];
 
-      // Lakukan Upsert ke page_contents berdasarkan judul
+      // Lakukan Upsert ke page_contents berdasarkan judul (Unique Constraint)
       const { error: errorPages } = await supabase
         .from('page_contents')
         .upsert(pageEntries, { onConflict: 'title' });
@@ -155,16 +162,21 @@ export default function AdminAbout() {
       Swal.fire({
         icon: 'success',
         title: 'BERHASIL DISIMPAN',
-        text: 'Konten telah disinkronkan ke Landing Page.',
+        text: 'Konten Tentang Kami dan Fasilitas telah diperbarui.',
         background: '#0F172A',
         color: '#fff',
         confirmButtonColor: '#2563eb'
       });
     } catch (error: any) {
+      // Menangani error spesifik jika constraint UNIQUE belum dibuat
+      const errorMessage = error.message.includes('unique constraint') 
+        ? "Gagal Sinkron: Pastikan kolom 'title' di tabel page_contents sudah diatur sebagai UNIQUE di SQL Editor."
+        : error.message;
+
       Swal.fire({
         icon: 'error',
         title: 'GAGAL MENYIMPAN',
-        text: error.message,
+        text: errorMessage,
         background: '#0F172A',
         color: '#fff'
       });

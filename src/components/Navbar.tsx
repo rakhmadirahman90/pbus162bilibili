@@ -11,18 +11,18 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [currentLang, setCurrentLang] = useState('ID');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // --- KODE BARU: DATA DEFAULT (FALLBACK) ---
-  // Agar navbar tidak kosong jika tabel di Supabase bermasalah
-  const defaultNavData = [
-    { id: 'home-1', label: 'Beranda', path: 'home', type: 'link', order_index: 1 },
-    { id: 'about-1', label: 'Tentang Kami', path: 'tentang-kami', type: 'dropdown', order_index: 2 },
-    { id: 'sub-1', parent_id: 'about-1', label: 'Sejarah', path: 'sejarah' },
-    { id: 'sub-2', parent_id: 'about-1', label: 'Visi & Misi', path: 'visi-misi' },
-    { id: 'sub-3', parent_id: 'about-1', label: 'Struktur', path: 'organisasi' },
-    { id: 'news-1', label: 'Berita', path: 'berita', type: 'link', order_index: 3 },
-  ];
+  // --- PENAMBAHAN DATA FALLBACK AGAR TAMPILAN KEMBALI SEPERTI SEMULA ---
+  const [navData, setNavData] = useState<any[]>([
+    { id: '1', label: 'BERANDA', path: 'home', type: 'link', order_index: 1, parent_id: null },
+    { id: '2', label: 'TENTANG KAMI', path: 'tentang-kami', type: 'dropdown', order_index: 2, parent_id: null },
+    { id: '3', label: 'SEJARAH', path: 'sejarah', type: 'link', order_index: 1, parent_id: '2' },
+    { id: '4', label: 'VISI & MISI', path: 'visi-misi', type: 'link', order_index: 2, parent_id: '2' },
+    { id: '5', label: 'FASILITAS', path: 'fasilitas', type: 'link', order_index: 3, parent_id: '2' },
+    { id: '6', label: 'STRUKTUR', path: 'organisasi', type: 'link', order_index: 4, parent_id: '2' },
+    { id: '7', label: 'BERITA', path: 'berita', type: 'link', order_index: 3, parent_id: null },
+    { id: '8', label: 'GALERI', path: 'galeri', type: 'link', order_index: 4, parent_id: null },
+  ]);
 
-  const [navData, setNavData] = useState<any[]>(defaultNavData);
   const [branding, setBranding] = useState({
     logo_url: '/photo_2026-02-03_00-32-07.jpg', 
     brand_name_main: 'US 162',
@@ -30,7 +30,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     default_lang: 'ID'
   });
 
-  // --- KODE BARU: AUTO-RECOVERY & ERROR HANDLING ---
   const fetchNavSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -38,16 +37,12 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         .select('*')
         .order('order_index', { ascending: true });
       
-      // Jika data ada dan tidak error, timpa data default
+      // Hanya update jika data dari DB ada (jika DB limit, pakai data fallback di atas)
       if (!error && data && data.length > 0) {
         setNavData(data);
-      } else {
-        console.warn("Using fallback nav data due to empty table or restricted access.");
-        setNavData(defaultNavData);
       }
     } catch (err) {
       console.error("Fetch Nav Error:", err);
-      setNavData(defaultNavData);
     }
   }, []);
 
@@ -58,7 +53,6 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         .select('value')
         .eq('key', 'navbar_branding')
         .maybeSingle(); 
-
       if (!error && data && data.value) {
         const val = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
         setBranding({
@@ -77,26 +71,12 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   useEffect(() => {
     fetchNavSettings();
     fetchBrandingSettings();
-    
-    // --- KODE BARU: REALTIME SYNC ---
-    // Update navbar secara otomatis jika ada perubahan di admin panel
-    const channel = supabase
-      .channel('navbar-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'navbar_settings' }, () => {
-        fetchNavSettings();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [fetchNavSettings, fetchBrandingSettings]);
 
   const getSubMenus = (parentId: string) => {
     return navData.filter(item => item.parent_id === parentId);
   };
 
-  // --- LOGIKA NAVIGASI PERBAIKAN ---
   const handleNavClick = (path: string, subPath?: string) => {
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
@@ -217,19 +197,19 @@ export default function Navbar({ onNavigate }: NavbarProps) {
 
       {/* MOBILE MENU */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 p-6 flex flex-col gap-4 shadow-2xl overflow-y-auto max-h-[calc(100vh-5rem)]">
+        <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 p-6 flex flex-col gap-4 shadow-2xl">
           {navData.filter(item => !item.parent_id).map((menu) => (
             <React.Fragment key={menu.id}>
               <button 
                 onClick={() => menu.type !== 'dropdown' ? handleNavClick(menu.path) : (activeDropdown === menu.id ? setActiveDropdown(null) : setActiveDropdown(menu.id))}
-                className="mobile-nav-link flex justify-between items-center py-2"
+                className="mobile-nav-link flex justify-between items-center"
               >
                 {menu.label} {menu.type === 'dropdown' && <ChevronDown size={16} className={activeDropdown === menu.id ? 'rotate-180' : ''} />}
               </button>
               {menu.type === 'dropdown' && activeDropdown === menu.id && (
                 <div className="flex flex-col gap-4 pl-4 border-l-2 border-blue-500/30 ml-2 py-2">
                   {getSubMenus(menu.id).map((sub) => (
-                    <button key={sub.id} onClick={() => handleNavClick(menu.path, sub.path)} className="mobile-sub-link py-1">
+                    <button key={sub.id} onClick={() => handleNavClick(menu.path, sub.path)} className="mobile-sub-link">
                       {sub.label}
                     </button>
                   ))}
@@ -237,10 +217,8 @@ export default function Navbar({ onNavigate }: NavbarProps) {
               )}
             </React.Fragment>
           ))}
-          <div className="pt-4 border-t border-white/5 flex flex-col gap-3">
-            <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-blue-400">Hubungi Kami</button>
-            <button onClick={() => handleNavClick('register')} className="bg-blue-600 p-4 rounded-2xl font-black uppercase text-[11px] text-center shadow-lg shadow-blue-500/20">Daftar Sekarang</button>
-          </div>
+          <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-blue-400">Hubungi Kami</button>
+          <button onClick={() => handleNavClick('register')} className="bg-blue-600 p-4 rounded-2xl font-black uppercase text-[11px] text-center">Daftar Sekarang</button>
         </div>
       )}
 
@@ -253,8 +231,8 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         .dropdown-content { background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
         .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; background: none; border-bottom: 1px solid rgba(255,255,255,0.05); transition: 0.2s; }
         .dropdown-item:hover { background: #2563eb; color: white; padding-left: 1.75rem; }
-        .mobile-nav-link { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #f8fafc; font-style: italic; text-align: left; width: 100%; }
-        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; width: 100%; }
+        .mobile-nav-link { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #f8fafc; font-style: italic; }
+        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; }
       `}</style>
     </nav>
   );

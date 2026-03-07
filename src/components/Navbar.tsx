@@ -19,13 +19,29 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     default_lang: 'ID'
   });
 
+  // --- KODE BARU: FETCH DATA NAVIGASI DENGAN FALLBACK ---
   const fetchNavSettings = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('navbar_settings')
         .select('*')
         .order('order_index', { ascending: true });
-      if (!error && data) setNavData(data);
+      
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setNavData(data);
+      } else {
+        // Fallback jika data kosong agar navbar tidak hilang total
+        setNavData([
+          { id: '1', label: 'Home', path: 'home', type: 'link', order_index: 0 },
+          { id: '2', label: 'Tentang Kami', path: 'tentang-kami', type: 'dropdown', order_index: 1 },
+          { id: '3', label: 'Berita', path: 'berita', type: 'link', order_index: 2 },
+          { id: '2-1', parent_id: '2', label: 'Sejarah', path: 'sejarah' },
+          { id: '2-2', parent_id: '2', label: 'Visi Misi', path: 'visi-misi' },
+          { id: '2-3', parent_id: '2', label: 'Fasilitas', path: 'fasilitas' }
+        ]);
+      }
     } catch (err) {
       console.error("Fetch Nav Error:", err);
     }
@@ -67,17 +83,22 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
 
-    // 1. Jika Path adalah 'tentang-kami' (atau variasinya)
-    if (path === 'tentang-kami' || path === 'about') {
-      // Panggil fungsi navigasi induk dengan tab spesifik (subPath)
-      // subPath bisa berisi: 'sejarah', 'visi-misi', 'fasilitas', atau 'organisasi'
-      onNavigate('tentang-kami', subPath);
+    // 1. Penanganan Home
+    if (path === 'home' || path === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      onNavigate('home');
+      return;
+    }
 
-      // Scroll ke section Tentang Kami
+    // 2. Jika Path adalah 'tentang-kami'
+    if (path === 'tentang-kami' || path === 'about') {
+      onNavigate('tentang-kami', subPath);
+      
+      // Delay sedikit agar state tab di parent ter-update sebelum scroll
       setTimeout(() => {
         const element = document.getElementById('tentang-kami');
         if (element) {
-          const offset = 90;
+          const offset = 100; // Header offset
           const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
           window.scrollTo({ top: elementPosition - offset, behavior: 'smooth' });
         }
@@ -85,17 +106,11 @@ export default function Navbar({ onNavigate }: NavbarProps) {
       return;
     }
 
-    // 2. Penanganan Home
-    if (path === 'home' || path === '/') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      onNavigate('home');
-      return;
-    }
-
     // 3. Penanganan Section Lain (Berita, Galeri, dll)
     onNavigate(path, subPath);
 
     setTimeout(() => {
+      // Prioritaskan ID subPath jika ada (deep linking)
       const targetId = subPath || path;
       const element = document.getElementById(targetId);
       if (element) {
@@ -123,7 +138,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
               <span className="font-black text-xl md:text-2xl tracking-tighter uppercase italic text-white">{branding.brand_name_main}</span>
               <span className="font-black text-xl md:text-2xl tracking-tighter uppercase italic text-blue-500">{branding.brand_name_accent}</span>
             </div>
-            <span className="text-[7px] md:text-[8px] text-slate-400 font-bold tracking-[0.35em] uppercase leading-none">Professional Badminton</span>
+            <span className="text-[7px] md:text-[8px] text-slate-400 font-bold tracking-[0.35em] uppercase leading-none">Professional Badminton Club</span>
           </div>
         </div>
 
@@ -140,11 +155,11 @@ export default function Navbar({ onNavigate }: NavbarProps) {
                 onClick={() => handleNavClick(menu.path)}
                 className={`nav-link flex items-center gap-1.5 ${activeDropdown === menu.id ? 'text-blue-400' : ''}`}
               >
-                {menu.label} {menu.type === 'dropdown' && <ChevronDown size={10} className={activeDropdown === menu.id ? 'rotate-180' : ''} />}
+                {menu.label} {menu.type === 'dropdown' && <ChevronDown size={10} className={`transition-transform duration-300 ${activeDropdown === menu.id ? 'rotate-180' : ''}`} />}
               </button>
 
               {menu.type === 'dropdown' && activeDropdown === menu.id && (
-                <div className="dropdown-container">
+                <div className="dropdown-container animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="dropdown-content">
                     {getSubMenus(menu.id).map((sub) => (
                       <button 
@@ -164,10 +179,10 @@ export default function Navbar({ onNavigate }: NavbarProps) {
           {/* KONTAK */}
           <div className="relative h-20 flex items-center" onMouseEnter={() => setActiveDropdown('contact-action')} onMouseLeave={() => setActiveDropdown(null)}>
             <button className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95">
-              <MapPin size={12} /> Kontak <ChevronDown size={10} />
+              <MapPin size={12} /> Kontak <ChevronDown size={10} className={activeDropdown === 'contact-action' ? 'rotate-180' : ''} />
             </button>
             {activeDropdown === 'contact-action' && (
-              <div className="dropdown-container right-0">
+              <div className="dropdown-container right-0 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="dropdown-content">
                   <button onClick={() => handleNavClick('contact')} className="dropdown-item flex items-center gap-3">
                     <MapPin size={14} className="text-blue-400" /> Hubungi Kami
@@ -183,26 +198,26 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         </div>
 
         {/* MOBILE TRIGGER */}
-        <button className="md:hidden p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+        <button className="md:hidden p-2 text-slate-300 hover:text-white transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </div>
 
       {/* MOBILE MENU */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 p-6 flex flex-col gap-4 shadow-2xl">
+        <div className="md:hidden absolute top-20 left-0 w-full bg-slate-900 border-b border-white/10 p-6 flex flex-col gap-4 shadow-2xl max-h-[calc(100vh-80px)] overflow-y-auto">
           {navData.filter(item => !item.parent_id).map((menu) => (
             <React.Fragment key={menu.id}>
               <button 
                 onClick={() => menu.type !== 'dropdown' ? handleNavClick(menu.path) : (activeDropdown === menu.id ? setActiveDropdown(null) : setActiveDropdown(menu.id))}
-                className="mobile-nav-link flex justify-between items-center"
+                className={`mobile-nav-link flex justify-between items-center ${activeDropdown === menu.id ? 'text-blue-400' : ''}`}
               >
                 {menu.label} {menu.type === 'dropdown' && <ChevronDown size={16} className={activeDropdown === menu.id ? 'rotate-180' : ''} />}
               </button>
               {menu.type === 'dropdown' && activeDropdown === menu.id && (
-                <div className="flex flex-col gap-4 pl-4 border-l-2 border-blue-500/30 ml-2 py-2">
+                <div className="flex flex-col gap-4 pl-4 border-l-2 border-blue-500/30 ml-2 py-2 animate-in slide-in-from-left-2 duration-200">
                   {getSubMenus(menu.id).map((sub) => (
-                    <button key={sub.id} onClick={() => handleNavClick(menu.path, sub.path)} className="mobile-sub-link">
+                    <button key={sub.id} onClick={() => handleNavClick(menu.path, sub.path)} className="mobile-sub-link hover:text-white transition-colors">
                       {sub.label}
                     </button>
                   ))}
@@ -210,8 +225,13 @@ export default function Navbar({ onNavigate }: NavbarProps) {
               )}
             </React.Fragment>
           ))}
-          <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-blue-400">Hubungi Kami</button>
-          <button onClick={() => handleNavClick('register')} className="bg-blue-600 p-4 rounded-2xl font-black uppercase text-[11px] text-center">Daftar Sekarang</button>
+          <div className="h-px bg-white/5 my-2"></div>
+          <button onClick={() => handleNavClick('contact')} className="mobile-nav-link text-blue-400 flex items-center gap-3">
+            <MapPin size={18} /> Hubungi Kami
+          </button>
+          <button onClick={() => handleNavClick('register')} className="bg-blue-600 hover:bg-blue-500 p-4 rounded-2xl font-black uppercase text-[11px] text-center transition-all active:scale-95 shadow-lg shadow-blue-600/20">
+            Daftar Sekarang
+          </button>
         </div>
       )}
 
@@ -224,9 +244,14 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         .dropdown-content { background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
         .dropdown-item { width: 100%; text-align: left; padding: 1rem 1.5rem; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; background: none; border-bottom: 1px solid rgba(255,255,255,0.05); transition: 0.2s; }
         .dropdown-item:hover { background: #2563eb; color: white; padding-left: 1.75rem; }
-        .mobile-nav-link { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #f8fafc; font-style: italic; }
-        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        .mobile-nav-link { font-size: 14px; font-weight: 900; text-transform: uppercase; color: #f8fafc; font-style: italic; transition: all 0.2s; }
+        .mobile-sub-link { text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; padding: 4px 0; }
+        
+        /* Utility animations */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInFromTop { from { transform: translateY(-10px); } to { transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.2s ease-out, slideInFromTop 0.2s ease-out; }
       `}</style>
     </nav>
   );
-} 
+}

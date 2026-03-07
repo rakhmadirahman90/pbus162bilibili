@@ -31,7 +31,7 @@ export default function HeroAdmin() {
         .from('site_settings')
         .select('value')
         .eq('key', 'hero_config')
-        .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika data kosong
+        .maybeSingle(); 
 
       if (data && data.value) {
         setSlides(data.value.slides || []);
@@ -78,14 +78,13 @@ export default function HeroAdmin() {
       setSelectedFile(null);
       alert("Slide berhasil ditambahkan!");
     } catch (error: any) {
-      alert(error.message);
+      alert("Gagal upload: " + error.message);
     } finally {
       setUploading(false);
     }
   };
 
   const handleUpdateSlideText = async (id: number | string, title: string, subtitle: string) => {
-    // Pastikan referensi array baru untuk trigger re-render
     const updatedSlides = slides.map(s => s.id === id ? { ...s, title, subtitle } : s);
     await saveToDatabase(updatedSlides);
     alert("Perubahan teks disimpan!");
@@ -97,25 +96,45 @@ export default function HeroAdmin() {
     await saveToDatabase(updatedSlides);
   };
 
-  // --- PERBAIKAN UTAMA PADA FUNGSI INI ---
+  /**
+   * PERBAIKAN TOTAL: saveToDatabase
+   * Menggunakan strategi Hybrid untuk memaksa penyimpanan data
+   */
   const saveToDatabase = async (updatedSlides: HeroSlide[]) => {
-    const { error } = await supabase
-      .from('site_settings')
-      .upsert(
-        {
-          key: 'hero_config',
-          value: { 
-            settings: { duration: 7 }, 
-            slides: updatedSlides 
-          },
-          updated_at: new Date().toISOString()
-        }, 
-        { onConflict: 'key' } // Memberitahu Supabase untuk menimpa jika 'key' sudah ada
-      );
+    const payload = {
+      key: 'hero_config',
+      value: { 
+        settings: { duration: 7 }, 
+        slides: updatedSlides 
+      },
+      updated_at: new Date().toISOString()
+    };
 
-    if (error) {
-      console.error("Database Error:", error);
-      throw error;
+    // Strategi 1: Coba Upsert (Standard)
+    const { error: upsertError } = await supabase
+      .from('site_settings')
+      .upsert(payload, { onConflict: 'key' });
+
+    // Strategi 2: Jika Upsert gagal karena Unique Constraint (Error 23505)
+    // Kita lakukan Delete lalu Insert secara manual
+    if (upsertError) {
+      console.warn("Upsert failed, attempting manual override (Delete-then-Insert)...");
+      
+      // Hapus data lama yang bikin konflik
+      await supabase
+        .from('site_settings')
+        .delete()
+        .eq('key', 'hero_config');
+
+      // Masukkan data baru
+      const { error: insertError } = await supabase
+        .from('site_settings')
+        .insert(payload);
+
+      if (insertError) {
+        console.error("Manual insert failed:", insertError);
+        throw insertError;
+      }
     }
     
     setSlides(updatedSlides);

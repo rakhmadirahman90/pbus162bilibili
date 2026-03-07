@@ -97,8 +97,9 @@ export default function HeroAdmin() {
   };
 
   /**
-   * PERBAIKAN LOGIKA PENYIMPANAN
-   * Menggunakan Update-First Strategy untuk menghindari Unique Constraint Error
+   * PERBAIKAN LOGIKA PENYIMPANAN (FINAL SOLUTION)
+   * Menggunakan strategi Delete-then-Insert untuk menghindari error Unique Constraint.
+   * Ini akan membersihkan record lama secara total sebelum menulis yang baru.
    */
   const saveToDatabase = async (updatedSlides: HeroSlide[]) => {
     const contentValue = { 
@@ -106,47 +107,30 @@ export default function HeroAdmin() {
       slides: updatedSlides 
     };
 
-    // 1. Coba UPDATE dulu berdasarkan 'key'
-    const { data: updateData, error: updateError } = await supabase
-      .from('site_settings')
-      .update({ 
-        value: contentValue,
-        updated_at: new Date().toISOString()
-      })
-      .eq('key', 'hero_config')
-      .select();
-
-    // 2. Jika UPDATE tidak mengenai baris apapun (data belum ada) 
-    // atau jika terjadi error constraint, gunakan UPSERT dengan parameter eksplisit
-    if (updateError || !updateData || updateData.length === 0) {
-      console.log("Update failed or row doesn't exist, attempting upsert...");
-      
-      const { error: upsertError } = await supabase
+    try {
+      // 1. Hapus record lama dengan key 'hero_config'
+      // Ini akan memastikan tidak ada konflik "duplicate key" saat insert nanti
+      await supabase
         .from('site_settings')
-        .upsert(
-          { 
-            key: 'hero_config', 
-            value: contentValue,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: 'key' }
-        );
+        .delete()
+        .eq('key', 'hero_config');
 
-      if (upsertError) {
-        // 3. Fallback terakhir: Hapus paksa dan masukkan baru
-        console.warn("Upsert failed, forcing hard reset...");
-        await supabase.from('site_settings').delete().eq('key', 'hero_config');
-        const { error: finalError } = await supabase.from('site_settings').insert({
+      // 2. Masukkan record baru
+      const { error: insertError } = await supabase
+        .from('site_settings')
+        .insert({
           key: 'hero_config',
           value: contentValue,
           updated_at: new Date().toISOString()
         });
-        
-        if (finalError) throw finalError;
-      }
+
+      if (insertError) throw insertError;
+      
+      setSlides(updatedSlides);
+    } catch (err: any) {
+      console.error("Save failed:", err);
+      alert("Gagal menyimpan ke database: " + err.message);
     }
-    
-    setSlides(updatedSlides);
   };
 
   if (loading) return <div className="p-10 text-white flex justify-center"><Loader2 className="animate-spin" /></div>;
@@ -220,6 +204,7 @@ export default function HeroAdmin() {
                   defaultValue={slide.title}
                   onBlur={(e) => {
                     const val = e.target.value;
+                    slide.title = val; // update ref
                     setSlides(prev => prev.map(s => s.id === slide.id ? {...s, title: val} : s));
                   }}
                   className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none font-bold"
@@ -228,6 +213,7 @@ export default function HeroAdmin() {
                   defaultValue={slide.subtitle}
                   onBlur={(e) => {
                     const val = e.target.value;
+                    slide.subtitle = val; // update ref
                     setSlides(prev => prev.map(s => s.id === slide.id ? {...s, subtitle: val} : s));
                   }}
                   className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:border-blue-500 outline-none h-16 text-zinc-400"

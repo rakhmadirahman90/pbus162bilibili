@@ -27,11 +27,11 @@ export default function HeroAdmin() {
   const fetchHeroData = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('site_settings')
         .select('value')
         .eq('key', 'hero_config')
-        .single();
+        .maybeSingle(); // Menggunakan maybeSingle agar tidak error jika data kosong
 
       if (data && data.value) {
         setSlides(data.value.slides || []);
@@ -85,6 +85,7 @@ export default function HeroAdmin() {
   };
 
   const handleUpdateSlideText = async (id: number | string, title: string, subtitle: string) => {
+    // Pastikan referensi array baru untuk trigger re-render
     const updatedSlides = slides.map(s => s.id === id ? { ...s, title, subtitle } : s);
     await saveToDatabase(updatedSlides);
     alert("Perubahan teks disimpan!");
@@ -96,16 +97,27 @@ export default function HeroAdmin() {
     await saveToDatabase(updatedSlides);
   };
 
+  // --- PERBAIKAN UTAMA PADA FUNGSI INI ---
   const saveToDatabase = async (updatedSlides: HeroSlide[]) => {
     const { error } = await supabase
       .from('site_settings')
-      .upsert({
-        key: 'hero_config',
-        value: { settings: { duration: 7 }, slides: updatedSlides },
-        updated_at: new Date()
-      });
+      .upsert(
+        {
+          key: 'hero_config',
+          value: { 
+            settings: { duration: 7 }, 
+            slides: updatedSlides 
+          },
+          updated_at: new Date().toISOString()
+        }, 
+        { onConflict: 'key' } // Memberitahu Supabase untuk menimpa jika 'key' sudah ada
+      );
 
-    if (error) throw error;
+    if (error) {
+      console.error("Database Error:", error);
+      throw error;
+    }
+    
     setSlides(updatedSlides);
   };
 

@@ -43,7 +43,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten dari page_contents
+      // 1. Ambil Konten dari page_contents (SUMBER DARI ADMIN)
       const { data: pagesData, error: pagesError } = await supabase
         .from('page_contents')
         .select('*');
@@ -51,7 +51,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       if (!pagesError && pagesData && pagesData.length > 0) {
         const mappedContent: any = { ...dynamicContent };
         pagesData.forEach(page => {
-          const title = page.title?.toLowerCase() || "";
+          // Normalisasi title untuk pengecekan
+          const title = page.title?.toLowerCase().trim() || "";
           
           if (title.includes('sejarah')) {
             mappedContent.sejarah = page.content;
@@ -60,19 +61,22 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
             mappedContent.visi = page.content;
           } else if (title.includes('misi')) {
             mappedContent.misi = page.content;
-          } else if (title === 'fasilitas') {
+          } 
+          
+          // PERBAIKAN LOGIKA PEMETAAN FASILITAS (3 GAMBAR)
+          else if (title === 'fasilitas') {
             mappedContent.fasilitas_title = page.content;
             mappedContent.fasilitas_main_image = page.image_url;
-          } else if (title === 'fasilitas_detail_1') {
+          } else if (title === 'fasilitas_detail_1' || title.includes('detail_1')) {
             mappedContent.fasilitas_img1 = page.image_url;
-          } else if (title === 'fasilitas_detail_2') {
+          } else if (title === 'fasilitas_detail_2' || title.includes('detail_2')) {
             mappedContent.fasilitas_img2 = page.image_url;
           }
         });
         setDynamicContent(prev => ({ ...prev, ...mappedContent }));
       }
 
-      // 2. Ambil Data Fasilitas List (Galeri)
+      // 2. Ambil Data Fasilitas List (Galeri Pendukung)
       const { data: facilitiesData } = await supabase
         .from('galeri')
         .select('*')
@@ -82,7 +86,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
       }
 
-      // 3. Ambil Struktur Organisasi (Menghubungkan kembali ke Admin)
+      // 3. Ambil Struktur Organisasi
       const { data: structData, error: orgError } = await supabase
         .from('organizational_structure')
         .select('*')
@@ -121,7 +125,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
-  // FUNGSI RENDER BIDANG / DEPARTEMEN (MENGHUBUNGKAN STRUKTUR)
   const renderDepartment = (title: string, roleKey: string) => {
     const coordinator = orgData.find(m => 
       m.level === 6 && m.role.toLowerCase().includes(roleKey.toLowerCase())
@@ -272,7 +275,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
               )}
 
-              {/* TAMPILAN FASILITAS LENGKAP (3 GAMBAR DARI ADMIN) */}
+              {/* TAMPILAN FASILITAS LENGKAP (3 GAMBAR DISINKRONKAN DENGAN ADMIN) */}
               {activeTab === 'fasilitas' && (
                 <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex flex-col items-center text-center mb-10">
@@ -284,22 +287,37 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     </h3>
                   </div>
 
-                  {/* Grid 3 Gambar dari Admin */}
+                  {/* Grid 3 Gambar - SEKARANG DISESUAIKAN DENGAN INPUT ADMIN */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    {/* Foto Utama */}
                     <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
-                      <img src={dynamicContent.fasilitas_main_image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070"} className="w-full h-full object-cover" alt="Fasilitas 1" />
+                      <img 
+                        src={dynamicContent.fasilitas_main_image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070"} 
+                        className="w-full h-full object-cover" 
+                        alt="Fasilitas Utama" 
+                      />
                     </div>
+                    {/* Detail 1 */}
                     <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
-                      <img src={dynamicContent.fasilitas_img1 || "https://images.unsplash.com/photo-1571902901105-d8c8d330bd46?q=80&w=1967"} className="w-full h-full object-cover" alt="Fasilitas 2" />
+                      <img 
+                        src={dynamicContent.fasilitas_img1 || "https://images.unsplash.com/photo-1571902901105-d8c8d330bd46?q=80&w=1967"} 
+                        className="w-full h-full object-cover" 
+                        alt="Detail Fasilitas 1" 
+                      />
                     </div>
+                    {/* Detail 2 */}
                     <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
-                      <img src={dynamicContent.fasilitas_img2 || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070"} className="w-full h-full object-cover" alt="Fasilitas 3" />
+                      <img 
+                        src={dynamicContent.fasilitas_img2 || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070"} 
+                        className="w-full h-full object-cover" 
+                        alt="Detail Fasilitas 2" 
+                      />
                     </div>
                   </div>
 
-                  {/* Galeri Tambahan */}
+                  {/* Galeri Tambahan (Kategori Fasilitas) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {dynamicContent.fasilitas_list?.map((f: any, i: number) => (
+                    {dynamicContent.fasilitas_list?.length > 0 && dynamicContent.fasilitas_list.map((f: any, i: number) => (
                       <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
                         <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
                           <img src={f.image_url || f.image || f.url_gambar} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title} />
@@ -316,7 +334,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
               {activeTab === 'organisasi' && (
                 <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
-                  {/* LEVEL 1 - 5 (PENGURUS INTI) */}
                   {[1, 2, 3, 4, 5].map(lvl => (
                     <div key={lvl} className={`flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full`}>
                       {orgData.filter(m => m.level === lvl).map(p => (
@@ -334,7 +351,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     </div>
                   ))}
 
-                  {/* BIDANG-BIDANG (LEVEL 6 & 7) */}
                   <div className="w-full max-w-6xl px-2">
                     {renderDepartment("Bidang Pertandingan", "Pertandingan")}
                     {renderDepartment("Bidang Pembinaan Prestasi", "Binpres")}

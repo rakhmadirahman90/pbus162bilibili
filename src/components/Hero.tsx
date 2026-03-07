@@ -59,8 +59,16 @@ export default function Hero() {
     setTimeout(() => setIsTransitioning(false), 1500);
   };
 
+  // FUNGSI SCROLL YANG HILANG
+  const scrollToAbout = () => {
+    const nextSection = document.getElementById('tentang-kami') || document.getElementById('about');
+    if (nextSection) {
+      nextSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <section id="home" className="relative w-full h-[100dvh] overflow-hidden bg-black">
+    <section id="home" className="relative w-full h-[100dvh] overflow-hidden bg-black flex flex-col items-center justify-center">
       
       {/* Background Visual Layer */}
       <div className="absolute inset-0 z-0">
@@ -71,62 +79,86 @@ export default function Hero() {
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            {/* PERBAIKAN FINAL UNTUK FULLSCREEN & WAJAH TENGAH:
-              1. object-cover: Wajib agar tidak ada warna hitam di atas/bawah (Full Screen).
-              2. object-[center_20%]: Menggeser titik potong. 
-                 - 'center' memastikan sisi kiri-kanan terpotong seimbang (objek tetap di tengah).
-                 - '20%' memastikan bagian ATAS gambar (wajah) diprioritaskan agar tidak hilang di layar HP yang tinggi.
+            {/* AGAR FULLSCREEN TANPA HITAM & WAJAH DI TENGAH:
+                - object-cover: Menghilangkan area hitam (Full Screen).
+                - object-[center_25%]: Memastikan wajah/objek di atas-tengah tidak terpotong di HP.
             */}
             <img
               src={slide.image}
               alt=""
-              className={`w-full h-full object-cover object-[center_20%] md:object-center transition-transform duration-[20000ms] ease-out 
+              className={`w-full h-full object-cover object-[center_25%] md:object-center transition-transform duration-[20000ms] ease-out 
                 ${index === currentSlide ? 'scale-110' : 'scale-100'}
               `}
             />
-            
-            {/* Overlay Gradient untuk visibilitas navigasi */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70 z-10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/80 z-10" />
           </div>
         ))}
       </div>
 
-      {/* Kontrol Navigasi Samping */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-30">
+      {/* Navigasi Samping */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-30">
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => !isTransitioning && setCurrentSlide(index)}
-            className={`transition-all duration-500 rounded-full ${
-              index === currentSlide ? 'h-8 w-1 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'h-1.5 w-1 bg-white/20'
+            className={`transition-all duration-700 rounded-full ${
+              index === currentSlide ? 'h-8 w-1 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]' : 'h-1.5 w-1 bg-white/20'
             }`}
           />
         ))}
       </div>
 
-      {/* Kontrol Navigasi Bawah */}
-      <div className="absolute bottom-10 left-0 right-0 px-6 flex items-center justify-between z-30">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center bg-black/30 backdrop-blur-md rounded-full border border-white/10 p-1">
-            <button onClick={handlePrev} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
-              <ChevronLeft size={20} />
-            </button>
-            <div className="w-[1px] h-4 bg-white/10" />
-            <button onClick={handleNext} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
-              <ChevronRight size={20} />
-            </button>
+      {/* Main Controls - Navigation & Scroll Discovery */}
+      <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col items-center gap-10 z-30">
+        
+        {/* Navigasi Kiri Kanan */}
+        <div className="w-full flex items-center justify-between max-w-7xl">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center bg-black/30 backdrop-blur-xl rounded-full border border-white/10 p-1">
+              <button onClick={handlePrev} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
+                <ChevronLeft size={22} />
+              </button>
+              <div className="w-[1px] h-6 bg-white/10" />
+              <button onClick={handleNext} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
+                <ChevronRight size={22} />
+              </button>
+            </div>
+            <span className="text-white/40 font-mono text-[10px] tracking-widest hidden xs:inline">
+              0{currentSlide + 1} / 0{slides.length}
+            </span>
           </div>
-          <span className="text-[10px] text-white/50 font-mono tracking-widest">
-            {String(currentSlide + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}
-          </span>
         </div>
+
+        {/* TOMBOL SCROLL DISCOVERY (DI TENGAH) */}
+        <button 
+          onClick={scrollToAbout}
+          className="group flex flex-col items-center gap-3 transition-all hover:opacity-100 opacity-60 pb-4"
+        >
+          <span className="text-[8px] font-black uppercase tracking-[0.5em] text-white/50 group-hover:text-blue-500">
+            Discovery
+          </span>
+          <div className="w-[1px] h-10 bg-gradient-to-b from-blue-500 to-transparent relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1/2 bg-white animate-scroll-line" />
+          </div>
+        </button>
       </div>
 
+      {/* Loading Screen */}
       {loading && (
         <div className="fixed inset-0 bg-black z-[200] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-white/5 border-t-blue-500 rounded-full animate-spin" />
         </div>
       )}
+
+      <style>{`
+        @keyframes scroll-line {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(200%); }
+        }
+        .animate-scroll-line {
+          animation: scroll-line 2.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+        }
+      `}</style>
     </section>
   );
 }

@@ -97,8 +97,8 @@ export default function HeroAdmin() {
   };
 
   /**
-   * PERBAIKAN LOGIKA PENYIMPANAN (ULTIMATE HYBRID SOLUTION)
-   * Karena Primary Key adalah UUID (bukan 'key'), kita gunakan Update-First approach.
+   * PERBAIKAN LOGIKA PENYIMPANAN
+   * Menggunakan Upsert dengan target spesifik pada kolom 'key'
    */
   const saveToDatabase = async (updatedSlides: HeroSlide[]) => {
     const contentValue = { 
@@ -106,44 +106,40 @@ export default function HeroAdmin() {
       slides: updatedSlides 
     };
 
-    const payload = {
-      value: contentValue,
-      updated_at: new Date().toISOString()
-    };
-
     try {
-      // Langkah 1: Coba UPDATE baris yang memiliki key 'hero_config'
-      const { data: updateData, error: updateError } = await supabase
+      // Menggunakan upsert dengan opsi onConflict yang eksplisit
+      // Ini memberitahu PostgreSQL: "Jika 'key' bentrok, timpa datanya"
+      const { error } = await supabase
         .from('site_settings')
-        .update(payload)
-        .eq('key', 'hero_config')
-        .select();
+        .upsert(
+          { 
+            key: 'hero_config', 
+            value: contentValue,
+            updated_at: new Date().toISOString()
+          }, 
+          { 
+            onConflict: 'key',
+            ignoreDuplicates: false 
+          }
+        );
 
-      // Langkah 2: Jika baris belum ada (updateData kosong), lakukan INSERT
-      if (!updateError && (!updateData || updateData.length === 0)) {
-        const { error: insertError } = await supabase
-          .from('site_settings')
-          .insert({
-            key: 'hero_config',
-            ...payload
-          });
-        
-        if (insertError) throw insertError;
-      } else if (updateError) {
-        // Langkah 3: Jika error karena constraint, lakukan metode Hard Reset (Delete & Insert)
-        console.warn("Update failed, performing forced reset...");
+      if (error) {
+        // Jika masih gagal (karena masalah internal database), jalankan strategi Delete-Insert
+        console.warn("Upsert failed, trying manual override...");
         await supabase.from('site_settings').delete().eq('key', 'hero_config');
         const { error: finalError } = await supabase.from('site_settings').insert({
           key: 'hero_config',
-          ...payload
+          value: contentValue,
+          updated_at: new Date().toISOString()
         });
+        
         if (finalError) throw finalError;
       }
       
       setSlides(updatedSlides);
     } catch (err: any) {
       console.error("Save failed:", err);
-      alert("Sistem gagal menyimpan. Pesan: " + err.message);
+      alert("Gagal menyimpan ke database: " + err.message);
     }
   };
 

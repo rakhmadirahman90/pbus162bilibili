@@ -62,7 +62,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           sejarah: val.sejarah_desc || prev.sejarah,
           sejarah_image: val.sejarah_img || prev.sejarah_image,
           visi: val.vision || prev.visi,
-          misi: Array.isArray(val.missions) ? val.missions.join('\n') : (val.misi || prev.misi),
+          // PERBAIKAN: Menangani misi baik dalam bentuk Array (Admin) maupun String (Legacy)
+          misi: Array.isArray(val.missions) ? val.missions.join('\n') : (val.misi || val.missions || prev.misi),
           fasilitas_title: val.fasilitas_title || prev.fasilitas_title,
           fasilitas_main_image: val.fasilitas_img1 || prev.fasilitas_main_image,
           fasilitas_img1: val.fasilitas_img2 || prev.fasilitas_img1,
@@ -75,9 +76,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           const mapped: any = {};
           pagesData.forEach(p => {
             const t = p.title.toLowerCase();
-            if (t === 'sejarah') { mapped.sejarah = p.content; mapped.sejarah_image = p.image_url; }
-            if (t === 'visi') mapped.visi = p.content;
-            if (t === 'misi') mapped.misi = p.content;
+            if (t.includes('sejarah')) { mapped.sejarah = p.content; mapped.sejarah_image = p.image_url; }
+            if (t.includes('visi')) mapped.visi = p.content;
+            if (t.includes('misi')) mapped.misi = p.content;
           });
           setDynamicContent(prev => ({ ...prev, ...mapped }));
         }
@@ -247,7 +248,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       </div>
                     </div>
                     <div className="flex-1">
-                      {/* PERBAIKAN: MENAMPILKAN JUDUL UTAMA & AKSEN DARI ADMIN */}
                       <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-4 flex items-center gap-2">
                         <Zap className="text-amber-500" size={20} /> 
                         {dynamicContent.sejarah_title} <span className="text-blue-600">{dynamicContent.sejarah_accent}</span>
@@ -272,12 +272,18 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     <div>
                       <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Misi Kami</h3>
                       <div className="space-y-4">
-                        {/* PERBAIKAN: SPLIT MISI DENGAN LEBIH AMAN */}
-                        {String(dynamicContent.misi || "").split('\n').filter((t: string) => t.trim() !== '').map((item: string, i: number) => (
-                          <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                            <CheckCircle size={16} className="text-emerald-500 mt-1" />
-                            <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">{item}</p>
-                          </div>
+                        {/* PERBAIKAN: Logika sanitasi misi agar selalu merender Array dari string yang di-split */}
+                        {(dynamicContent.misi || "")
+                          .toString()
+                          .split('\n')
+                          .filter((t: string) => t.trim() !== '')
+                          .map((item: string, i: number) => (
+                            <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                              <CheckCircle size={16} className="text-emerald-500 mt-1 shrink-0" />
+                              <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">
+                                {item.replace(/^[0-9.-]+\s*/, '')}
+                              </p>
+                            </div>
                         ))}
                       </div>
                     </div>

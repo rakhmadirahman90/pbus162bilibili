@@ -11,18 +11,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
   const [currentLang, setCurrentLang] = useState('ID');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // --- PENAMBAHAN DATA FALLBACK AGAR TAMPILAN KEMBALI SEPERTI SEMULA ---
-  const [navData, setNavData] = useState<any[]>([
-    { id: '1', label: 'BERANDA', path: 'home', type: 'link', order_index: 1, parent_id: null },
-    { id: '2', label: 'TENTANG KAMI', path: 'tentang-kami', type: 'dropdown', order_index: 2, parent_id: null },
-    { id: '3', label: 'SEJARAH', path: 'sejarah', type: 'link', order_index: 1, parent_id: '2' },
-    { id: '4', label: 'VISI & MISI', path: 'visi-misi', type: 'link', order_index: 2, parent_id: '2' },
-    { id: '5', label: 'FASILITAS', path: 'fasilitas', type: 'link', order_index: 3, parent_id: '2' },
-    { id: '6', label: 'STRUKTUR', path: 'organisasi', type: 'link', order_index: 4, parent_id: '2' },
-    { id: '7', label: 'BERITA', path: 'berita', type: 'link', order_index: 3, parent_id: null },
-    { id: '8', label: 'GALERI', path: 'galeri', type: 'link', order_index: 4, parent_id: null },
-  ]);
-
+  const [navData, setNavData] = useState<any[]>([]);
   const [branding, setBranding] = useState({
     logo_url: '/photo_2026-02-03_00-32-07.jpg', 
     brand_name_main: 'US 162',
@@ -36,11 +25,7 @@ export default function Navbar({ onNavigate }: NavbarProps) {
         .from('navbar_settings')
         .select('*')
         .order('order_index', { ascending: true });
-      
-      // Hanya update jika data dari DB ada (jika DB limit, pakai data fallback di atas)
-      if (!error && data && data.length > 0) {
-        setNavData(data);
-      }
+      if (!error && data) setNavData(data);
     } catch (err) {
       console.error("Fetch Nav Error:", err);
     }
@@ -77,12 +62,18 @@ export default function Navbar({ onNavigate }: NavbarProps) {
     return navData.filter(item => item.parent_id === parentId);
   };
 
+  // --- LOGIKA NAVIGASI PERBAIKAN ---
   const handleNavClick = (path: string, subPath?: string) => {
     setActiveDropdown(null);
     setIsMobileMenuOpen(false);
 
+    // 1. Jika Path adalah 'tentang-kami' (atau variasinya)
     if (path === 'tentang-kami' || path === 'about') {
+      // Panggil fungsi navigasi induk dengan tab spesifik (subPath)
+      // subPath bisa berisi: 'sejarah', 'visi-misi', 'fasilitas', atau 'organisasi'
       onNavigate('tentang-kami', subPath);
+
+      // Scroll ke section Tentang Kami
       setTimeout(() => {
         const element = document.getElementById('tentang-kami');
         if (element) {
@@ -94,12 +85,14 @@ export default function Navbar({ onNavigate }: NavbarProps) {
       return;
     }
 
+    // 2. Penanganan Home
     if (path === 'home' || path === '/') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       onNavigate('home');
       return;
     }
 
+    // 3. Penanganan Section Lain (Berita, Galeri, dll)
     onNavigate(path, subPath);
 
     setTimeout(() => {
@@ -236,4 +229,4 @@ export default function Navbar({ onNavigate }: NavbarProps) {
       `}</style>
     </nav>
   );
-}
+} 

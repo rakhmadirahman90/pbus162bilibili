@@ -78,33 +78,21 @@ export default function Hero() {
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            {/* LAYER 1: Background Blur (Full Screen di HP) */}
-            <div 
-              className="absolute inset-0 scale-150 blur-[80px] opacity-40 md:hidden"
-              style={{ 
-                backgroundImage: `url(${slide.image})`, 
-                backgroundSize: 'cover', 
-                backgroundPosition: 'center' 
-              }}
+            {/* KUNCI PERBAIKAN:
+               1. h-full w-full + object-cover: Memastikan gambar menutup layar HP secara penuh (Full Screen).
+               2. object-top: Memastikan bagian wajah (atas) diprioritaskan agar tidak terpotong.
+               3. scale-110 ke scale-125: Memberikan efek pergerakan membesar yang sinematik.
+            */}
+            <img
+              src={slide.image}
+              alt=""
+              className={`w-full h-full object-cover object-top md:object-center transition-transform duration-[20000ms] ease-out
+                ${index === currentSlide ? 'scale-125' : 'scale-110'}
+              `}
             />
 
-            {/* LAYER 2: Gambar Utama dengan Efek Membesar (Zoom)
-                - object-contain: Menjaga wajah UTUH di HP.
-                - scale-125: Memulai dari ukuran lebih besar.
-                - animate-slow-zoom: CSS custom untuk pergerakan halus.
-            */}
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-              <img
-                src={slide.image}
-                alt=""
-                className={`w-full h-full md:object-cover object-contain relative z-10 transition-transform duration-[20000ms] ease-linear
-                  ${index === currentSlide ? 'scale-125 translate-y-0' : 'scale-100'}
-                `}
-              />
-            </div>
-
-            {/* Layer 3: Overlay Gelap Sinematik */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent via-50% to-black/90 z-20" />
+            {/* Overlay Gradient: Diperhalus agar area wajah tetap bersih namun UI navigasi terbaca */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/80 z-20" />
           </div>
         ))}
       </div>
@@ -116,21 +104,21 @@ export default function Hero() {
             key={index}
             onClick={() => !isTransitioning && setCurrentSlide(index)}
             className={`transition-all duration-700 rounded-full ${
-              index === currentSlide ? 'h-8 w-1 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]' : 'h-1.5 w-1 bg-white/20'
+              index === currentSlide ? 'h-8 w-1.5 bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]' : 'h-2 w-1.5 bg-white/20'
             }`}
           />
         ))}
       </div>
 
-      {/* Kontrol Navigasi & Discovery */}
-      <div className="absolute bottom-0 left-0 w-full p-8 flex flex-col items-center gap-6 z-40">
+      {/* Navigasi Bawah & Discovery */}
+      <div className="absolute bottom-0 left-0 w-full p-8 flex flex-col items-center gap-8 z-40">
         <div className="w-full flex items-center justify-between max-w-7xl">
           <div className="flex items-center bg-black/40 backdrop-blur-xl rounded-full border border-white/10 p-1">
-            <button onClick={handlePrev} className="p-3 text-white/70 active:scale-75 transition-transform">
+            <button onClick={handlePrev} className="p-3 text-white/70 active:scale-75 transition-all">
               <ChevronLeft size={22} />
             </button>
             <div className="w-[1px] h-6 bg-white/10" />
-            <button onClick={handleNext} className="p-3 text-white/70 active:scale-75 transition-transform">
+            <button onClick={handleNext} className="p-3 text-white/70 active:scale-75 transition-all">
               <ChevronRight size={22} />
             </button>
           </div>
@@ -139,16 +127,16 @@ export default function Hero() {
         {/* Scroll Discovery */}
         <button 
           onClick={scrollToAbout}
-          className="group flex flex-col items-center gap-2 transition-all hover:scale-110"
+          className="group flex flex-col items-center gap-2 opacity-70 hover:opacity-100 transition-opacity"
         >
-          <span className="text-[7px] font-bold uppercase tracking-[0.4em] text-white/70">Discovery</span>
+          <span className="text-[7px] font-black uppercase tracking-[0.4em] text-white">Discovery</span>
           <div className="w-[1px] h-10 bg-gradient-to-b from-blue-500 to-transparent relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1/2 bg-white animate-scroll-line" />
           </div>
         </button>
       </div>
 
-      {/* Loading */}
+      {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 bg-black z-[200] flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-white/5 border-t-blue-500 rounded-full animate-spin" />

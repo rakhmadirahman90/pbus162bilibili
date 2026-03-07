@@ -50,24 +50,26 @@ export default function HeroAdmin() {
     }
   };
 
-  // 1. Fungsi Pilih Gambar & Trigger Modal Crop
+  // 1. Fungsi Pilih Gambar & Trigger Modal Crop (DIPERBAIKI)
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       
-      // Validasi file gambar
       if (!file.type.startsWith('image/')) {
         alert("Mohon pilih file gambar (JPG/PNG)");
         return;
       }
 
       const reader = new FileReader();
-      reader.readAsDataURL(file);
       reader.onload = () => {
         setImageSrc(reader.result as string);
-        setShowCropper(true); // Memunculkan modal
-        setZoom(1); // Reset zoom ke awal
+        setShowCropper(true); // Pastikan ini terpanggil setelah reader selesai
+        setZoom(1);
       };
+      reader.readAsDataURL(file);
+      
+      // Reset input value agar jika user pilih file yang sama lagi, event onFileChange tetap trigger
+      e.target.value = "";
     }
   };
 
@@ -185,24 +187,25 @@ export default function HeroAdmin() {
   return (
     <div className="max-w-6xl mx-auto p-6 bg-black text-white min-h-screen">
       
-      {/* MODAL CROPPER (Diletakkan paling atas dengan Z-Index Tinggi) */}
-      {showCropper && (
-        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+      {/* MODAL CROPPER (Layer paling atas) */}
+      {showCropper && imageSrc && (
+        <div className="fixed inset-0 z-[10000] bg-black flex flex-col overflow-hidden">
           <div className="flex justify-between items-center p-4 bg-zinc-900 border-b border-zinc-800">
-            <h3 className="font-bold flex items-center gap-2 text-blue-400">
-              <ImageIcon size={20} /> Sesuaikan Foto Slider (16:9)
+            <h3 className="font-bold flex items-center gap-2 text-blue-400 text-lg">
+              <ImageIcon size={20} /> Potong Gambar (16:9)
             </h3>
             <button 
               onClick={() => setShowCropper(false)} 
-              className="p-2 hover:bg-red-600 rounded-full transition-colors"
+              className="p-2 hover:bg-zinc-800 rounded-full transition-colors"
             >
-              <X size={24} />
+              <X size={28} />
             </button>
           </div>
           
-          <div className="relative flex-grow bg-zinc-950">
+          {/* Container Cropper dengan tinggi tetap */}
+          <div className="relative flex-grow bg-zinc-950 w-full overflow-hidden">
             <Cropper
-              image={imageSrc!}
+              image={imageSrc}
               crop={crop}
               zoom={zoom}
               aspect={16 / 9}
@@ -212,9 +215,9 @@ export default function HeroAdmin() {
             />
           </div>
 
-          <div className="p-6 bg-zinc-900 flex flex-col items-center gap-6 border-t border-zinc-800">
-            <div className="flex items-center gap-4 w-full max-w-md">
-              <ZoomOut size={20} className="text-zinc-500" />
+          <div className="p-8 bg-zinc-900 flex flex-col items-center gap-6 border-t border-zinc-800 shadow-2xl">
+            <div className="flex items-center gap-6 w-full max-w-lg">
+              <ZoomOut size={24} className="text-zinc-500" />
               <input
                 type="range"
                 min={1}
@@ -222,24 +225,24 @@ export default function HeroAdmin() {
                 step={0.1}
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
-              <ZoomIn size={20} className="text-zinc-500" />
+              <ZoomIn size={24} className="text-zinc-500" />
             </div>
             
-            <div className="flex gap-4 w-full max-w-md">
+            <div className="flex gap-4 w-full max-w-lg">
               <button
                 onClick={() => setShowCropper(false)}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-bold transition-all"
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-4 rounded-2xl font-bold text-zinc-300 transition-all"
               >
                 Batal
               </button>
               <button
                 onClick={processAndUpload}
                 disabled={uploading}
-                className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-lg shadow-blue-900/20"
+                className="flex-[2] bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 py-4 rounded-2xl font-bold flex justify-center items-center gap-2 transition-all shadow-xl shadow-blue-900/20"
               >
-                {uploading ? <Loader2 className="animate-spin" size={20} /> : <><Check size={20} /> Simpan & Upload</>}
+                {uploading ? <Loader2 className="animate-spin" size={20} /> : <><Check size={22} /> Terapkan & Simpan</>}
               </button>
             </div>
           </div>
@@ -247,95 +250,115 @@ export default function HeroAdmin() {
       )}
 
       <header className="mb-10 border-b border-zinc-800 pb-6">
-        <h1 className="text-3xl font-black uppercase tracking-tighter italic italic">Hero Admin Pro</h1>
-        <p className="text-zinc-500 text-sm">Update konten slider dengan kompresi otomatis & fitur crop.</p>
+        <h1 className="text-4xl font-black uppercase tracking-tighter italic italic">Hero Admin Pro</h1>
+        <p className="text-zinc-500 text-sm mt-1">Kelola slider beranda dengan optimasi gambar otomatis.</p>
       </header>
 
       {/* FORM INPUT UTAMA */}
-      <section className="mb-12 bg-zinc-900/50 p-6 rounded-3xl border border-white/5 shadow-2xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4">
+      <section className="mb-12 bg-zinc-900/40 p-8 rounded-3xl border border-white/5 backdrop-blur-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="space-y-5">
             <div>
-              <label className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Judul Slide</label>
+              <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Judul Slide</label>
               <input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-all"
-                placeholder="Masukkan judul..."
+                className="w-full bg-black/60 border border-zinc-800 rounded-2xl px-5 py-4 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                placeholder="Contoh: Promo Spesial Akhir Tahun"
               />
             </div>
             <div>
-              <label className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Sub-judul / Deskripsi</label>
+              <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Sub-judul / Deskripsi</label>
               <textarea
                 value={newSubtitle}
                 onChange={(e) => setNewSubtitle(e.target.value)}
-                className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 outline-none h-24 focus:border-blue-500 transition-all resize-none"
-                placeholder="Masukkan deskripsi singkat..."
+                className="w-full bg-black/60 border border-zinc-800 rounded-2xl px-5 py-4 outline-none h-28 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+                placeholder="Masukkan deskripsi singkat yang menarik..."
               />
             </div>
           </div>
           
           <div className="flex flex-col justify-end">
-            <label className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Upload Gambar</label>
-            <label className="group border-2 border-dashed border-zinc-800 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-500/5 transition-all h-full">
-              <input type="file" accept="image/*" onChange={onFileChange} className="hidden" />
-              <div className="bg-zinc-800 p-4 rounded-full group-hover:bg-blue-600 transition-all mb-4">
-                <ImageIcon className="text-zinc-400 group-hover:text-white" size={32} />
+            <label className="text-[11px] text-zinc-500 uppercase tracking-widest block mb-2 font-bold">Media Latar</label>
+            <label className="group border-2 border-dashed border-zinc-800 rounded-3xl p-10 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-600/5 transition-all h-full">
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={onFileChange} 
+                className="hidden" 
+              />
+              <div className="bg-zinc-800 p-5 rounded-full group-hover:bg-blue-600 group-hover:scale-110 transition-all mb-4">
+                <ImageIcon className="text-zinc-400 group-hover:text-white" size={36} />
               </div>
-              <p className="text-sm font-medium text-zinc-400 group-hover:text-zinc-200">Klik untuk pilih gambar</p>
-              <p className="text-[10px] text-zinc-600 mt-2 italic">Rasio 16:9 akan diterapkan secara otomatis</p>
+              <p className="text-base font-semibold text-zinc-400 group-hover:text-zinc-200">Pilih Gambar</p>
+              <p className="text-[11px] text-zinc-600 mt-2 italic text-center leading-relaxed">Format didukung: JPG, PNG, WEBP.<br/>Editor potong akan terbuka otomatis.</p>
             </label>
           </div>
         </div>
       </section>
 
       {/* DAFTAR SLIDE AKTIF */}
-      <h2 className="text-lg font-bold mb-6 flex items-center gap-3">
-        Daftar Slide Aktif 
-        <span className="bg-zinc-800 text-xs px-2 py-1 rounded-md text-zinc-400">{slides.length} Slide</span>
-      </h2>
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-xl font-bold flex items-center gap-3">
+          Slide Aktif 
+          <span className="bg-blue-600/10 text-blue-500 text-xs px-3 py-1 rounded-full border border-blue-500/20">{slides.length} Terdaftar</span>
+        </h2>
+      </div>
 
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-5">
         {slides.map((slide) => (
-          <div key={slide.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row gap-6 hover:border-zinc-700 transition-all group">
-            <div className="w-full md:w-56 h-32 flex-shrink-0 overflow-hidden rounded-xl bg-black border border-white/5">
-              <img src={slide.image} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Preview" />
+          <div key={slide.id} className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 flex flex-col md:flex-row gap-8 hover:border-zinc-600 transition-all group overflow-hidden">
+            <div className="w-full md:w-64 h-36 flex-shrink-0 overflow-hidden rounded-2xl bg-black border border-white/5 relative shadow-inner">
+              <img src={slide.image} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" alt="Hero" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                <span className="text-[10px] text-white/70 uppercase font-bold tracking-widest">Preview Mode</span>
+              </div>
             </div>
             
-            <div className="flex-grow space-y-3">
-              <input
-                defaultValue={slide.title}
-                onBlur={(e) => (slide.title = e.target.value)}
-                className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 font-bold outline-none focus:border-blue-500 transition-all"
-              />
-              <textarea
-                defaultValue={slide.subtitle}
-                onBlur={(e) => (slide.subtitle = e.target.value)}
-                className="w-full bg-black/50 border border-zinc-800 rounded-lg px-3 py-2 text-xs h-14 text-zinc-400 outline-none focus:border-blue-500 transition-all resize-none"
-              />
+            <div className="flex-grow space-y-4 py-1">
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-600 uppercase font-bold">Judul</label>
+                <input
+                  defaultValue={slide.title}
+                  onBlur={(e) => (slide.title = e.target.value)}
+                  className="w-full bg-black/40 border border-zinc-800/50 rounded-xl px-4 py-2 font-bold outline-none focus:border-blue-500 transition-all"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-600 uppercase font-bold">Deskripsi</label>
+                <textarea
+                  defaultValue={slide.subtitle}
+                  onBlur={(e) => (slide.subtitle = e.target.value)}
+                  className="w-full bg-black/40 border border-zinc-800/50 rounded-xl px-4 py-2 text-xs h-16 text-zinc-400 outline-none focus:border-blue-500 transition-all resize-none"
+                />
+              </div>
             </div>
 
-            <div className="flex md:flex-col gap-2 justify-end">
+            <div className="flex md:flex-col gap-3 justify-center">
               <button 
                 onClick={() => handleUpdateSlideText(slide.id, slide.title, slide.subtitle)} 
-                className="p-3 bg-zinc-800 hover:bg-green-600/20 hover:text-green-500 rounded-xl transition-all"
-                title="Simpan Perubahan"
+                className="p-4 bg-zinc-800 hover:bg-green-600/20 hover:text-green-500 rounded-2xl transition-all flex items-center justify-center shadow-lg"
+                title="Simpan Teks"
               >
-                <Save size={18} />
+                <Save size={20} />
               </button>
               <button 
                 onClick={() => handleDeleteSlide(slide.id)} 
-                className="p-3 bg-zinc-800 hover:bg-red-600/20 hover:text-red-500 rounded-xl transition-all"
+                className="p-4 bg-zinc-800 hover:bg-red-600/20 hover:text-red-500 rounded-2xl transition-all flex items-center justify-center shadow-lg"
                 title="Hapus Slide"
               >
-                <Trash2 size={18} />
+                <Trash2 size={20} />
               </button>
             </div>
           </div>
         ))}
+        
         {slides.length === 0 && (
-          <div className="text-center py-20 bg-zinc-900/20 border-2 border-dashed border-zinc-900 rounded-3xl">
-            <p className="text-zinc-600 italic">Belum ada slide yang ditambahkan.</p>
+          <div className="text-center py-24 bg-zinc-900/20 border-2 border-dashed border-zinc-800 rounded-[40px]">
+            <div className="mb-4 flex justify-center text-zinc-700">
+                <Plus size={48} />
+            </div>
+            <p className="text-zinc-600 font-medium">Belum ada slide aktif. Tambahkan slide pertama Anda di atas.</p>
           </div>
         )}
       </div>

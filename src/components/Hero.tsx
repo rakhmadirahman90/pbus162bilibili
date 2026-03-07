@@ -78,26 +78,36 @@ export default function Hero() {
               index === currentSlide ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
           >
-            {/* STRATEGI BARU: 
-              - Kita hilangkan 'scale-110' di mobile agar gambar tidak terlalu "gemuk" dan memotong wajah.
-              - Gunakan 'object-[center_10%]' untuk benar-benar menarik area kepala ke bawah notch HP.
-              - Gunakan 'h-[105%]' sedikit lebih tinggi dari layar untuk memberi ruang gerak.
+            {/* LAYER 1: Background Blur (Untuk mengisi ruang kosong di HP agar tetap Full Screen) */}
+            <div 
+              className="absolute inset-0 scale-125 blur-[60px] opacity-50 md:hidden"
+              style={{ 
+                backgroundImage: `url(${slide.image})`, 
+                backgroundSize: 'cover', 
+                backgroundPosition: 'center' 
+              }}
+            />
+
+            {/* LAYER 2: Gambar Utama 
+                - Mobile: 'object-contain' memastikan wajah dan seluruh gambar 16:9 TERLIHAT UTUH.
+                - Desktop: 'object-cover' agar memenuhi layar lebar secara premium.
             */}
             <img
               src={slide.image}
               alt=""
-              className={`w-full h-full object-cover object-[center_10%] md:object-center transition-transform duration-[20000ms] ease-out 
+              className={`w-full h-full md:object-cover object-contain relative z-10 transition-transform duration-[20000ms] ease-out 
                 ${index === currentSlide ? 'scale-100 md:scale-110' : 'scale-100'}
               `}
             />
-            {/* Overlay Gradient yang lebih transparan di atas (agar wajah bersih) */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent via-40% to-black/80 z-10" />
+
+            {/* Layer 3: Overlay Gelap agar tombol navigasi jelas */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80 z-20" />
           </div>
         ))}
       </div>
 
-      {/* Navigasi Samping */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-30">
+      {/* Navigasi Samping (Dots) */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-40">
         {slides.map((_, index) => (
           <button
             key={index}
@@ -109,31 +119,27 @@ export default function Hero() {
         ))}
       </div>
 
-      {/* Main Controls */}
-      <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col items-center gap-10 z-30">
+      {/* Kontrol Navigasi & Discovery */}
+      <div className="absolute bottom-0 left-0 w-full p-8 flex flex-col items-center gap-6 z-40">
         <div className="w-full flex items-center justify-between max-w-7xl">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center bg-black/30 backdrop-blur-xl rounded-full border border-white/10 p-1">
-              <button onClick={handlePrev} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
-                <ChevronLeft size={22} />
-              </button>
-              <div className="w-[1px] h-6 bg-white/10" />
-              <button onClick={handleNext} className="p-3 text-white/70 hover:text-white transition-all active:scale-75">
-                <ChevronRight size={22} />
-              </button>
-            </div>
+          <div className="flex items-center bg-black/40 backdrop-blur-xl rounded-full border border-white/10 p-1">
+            <button onClick={handlePrev} className="p-3 text-white/70 active:scale-75">
+              <ChevronLeft size={22} />
+            </button>
+            <div className="w-[1px] h-6 bg-white/10" />
+            <button onClick={handleNext} className="p-3 text-white/70 active:scale-75">
+              <ChevronRight size={22} />
+            </button>
           </div>
         </div>
 
         {/* Scroll Discovery */}
         <button 
           onClick={scrollToAbout}
-          className="group flex flex-col items-center gap-3 transition-all hover:opacity-100 opacity-60 pb-4"
+          className="group flex flex-col items-center gap-2 opacity-60"
         >
-          <span className="text-[8px] font-black uppercase tracking-[0.5em] text-white/50 group-hover:text-blue-500">
-            Discovery
-          </span>
-          <div className="w-[1px] h-10 bg-gradient-to-b from-blue-500 to-transparent relative overflow-hidden">
+          <span className="text-[7px] font-bold uppercase tracking-[0.4em] text-white">Discovery</span>
+          <div className="w-[1px] h-8 bg-gradient-to-b from-blue-500 to-transparent relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1/2 bg-white animate-scroll-line" />
           </div>
         </button>
@@ -152,7 +158,7 @@ export default function Hero() {
           100% { transform: translateY(200%); }
         }
         .animate-scroll-line {
-          animation: scroll-line 2.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+          animation: scroll-line 2.5s infinite;
         }
       `}</style>
     </section>

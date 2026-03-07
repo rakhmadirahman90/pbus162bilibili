@@ -58,7 +58,9 @@ export default function HeroAdmin() {
     const reader = new FileReader();
     reader.onload = () => {
       setImageSrc(reader.result as string);
-      setShowCropper(true); // Munculkan modal besar untuk crop
+      setShowCropper(true); // Triger modal crop
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
     };
     reader.readAsDataURL(file);
     e.target.value = "";
@@ -68,7 +70,6 @@ export default function HeroAdmin() {
     setCroppedAreaPixels(clippedPixels);
   }, []);
 
-  // Fungsi untuk memproses potong gambar secara lokal sebelum upload
   const handleConfirmCrop = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
 
@@ -95,23 +96,22 @@ export default function HeroAdmin() {
         croppedAreaPixels.height
       );
 
-      const base64Image = canvas.toDataURL('image/jpeg');
-      setTempPreview(base64Image); // Tampilkan hasil potong di kotak preview kecil
-      setShowCropper(false); // Tutup modal crop
+      const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+      setTempPreview(base64Image); 
+      setShowCropper(false);
     } catch (e) {
-      console.error(e);
+      console.error("Crop error:", e);
     }
   };
 
   const handlePublish = async () => {
     if (!tempPreview || !newTitle) {
-      alert("Isi judul dan pilih gambar!");
+      alert("Mohon isi judul dan pilih gambar!");
       return;
     }
 
     setUploading(true);
     try {
-      // Ubah base64 preview ke blob untuk upload
       const response = await fetch(tempPreview);
       const blob = await response.blob();
       
@@ -146,9 +146,10 @@ export default function HeroAdmin() {
       setImageSrc(null);
       setNewTitle('');
       setNewSubtitle('');
-      alert("Berhasil publish!");
+      alert("Slide berhasil ditambahkan!");
     } catch (err) {
-      alert("Gagal upload");
+      console.error(err);
+      alert("Gagal mengunggah slide.");
     } finally {
       setUploading(false);
     }
@@ -170,19 +171,20 @@ export default function HeroAdmin() {
   };
 
   return (
-    <div className="relative max-w-7xl mx-auto p-6 bg-[#0a0a0c] text-white min-h-screen font-sans">
+    <div className="relative max-w-7xl mx-auto p-6 bg-[#0a0a0c] text-white min-h-screen">
       
-      {/* ==========================================================
-          MODAL CROPPER FULLSCREEN (INI YANG MEMASTIKAN FITUR MUNCUL)
-          ========================================================== */}
+      {/* MODAL CROPPER - DIPERBAIKI */}
       {showCropper && imageSrc && (
-        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col overflow-hidden">
           <div className="p-4 bg-[#111] border-b border-zinc-800 flex justify-between items-center">
             <h2 className="text-blue-400 font-bold italic uppercase tracking-tighter">Adjust Image</h2>
-            <button onClick={() => setShowCropper(false)} className="text-zinc-400 hover:text-white"><X size={30}/></button>
+            <button onClick={() => { setShowCropper(false); setImageSrc(null); }} className="text-zinc-400 hover:text-white">
+              <X size={30}/>
+            </button>
           </div>
 
-          <div className="relative flex-grow bg-[#050505]">
+          {/* Wrapper dengan tinggi eksplisit */}
+          <div className="relative flex-grow bg-[#050505] min-h-[50vh]">
             <Cropper
               image={imageSrc}
               crop={crop}
@@ -192,52 +194,55 @@ export default function HeroAdmin() {
               onZoomChange={setZoom}
               onCropComplete={onCropComplete}
               style={{
-                containerStyle: { width: '100%', height: '100%' }
+                containerStyle: { width: '100%', height: '100%', position: 'relative' },
+                mediaStyle: { display: 'block', maxWidth: '100%', maxHeight: '100%' }
               }}
             />
           </div>
 
           <div className="p-8 bg-[#111] border-t border-zinc-800 flex flex-col items-center gap-4">
             <div className="flex items-center gap-4 w-full max-w-md">
-              <ZoomOut size={20} />
+              <ZoomOut size={20} className="text-zinc-500" />
               <input 
                 type="range" min={1} max={3} step={0.1} value={zoom} 
                 onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full h-1 bg-zinc-700 accent-blue-600 appearance-none rounded-lg"
+                className="w-full h-1 bg-zinc-700 accent-blue-600 appearance-none rounded-lg cursor-pointer"
               />
-              <ZoomIn size={20} />
+              <ZoomIn size={20} className="text-zinc-500" />
             </div>
-            <button 
-              onClick={handleConfirmCrop}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-3 rounded-full font-bold uppercase tracking-widest transition-all"
-            >
-              Apply Crop
-            </button>
+            <div className="flex gap-4">
+              <button onClick={() => setShowCropper(false)} className="px-8 py-3 text-zinc-400 font-bold uppercase text-xs">Cancel</button>
+              <button 
+                onClick={handleConfirmCrop}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-12 py-3 rounded-full font-bold uppercase tracking-widest transition-all"
+              >
+                Confirm Crop
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* DASHBOARD UI */}
+      {/* UI UTAMA */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* LEFT COLUMN: REGISTER FORM */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#111114] border border-white/5 p-6 rounded-[2rem] shadow-2xl">
-            <h3 className="text-blue-500 font-black italic uppercase text-xs tracking-widest mb-6 flex items-center gap-2">
-              <Plus size={14}/> Register New Slide
+        {/* KOLOM KIRI: REGISTER */}
+        <div className="lg:col-span-4">
+          <div className="bg-[#111114] border border-white/5 p-6 rounded-[2rem] sticky top-6">
+            <h3 className="text-blue-500 font-black italic uppercase text-xs tracking-widest mb-6">
+              + Register New Slide
             </h3>
 
-            {/* Kotak Preview / Upload */}
             <div 
               onClick={() => document.getElementById('file-input')?.click()}
-              className="relative aspect-video bg-black border-2 border-dashed border-zinc-800 rounded-3xl overflow-hidden group cursor-pointer hover:border-blue-500/50 transition-all mb-6"
+              className="relative aspect-video bg-black border-2 border-dashed border-zinc-800 rounded-3xl overflow-hidden group cursor-pointer hover:border-blue-500 transition-all mb-6"
             >
               {tempPreview ? (
                 <img src={tempPreview} className="w-full h-full object-cover" />
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
-                  <ImageIcon size={40} className="mb-2 opacity-20" />
-                  <span className="text-[10px] uppercase font-bold tracking-widest">Select & Compress Visual</span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 p-4 text-center">
+                  <ImageIcon size={32} className="mb-2 opacity-20" />
+                  <span className="text-[10px] uppercase font-bold tracking-widest">Click to Select Visual</span>
                 </div>
               )}
               <input id="file-input" type="file" hidden accept="image/*" onChange={onFileChange} />
@@ -258,8 +263,8 @@ export default function HeroAdmin() {
               />
               <button 
                 onClick={handlePublish}
-                disabled={uploading}
-                className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg shadow-blue-900/20 flex justify-center items-center"
+                disabled={uploading || !tempPreview}
+                className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
               >
                 {uploading ? <Loader2 className="animate-spin" /> : "Publish To Hero"}
               </button>
@@ -267,25 +272,23 @@ export default function HeroAdmin() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: LIST SLIDES */}
+        {/* KOLOM KANAN: LIST */}
         <div className="lg:col-span-8 space-y-4">
           {slides.map((slide, index) => (
             <div key={slide.id} className="bg-[#111114] border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-zinc-700 transition-all">
-              <div className="relative w-48 aspect-video rounded-2xl overflow-hidden flex-shrink-0">
+              <div className="relative w-40 aspect-video rounded-2xl overflow-hidden flex-shrink-0">
                 <img src={slide.image} className="w-full h-full object-cover" />
-                <div className="absolute top-2 left-2 bg-blue-600 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-lg">
+                <div className="absolute top-2 left-2 bg-blue-600 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
                   {index + 1}
                 </div>
               </div>
               <div className="flex-grow">
-                <h4 className="font-black italic uppercase text-lg leading-tight mb-1">{slide.title}</h4>
-                <p className="text-zinc-500 text-xs line-clamp-2 uppercase tracking-tighter">{slide.subtitle}</p>
+                <h4 className="font-bold italic uppercase text-base mb-1">{slide.title}</h4>
+                <p className="text-zinc-500 text-[10px] uppercase tracking-tighter line-clamp-1">{slide.subtitle}</p>
               </div>
-              <div className="flex flex-col gap-2 pr-4">
-                <button onClick={() => handleDeleteSlide(slide.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-                  <Trash2 size={18} />
-                </button>
-              </div>
+              <button onClick={() => handleDeleteSlide(slide.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all mr-2">
+                <Trash2 size={18} />
+              </button>
             </div>
           ))}
         </div>

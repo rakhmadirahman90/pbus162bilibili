@@ -43,7 +43,7 @@ import AdminStructure from './components/AdminStructure';
 
 import { KelolaSurat } from './components/KelolaSurat'; 
 
-import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink } from 'lucide-center';
+import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // HELPER: Auto Scroll ke atas setiap pindah route

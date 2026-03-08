@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect, useMemo } from 'react'; 
 import { 
   Target, Rocket, Shield, Award, 
   CheckCircle2, Users2, ArrowRight, User, ShieldCheck, 
   ChevronDown, Star, GraduationCap, History, Eye, Map,
-  CheckCircle, Zap
+  CheckCircle, Zap, Loader2
 } from 'lucide-react'; 
 import { supabase } from '../supabase'; 
 
@@ -27,7 +27,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     sejarah: `Didirikan dengan semangat dedikasi tinggi...`,
     sejarah_image: "https://images.unsplash.com/photo-1544033527-b192daee1f5b?q=80&w=2070",
     visi: "Menjadi organisasi terdepan dalam mencetak generasi berprestasi...",
-    misi: [], // Diubah menjadi array agar lebih fleksibel
+    misi: [], 
     fasilitas_title: "Fasilitas Unggulan",
     fasilitas_main_image: "",
     fasilitas_img1: "",
@@ -40,29 +40,52 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   useEffect(() => {
     fetchAllData();
+
+    // --- REALTIME SYNC: Update Landing Page Otomatis saat Admin Klik Publish ---
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        table: 'organizational_structure', 
+        schema: 'public' 
+      }, () => {
+        fetchOrgData(); // Hanya ambil ulang data organisasi jika ada perubahan
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const fetchOrgData = async () => {
+    const { data: structData, error: orgError } = await supabase
+      .from('organizational_structure')
+      .select('*')
+      // PERBAIKAN: Mengurutkan berdasarkan level, lalu sort_order hasil dari Admin
+      .order('level', { ascending: true })
+      .order('sort_order', { ascending: true });
+
+    if (!orgError && structData) {
+      setOrgData(structData);
+    }
+  };
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten dari site_settings (SUMBER UTAMA ADMIN)
+      // 1. Ambil Konten dari site_settings
       const { data: settingsData } = await supabase
         .from('site_settings')
         .select('value')
         .eq('key', 'about_content')
         .maybeSingle();
 
-      // 2. Ambil data cadangan dari page_contents
       const { data: pagesData } = await supabase.from('page_contents').select('*');
 
       let finalMisi: any[] = [];
       let mappedSettings: any = {};
 
-      // Proses data dari Admin (Site Settings)
       if (settingsData && settingsData.value) {
         const val = typeof settingsData.value === 'string' ? JSON.parse(settingsData.value) : settingsData.value;
-        
-        // Handle Misi (Bisa dari .missions atau .misi)
         const rawMissions = val.missions || val.misi;
         if (Array.isArray(rawMissions)) {
           finalMisi = rawMissions;
@@ -84,7 +107,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         };
       }
 
-      // Jika site_settings tidak lengkap, isi dengan page_contents
       if (pagesData) {
         pagesData.forEach(p => {
           const t = p.title.toLowerCase();
@@ -99,15 +121,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         });
       }
 
-      // Gabungkan ke state
       setDynamicContent(prev => ({
         ...prev,
         ...mappedSettings,
-        // Pastikan misi selalu berbentuk array
         misi: Array.isArray(mappedSettings.misi) ? mappedSettings.misi : prev.misi
       }));
 
-      // 3. Ambil Data Fasilitas List (Galeri)
       const { data: facilitiesData } = await supabase
         .from('galeri')
         .select('*')
@@ -117,18 +136,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
       }
 
-      // 4. Ambil Struktur Organisasi
-      const { data: structData, error: orgError } = await supabase
-        .from('organizational_structure')
-        .select('*')
-        .order('level', { ascending: true })
-        .order('sort_order', { ascending: true });
-
-      if (!orgError && structData) {
-        setOrgData(structData);
-      } else {
-        setOrgData(orgFallback || []);
-      }
+      // 4. Ambil Struktur Organisasi (Memanggil fungsi terpisah)
+      await fetchOrgData();
 
     } catch (err) {
       console.error("Error connecting to database:", err);
@@ -156,13 +165,16 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
+  // --- LOGIKA PENGELOMPOKAN BIDANG (LEVEL 7) ---
   const renderDepartment = (title: string, roleKey: string) => {
     const coordinator = orgData.find(m => 
       m.level === 6 && m.role.toLowerCase().includes(roleKey.toLowerCase())
     );
-    const members = orgData.filter(m => 
-      m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase())
-    );
+    
+    // PERBAIKAN: Pastikan filter member juga mengikuti sort_order
+    const members = orgData
+      .filter(m => m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase()))
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
     if (!coordinator && members.length === 0) return null;
 
@@ -170,7 +182,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       <div className="w-full mb-16">
         <div className="flex items-center gap-4 mb-8">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-          <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">{title}</span>
+          <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] italic">{title}</span>
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
         </div>
 
@@ -195,7 +207,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
           {members.map(p => (
-            <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-shadow">
+            <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-all duration-300 hover:-translate-y-1">
               <div className="w-12 h-12 md:w-14 md:h-14 mb-2">
                 <img 
                   src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f1f5f9&color=64748b`} 
@@ -253,8 +265,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar`}>
           
           {loading ? (
-              <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <Loader2 className="animate-spin text-blue-600" size={32} />
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Syncing Data...</p>
               </div>
           ) : (
             <>
@@ -295,7 +308,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     <div>
                       <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Misi Kami</h3>
                       <div className="space-y-4">
-                        {/* PERBAIKAN UTAMA: Mapping Misi yang sudah diproses menjadi Array */}
                         {Array.isArray(dynamicContent.misi) && dynamicContent.misi.length > 0 ? (
                           dynamicContent.misi.map((item: any, i: number) => {
                             const textContent = typeof item === 'object' ? item.text || item.content : item;
@@ -373,9 +385,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
                   {[1, 2, 3, 4, 5].map(lvl => (
                     <div key={lvl} className={`flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full`}>
-                      {orgData.filter(m => m.level === lvl).map(p => (
+                      {orgData
+                        .filter(m => m.level === lvl)
+                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) // KUNCI UTAMA URUTAN
+                        .map(p => (
                         <div key={p.id} className="relative flex flex-col items-center">
-                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 1 ? 'w-52 md:w-64 border-amber-500' : 'w-40 md:w-48 border-slate-100'}`}>
+                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center transition-transform hover:-translate-y-1 ${lvl === 1 ? 'w-52 md:w-64 border-amber-500' : 'w-40 md:w-48 border-slate-100'}`}>
                             <div className={`${lvl === 1 ? 'w-24 h-24' : 'w-16 h-16'} mx-auto mb-2`}>
                               <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-full h-full rounded-xl object-cover shadow-sm" alt={p.name} />
                             </div>
@@ -390,9 +405,10 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
                   <div className="w-full max-w-6xl px-2">
                     {renderDepartment("Bidang Pertandingan", "Pertandingan")}
-                    {renderDepartment("Bidang Pembinaan Prestasi", "Binpres")}
+                    {renderDepartment("Bidang Pembinaan Prestasi", "Prestasi")}
                     {renderDepartment("Bidang Humas", "Humas")}
-                    {renderDepartment("Bidang Rohani & Sarpras", "Rohani")}
+                    {renderDepartment("Bidang Dana & Usaha", "Dana")}
+                    {renderDepartment("Bidang Sarana & Prasarana", "Sarpras")}
                   </div>
                 </div>
               )}

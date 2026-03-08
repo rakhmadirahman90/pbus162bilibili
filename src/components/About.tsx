@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'; 
 import { supabase } from '../supabase'; 
 
-// --- TAMBAHAN KODE: IMPORT FALLBACK DATA ---
+// --- IMPORT FALLBACK DATA ---
 import pageFallback from '../data/page_contents.json';
 import orgFallback from '../data/org_fallback.json';
 import siteFallback from '../data/site_fallback.json';
@@ -38,36 +38,41 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const [orgData, setOrgData] = useState<any[]>([]);
   const activeTab = propsActiveTab || internalTab;
 
+  // --- REUSABLE FETCH FUNCTION UNTUK STRUKTUR ---
+  const fetchOrgData = async () => {
+    // Tambahkan query parameter 't' agar browser tidak mengambil data dari cache (Force Refresh)
+    const { data: structData, error: orgError } = await supabase
+      .from('organizational_structure')
+      .select('*')
+      .order('level', { ascending: true })
+      .order('sort_order', { ascending: true }); // Pastikan kolom ini diisi di database
+
+    if (!orgError && structData) {
+      setOrgData(structData);
+    } else if (orgError) {
+      console.error("Gagal mengambil struktur:", orgError);
+      // Gunakan fallback jika database gagal
+      setOrgData(orgFallback || []);
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
 
-    // --- REALTIME SYNC: Update Landing Page Otomatis saat Admin Klik Publish ---
+    // REALTIME SYNC
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('db-changes-about')
       .on('postgres_changes', { 
         event: '*', 
         table: 'organizational_structure', 
         schema: 'public' 
       }, () => {
-        fetchOrgData(); // Hanya ambil ulang data organisasi jika ada perubahan
+        fetchOrgData();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
-
-  const fetchOrgData = async () => {
-    const { data: structData, error: orgError } = await supabase
-      .from('organizational_structure')
-      .select('*')
-      // PERBAIKAN: Mengurutkan berdasarkan level, lalu sort_order hasil dari Admin
-      .order('level', { ascending: true })
-      .order('sort_order', { ascending: true });
-
-    if (!orgError && structData) {
-      setOrgData(structData);
-    }
-  };
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -111,8 +116,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         pagesData.forEach(p => {
           const t = p.title.toLowerCase();
           if (!mappedSettings.sejarah && t.includes('sejarah')) {
-             mappedSettings.sejarah = p.content; 
-             mappedSettings.sejarah_image = p.image_url;
+              mappedSettings.sejarah = p.content; 
+              mappedSettings.sejarah_image = p.image_url;
           }
           if (!mappedSettings.visi && t.includes('visi')) mappedSettings.visi = p.content;
           if ((!mappedSettings.misi || mappedSettings.misi.length === 0) && t.includes('misi')) {
@@ -124,9 +129,10 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       setDynamicContent(prev => ({
         ...prev,
         ...mappedSettings,
-        misi: Array.isArray(mappedSettings.misi) ? mappedSettings.misi : prev.misi
+        misi: Array.isArray(mappedSettings.misi) && mappedSettings.misi.length > 0 ? mappedSettings.misi : prev.misi
       }));
 
+      // 3. Ambil Galeri Fasilitas
       const { data: facilitiesData } = await supabase
         .from('galeri')
         .select('*')
@@ -136,7 +142,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
       }
 
-      // 4. Ambil Struktur Organisasi (Memanggil fungsi terpisah)
+      // 4. Ambil Struktur Organisasi
       await fetchOrgData();
 
     } catch (err) {
@@ -165,13 +171,12 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
-  // --- LOGIKA PENGELOMPOKAN BIDANG (LEVEL 7) ---
+  // --- LOGIKA PENGELOMPOKAN BIDANG ---
   const renderDepartment = (title: string, roleKey: string) => {
     const coordinator = orgData.find(m => 
       m.level === 6 && m.role.toLowerCase().includes(roleKey.toLowerCase())
     );
     
-    // PERBAIKAN: Pastikan filter member juga mengikuti sort_order
     const members = orgData
       .filter(m => m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase()))
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -179,7 +184,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     if (!coordinator && members.length === 0) return null;
 
     return (
-      <div className="w-full mb-16">
+      <div className="w-full mb-16 animate-in fade-in duration-700">
         <div className="flex items-center gap-4 mb-8">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
           <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] italic">{title}</span>
@@ -228,7 +233,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
       <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-4">
         
-        {/* Header & Tabs */}
+        {/* Header */}
         <div className="text-center mb-2 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full mb-1">
             <Users2 size={10} className="animate-pulse" />
@@ -239,6 +244,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </h2>
         </div>
 
+        {/* Tabs */}
         <div className="flex flex-wrap justify-center gap-1.5 mb-3 shrink-0">
           {['sejarah', 'visi-misi', 'fasilitas'].map((id) => (
             <button
@@ -261,13 +267,13 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </button>
         </div>
 
-        {/* Content Container */}
-        <div className={`flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar`}>
+        {/* Scrollable Content Container */}
+        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar">
           
           {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                   <Loader2 className="animate-spin text-blue-600" size={32} />
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Syncing Data...</p>
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Memperbarui Data...</p>
               </div>
           ) : (
             <>
@@ -276,11 +282,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                   <div className="flex flex-col md:flex-row gap-8 items-start">
                     <div className="w-full md:w-1/3 shrink-0">
                       <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl rotate-3">
-                        <img 
-                          src={dynamicContent.sejarah_image} 
-                          className="w-full h-full object-cover" 
-                          alt="Sejarah" 
-                        />
+                        <img src={dynamicContent.sejarah_image} className="w-full h-full object-cover" alt="Sejarah" />
                       </div>
                     </div>
                     <div className="flex-1">
@@ -309,21 +311,15 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Misi Kami</h3>
                       <div className="space-y-4">
                         {Array.isArray(dynamicContent.misi) && dynamicContent.misi.length > 0 ? (
-                          dynamicContent.misi.map((item: any, i: number) => {
-                            const textContent = typeof item === 'object' ? item.text || item.content : item;
-                            if (!textContent) return null;
-                            return (
-                              <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                                <CheckCircle size={16} className="text-emerald-500 mt-1 shrink-0" />
-                                <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">
-                                  {textContent.replace(/^[0-9.-]+\s*/, '')}
-                                </p>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="text-center py-10 text-slate-400 italic">Belum ada data misi.</div>
-                        )}
+                          dynamicContent.misi.map((item: any, i: number) => (
+                            <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                              <CheckCircle size={16} className="text-emerald-500 mt-1 shrink-0" />
+                              <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">
+                                {typeof item === 'string' ? item.replace(/^[0-9.-]+\s*/, '') : item.text || ''}
+                              </p>
+                            </div>
+                          ))
+                        ) : <div className="text-slate-400 italic">Data misi sedang dimuat...</div>}
                       </div>
                     </div>
                   </div>
@@ -340,43 +336,10 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       {dynamicContent.fasilitas_title || "Fasilitas Kami"}
                     </h3>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
-                      <img 
-                        src={dynamicContent.fasilitas_main_image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070"} 
-                        className="w-full h-full object-cover" 
-                        alt="Fasilitas Utama" 
-                      />
-                    </div>
-                    <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
-                      <img 
-                        src={dynamicContent.fasilitas_img1 || "https://images.unsplash.com/photo-1571902901105-d8c8d330bd46?q=80&w=1967"} 
-                        className="w-full h-full object-cover" 
-                        alt="Detail Fasilitas 1" 
-                      />
-                    </div>
-                    <div className="h-64 rounded-[2rem] overflow-hidden shadow-lg border-4 border-white">
-                      <img 
-                        src={dynamicContent.fasilitas_img2 || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070"} 
-                        className="w-full h-full object-cover" 
-                        alt="Detail Fasilitas 2" 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {dynamicContent.fasilitas_list?.length > 0 && dynamicContent.fasilitas_list.map((f: any, i: number) => (
-                      <div key={f.id || i} className="group bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500">
-                        <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
-                          <img src={f.image_url || f.image || f.url_gambar} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={f.title} />
-                        </div>
-                        <div className="p-6">
-                          <h4 className="font-black text-slate-900 uppercase text-sm mb-2">{f.title || f.judul}</h4>
-                          <p className="text-slate-500 text-xs leading-relaxed font-medium">{f.description || f.deskripsi}</p>
-                        </div>
-                      </div>
-                    ))}
+                    <img src={dynamicContent.fasilitas_main_image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48"} className="h-64 w-full rounded-[2rem] object-cover border-4 border-white shadow-lg" alt="F1" />
+                    <img src={dynamicContent.fasilitas_img1 || "https://images.unsplash.com/photo-1571902901105-d8c8d330bd46"} className="h-64 w-full rounded-[2rem] object-cover border-4 border-white shadow-lg" alt="F2" />
+                    <img src={dynamicContent.fasilitas_img2 || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f"} className="h-64 w-full rounded-[2rem] object-cover border-4 border-white shadow-lg" alt="F3" />
                   </div>
                 </div>
               )}
@@ -384,13 +347,13 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
               {activeTab === 'organisasi' && (
                 <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
                   {[1, 2, 3, 4, 5].map(lvl => (
-                    <div key={lvl} className={`flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full`}>
+                    <div key={lvl} className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full">
                       {orgData
                         .filter(m => m.level === lvl)
-                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) // KUNCI UTAMA URUTAN
+                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
                         .map(p => (
                         <div key={p.id} className="relative flex flex-col items-center">
-                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center transition-transform hover:-translate-y-1 ${lvl === 1 ? 'w-52 md:w-64 border-amber-500' : 'w-40 md:w-48 border-slate-100'}`}>
+                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 1 ? 'w-52 md:w-64 border-amber-500' : 'w-40 md:w-48 border-slate-100'}`}>
                             <div className={`${lvl === 1 ? 'w-24 h-24' : 'w-16 h-16'} mx-auto mb-2`}>
                               <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-full h-full rounded-xl object-cover shadow-sm" alt={p.name} />
                             </div>

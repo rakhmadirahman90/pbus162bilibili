@@ -120,7 +120,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   // --- RENDERING BIDANG (LEVEL 7) ---
   const renderDepartment = (title: string, roleKey: string) => {
-    // Peningkatan filter: Mencari berdasarkan role ATAU kategori (jika ada kolom kategori)
     const members = orgData.filter(m => 
       m.level === 7 && (
         m.role.toLowerCase().includes(roleKey.toLowerCase()) ||
@@ -130,21 +129,22 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
     if (members.length === 0) return null;
 
-    const displayTitle = members[0]?.role.split(' - ')[0] || title;
     const coordinator = members.find(m => m.role.toLowerCase().includes("koordinator"));
     const staffs = members.filter(m => !m.role.toLowerCase().includes("koordinator"));
 
     return (
       <div className="w-full mb-20 animate-in fade-in duration-1000">
         <div className="flex flex-col items-center mb-10">
-           <div className="bg-white px-6 py-2 rounded-full border border-slate-200 shadow-sm mb-8">
-              <h4 className="text-blue-600 font-black italic uppercase text-[10px] md:text-[12px] tracking-[0.2em]">
-                {displayTitle}
-              </h4>
-           </div>
            
            {coordinator && (
              <div className="flex flex-col items-center mb-10">
+                {/* PERBAIKAN: Label di atas foto kini dinamis menjadi nama Role (e.g., Koordinator Rohani) */}
+                <div className="bg-white px-6 py-2 rounded-full border border-slate-200 shadow-sm mb-8">
+                  <h4 className="text-blue-600 font-black italic uppercase text-[10px] md:text-[12px] tracking-[0.2em]">
+                    {coordinator.role}
+                  </h4>
+                </div>
+
                 <div className="bg-white p-4 rounded-[2rem] border-2 border-blue-100 shadow-xl text-center w-56 hover:border-blue-400 transition-colors">
                   <div className="w-24 h-24 mx-auto mb-3">
                     <img 
@@ -310,7 +310,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     {renderDepartment("Bidang Dana & Usaha", "Dana")}
                     {renderDepartment("Bidang Sarana & Prasarana", "Sarpras")}
                     {renderDepartment("Bidang Umum", "Umum")}
-                    {/* TAMBAHAN: Memanggil Bidang Rohani agar muncul di Landing Page */}
                     {renderDepartment("Bidang Rohani", "Rohani")}
                   </div>
                 </div>

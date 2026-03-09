@@ -40,17 +40,16 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   // --- PERBAIKAN: FETCH DATA DENGAN DUAL-ORDERING ---
   const fetchOrgData = async () => {
-    // Kita ambil semua data dan urutkan berdasarkan level, lalu sort_order (atau order_priority)
+    // Diurutkan berdasarkan level (1-7) kemudian sort_order hasil drag & drop di admin
     const { data: structData, error: orgError } = await supabase
       .from('organizational_structure')
       .select('*')
       .order('level', { ascending: true })
-      .order('sort_order', { ascending: true }); // Jika di DB Anda namanya 'order_priority', ganti ke 'order_priority'
+      .order('sort_order', { ascending: true });
 
     if (!orgError && structData) {
       setOrgData(structData);
     } else {
-      console.error("Gagal mengambil struktur:", orgError);
       setOrgData(orgFallback || []);
     }
   };
@@ -58,9 +57,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   useEffect(() => {
     fetchAllData();
 
-    // REALTIME SYNC - Ditingkatkan untuk mendengarkan semua perubahan
+    // REALTIME SYNC: Otomatis update jika admin mengubah data
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('public:organizational_structure')
       .on('postgres_changes', { 
         event: '*', 
         table: 'organizational_structure', 
@@ -76,33 +75,23 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      // 1. Fetch Site Settings (About Content)
       const { data: settingsData } = await supabase
         .from('site_settings')
         .select('value')
         .eq('key', 'about_content')
         .maybeSingle();
 
-      const { data: pagesData } = await supabase.from('page_contents').select('*');
-
-      let finalMisi: any[] = [];
       let mappedSettings: any = {};
-
-      if (settingsData && settingsData.value) {
+      if (settingsData?.value) {
         const val = typeof settingsData.value === 'string' ? JSON.parse(settingsData.value) : settingsData.value;
-        const rawMissions = val.missions || val.misi;
-        if (Array.isArray(rawMissions)) {
-          finalMisi = rawMissions;
-        } else if (typeof rawMissions === 'string') {
-          finalMisi = rawMissions.split('\n').filter(m => m.trim() !== '');
-        }
-
         mappedSettings = {
           sejarah_title: val.sejarah_title,
           sejarah_accent: val.sejarah_accent,
           sejarah: val.sejarah_desc,
           sejarah_image: val.sejarah_img,
           visi: val.vision || val.visi,
-          misi: finalMisi,
+          misi: Array.isArray(val.missions || val.misi) ? (val.missions || val.misi) : [],
           fasilitas_title: val.fasilitas_title,
           fasilitas_main_image: val.fasilitas_img1,
           fasilitas_img1: val.fasilitas_img2,
@@ -110,118 +99,87 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         };
       }
 
-      if (pagesData) {
-        pagesData.forEach(p => {
-          const t = p.title.toLowerCase();
-          if (!mappedSettings.sejarah && t.includes('sejarah')) {
-              mappedSettings.sejarah = p.content; 
-              mappedSettings.sejarah_image = p.image_url;
-          }
-          if (!mappedSettings.visi && t.includes('visi')) mappedSettings.visi = p.content;
-          if ((!mappedSettings.misi || mappedSettings.misi.length === 0) && t.includes('misi')) {
-            mappedSettings.misi = p.content.split('\n').filter((m: string) => m.trim() !== '');
-          }
-        });
-      }
+      setDynamicContent(prev => ({ ...prev, ...mappedSettings }));
 
-      setDynamicContent(prev => ({
-        ...prev,
-        ...mappedSettings,
-        misi: Array.isArray(mappedSettings.misi) && mappedSettings.misi.length > 0 ? mappedSettings.misi : prev.misi
-      }));
-
-      const { data: facilitiesData } = await supabase
-        .from('galeri')
-        .select('*')
-        .or('category.ilike.%fasilitas%,title.ilike.%fasilitas%');
-
-      if (facilitiesData && facilitiesData.length > 0) {
-        setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
-      }
-
+      // 2. Fetch Organizational Data
       await fetchOrgData();
 
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Error loading About data:", err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleTabChange = (id: string) => {
-    if (onTabChange) {
-      onTabChange(id);
-    } else {
-      setInternalTab(id);
-    }
+    if (onTabChange) onTabChange(id);
+    else setInternalTab(id);
   };
 
   const getLevelColor = (level: number) => {
-    switch(level) {
-      case 1: return 'bg-amber-500'; 
-      case 2: return 'bg-emerald-500'; 
-      case 3: return 'bg-blue-600'; 
-      case 4: return 'bg-indigo-600'; 
-      case 5: return 'bg-rose-500';
-      default: return 'bg-slate-500';
-    }
+    const colors: Record<number, string> = {
+      1: 'bg-amber-500', 2: 'bg-emerald-600', 3: 'bg-indigo-600',
+      4: 'bg-blue-600', 5: 'bg-rose-500', 6: 'bg-orange-500'
+    };
+    return colors[level] || 'bg-slate-500';
   };
 
-  // --- PERBAIKAN: LOGIKA PENGELOMPOKAN BIDANG YANG LEBIH AKURAT ---
+  // --- PERBAIKAN LOGIKA RENDERING BIDANG (LEVEL 7) ---
   const renderDepartment = (title: string, roleKey: string) => {
-    // Koordinator (Level 6)
-    const coordinator = orgData.find(m => 
-      m.level === 6 && m.role.toLowerCase().includes(roleKey.toLowerCase())
-    );
-    
-    // Anggota (Level 7) - Pastikan sorting berdasarkan database tetap terjaga
+    // Filter anggota di level 7 yang rolenya mengandung kata kunci bidang
     const members = orgData.filter(m => 
       m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase())
     );
 
-    if (!coordinator && members.length === 0) return null;
+    if (members.length === 0) return null;
+
+    // Pisahkan koordinator dalam bidang tersebut (jika ada yang level 7 tapi rolenya Koordinator)
+    const coordinator = members.find(m => m.role.toLowerCase().includes("koordinator"));
+    const staffs = members.filter(m => !m.role.toLowerCase().includes("koordinator"));
 
     return (
-      <div className="w-full mb-16 animate-in fade-in duration-700">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-          <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] italic">{title}</span>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-        </div>
+      <div className="w-full mb-20 animate-in fade-in duration-1000">
+        <div className="flex flex-col items-center mb-10">
+           <div className="bg-white px-6 py-2 rounded-full border border-slate-200 shadow-sm mb-8">
+              <h4 className="text-blue-600 font-black italic uppercase text-[10px] md:text-[12px] tracking-[0.2em]">{title}</h4>
+           </div>
+           
+           {/* Koordinator Bidang */}
+           {coordinator && (
+             <div className="flex flex-col items-center mb-10">
+                <div className="bg-white p-4 rounded-[2rem] border-2 border-blue-100 shadow-xl text-center w-56 hover:border-blue-400 transition-colors">
+                  <div className="w-24 h-24 mx-auto mb-3">
+                    <img 
+                      src={coordinator.photo_url || `https://ui-avatars.com/api/?name=${coordinator.name}`} 
+                      className="w-full h-full rounded-2xl object-cover border-4 border-slate-50" 
+                      alt={coordinator.name}
+                    />
+                  </div>
+                  <p className="font-black text-[11px] uppercase italic text-slate-900 leading-tight">{coordinator.name}</p>
+                  <p className="text-[8px] text-blue-600 font-bold uppercase mt-1">{coordinator.role}</p>
+                </div>
+                {staffs.length > 0 && <div className="w-0.5 h-10 bg-gradient-to-b from-blue-200 to-transparent"></div>}
+             </div>
+           )}
 
-        {coordinator && (
-          <div className="flex flex-col items-center mb-8">
-            <div className="bg-white p-4 rounded-[2rem] border-2 border-amber-400 shadow-lg text-center w-48 md:w-56">
-              <div className="w-20 h-20 mx-auto mb-3">
-                <img 
-                  src={coordinator.photo_url || `https://ui-avatars.com/api/?name=${coordinator.name}&background=f59e0b&color=fff`} 
-                  className="w-full h-full rounded-2xl object-cover border-2 border-slate-50 shadow-sm" 
-                  alt={coordinator.name}
-                />
-              </div>
-              <p className="font-black text-[9px] md:text-[10px] uppercase italic text-slate-900 leading-tight mb-2">{coordinator.name}</p>
-              <span className="text-[7px] bg-amber-500 text-white px-3 py-1 rounded-full font-black uppercase tracking-tighter">
-                {coordinator.role}
-              </span>
-            </div>
-            <div className="w-0.5 h-8 bg-slate-200"></div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-          {members.map(p => (
-            <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-              <div className="w-12 h-12 md:w-14 md:h-14 mb-2">
-                <img 
-                  src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}&background=f1f5f9&color=64748b`} 
-                  className="w-full h-full rounded-xl object-cover" 
-                  alt={p.name}
-                />
-              </div>
-              <p className="font-bold text-[8px] md:text-[9px] uppercase text-slate-800 leading-tight">{p.name}</p>
-              <p className="text-blue-500 font-bold text-[6px] md:text-[7px] uppercase mt-1">{p.role}</p>
-            </div>
-          ))}
+           {/* Anggota Bidang */}
+           <div className="flex flex-wrap justify-center gap-4 md:gap-6 w-full max-w-5xl">
+              {staffs.map(p => (
+                <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 w-64 md:w-72 hover:shadow-md transition-all">
+                  <div className="w-14 h-14 shrink-0">
+                    <img 
+                      src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} 
+                      className="w-full h-full rounded-xl object-cover" 
+                      alt={p.name}
+                    />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <p className="font-black text-[10px] md:text-[11px] uppercase italic text-slate-900 truncate leading-tight">{p.name}</p>
+                    <p className="text-blue-500 font-bold text-[8px] uppercase mt-1">{p.role}</p>
+                  </div>
+                </div>
+              ))}
+           </div>
         </div>
       </div>
     );
@@ -229,26 +187,27 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   return (
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
-      {/* ... (Sisa kode UI tetap sama seperti milik Anda) ... */}
-      <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-4">
+      <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-6">
         
-        <div className="text-center mb-2 shrink-0">
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full mb-1">
-            <Users2 size={10} className="animate-pulse" />
-            <span className="text-[7px] font-black uppercase tracking-[0.2em]">Profil Organisasi</span>
+        {/* Header Section */}
+        <div className="text-center mb-4 shrink-0">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-2">
+            <Users2 size={12} className="animate-pulse" />
+            <span className="text-[8px] font-black uppercase tracking-[0.2em]">Profil Organisasi</span>
           </div>
-          <h2 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight uppercase leading-none italic">
+          <h2 className="text-2xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none italic">
             Tentang <span className="text-blue-600">Kami</span>
           </h2>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-1.5 mb-3 shrink-0">
+        {/* Tab Navigation */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6 shrink-0">
           {['sejarah', 'visi-misi', 'fasilitas'].map((id) => (
             <button
               key={id}
               onClick={() => handleTabChange(id)}
-              className={`px-3 md:px-5 py-1.5 rounded-lg font-bold text-[8px] md:text-xs uppercase border-2 transition-all ${
-                activeTab === id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-100'
+              className={`px-4 md:px-8 py-2 md:py-3 rounded-xl font-black text-[9px] md:text-[11px] uppercase border-2 transition-all active:scale-95 ${
+                activeTab === id ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' : 'bg-white text-slate-400 border-slate-100 hover:border-blue-200'
               }`}
             >
               {id.replace('-', ' ')}
@@ -256,36 +215,36 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           ))}
           <button
             onClick={() => handleTabChange('organisasi')}
-            className={`px-3 md:px-5 py-1.5 rounded-lg font-bold text-[8px] md:text-xs uppercase border-2 flex items-center gap-1.5 transition-all ${
-              activeTab === 'organisasi' ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-900 text-white border-slate-900'
+            className={`px-4 md:px-8 py-2 md:py-3 rounded-xl font-black text-[9px] md:text-[11px] uppercase border-2 flex items-center gap-2 transition-all active:scale-95 ${
+              activeTab === 'organisasi' ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200' : 'bg-white text-slate-900 border-slate-900 hover:bg-slate-50'
             }`}
           >
-            Struktur <ArrowRight size={10} />
+            Struktur Organisasi <ArrowRight size={14} />
           </button>
         </div>
 
-        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar">
+        {/* Content Area */}
+        <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[2rem] md:rounded-[3.5rem] p-4 md:p-12 border border-slate-100 shadow-inner relative overflow-y-auto custom-scrollbar">
           {loading ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3">
-                  <Loader2 className="animate-spin text-blue-600" size={32} />
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Memperbarui Data...</p>
-              </div>
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <Loader2 className="animate-spin text-blue-600" size={40} />
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sinkronisasi Database...</p>
+            </div>
           ) : (
             <>
               {activeTab === 'sejarah' && (
-                <div className="max-w-4xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex flex-col md:flex-row gap-8 items-start">
-                    <div className="w-full md:w-1/3 shrink-0">
-                      <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl rotate-3">
+                <div className="max-w-4xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <div className="flex flex-col md:flex-row gap-12 items-center md:items-start">
+                    <div className="w-full md:w-2/5 shrink-0">
+                      <div className="relative aspect-square rounded-[3rem] overflow-hidden border-8 border-white shadow-2xl -rotate-2">
                         <img src={dynamicContent.sejarah_image} className="w-full h-full object-cover" alt="Sejarah" />
                       </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-black text-slate-900 uppercase italic mb-4 flex items-center gap-2">
-                        <Zap className="text-amber-500" size={20} /> 
+                    <div className="flex-1 text-center md:text-left">
+                      <h3 className="text-3xl font-black text-slate-900 uppercase italic mb-6">
                         {dynamicContent.sejarah_title} <span className="text-blue-600">{dynamicContent.sejarah_accent}</span>
                       </h3>
-                      <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium">
+                      <p className="text-slate-600 leading-relaxed text-sm md:text-lg font-medium whitespace-pre-line">
                         {dynamicContent.sejarah}
                       </p>
                     </div>
@@ -294,78 +253,71 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
               )}
 
               {activeTab === 'visi-misi' && (
-                <div className="max-w-5xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="grid md:grid-cols-2 gap-10">
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Visi Utama</h3>
-                      <div className="bg-white p-8 rounded-[2.5rem] border-2 border-amber-50 shadow-sm font-black italic text-lg leading-relaxed">
+                <div className="max-w-5xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <div className="grid md:grid-cols-2 gap-12">
+                    <div className="space-y-6">
+                      <div className="inline-block px-4 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase">Visi</div>
+                      <div className="bg-white p-10 rounded-[3rem] border-2 border-blue-50 shadow-xl shadow-blue-500/5 font-black italic text-xl md:text-2xl text-slate-800 leading-tight">
                         "{dynamicContent.visi}"
                       </div>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900 uppercase italic mb-4">Misi Kami</h3>
+                    <div className="space-y-6">
+                      <div className="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-lg text-[10px] font-black uppercase">Misi</div>
                       <div className="space-y-4">
-                        {Array.isArray(dynamicContent.misi) && dynamicContent.misi.length > 0 ? (
-                          dynamicContent.misi.map((item: any, i: number) => (
-                            <div key={i} className="flex items-start gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                              <CheckCircle size={16} className="text-emerald-500 mt-1 shrink-0" />
-                              <p className="text-slate-600 text-sm font-bold uppercase tracking-tight">
-                                {typeof item === 'string' ? item.replace(/^[0-9.-]+\s*/, '') : item.text || ''}
-                              </p>
-                            </div>
-                          ))
-                        ) : <div className="text-slate-400 italic">Data misi sedang dimuat...</div>}
+                        {dynamicContent.misi.map((item: any, i: number) => (
+                          <div key={i} className="flex items-start gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="bg-emerald-500 p-1 rounded-full shrink-0 mt-1"><CheckCircle2 size={14} className="text-white" /></div>
+                            <p className="text-slate-700 text-[11px] md:text-[13px] font-black uppercase tracking-tight leading-snug">
+                              {typeof item === 'string' ? item : item.text}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'fasilitas' && (
-                <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex flex-col items-center text-center mb-10">
-                    <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg mb-4">
-                      <Map size={24} />
-                    </div>
-                    <h3 className="text-2xl md:text-4xl font-black text-slate-900 uppercase italic leading-tight">
-                      {dynamicContent.fasilitas_title || "Fasilitas Kami"}
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    <img src={dynamicContent.fasilitas_main_image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48"} className="h-64 w-full rounded-[2rem] object-cover border-4 border-white shadow-lg" alt="F1" />
-                    <img src={dynamicContent.fasilitas_img1 || "https://images.unsplash.com/photo-1571902901105-d8c8d330bd46"} className="h-64 w-full rounded-[2rem] object-cover border-4 border-white shadow-lg" alt="F2" />
-                    <img src={dynamicContent.fasilitas_img2 || "https://images.unsplash.com/photo-1540497077202-7c8a3999166f"} className="h-64 w-full rounded-[2rem] object-cover border-4 border-white shadow-lg" alt="F3" />
                   </div>
                 </div>
               )}
 
               {activeTab === 'organisasi' && (
-                <div className="w-full flex flex-col items-center py-8 animate-in slide-in-from-bottom-5 duration-700 pb-32">
-                  {[1, 2, 3, 4, 5].map(lvl => (
-                    <div key={lvl} className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full">
-                      {orgData
-                        .filter(m => m.level === lvl)
-                        .map(p => (
-                        <div key={p.id} className="relative flex flex-col items-center">
-                          <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 1 ? 'w-52 md:w-64 border-amber-500' : 'w-40 md:w-48 border-slate-100'}`}>
-                            <div className={`${lvl === 1 ? 'w-24 h-24' : 'w-16 h-16'} mx-auto mb-2`}>
-                              <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-full h-full rounded-xl object-cover shadow-sm" alt={p.name} />
+                <div className="w-full flex flex-col items-center py-10 animate-in slide-in-from-bottom-10 duration-1000 pb-40">
+                  {/* Hirarki Utama (Lvl 1 - 6) */}
+                  {[1, 2, 3, 4, 5, 6].map(lvl => {
+                    const levelMembers = orgData.filter(m => m.level === lvl);
+                    if (levelMembers.length === 0) return null;
+                    
+                    return (
+                      <div key={lvl} className="flex flex-col items-center w-full mb-16 relative">
+                        <div className="flex flex-wrap justify-center gap-6 md:gap-12 relative z-10">
+                          {levelMembers.map(p => (
+                            <div key={p.id} className="flex flex-col items-center">
+                              <div className={`bg-white p-4 rounded-[2.5rem] border-2 shadow-2xl text-center transition-transform hover:scale-105 ${lvl === 4 ? 'w-64 md:w-72 border-blue-500 ring-8 ring-blue-50' : 'w-48 md:w-56 border-slate-100'}`}>
+                                <div className={`${lvl === 4 ? 'w-32 h-32' : 'w-24 h-24'} mx-auto mb-4`}>
+                                  <img src={p.photo_url || `https://ui-avatars.com/api/?name=${p.name}`} className="w-full h-full rounded-[2rem] object-cover border-4 border-slate-50 shadow-inner" alt={p.name} />
+                                </div>
+                                <p className="font-black text-[11px] md:text-[13px] uppercase italic text-slate-900 leading-tight mb-2 truncate">{p.name}</p>
+                                <span className={`text-[8px] text-white px-4 py-1 rounded-full font-black uppercase tracking-widest ${getLevelColor(p.level)}`}>{p.role}</span>
+                              </div>
+                              <div className="w-0.5 h-16 bg-gradient-to-b from-slate-200 to-transparent"></div>
                             </div>
-                            <p className="font-bold text-[9px] md:text-[11px] uppercase italic text-slate-800 leading-tight mb-1">{p.name}</p>
-                            <span className={`text-[7px] text-white px-3 py-0.5 rounded-md font-bold uppercase ${getLevelColor(p.level)}`}>{p.role}</span>
-                          </div>
-                          <div className="w-0.5 h-12 bg-slate-100"></div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
 
-                  <div className="w-full max-w-6xl px-2">
+                  {/* Koordinator & Anggota Bidang (Lvl 7) */}
+                  <div className="w-full max-w-6xl mt-10">
+                    <div className="text-center mb-20">
+                      <div className="inline-block h-1 w-20 bg-blue-600 rounded-full mb-4"></div>
+                      <h3 className="text-2xl font-black uppercase italic text-slate-900 tracking-widest">Koordinator & Anggota Bidang</h3>
+                    </div>
+                    
                     {renderDepartment("Bidang Pertandingan", "Pertandingan")}
                     {renderDepartment("Bidang Pembinaan Prestasi", "Prestasi")}
                     {renderDepartment("Bidang Humas", "Humas")}
                     {renderDepartment("Bidang Dana & Usaha", "Dana")}
                     {renderDepartment("Bidang Sarana & Prasarana", "Sarpras")}
+                    {renderDepartment("Bidang Umum & Kesehatan", "Umum")}
                   </div>
                 </div>
               )}
@@ -375,8 +327,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       </div>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
       `}</style>
     </section>

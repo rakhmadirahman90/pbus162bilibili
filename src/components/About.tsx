@@ -38,7 +38,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const [orgData, setOrgData] = useState<any[]>([]);
   const activeTab = propsActiveTab || internalTab;
 
-  // --- PERBAIKAN: FETCH DATA DENGAN DUAL-ORDERING ---
   const fetchOrgData = async () => {
     const { data: structData, error: orgError } = await supabase
       .from('organizational_structure')
@@ -119,18 +118,19 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     return colors[level] || 'bg-slate-500';
   };
 
-  // --- PERBAIKAN LOGIKA RENDERING BIDANG (LEVEL 7) ---
+  // --- RENDERING BIDANG (LEVEL 7) ---
   const renderDepartment = (title: string, roleKey: string) => {
+    // Peningkatan filter: Mencari berdasarkan role ATAU kategori (jika ada kolom kategori)
     const members = orgData.filter(m => 
-      m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase())
+      m.level === 7 && (
+        m.role.toLowerCase().includes(roleKey.toLowerCase()) ||
+        (m.category && m.category.toLowerCase().includes(roleKey.toLowerCase()))
+      )
     );
 
     if (members.length === 0) return null;
 
-    // SINKRONISASI OTOMATIS: Ambil nama bidang dari data pertama jika mengandung kata kunci
-    // Ini agar jika di Admin diubah jadi "Bidang Umum", Landing Page tidak memaksa "Umum & Kesehatan"
     const displayTitle = members[0]?.role.split(' - ')[0] || title;
-
     const coordinator = members.find(m => m.role.toLowerCase().includes("koordinator"));
     const staffs = members.filter(m => !m.role.toLowerCase().includes("koordinator"));
 
@@ -309,8 +309,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     {renderDepartment("Bidang Humas", "Humas")}
                     {renderDepartment("Bidang Dana & Usaha", "Dana")}
                     {renderDepartment("Bidang Sarana & Prasarana", "Sarpras")}
-                    {/* SINKRON: Menggunakan keyword "Umum" untuk filter data database */}
                     {renderDepartment("Bidang Umum", "Umum")}
+                    {/* TAMBAHAN: Memanggil Bidang Rohani agar muncul di Landing Page */}
+                    {renderDepartment("Bidang Rohani", "Rohani")}
                   </div>
                 </div>
               )}

@@ -5,7 +5,7 @@ import {
   ImageIcon, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, Save, GripVertical, Eye,
   Award, ShieldCheck, Users, ChevronDown, Star, Briefcase, Target,
-  Eraser
+  Eraser, RefreshCw
 } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 
@@ -17,7 +17,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
+  DragEndEvent,
+  DefaultAnnouncements
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -48,7 +49,10 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
 
 // --- KOMPONEN SORTABLE ITEM UNTUK LIST ---
 function SortableMemberRow({ member, onEdit, onDelete }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: member.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+    id: member.id // Pastikan ID stabil (UUID dari database)
+  });
+  
   const style = { 
     transform: CSS.Transform.toString(transform), 
     transition, 
@@ -62,7 +66,11 @@ function SortableMemberRow({ member, onEdit, onDelete }: any) {
         <GripVertical size={16} />
       </button>
       <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-800 shrink-0">
-        <img src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`} className="w-full h-full object-cover" />
+        <img 
+          src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}`} 
+          className="w-full h-full object-cover" 
+          onError={(e: any) => { e.target.src = "https://ui-avatars.com/api/?name=Error"; }}
+        />
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="text-[11px] font-black uppercase italic truncate">{member.name}</h4>
@@ -94,10 +102,13 @@ export default function AdminStructure() {
     name: '', role: '', category: 'Seksi', level: 1, photo_url: ''
   });
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), 
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useEffect(() => { fetchMembers(); }, []);
-  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); } }, [toast]);
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); } }, [toast]);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -109,27 +120,28 @@ export default function AdminStructure() {
 
       if (error) throw error;
       setMembers(data || []);
-    } catch (err) { 
+    } catch (err: any) { 
       console.error("Fetch error:", err);
-      setToast({ msg: 'GAGAL MEMUAT DATA DATABASE', type: 'error' });
+      setToast({ msg: 'GAGAL MEMUAT DATA: ' + err.message, type: 'error' });
     } finally { 
       setLoading(false); 
     }
   };
 
   const runCleaner = async () => {
-    if (!confirm("Hapus semua file foto lama yang berukuran besar (>500KB) di server?")) return;
+    if (!confirm("Hapus semua file foto lama yang berukuran besar (>500KB) di server? Tindakan ini tidak bisa dibatalkan.")) return;
     setLoading(true);
     try {
       const response = await fetch('https://pbus162.com/assets/struktur/cleaner.php?pass=pbus162_aman');
+      if (!response.ok) throw new Error("Server cleaner tidak merespon");
       const result = await response.json();
       if (result.status === 'success') {
         setToast({ msg: result.message, type: 'success' });
       } else {
-        setToast({ msg: 'GAGAL MEMBERSIHKAN SERVER', type: 'error' });
+        setToast({ msg: result.message || 'GAGAL MEMBERSIHKAN SERVER', type: 'error' });
       }
-    } catch (err) {
-      setToast({ msg: 'KONEKSI KE CLEANER GAGAL', type: 'error' });
+    } catch (err: any) {
+      setToast({ msg: 'KONEKSI KE CLEANER GAGAL: ' + err.message, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -138,6 +150,11 @@ export default function AdminStructure() {
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      // Validasi ukuran (misal max 5MB sebelum crop)
+      if (file.size > 5 * 1024 * 1024) {
+        setToast({ msg: 'FILE TERLALU BESAR (MAX 5MB)', type: 'error' });
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => setImageSrc(reader.result as string);
       reader.readAsDataURL(file);
@@ -153,33 +170,49 @@ export default function AdminStructure() {
       const canvas = document.createElement('canvas');
       const image = new Image();
       image.src = imageSrc;
-      await new Promise((resolve) => (image.onload = resolve));
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+      });
+
       const ctx = canvas.getContext('2d');
       canvas.width = 400; 
       canvas.height = 400;
-      ctx?.drawImage(image, croppedAreaPixels.x, croppedAreaPixels.y, croppedAreaPixels.width, croppedAreaPixels.height, 0, 0, 400, 400);
+      
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(
+          image, 
+          croppedAreaPixels.x, croppedAreaPixels.y, 
+          croppedAreaPixels.width, croppedAreaPixels.height, 
+          0, 0, 400, 400
+        );
+      }
 
-      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.6));
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.8));
       if (!blob) throw new Error("Gagal membuat blob");
       
       const formDataUpload = new FormData();
-      formDataUpload.append('photo', blob, `pbus-member-${Date.now()}.jpg`);
+      formDataUpload.append('photo', blob, `pbus-${Date.now()}.jpg`);
 
       const response = await fetch('https://pbus162.com/assets/struktur/upload.php', {
         method: 'POST',
         body: formDataUpload,
       });
+      
+      if (!response.ok) throw new Error("Gagal mengupload ke server assets");
       const result = await response.json();
       
       if (result.status === 'success') {
         setFormData(prev => ({ ...prev, photo_url: result.url }));
         setImageSrc(null);
-        setToast({ msg: 'FOTO BERHASIL DIKOMPRES & DIUPLOAD', type: 'success' });
+        setToast({ msg: 'FOTO BERHASIL DIUPLOAD', type: 'success' });
       } else {
         throw new Error(result.message);
       }
-    } catch (err) { 
-      setToast({ msg: 'GAGAL PROSES/UPLOAD GAMBAR', type: 'error' }); 
+    } catch (err: any) { 
+      setToast({ msg: 'ERROR: ' + err.message, type: 'error' }); 
     } finally { 
       setUploading(false); 
     }
@@ -187,28 +220,57 @@ export default function AdminStructure() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name || !formData.role) return;
+
     setLoading(true);
     try {
       if (editingId) {
-        const { error } = await supabase.from('organizational_structure').update(formData).eq('id', editingId);
+        const { error } = await supabase
+          .from('organizational_structure')
+          .update({
+            name: formData.name,
+            role: formData.role,
+            category: formData.category,
+            level: formData.level,
+            photo_url: formData.photo_url
+          })
+          .eq('id', editingId);
+        
         if (error) throw error;
         setToast({ msg: 'DATA BERHASIL DIPERBARUI!', type: 'success' });
         setEditingId(null);
       } else {
-        const { error } = await supabase.from('organizational_structure').insert([{...formData, sort_order: members.length}]);
+        const { error } = await supabase
+          .from('organizational_structure')
+          .insert([{
+            ...formData, 
+            sort_order: members.length 
+          }]);
+        
         if (error) throw error;
         setToast({ msg: 'PENGURUS BERHASIL DITAMBAHKAN!', type: 'success' });
       }
+      
       setFormData({ name: '', role: '', category: 'Seksi', level: 1, photo_url: '' });
-      fetchMembers();
-    } catch (err) { setToast({ msg: 'TERJADI KESALAHAN SISTEM', type: 'error' }); } finally { setLoading(false); }
+      await fetchMembers();
+    } catch (err: any) { 
+      setToast({ msg: 'DB ERROR: ' + err.message, type: 'error' }); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const startEdit = (m: any) => {
     setEditingId(m.id);
-    setFormData({ name: m.name, role: m.role, category: m.category, level: m.level, photo_url: m.photo_url });
-    const editor = document.querySelector('.lg\\:w-\\[450px\\]');
-    editor?.scrollTo({ top: 0, behavior: 'smooth' });
+    setFormData({ 
+      name: m.name, 
+      role: m.role, 
+      category: m.category || 'Seksi', 
+      level: m.level, 
+      photo_url: m.photo_url || '' 
+    });
+    // Scroll ke atas form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -223,8 +285,10 @@ export default function AdminStructure() {
   };
 
   const saveNewOrder = async () => {
+    if (members.length === 0) return;
     setIsSavingOrder(true);
     try {
+      // Upsert memerlukan primary key 'id' untuk mengupdate baris yang ada
       const updates = members.map((m, index) => ({ 
         id: m.id, 
         sort_order: index, 
@@ -234,11 +298,12 @@ export default function AdminStructure() {
         category: m.category,
         photo_url: m.photo_url 
       }));
+      
       const { error } = await supabase.from('organizational_structure').upsert(updates);
       if (error) throw error;
       setToast({ msg: 'URUTAN BERHASIL DIPUBLIKASIKAN!', type: 'success' });
-    } catch (err) { 
-      setToast({ msg: 'GAGAL MENYIMPAN URUTAN.', type: 'error' }); 
+    } catch (err: any) { 
+      setToast({ msg: 'GAGAL MENYIMPAN: ' + err.message, type: 'error' }); 
     } finally { 
       setIsSavingOrder(false); 
     }
@@ -249,7 +314,6 @@ export default function AdminStructure() {
     [members, searchTerm]
   );
 
-  // Grouping logic for Level 7 (Fields)
   const groupedFields = useMemo(() => {
     const fields: { [key: string]: any[] } = {};
     members.filter(m => m.level === 7).forEach(m => {
@@ -270,17 +334,19 @@ export default function AdminStructure() {
     return fields;
   }, [members]);
 
-  // HELPER COMPONENT: Kartu Anggota Live Preview
   const MemberCard = ({ member, size = 'md' }: { member: any, size?: 'lg' | 'md' | 'sm' }) => (
     <motion.div 
       layout
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className={`bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-blue-50/50 flex flex-col items-center p-8 transition-shadow duration-500 hover:shadow-2xl ${size === 'lg' ? 'w-80' : 'w-72'}`}
+      className={`bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-blue-50/50 flex flex-col items-center p-8 transition-all duration-500 hover:shadow-2xl ${size === 'lg' ? 'w-80' : 'w-72'}`}
     >
       <div className={`${size === 'lg' ? 'w-36 h-36' : 'w-28 h-28'} rounded-[2.2rem] overflow-hidden mb-6 bg-slate-50 border-[6px] border-white shadow-inner`}>
-        <img src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=0D8ABC&color=fff`} className="w-full h-full object-cover" alt={member.name} />
+        <img 
+          src={member.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=0D8ABC&color=fff`} 
+          className="w-full h-full object-cover" 
+          alt={member.name} 
+        />
       </div>
       <h3 className="text-slate-900 font-black italic uppercase text-center leading-tight tracking-tighter mb-3" style={{ fontSize: size === 'lg' ? '18px' : '15px' }}>{member.name}</h3>
       <div className="bg-amber-500 px-5 py-2 rounded-full shadow-lg shadow-amber-500/20">
@@ -297,15 +363,26 @@ export default function AdminStructure() {
 
       {/* --- MODAL CROPPER --- */}
       {imageSrc && (
-        <div className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center p-6">
+        <div className="fixed inset-0 z-[1001] bg-black/95 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
           <div className="relative w-full max-w-lg aspect-square bg-[#0F172A] rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
-            <Cropper image={imageSrc} crop={crop} zoom={zoom} aspect={1} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
+            <Cropper 
+              image={imageSrc} 
+              crop={crop} 
+              zoom={zoom} 
+              aspect={1} 
+              onCropChange={setCrop} 
+              onCropComplete={onCropComplete} 
+              onZoomChange={setZoom} 
+            />
           </div>
           <div className="mt-8 w-full max-w-lg space-y-6 bg-[#0F172A] p-6 rounded-3xl border border-white/5">
-            <input type="range" value={zoom} min={1} max={3} step={0.1} onChange={(e) => setZoom(Number(e.target.value))} className="w-full accent-blue-600" />
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-bold text-slate-500">ZOOM</span>
+              <input type="range" value={zoom} min={1} max={3} step={0.1} onChange={(e) => setZoom(Number(e.target.value))} className="flex-1 accent-blue-600" />
+            </div>
             <div className="flex gap-4">
-              <button onClick={() => setImageSrc(null)} className="flex-1 py-4 rounded-2xl bg-white/5 font-black uppercase text-[10px] tracking-widest">Batal</button>
-              <button onClick={handleProcessImage} disabled={uploading} className="flex-1 py-4 rounded-2xl bg-blue-600 font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2">
+              <button onClick={() => setImageSrc(null)} className="flex-1 py-4 rounded-2xl bg-white/5 font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-colors">Batal</button>
+              <button onClick={handleProcessImage} disabled={uploading} className="flex-1 py-4 rounded-2xl bg-blue-600 font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50">
                 {uploading ? <Loader2 className="animate-spin" size={16} /> : 'Terapkan & Kompres'}
               </button>
             </div>
@@ -314,7 +391,7 @@ export default function AdminStructure() {
       )}
 
       {/* --- PANEL KIRI: EDITOR --- */}
-      <div className="w-full lg:w-[450px] h-screen overflow-y-auto border-r border-white/5 bg-[#0A0A0A] p-6 custom-scrollbar">
+      <div className="w-full lg:w-[450px] h-screen overflow-y-auto border-r border-white/5 bg-[#0A0A0A] p-6 custom-scrollbar relative z-20">
         <header className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/20"><Shield size={20} /></div>
           <div>
@@ -325,22 +402,42 @@ export default function AdminStructure() {
 
         <div className="relative mb-6">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-          <input type="text" placeholder="CARI NAMA..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-[#0F172A] border border-white/5 rounded-xl py-3 pl-10 pr-4 text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500/50 transition-all" />
+          <input 
+            type="text" 
+            placeholder="CARI NAMA..." 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+            className="w-full bg-[#0F172A] border border-white/5 rounded-xl py-3 pl-10 pr-4 text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-500/50 transition-all" 
+          />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 mb-10 p-5 bg-[#0F172A] rounded-3xl border border-white/5 shadow-xl">
           <div className="space-y-1">
             <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Nama Lengkap</label>
-            <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none transition-all" />
+            <input 
+              required 
+              value={formData.name} 
+              onChange={e => setFormData({...formData, name: e.target.value})} 
+              className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none transition-all" 
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Jabatan</label>
-              <input required value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none transition-all" />
+              <input 
+                required 
+                value={formData.role} 
+                onChange={e => setFormData({...formData, role: e.target.value})} 
+                className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-xs focus:border-blue-500 outline-none transition-all" 
+              />
             </div>
             <div className="space-y-1">
               <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Hierarki</label>
-              <select value={formData.level} onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold outline-none cursor-pointer">
+              <select 
+                value={formData.level} 
+                onChange={e => setFormData({...formData, level: parseInt(e.target.value)})} 
+                className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold outline-none cursor-pointer"
+              >
                 <option value={1}>Lvl 1: Png Jawab</option>
                 <option value={2}>Lvl 2: Penasehat</option>
                 <option value={3}>Lvl 3: Pembina</option>
@@ -352,7 +449,7 @@ export default function AdminStructure() {
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Foto Profil</label>
+            <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Foto Profil (Auto Crop 1:1)</label>
             <div className="flex gap-3">
               <div className="flex-1 relative group h-12">
                 <input type="file" accept="image/*" onChange={onFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
@@ -360,23 +457,57 @@ export default function AdminStructure() {
                   <Upload size={14} className="mr-2" /> Pilih Foto
                 </div>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 overflow-hidden shrink-0 shadow-inner">
-                {formData.photo_url ? <img src={formData.photo_url} className="w-full h-full object-cover" /> : <ImageIcon className="m-auto text-slate-700 mt-3" size={18}/>}
+              <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 overflow-hidden shrink-0 shadow-inner flex items-center justify-center">
+                {formData.photo_url ? (
+                  <img src={formData.photo_url} className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="text-slate-700" size={18}/>
+                )}
               </div>
             </div>
           </div>
-          <button type="submit" disabled={loading} className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 shadow-lg transition-all active:scale-95 ${editingId ? 'bg-amber-600 shadow-amber-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}>
-            {loading ? <Loader2 className="animate-spin" size={16} /> : (editingId ? 'Update Data' : 'Tambah Pengurus')}
-          </button>
-          {editingId && <button type="button" onClick={() => {setEditingId(null); setFormData({name:'', role:'', category:'Seksi', level:1, photo_url:''})}} className="w-full text-[9px] font-black uppercase text-red-500 hover:underline">Batalkan Edit</button>}
+          <div className="flex flex-col gap-2 pt-2">
+            <button 
+              type="submit" 
+              disabled={loading || uploading} 
+              className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest flex justify-center items-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50 ${editingId ? 'bg-amber-600 shadow-amber-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}
+            >
+              {loading ? <Loader2 className="animate-spin" size={16} /> : (editingId ? 'Update Data' : 'Tambah Pengurus')}
+            </button>
+            {editingId && (
+              <button 
+                type="button" 
+                onClick={() => {
+                  setEditingId(null); 
+                  setFormData({name:'', role:'', category:'Seksi', level:1, photo_url:''})
+                }} 
+                className="w-full py-2 text-[9px] font-black uppercase text-red-500 hover:text-red-400 transition-colors"
+              >
+                Batalkan Edit
+              </button>
+            )}
+          </div>
         </form>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-4 px-2">
               <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Urutan Management</h3>
               <div className="flex gap-2">
-                <button onClick={runCleaner} title="Bersihkan File Sampah" className="p-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full hover:bg-red-500 hover:text-white transition-all"><Eraser size={12} /></button>
-                <button onClick={saveNewOrder} disabled={isSavingOrder || loading} className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95 transition-all">
+                <button 
+                  onClick={fetchMembers} 
+                  title="Refresh Data"
+                  className="p-2 bg-white/5 text-slate-400 border border-white/10 rounded-full hover:bg-white/10 transition-all"
+                >
+                  <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+                </button>
+                <button onClick={runCleaner} title="Bersihkan File Sampah" className="p-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full hover:bg-red-500 hover:text-white transition-all">
+                  <Eraser size={12} />
+                </button>
+                <button 
+                  onClick={saveNewOrder} 
+                  disabled={isSavingOrder || loading || members.length === 0} 
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-full text-[9px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                >
                   {isSavingOrder ? <Loader2 className="animate-spin" size={12}/> : 'Publish Sequence'}
                 </button>
               </div>
@@ -386,17 +517,29 @@ export default function AdminStructure() {
             <SortableContext items={members.map(m => m.id)} strategy={verticalListSortingStrategy}>
               {filteredMembers.length > 0 ? (
                 filteredMembers.map(m => (
-                  <SortableMemberRow key={m.id} member={m} onEdit={startEdit} onDelete={async (member: any) => { 
-                    if(confirm(`Hapus ${member.name}?`)) { 
-                      await supabase.from('organizational_structure').delete().eq('id', member.id); 
-                      fetchMembers(); 
-                      setToast({msg:'DATA DIHAPUS!', type:'success'}); 
-                    } 
-                  }} />
+                  <SortableMemberRow 
+                    key={m.id} 
+                    member={m} 
+                    onEdit={startEdit} 
+                    onDelete={async (member: any) => { 
+                      if(confirm(`Hapus ${member.name}? Data akan dihapus permanen dari database.`)) { 
+                        try {
+                          const { error } = await supabase.from('organizational_structure').delete().eq('id', member.id); 
+                          if (error) throw error;
+                          setToast({msg:'DATA DIHAPUS!', type:'success'}); 
+                          fetchMembers(); 
+                        } catch (err: any) {
+                          setToast({msg: 'GAGAL HAPUS: ' + err.message, type: 'error'});
+                        }
+                      } 
+                    }} 
+                  />
                 ))
               ) : (
-                <div className="py-10 text-center border border-dashed border-white/5 rounded-2xl">
-                  <p className="text-[9px] font-black uppercase text-slate-600">No data found</p>
+                <div className="py-20 text-center border border-dashed border-white/5 rounded-2xl">
+                  <p className="text-[9px] font-black uppercase text-slate-600 tracking-[0.2em]">
+                    {searchTerm ? 'Data tidak ditemukan' : 'Database Kosong'}
+                  </p>
                 </div>
               )}
             </SortableContext>
@@ -405,7 +548,7 @@ export default function AdminStructure() {
       </div>
 
       {/* --- PANEL KANAN: LIVE PREVIEW --- */}
-      <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative custom-scrollbar">
+      <div className="flex-1 h-screen overflow-y-auto bg-[#FBFCFE] relative custom-scrollbar z-10">
         <div className="sticky top-0 z-50 p-4 flex justify-center pointer-events-none">
             <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-3 pointer-events-auto">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -424,6 +567,7 @@ export default function AdminStructure() {
           </div>
 
           <div className="relative flex flex-col items-center">
+            {/* Garis Tengah Silsilah */}
             <div className="absolute top-0 bottom-0 w-[2px] bg-gradient-to-b from-blue-100 via-blue-200 to-transparent left-1/2 -translate-x-1/2 -z-0"></div>
 
             <LayoutGroup>
@@ -442,51 +586,62 @@ export default function AdminStructure() {
                 { lvl: 4, icon: Target, label: 'Ketua Umum', color: 'bg-emerald-600', size: 'lg' as const },
                 { lvl: 5, icon: Briefcase, label: 'Pengurus Inti', color: 'bg-slate-800' },
                 { lvl: 6, icon: Users, label: 'Kepala Pelatih', color: 'bg-orange-600' }
-              ].map((section) => (
-                <div key={section.lvl} className="relative z-10 flex flex-col items-center mb-24 w-full">
-                  <div className={`${section.color} text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-white flex items-center gap-3`}>
-                    <section.icon size={20} /><span className="text-[10px] font-black uppercase tracking-widest">{section.label}</span>
+              ].map((section) => {
+                const filtered = members.filter(m => m.level === section.lvl);
+                if (filtered.length === 0) return null;
+                
+                return (
+                  <div key={section.lvl} className="relative z-10 flex flex-col items-center mb-24 w-full">
+                    <div className={`${section.color} text-white p-3 rounded-2xl mb-10 shadow-xl ring-8 ring-white flex items-center gap-3`}>
+                      <section.icon size={20} /><span className="text-[10px] font-black uppercase tracking-widest">{section.label}</span>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-12">
+                      {filtered.map(m => (<MemberCard key={m.id} member={m} size={section.size} />))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap justify-center gap-12">
-                    {members.filter(m => m.level === section.lvl).map(m => (<MemberCard key={m.id} member={m} size={section.size} />))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* LEVEL 7: KOORDINATOR & ANGGOTA BIDANG */}
-              <div className="relative z-10 flex flex-col items-center w-full">
-                <div className="bg-slate-400 text-white p-3 rounded-2xl mb-20 shadow-xl ring-8 ring-white flex items-center gap-3"><Users size={20} /><span className="text-[10px] font-black uppercase tracking-widest">Koordinator & Anggota Bidang</span></div>
-                <div className="space-y-32 w-full flex flex-col items-center">
-                  {Object.entries(groupedFields).map(([fieldName, fieldMembers]) => {
-                    const coordinator = fieldMembers.find(m => m.role.toLowerCase().includes("koordinator"));
-                    const staffs = fieldMembers.filter(m => !m.role.toLowerCase().includes("koordinator"));
-                    return (
-                      <motion.div layout key={fieldName} className="flex flex-col items-center w-full">
-                        <div className="bg-white px-8 py-2 rounded-full border border-slate-200 shadow-sm mb-12"><h2 className="text-blue-600 font-black italic uppercase text-[12px] tracking-[0.2em]">{fieldName}</h2></div>
-                        {coordinator && (
-                          <div className="mb-16 relative">
-                            <MemberCard member={coordinator} />
-                            {staffs.length > 0 && (<div className="absolute top-full left-1/2 -translate-x-1/2 w-[2px] h-16 bg-blue-100"></div>)}
+              {Object.keys(groupedFields).length > 0 && (
+                <div className="relative z-10 flex flex-col items-center w-full">
+                  <div className="bg-slate-400 text-white p-3 rounded-2xl mb-20 shadow-xl ring-8 ring-white flex items-center gap-3"><Users size={20} /><span className="text-[10px] font-black uppercase tracking-widest">Koordinator & Anggota Bidang</span></div>
+                  <div className="space-y-32 w-full flex flex-col items-center">
+                    {Object.entries(groupedFields).map(([fieldName, fieldMembers]) => {
+                      const coordinator = fieldMembers.find(m => m.role.toLowerCase().includes("koordinator"));
+                      const staffs = fieldMembers.filter(m => !m.role.toLowerCase().includes("koordinator"));
+                      return (
+                        <motion.div layout key={fieldName} className="flex flex-col items-center w-full">
+                          <div className="bg-white px-8 py-2 rounded-full border border-slate-200 shadow-sm mb-12"><h2 className="text-blue-600 font-black italic uppercase text-[12px] tracking-[0.2em]">{fieldName}</h2></div>
+                          {coordinator && (
+                            <div className="mb-16 relative">
+                              <MemberCard member={coordinator} />
+                              {staffs.length > 0 && (<div className="absolute top-full left-1/2 -translate-x-1/2 w-[2px] h-16 bg-blue-100"></div>)}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap justify-center gap-6 px-4 max-w-6xl">
+                            {staffs.map(m => (
+                              <motion.div layout key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all hover:-translate-y-1">
+                                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-sm shrink-0">
+                                  <img 
+                                    src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} 
+                                    className="w-full h-full object-cover" 
+                                    alt={m.name}
+                                  />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight truncate">{m.name}</h4>
+                                  <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{m.role}</p>
+                                </div>
+                              </motion.div>
+                            ))}
                           </div>
-                        )}
-                        <div className="flex flex-wrap justify-center gap-6 px-4 max-w-6xl">
-                          {staffs.map(m => (
-                            <motion.div layout key={m.id} className="bg-white p-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex items-center gap-4 w-72 hover:shadow-md transition-all hover:-translate-y-1">
-                              <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-50 border-2 border-white shadow-sm shrink-0">
-                                <img src={m.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}`} className="w-full h-full object-cover" />
-                              </div>
-                              <div className="flex flex-col min-w-0">
-                                <h4 className="font-black text-slate-900 text-[11px] uppercase italic leading-tight truncate">{m.name}</h4>
-                                <p className="text-blue-600 font-bold text-[8px] uppercase tracking-widest mt-1">{m.role}</p>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </LayoutGroup>
           </div>
         </div>
@@ -497,6 +652,7 @@ export default function AdminStructure() {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 20px; }
         .lg\\:w-\\[450px\\].custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(59,130,246,0.3); }
+        select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
       `}</style>
     </div>
   );

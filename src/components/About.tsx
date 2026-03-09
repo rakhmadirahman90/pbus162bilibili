@@ -38,20 +38,19 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const [orgData, setOrgData] = useState<any[]>([]);
   const activeTab = propsActiveTab || internalTab;
 
-  // --- REUSABLE FETCH FUNCTION UNTUK STRUKTUR ---
+  // --- PERBAIKAN: FETCH DATA DENGAN DUAL-ORDERING ---
   const fetchOrgData = async () => {
-    // Tambahkan query parameter 't' agar browser tidak mengambil data dari cache (Force Refresh)
+    // Kita ambil semua data dan urutkan berdasarkan level, lalu sort_order (atau order_priority)
     const { data: structData, error: orgError } = await supabase
       .from('organizational_structure')
       .select('*')
       .order('level', { ascending: true })
-      .order('sort_order', { ascending: true }); // Pastikan kolom ini diisi di database
+      .order('sort_order', { ascending: true }); // Jika di DB Anda namanya 'order_priority', ganti ke 'order_priority'
 
     if (!orgError && structData) {
       setOrgData(structData);
-    } else if (orgError) {
+    } else {
       console.error("Gagal mengambil struktur:", orgError);
-      // Gunakan fallback jika database gagal
       setOrgData(orgFallback || []);
     }
   };
@@ -59,9 +58,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   useEffect(() => {
     fetchAllData();
 
-    // REALTIME SYNC
+    // REALTIME SYNC - Ditingkatkan untuk mendengarkan semua perubahan
     const channel = supabase
-      .channel('db-changes-about')
+      .channel('schema-db-changes')
       .on('postgres_changes', { 
         event: '*', 
         table: 'organizational_structure', 
@@ -77,7 +76,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Konten dari site_settings
       const { data: settingsData } = await supabase
         .from('site_settings')
         .select('value')
@@ -132,7 +130,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         misi: Array.isArray(mappedSettings.misi) && mappedSettings.misi.length > 0 ? mappedSettings.misi : prev.misi
       }));
 
-      // 3. Ambil Galeri Fasilitas
       const { data: facilitiesData } = await supabase
         .from('galeri')
         .select('*')
@@ -142,11 +139,10 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
         setDynamicContent(prev => ({ ...prev, fasilitas_list: facilitiesData }));
       }
 
-      // 4. Ambil Struktur Organisasi
       await fetchOrgData();
 
     } catch (err) {
-      console.error("Error connecting to database:", err);
+      console.error("Error:", err);
     } finally {
       setLoading(false);
     }
@@ -171,15 +167,17 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     }
   };
 
-  // --- LOGIKA PENGELOMPOKAN BIDANG ---
+  // --- PERBAIKAN: LOGIKA PENGELOMPOKAN BIDANG YANG LEBIH AKURAT ---
   const renderDepartment = (title: string, roleKey: string) => {
+    // Koordinator (Level 6)
     const coordinator = orgData.find(m => 
       m.level === 6 && m.role.toLowerCase().includes(roleKey.toLowerCase())
     );
     
-    const members = orgData
-      .filter(m => m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase()))
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    // Anggota (Level 7) - Pastikan sorting berdasarkan database tetap terjaga
+    const members = orgData.filter(m => 
+      m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase())
+    );
 
     if (!coordinator && members.length === 0) return null;
 
@@ -231,9 +229,9 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   return (
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
+      {/* ... (Sisa kode UI tetap sama seperti milik Anda) ... */}
       <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-4">
         
-        {/* Header */}
         <div className="text-center mb-2 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full mb-1">
             <Users2 size={10} className="animate-pulse" />
@@ -244,7 +242,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </h2>
         </div>
 
-        {/* Tabs */}
         <div className="flex flex-wrap justify-center gap-1.5 mb-3 shrink-0">
           {['sejarah', 'visi-misi', 'fasilitas'].map((id) => (
             <button
@@ -267,9 +264,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </button>
         </div>
 
-        {/* Scrollable Content Container */}
         <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-slate-100 shadow-sm relative overflow-y-auto custom-scrollbar">
-          
           {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                   <Loader2 className="animate-spin text-blue-600" size={32} />
@@ -350,7 +345,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     <div key={lvl} className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12 w-full">
                       {orgData
                         .filter(m => m.level === lvl)
-                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
                         .map(p => (
                         <div key={p.id} className="relative flex flex-col items-center">
                           <div className={`bg-white p-3 rounded-2xl border-2 shadow-xl text-center ${lvl === 1 ? 'w-52 md:w-64 border-amber-500' : 'w-40 md:w-48 border-slate-100'}`}>

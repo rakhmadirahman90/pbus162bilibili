@@ -40,7 +40,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   // --- PERBAIKAN: FETCH DATA DENGAN DUAL-ORDERING ---
   const fetchOrgData = async () => {
-    // Diurutkan berdasarkan level (1-7) kemudian sort_order hasil drag & drop di admin
     const { data: structData, error: orgError } = await supabase
       .from('organizational_structure')
       .select('*')
@@ -57,7 +56,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   useEffect(() => {
     fetchAllData();
 
-    // REALTIME SYNC: Otomatis update jika admin mengubah data
     const channel = supabase
       .channel('public:organizational_structure')
       .on('postgres_changes', { 
@@ -75,7 +73,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Site Settings (About Content)
       const { data: settingsData } = await supabase
         .from('site_settings')
         .select('value')
@@ -100,8 +97,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       }
 
       setDynamicContent(prev => ({ ...prev, ...mappedSettings }));
-
-      // 2. Fetch Organizational Data
       await fetchOrgData();
 
     } catch (err) {
@@ -126,14 +121,16 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
   // --- PERBAIKAN LOGIKA RENDERING BIDANG (LEVEL 7) ---
   const renderDepartment = (title: string, roleKey: string) => {
-    // Filter anggota di level 7 yang rolenya mengandung kata kunci bidang
     const members = orgData.filter(m => 
       m.level === 7 && m.role.toLowerCase().includes(roleKey.toLowerCase())
     );
 
     if (members.length === 0) return null;
 
-    // Pisahkan koordinator dalam bidang tersebut (jika ada yang level 7 tapi rolenya Koordinator)
+    // SINKRONISASI OTOMATIS: Ambil nama bidang dari data pertama jika mengandung kata kunci
+    // Ini agar jika di Admin diubah jadi "Bidang Umum", Landing Page tidak memaksa "Umum & Kesehatan"
+    const displayTitle = members[0]?.role.split(' - ')[0] || title;
+
     const coordinator = members.find(m => m.role.toLowerCase().includes("koordinator"));
     const staffs = members.filter(m => !m.role.toLowerCase().includes("koordinator"));
 
@@ -141,10 +138,11 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       <div className="w-full mb-20 animate-in fade-in duration-1000">
         <div className="flex flex-col items-center mb-10">
            <div className="bg-white px-6 py-2 rounded-full border border-slate-200 shadow-sm mb-8">
-              <h4 className="text-blue-600 font-black italic uppercase text-[10px] md:text-[12px] tracking-[0.2em]">{title}</h4>
+              <h4 className="text-blue-600 font-black italic uppercase text-[10px] md:text-[12px] tracking-[0.2em]">
+                {displayTitle}
+              </h4>
            </div>
            
-           {/* Koordinator Bidang */}
            {coordinator && (
              <div className="flex flex-col items-center mb-10">
                 <div className="bg-white p-4 rounded-[2rem] border-2 border-blue-100 shadow-xl text-center w-56 hover:border-blue-400 transition-colors">
@@ -162,7 +160,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
              </div>
            )}
 
-           {/* Anggota Bidang */}
            <div className="flex flex-wrap justify-center gap-4 md:gap-6 w-full max-w-5xl">
               {staffs.map(p => (
                 <div key={p.id} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 w-64 md:w-72 hover:shadow-md transition-all">
@@ -189,7 +186,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
     <section id="tentang-kami" className="relative w-full h-screen bg-white flex flex-col items-center overflow-hidden font-sans">
       <div className="max-w-7xl mx-auto px-4 w-full h-full flex flex-col py-2 md:py-6">
         
-        {/* Header Section */}
         <div className="text-center mb-4 shrink-0">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full mb-2">
             <Users2 size={12} className="animate-pulse" />
@@ -200,7 +196,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </h2>
         </div>
 
-        {/* Tab Navigation */}
         <div className="flex flex-wrap justify-center gap-2 mb-6 shrink-0">
           {['sejarah', 'visi-misi', 'fasilitas'].map((id) => (
             <button
@@ -223,7 +218,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           </button>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 min-h-0 bg-slate-50/50 rounded-[2rem] md:rounded-[3.5rem] p-4 md:p-12 border border-slate-100 shadow-inner relative overflow-y-auto custom-scrollbar">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -280,7 +274,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
 
               {activeTab === 'organisasi' && (
                 <div className="w-full flex flex-col items-center py-10 animate-in slide-in-from-bottom-10 duration-1000 pb-40">
-                  {/* Hirarki Utama (Lvl 1 - 6) */}
                   {[1, 2, 3, 4, 5, 6].map(lvl => {
                     const levelMembers = orgData.filter(m => m.level === lvl);
                     if (levelMembers.length === 0) return null;
@@ -305,7 +298,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     );
                   })}
 
-                  {/* Koordinator & Anggota Bidang (Lvl 7) */}
                   <div className="w-full max-w-6xl mt-10">
                     <div className="text-center mb-20">
                       <div className="inline-block h-1 w-20 bg-blue-600 rounded-full mb-4"></div>
@@ -317,7 +309,8 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                     {renderDepartment("Bidang Humas", "Humas")}
                     {renderDepartment("Bidang Dana & Usaha", "Dana")}
                     {renderDepartment("Bidang Sarana & Prasarana", "Sarpras")}
-                    {renderDepartment("Bidang Umum & Kesehatan", "Umum")}
+                    {/* SINKRON: Menggunakan keyword "Umum" untuk filter data database */}
+                    {renderDepartment("Bidang Umum", "Umum")}
                   </div>
                 </div>
               )}

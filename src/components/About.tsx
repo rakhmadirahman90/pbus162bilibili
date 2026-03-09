@@ -92,6 +92,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
           fasilitas_main_image: val.fasilitas_img1,
           fasilitas_img1: val.fasilitas_img2,
           fasilitas_img2: val.fasilitas_img3,
+          fasilitas_list: Array.isArray(val.fasilitas_list) ? val.fasilitas_list : [] // Mengembalikan data fasilitas
         };
       }
 
@@ -136,7 +137,7 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
       <div className="w-full mb-20 animate-in fade-in duration-1000">
         <div className="flex flex-col items-center mb-10">
            
-           {/* HEADER BIDANG: Menampilkan Judul Bidang di atas Koordinator */}
+           {/* HEADER BIDANG: Teks "Bidang XXX" di atas foto */}
            <div className="bg-white px-6 py-2 rounded-full border border-slate-200 shadow-sm mb-8">
               <h4 className="text-blue-600 font-black italic uppercase text-[10px] md:text-[12px] tracking-[0.2em]">
                 {title}
@@ -272,6 +273,41 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                 </div>
               )}
 
+              {activeTab === 'fasilitas' && (
+                <div className="max-w-6xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <div className="text-center mb-12">
+                    <h3 className="text-3xl font-black text-slate-900 uppercase italic mb-2">{dynamicContent.fasilitas_title}</h3>
+                    <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full"></div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-3 gap-6 mb-12">
+                    {[dynamicContent.fasilitas_main_image, dynamicContent.fasilitas_img1, dynamicContent.fasilitas_img2].map((img, idx) => (
+                      img && (
+                        <div key={idx} className="group relative aspect-[4/3] rounded-[2rem] overflow-hidden border-4 border-white shadow-lg">
+                          <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={`Fasilitas ${idx + 1}`} />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                            <span className="text-white font-black uppercase text-[10px] tracking-widest">Fasilitas Organisasi</span>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {dynamicContent.fasilitas_list.map((item: any, i: number) => (
+                      <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center gap-3 hover:border-blue-200 transition-all group">
+                        <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          <Zap size={20} />
+                        </div>
+                        <p className="font-black text-[10px] md:text-[11px] uppercase text-slate-800 tracking-tight leading-tight">
+                          {typeof item === 'string' ? item : item.title || item.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'organisasi' && (
                 <div className="w-full flex flex-col items-center py-10 animate-in slide-in-from-bottom-10 duration-1000 pb-40">
                   {[1, 2, 3, 4, 5, 6].map(lvl => {
@@ -304,7 +340,6 @@ export default function About({ activeTab: propsActiveTab, onTabChange }: AboutP
                       <h3 className="text-2xl font-black uppercase italic text-slate-900 tracking-widest">Koordinator & Anggota Bidang</h3>
                     </div>
                     
-                    {/* DAFTAR SEMUA BIDANG SECARA LENGKAP */}
                     {renderDepartment("Bidang Pertandingan", "Pertandingan")}
                     {renderDepartment("Bidang Pembinaan Prestasi", "Prestasi")}
                     {renderDepartment("Bidang Humas", "Humas")}

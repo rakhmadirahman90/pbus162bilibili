@@ -44,6 +44,7 @@ const AdminMatch: React.FC = () => {
         { event: '*', table: 'pertandingan', schema: 'public' }, 
         () => {
           fetchRecentMatches();
+          fetchPlayers(); // Tambahkan fetchPlayers di realtime agar ranking ikut update
         }
       )
       .subscribe();
@@ -53,18 +54,35 @@ const AdminMatch: React.FC = () => {
     };
   }, []);
 
+  // PERBAIKAN: Mengambil data dari pendaftaran dan menggabungkannya dengan total_points dari atlet_stats
   const fetchPlayers = async () => {
     setIsLoading(true);
     try {
+      // Kita ambil data dari atlet_stats agar mendapatkan total_points terbaru untuk ranking
       const { data, error } = await supabase
-        .from('pendaftaran')
-        .select('id, nama, kategori')
-        .order('nama');
+        .from('atlet_stats')
+        .select(`
+          pendaftaran_id,
+          player_name,
+          total_points,
+          pendaftaran ( kategori )
+        `)
+        .order('total_points', { ascending: false }); // Urutkan berdasarkan poin (Ranking)
       
       if (error) throw error;
-      if (data) setPlayers(data);
+      
+      // Transformasi data agar sesuai dengan kebutuhan UI
+      if (data) {
+        const formattedPlayers = data.map(item => ({
+          id: item.pendaftaran_id,
+          nama: item.player_name,
+          total_points: item.total_points,
+          kategori: (item.pendaftaran as any)?.kategori || 'N/A'
+        }));
+        setPlayers(formattedPlayers);
+      }
     } catch (err: any) {
-      console.error("Gagal mengambil data pemain:", err.message);
+      console.error("Gagal mengambil data ranking:", err.message);
     } finally {
       setIsLoading(false);
     }
@@ -141,7 +159,6 @@ const AdminMatch: React.FC = () => {
 
       if (error) throw error;
 
-      // Catat Audit Log
       await createAuditLog(
         playerId, 
         playerInfo?.nama || 'Unknown', 
@@ -179,7 +196,12 @@ const AdminMatch: React.FC = () => {
         setShowSuccess(true);
         setSelectedPlayer('');
         setSearchTerm('');
-        fetchRecentMatches();
+        
+        // --- TAMBAHKAN INI UNTUK UPDATE OTOMATIS ---
+        await fetchRecentMatches();
+        await fetchPlayers(); // Menjamin ranking langsung berubah di menu manajemen
+        // ------------------------------------------
+
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
         alert("Poin gagal update, tapi riwayat pertandingan tersimpan.");
@@ -215,7 +237,12 @@ const AdminMatch: React.FC = () => {
       if (error) throw error;
 
       setShowRollbackSuccess(true);
-      fetchRecentMatches();
+      
+      // --- UPDATE DATA SETELAH DELETE ---
+      await fetchRecentMatches();
+      await fetchPlayers();
+      // ----------------------------------
+
       setTimeout(() => setShowRollbackSuccess(false), 3000);
       
     } catch (err: any) {
@@ -294,7 +321,7 @@ const AdminMatch: React.FC = () => {
                     >
                       <option value="">-- {searchTerm ? 'Hasil Pencarian' : 'Pilih dari List'} --</option>
                       {filteredPlayers.map(p => (
-                        <option key={p.id} value={p.id}>{p.nama} ({p.kategori})</option>
+                        <option key={p.id} value={p.id}>{p.nama} - {p.total_points || 0} pts ({p.kategori})</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" size={18} />
@@ -395,7 +422,7 @@ const AdminMatch: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                 <Trophy size={60} />
+                  <Trophy size={60} />
               </div>
               <h3 className="text-[10px] font-black tracking-widest uppercase text-blue-500 mb-6 flex items-center gap-2">
                 <Activity size={14} /> Matrix Point Configuration
@@ -444,18 +471,18 @@ const AdminMatch: React.FC = () => {
       </div>
 
       {showRollbackSuccess && (
-         <div className="fixed inset-0 z-[999] flex items-center justify-center animate-in fade-in duration-300">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-            <div className="bg-zinc-900 border border-red-500/30 p-12 rounded-[3.5rem] flex flex-col items-center gap-6 relative animate-in zoom-in duration-500">
-               <div className="w-24 h-24 bg-red-600 rounded-[2rem] flex items-center justify-center rotate-12 shadow-2xl shadow-red-500/20">
-                  <RotateCcw size={40} className="text-white -rotate-12" />
-               </div>
-               <div className="text-center">
-                  <h2 className="text-white text-4xl font-black italic tracking-tighter uppercase mb-2">ROLLBACK COMPLETE</h2>
-                  <p className="text-zinc-500 font-bold tracking-[0.3em] text-[10px] uppercase">Poin atlet telah disesuaikan kembali</p>
-               </div>
-            </div>
-         </div>
+          <div className="fixed inset-0 z-[999] flex items-center justify-center animate-in fade-in duration-300">
+             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+             <div className="bg-zinc-900 border border-red-500/30 p-12 rounded-[3.5rem] flex flex-col items-center gap-6 relative animate-in zoom-in duration-500">
+                <div className="w-24 h-24 bg-red-600 rounded-[2rem] flex items-center justify-center rotate-12 shadow-2xl shadow-red-500/20">
+                   <RotateCcw size={40} className="text-white -rotate-12" />
+                </div>
+                <div className="text-center">
+                   <h2 className="text-white text-4xl font-black italic tracking-tighter uppercase mb-2">ROLLBACK COMPLETE</h2>
+                   <p className="text-zinc-500 font-bold tracking-[0.3em] text-[10px] uppercase">Poin atlet telah disesuaikan kembali</p>
+                </div>
+             </div>
+          </div>
       )}
 
       <style>{`

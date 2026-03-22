@@ -34,7 +34,7 @@ const AdminMatch: React.FC = () => {
     { id: 'Eksternal', label: 'Turnamen Eksternal', points: '500/--/100' },
   ];
 
-  // Menggunakan useCallback untuk stabilitas referensi fungsi
+  // PERBAIKAN: Mengambil kolom 'total_points' sesuai struktur database terbaru
   const fetchPlayers = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -43,10 +43,10 @@ const AdminMatch: React.FC = () => {
         .select(`
           pendaftaran_id,
           player_name,
-          points,
+          total_points,
           pendaftaran ( kategori )
         `)
-        .order('points', { ascending: false });
+        .order('total_points', { ascending: false });
       
       if (error) throw error;
       
@@ -54,7 +54,7 @@ const AdminMatch: React.FC = () => {
         const formattedPlayers = data.map(item => ({
           id: item.pendaftaran_id,
           nama: item.player_name,
-          total_points: item.points,
+          total_points: item.total_points || 0, // Menggunakan total_points
           kategori: (item.pendaftaran as any)?.kategori || 'N/A'
         }));
         setPlayers(formattedPlayers);
@@ -76,7 +76,7 @@ const AdminMatch: React.FC = () => {
           kategori_kegiatan, 
           hasil, 
           created_at, 
-          pendaftaran!inner ( nama )
+          pendaftaran ( nama )
         `)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -92,12 +92,19 @@ const AdminMatch: React.FC = () => {
     fetchPlayers();
     fetchRecentMatches();
 
+    // Realtime subscription untuk sinkronisasi otomatis
     const channel = supabase
-      .channel('admin_realtime_v2')
+      .channel('admin_realtime_sync')
       .on('postgres_changes', 
         { event: '*', table: 'pertandingan', schema: 'public' }, 
         () => {
           fetchRecentMatches();
+          fetchPlayers(); 
+        }
+      )
+      .on('postgres_changes', 
+        { event: 'UPDATE', table: 'atlet_stats', schema: 'public' }, 
+        () => {
           fetchPlayers(); 
         }
       )
@@ -113,7 +120,7 @@ const AdminMatch: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       const labelTipe = res === "Rollback" ? `Pembatalan Poin: ${kat}` : `${kat} (${res})`;
 
-      const { error: auditError } = await supabase.from('audit_poin').insert([{
+      await supabase.from('audit_poin').insert([{
         atlet_id: atletId,
         atlet_nama: atletNama,
         perubahan: perubahan,
@@ -123,50 +130,39 @@ const AdminMatch: React.FC = () => {
         tipe_kegiatan: labelTipe,
         created_at: new Date().toISOString()
       }]);
-
-      if (auditError) throw auditError;
     } catch (err) {
-      console.error("Gagal mencatat audit log:", err);
+      console.error("Audit log error:", err);
     }
   };
 
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number, currentKategori: string, currentHasil: string) => {
     try {
-      // Step 1: Ambil data terbaru langsung dari DB untuk menghindari stale state
+      // Step 1: Ambil data terbaru langsung dari database
       const { data: stats, error: fetchError } = await supabase
         .from('atlet_stats')
-        .select('points, player_name')
+        .select('total_points, player_name')
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
 
-      const existingPoints = stats?.points || 0;
-      const playerName = stats?.player_name || players.find(p => p.id === playerId)?.nama || 'Unknown';
+      const existingPoints = stats?.total_points || 0;
+      const playerName = stats?.player_name || 'Unknown';
       const newTotal = Math.max(0, existingPoints + pointsToAdd);
 
-      // Step 2: Update poin
+      // Step 2: Update poin pada kolom total_points
       const { error: updateError } = await supabase
         .from('atlet_stats')
-        .upsert({
-          pendaftaran_id: playerId,
-          player_name: playerName,
-          points: newTotal,
+        .update({
+          total_points: newTotal,
           last_match_at: new Date().toISOString()
-        }, { onConflict: 'pendaftaran_id' });
+        })
+        .eq('pendaftaran_id', playerId);
 
       if (updateError) throw updateError;
 
       // Step 3: Log Audit
-      await createAuditLog(
-        playerId, 
-        playerName, 
-        pointsToAdd, 
-        existingPoints, 
-        newTotal, 
-        currentKategori, 
-        currentHasil
-      );
+      await createAuditLog(playerId, playerName, pointsToAdd, existingPoints, newTotal, currentKategori, currentHasil);
 
       return true;
     } catch (err: any) {
@@ -201,8 +197,6 @@ const AdminMatch: React.FC = () => {
         setShowSuccess(true);
         setSelectedPlayer('');
         setSearchTerm('');
-        
-        // Refresh data agar UI update
         await Promise.all([fetchRecentMatches(), fetchPlayers()]);
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
@@ -220,13 +214,12 @@ const AdminMatch: React.FC = () => {
     if (!matchToDelete) return;
 
     const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
-    const confirmMsg = `Konfirmasi Rollback match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi ${Math.abs(pointsToSubtract)} pts.`;
+    const confirmMsg = `Konfirmasi Rollback match ${matchToDelete.pendaftaran?.nama}? Poin akan dikurangi ${Math.abs(pointsToSubtract)} pts.`;
     
     if (!window.confirm(confirmMsg)) return;
     
     setIsLoading(true);
     try {
-      // 1. Rollback Poin dulu (Integritas data lebih penting)
       const syncSuccess = await syncPlayerPerformance(
         matchToDelete.pendaftaran_id, 
         pointsToSubtract, 
@@ -234,9 +227,8 @@ const AdminMatch: React.FC = () => {
         "Rollback"
       );
       
-      if (!syncSuccess) throw new Error("Gagal melakukan rollback poin di database.");
+      if (!syncSuccess) throw new Error("Gagal rollback poin.");
 
-      // 2. Hapus Match dari history
       const { error: deleteError } = await supabase
         .from('pertandingan')
         .delete()
@@ -246,7 +238,6 @@ const AdminMatch: React.FC = () => {
 
       setShowRollbackSuccess(true);
       await Promise.all([fetchRecentMatches(), fetchPlayers()]);
-
       setTimeout(() => setShowRollbackSuccess(false), 3000);
       
     } catch (err: any) {
@@ -262,9 +253,7 @@ const AdminMatch: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 font-sans relative overflow-hidden">
-      {/* Background Ornaments */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10" />
-      <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-indigo-600/5 blur-[100px] rounded-full -z-10" />
       
       <div className="max-w-5xl mx-auto relative z-10">
         <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -276,37 +265,32 @@ const AdminMatch: React.FC = () => {
                <p className="text-zinc-500 text-[10px] font-black tracking-[0.3em] uppercase">PB US 162 Admin Engine</p>
             </div>
             <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase leading-none">
-              MANAGE <span className="text-blue-600 underline decoration-blue-900/50">POINTS</span>
+              MANAGE <span className="text-blue-600">POINTS</span>
             </h1>
           </div>
           
-          <div className="flex gap-4">
-             <button onClick={() => { fetchPlayers(); fetchRecentMatches(); }} 
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95 disabled:opacity-50"
-                disabled={isLoading}>
-                <RefreshCcw size={14} className={isLoading ? 'animate-spin' : ''} /> Force Refresh
-             </button>
-          </div>
+          <button onClick={() => { fetchPlayers(); fetchRecentMatches(); }} 
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95 disabled:opacity-50"
+            disabled={isLoading}>
+            <RefreshCcw size={14} className={isLoading ? 'animate-spin' : ''} /> Force Sync
+          </button>
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-8">
-            {/* Input Form Section */}
             <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-              <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
-              
               <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
                 <div className="flex items-center gap-4 p-4 bg-blue-600/5 border border-blue-500/10 rounded-2xl">
                     <ShieldCheck className="text-blue-500" size={24} />
                     <div>
                         <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Database Integrity Verified</p>
-                        <p className="text-[10px] text-zinc-500 font-bold leading-tight">Sistem akan melakukan kalkulasi poin dan sinkronisasi ranking secara realtime.</p>
+                        <p className="text-[10px] text-zinc-500 font-bold leading-tight">Sinkronisasi otomatis aktif untuk 67 atlet terdaftar.</p>
                     </div>
                 </div>
 
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
-                    <User size={14} /> Pilih Atlet Penerima
+                    <User size={14} /> Pilih Atlet (Data Live)
                   </label>
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
@@ -327,7 +311,7 @@ const AdminMatch: React.FC = () => {
                     >
                       <option value="">-- {searchTerm ? 'Hasil Pencarian' : 'Pilih Atlet'} --</option>
                       {filteredPlayers.map(p => (
-                        <option key={p.id} value={p.id}>{p.nama} - {p.total_points || 0} pts ({p.kategori})</option>
+                        <option key={p.id} value={p.id}>{p.nama} - {p.total_points} PTS ({p.kategori})</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" size={18} />
@@ -352,155 +336,100 @@ const AdminMatch: React.FC = () => {
                     </label>
                     <select value={hasil} onChange={(e) => setHasil(e.target.value)}
                       className="w-full bg-black/60 border border-zinc-800 rounded-2xl py-4 px-5 focus:border-blue-600 outline-none transition-all text-sm font-bold text-white">
-                      <option value="Menang">MENANG (WIN)</option>
-                      <option value="Seri">SERI (DRAW)</option>
-                      <option value="Kalah">KALAH (LOSE)</option>
+                      <option value="Menang">MENANG</option>
+                      <option value="Seri">SERI</option>
+                      <option value="Kalah">KALAH</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="p-5 bg-blue-600/5 border border-blue-600/20 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <ArrowRightLeft className="text-blue-500" size={18} />
-                        <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Estimasi Perolehan:</span>
-                    </div>
+                    <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Tambahan Poin:</span>
                     <span className="text-2xl font-black italic text-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]">
-                        +{POINT_MAP[kategori][hasil]} <span className="text-xs not-italic text-zinc-600 ml-1">PTS</span>
+                        +{POINT_MAP[kategori][hasil]} <span className="text-xs not-italic text-zinc-600">PTS</span>
                     </span>
                 </div>
 
                 <button type="submit" disabled={isSubmitting || !selectedPlayer}
-                  className="w-full group relative overflow-hidden bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-2xl shadow-blue-600/20">
+                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-                  {isSubmitting ? "SINKRONISASI DATA..." : "KONFIRMASI PERUBAHAN"}
+                  SINKRONISASI POIN
                 </button>
               </form>
             </div>
 
-            {/* History Section */}
+            {/* Recent Match List */}
             <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
               <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-6">
-                <Clock size={14} /> Recent Match Activity
+                <Clock size={14} /> Activity Log
               </h3>
               <div className="space-y-4">
-                {recentMatches.length === 0 ? (
-                  <div className="py-10 border border-dashed border-zinc-800 rounded-3xl flex flex-col items-center justify-center opacity-40">
-                    <Activity size={32} className="mb-2" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest">No activities recorded</p>
-                  </div>
-                ) : (
-                  recentMatches.map((match: any) => {
-                    const earnedPoints = POINT_MAP[match.kategori_kegiatan]?.[match.hasil] || 0;
-                    return (
-                      <div key={match.id} className="flex items-center justify-between bg-zinc-950/50 p-5 rounded-3xl border border-white/5 group hover:border-blue-600/20 transition-all hover:bg-black/60">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[10px] rotate-3 group-hover:rotate-0 transition-transform ${
-                            match.hasil === 'Menang' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
-                            match.hasil === 'Seri' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
-                            'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                            {match.hasil[0]}
-                          </div>
-                          <div>
-                            <p className="text-sm font-black text-white uppercase italic tracking-tighter">{match.pendaftaran?.nama}</p>
-                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-2">
-                               {match.kategori_kegiatan} <span className="w-1 h-1 bg-zinc-800 rounded-full" /> {match.hasil}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <span className={`text-[11px] font-black italic ${earnedPoints > 0 ? 'text-blue-500' : 'text-zinc-600'}`}>
-                            +{earnedPoints} PTS
-                          </span>
-                          <span className="text-[9px] font-mono text-zinc-700 hidden md:block">
-                             {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <button onClick={() => deleteMatch(match.id)} className="p-3 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all opacity-0 group-hover:opacity-100">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                {recentMatches.map((match: any) => (
+                  <div key={match.id} className="flex items-center justify-between bg-zinc-950/50 p-5 rounded-3xl border border-white/5 group hover:bg-black/60 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs ${match.hasil === 'Menang' ? 'text-emerald-500 bg-emerald-500/10' : 'text-red-500 bg-red-500/10'}`}>
+                        {match.hasil[0]}
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-6">
-            <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <Trophy size={60} />
-              </div>
-              <h3 className="text-[10px] font-black tracking-widest uppercase text-blue-500 mb-6 flex items-center gap-2">
-                <Activity size={14} /> Matrix Configuration
-              </h3>
-              <div className="space-y-5">
-                {CATEGORIES.map(cat => (
-                  <div key={cat.id} className="group/item">
-                    <div className="flex justify-between items-center mb-1">
-                       <span className="text-[10px] text-zinc-400 font-bold uppercase">{cat.label}</span>
-                       <span className="text-[10px] font-mono font-black text-white px-2 py-1 bg-white/5 rounded-md border border-white/5 group-hover/item:border-blue-500/50 transition-all">{cat.points}</span>
+                      <div>
+                        <p className="text-sm font-black text-white uppercase italic">{match.pendaftaran?.nama}</p>
+                        <p className="text-[9px] text-zinc-500 font-bold uppercase">{match.kategori_kegiatan} • {match.hasil}</p>
+                      </div>
                     </div>
-                    <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-                       <div className={`h-full bg-blue-600 transition-all duration-1000 ${cat.id === kategori ? 'w-full' : 'w-0'}`} />
+                    <div className="flex items-center gap-4">
+                      <span className="text-blue-500 font-black italic text-xs">+{POINT_MAP[match.kategori_kegiatan]?.[match.hasil]} PTS</span>
+                      <button onClick={() => deleteMatch(match.id)} className="p-2 text-zinc-700 hover:text-red-500 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            <div className="bg-amber-500/5 border border-amber-500/10 p-8 rounded-[2.5rem]">
-              <div className="flex gap-4 items-start">
-                <AlertCircle className="text-amber-600 shrink-0" size={20} />
-                <div>
-                   <p className="text-[10px] text-amber-600 font-black uppercase mb-1">Attention Admin</p>
-                   <p className="text-[10px] text-zinc-500 font-bold leading-relaxed uppercase italic">
-                     Penghapusan log akan memicu <span className="text-white">Negative Point Sync</span>. Gunakan hanya jika terjadi kesalahan input fatal.
-                   </p>
-                </div>
+          <div className="space-y-6">
+            <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2.5rem]">
+              <h3 className="text-[10px] font-black uppercase text-blue-500 mb-6 flex items-center gap-2">
+                <Activity size={14} /> Matrix Config
+              </h3>
+              <div className="space-y-4">
+                {CATEGORIES.map(cat => (
+                  <div key={cat.id} className="flex justify-between items-center border-b border-white/5 pb-2">
+                    <span className="text-[10px] text-zinc-400 font-bold uppercase">{cat.label}</span>
+                    <span className="text-[10px] font-mono text-white bg-white/5 px-2 py-1 rounded">{cat.points}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Success Notification */}
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${
-        showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
-        <div className="bg-zinc-950/90 backdrop-blur-3xl border border-emerald-500/50 px-10 py-6 rounded-[3rem] shadow-[0_0_50px_rgba(16,185,129,0.2)] flex items-center gap-6">
-          <div className="bg-emerald-600 p-4 rounded-2xl rotate-12 shadow-lg shadow-emerald-500/40">
-            <CheckCircle2 size={28} className="text-white" />
+      {/* Notif Success */}
+      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
+        <div className="bg-zinc-950 border border-emerald-500/50 px-10 py-6 rounded-[3rem] flex items-center gap-6 shadow-2xl">
+          <div className="bg-emerald-600 p-3 rounded-xl">
+            <CheckCircle2 size={24} className="text-white" />
           </div>
           <div>
-            <h4 className="text-white font-black uppercase text-xl italic leading-none mb-1">VERIFIED!</h4>
-            <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[0.2em]">Data Synchronized Successfully</p>
+            <h4 className="text-white font-black uppercase text-lg leading-none">Berhasil!</h4>
+            <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest">Poin Atlet Terupdate</p>
           </div>
         </div>
       </div>
 
-      {/* Rollback Overlay */}
       {showRollbackSuccess && (
-          <div className="fixed inset-0 z-[999] flex items-center justify-center animate-in fade-in duration-300">
-             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-             <div className="bg-zinc-900 border border-red-500/30 p-12 rounded-[3.5rem] flex flex-col items-center gap-6 relative animate-in zoom-in duration-500">
-                <div className="w-24 h-24 bg-red-600 rounded-[2rem] flex items-center justify-center rotate-12 shadow-2xl shadow-red-500/20">
-                   <RotateCcw size={40} className="text-white -rotate-12" />
-                </div>
-                <div className="text-center">
-                   <h2 className="text-white text-4xl font-black italic tracking-tighter uppercase mb-2">ROLLBACK COMPLETE</h2>
-                   <p className="text-zinc-500 font-bold tracking-[0.3em] text-[10px] uppercase">Poin atlet telah disesuaikan kembali</p>
-                </div>
+          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+             <div className="bg-zinc-900 border border-red-500/30 p-12 rounded-[3.5rem] flex flex-col items-center gap-6">
+                <RotateCcw size={60} className="text-red-500 animate-spin-slow" />
+                <h2 className="text-white text-3xl font-black italic uppercase">Rollback Sukses</h2>
              </div>
           </div>
       )}
 
       <style>{`
-        select option { background-color: #0c0c0c; color: #fff; padding: 15px; }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+        .animate-spin-slow { animation: spin 3s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
       `}</style>
     </div>
   );

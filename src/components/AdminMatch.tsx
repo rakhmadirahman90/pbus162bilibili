@@ -12,17 +12,14 @@ const AdminMatch: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State UI Notification & Search
   const [showSuccess, setShowSuccess] = useState(false);
   const [showRollbackSuccess, setShowRollbackSuccess] = useState(false); 
   const [searchTerm, setSearchTerm] = useState('');
 
-  // State Form
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [kategori, setKategori] = useState('Harian');
   const [hasil, setHasil] = useState('Menang');
 
-  // KONFIGURASI POIN (Matriks Poin)
   const POINT_MAP: Record<string, Record<string, number>> = {
     'Harian': { 'Menang': 20, 'Seri': 10, 'Kalah': 5 },
     'Sparing': { 'Menang': 100, 'Seri': 50, 'Kalah': 25 },
@@ -95,19 +92,13 @@ const AdminMatch: React.FC = () => {
     }
   };
 
-  /**
-   * KODE BARU: Log Audit yang lebih lengkap dengan atlet_id
-   * Ini memastikan riwayat muncul di halaman User
-   */
   const createAuditLog = async (atletId: string, atletNama: string, perubahan: number, sebelum: number, sesudah: number, kat: string, res: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      // Penyesuaian label agar informatif di sisi user
       const labelTipe = res === "Rollback" ? `Pembatalan Poin: ${kat}` : `${kat} (${res})`;
 
       const { error: auditError } = await supabase.from('audit_poin').insert([{
-        atlet_id: atletId, // Menghubungkan ID ke riwayat
+        atlet_id: atletId,
         atlet_nama: atletNama,
         perubahan: perubahan,
         poin_sebelum: sebelum,
@@ -124,11 +115,12 @@ const AdminMatch: React.FC = () => {
   };
 
   /**
-   * Sinkronisasi ke atlet_stats dan rankings
+   * PERBAIKAN DI SINI:
+   * Menggunakan nama kolom 'total_points' sesuai skema database di gambar.
    */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number, currentKategori: string, currentHasil: string) => {
     try {
-      // 1. Ambil Stats Saat Ini
+      // 1. Ambil Stats Saat Ini menggunakan pendaftaran_id
       const { data: currentStats, error: statsError } = await supabase
         .from('atlet_stats')
         .select('*')
@@ -137,19 +129,19 @@ const AdminMatch: React.FC = () => {
 
       if (statsError) throw statsError;
 
-      const existingPoints = currentStats?.points ?? currentStats?.poin ?? 0;
+      // Gunakan total_points sesuai gambar skema database Anda
+      const existingPoints = currentStats?.total_points || 0;
       const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
       
       const playerInfo = players.find(p => p.id === playerId);
       if (!playerInfo) throw new Error("Data atlet tidak ditemukan dalam state lokal");
 
-      // 2. Update atlet_stats
+      // 2. Update atlet_stats - Menggunakan 'total_points'
       const statsPayload: any = {
         pendaftaran_id: playerId,
         player_name: playerInfo.nama,
         last_match_at: new Date().toISOString(),
-        points: newTotalPoints,
-        poin: newTotalPoints // Dual mapping untuk kompatibilitas skema
+        total_points: newTotalPoints // PERBAIKAN: Nama kolom disamakan dengan DB
       };
 
       const { error: upsertStatsError } = await supabase
@@ -158,7 +150,7 @@ const AdminMatch: React.FC = () => {
 
       if (upsertStatsError) throw upsertStatsError;
 
-      // 3. Update rankings
+      // 3. Update rankings - Menggunakan 'total_points'
       const rankingPayload: any = {
         player_name: playerInfo.nama,
         category: playerInfo.kategori || 'Senior',
@@ -166,16 +158,13 @@ const AdminMatch: React.FC = () => {
         updated_at: new Date().toISOString()
       };
 
-      // Pastikan kolom seed tetap ada jika sebelumnya sudah ada
-      if (currentStats?.seed) rankingPayload.seed = currentStats.seed;
-
       const { error: rankingError } = await supabase
         .from('rankings')
         .upsert(rankingPayload, { onConflict: 'player_name' });
 
       if (rankingError) console.warn("Update ranking non-kritikal:", rankingError.message);
 
-      // 4. KODE BARU: Catat Audit Log dengan menyertakan playerId
+      // 4. Catat Audit Log
       await createAuditLog(playerId, playerInfo.nama, pointsToAdd, existingPoints, newTotalPoints, currentKategori, currentHasil);
 
       return true;
@@ -191,7 +180,6 @@ const AdminMatch: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      // Simpan Pertandingan
       const { error: matchError } = await supabase
         .from('pertandingan')
         .insert([{ 
@@ -202,10 +190,7 @@ const AdminMatch: React.FC = () => {
 
       if (matchError) throw matchError;
 
-      // Hitung Poin
       const pointsToAdd = POINT_MAP[kategori][hasil] || 0;
-      
-      // Sinkronisasi
       const syncSuccess = await syncPlayerPerformance(selectedPlayer, pointsToAdd, kategori, hasil);
 
       if (syncSuccess) {
@@ -215,7 +200,7 @@ const AdminMatch: React.FC = () => {
         fetchRecentMatches();
         setTimeout(() => setShowSuccess(false), 4000);
       } else {
-         throw new Error("Sistem gagal menyinkronkan poin ke tabel statistik.");
+        throw new Error("Sistem gagal menyinkronkan poin ke tabel statistik. Pastikan kuota database belum habis.");
       }
 
     } catch (err: any) {
@@ -270,7 +255,6 @@ const AdminMatch: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 font-sans relative overflow-hidden">
-      {/* Efek Background */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10" />
       <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-indigo-600/5 blur-[100px] rounded-full -z-10" />
       
@@ -298,7 +282,6 @@ const AdminMatch: React.FC = () => {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {/* Main Form Section */}
           <div className="md:col-span-2 space-y-8">
             <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
@@ -312,7 +295,6 @@ const AdminMatch: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Player Search & Select */}
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
                     <User size={14} /> Pilih Atlet Penerima
@@ -343,7 +325,6 @@ const AdminMatch: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Match Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
@@ -387,7 +368,6 @@ const AdminMatch: React.FC = () => {
               </form>
             </div>
 
-            {/* Riwayat Input Section */}
             <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
               <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-6">
                 <Clock size={14} /> Recent Log Input
@@ -428,7 +408,6 @@ const AdminMatch: React.FC = () => {
             </div>
           </div>
 
-          {/* Sidebar Section */}
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -467,7 +446,6 @@ const AdminMatch: React.FC = () => {
         </div>
       </div>
 
-      {/* SUCCESS NOTIFICATION */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
         <div className="bg-zinc-950/90 backdrop-blur-3xl border border-emerald-500/50 px-10 py-6 rounded-[3rem] shadow-[0_0_50px_rgba(16,185,129,0.2)] flex items-center gap-6">
@@ -481,7 +459,6 @@ const AdminMatch: React.FC = () => {
         </div>
       </div>
 
-      {/* ROLLBACK NOTIFICATION overlay */}
       {showRollbackSuccess && (
          <div className="fixed inset-0 z-[999] flex items-center justify-center animate-in fade-in duration-300">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />

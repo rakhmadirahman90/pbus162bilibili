@@ -120,59 +120,50 @@ const AdminMatch: React.FC = () => {
    */
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number, currentKategori: string, currentHasil: string) => {
     try {
-      // 1. Ambil Stats Saat Ini menggunakan pendaftaran_id
+      // 1. Ambil Stats Saat Ini
       const { data: currentStats, error: statsError } = await supabase
         .from('atlet_stats')
-        .select('*')
+        .select('total_points') // Pakai total_points sesuai skema database Anda
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
 
-      if (statsError) throw statsError;
+      if (statsError) {
+        console.error("Gagal fetch stats:", statsError.message);
+        throw statsError;
+      }
 
-      // Gunakan total_points sesuai gambar skema database Anda
       const existingPoints = currentStats?.total_points || 0;
       const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
       
       const playerInfo = players.find(p => p.id === playerId);
-      if (!playerInfo) throw new Error("Data atlet tidak ditemukan dalam state lokal");
+      if (!playerInfo) throw new Error("ID Atlet tidak valid di sesi ini. Silakan refresh.");
 
-      // 2. Update atlet_stats - Menggunakan 'total_points'
-      const statsPayload: any = {
+      // 2. Update atau Insert ke atlet_stats
+      const statsPayload = {
         pendaftaran_id: playerId,
         player_name: playerInfo.nama,
         last_match_at: new Date().toISOString(),
-        total_points: newTotalPoints // PERBAIKAN: Nama kolom disamakan dengan DB
+        total_points: newTotalPoints 
       };
 
       const { error: upsertStatsError } = await supabase
         .from('atlet_stats')
         .upsert(statsPayload, { onConflict: 'pendaftaran_id' });
 
-      if (upsertStatsError) throw upsertStatsError;
+      if (upsertStatsError) {
+        console.error("Gagal Update Stats:", upsertStatsError.message);
+        throw upsertStatsError;
+      }
 
-      // 3. Update rankings - Menggunakan 'total_points'
-      const rankingPayload: any = {
-        player_name: playerInfo.nama,
-        category: playerInfo.kategori || 'Senior',
-        total_points: newTotalPoints,
-        updated_at: new Date().toISOString()
-      };
-
-      const { error: rankingError } = await supabase
-        .from('rankings')
-        .upsert(rankingPayload, { onConflict: 'player_name' });
-
-      if (rankingError) console.warn("Update ranking non-kritikal:", rankingError.message);
-
-      // 4. Catat Audit Log
+      // 3. Catat Audit Log
       await createAuditLog(playerId, playerInfo.nama, pointsToAdd, existingPoints, newTotalPoints, currentKategori, currentHasil);
 
       return true;
     } catch (err: any) {
-      console.error("Sinkronisasi Gagal:", err.message);
+      console.error("Sinkronisasi Gagal Total:", err.message);
       return false;
     }
-  };
+  };;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

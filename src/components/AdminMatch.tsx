@@ -75,20 +75,24 @@ const AdminMatch: React.FC = () => {
       const { data, error } = await supabase
         .from('pertandingan')
         .select(`
-          id,
-          pendaftaran_id,
-          kategori_kegiatan,
-          hasil,
-          created_at,
-          pendaftaran ( nama )
-        `)
+          id, 
+          pendaftaran_id, 
+          kategori_kegiatan, 
+          hasil, 
+          created_at, 
+          pendaftaran!inner ( nama )
+        `) // Tambahkan !inner untuk memastikan relasi wajib ada
         .order('created_at', { ascending: false })
         .limit(10);
+
+      if (error) {
+        console.error("Error fetching history:", error.message);
+        return;
+      }
       
-      if (error) throw error;
       if (data) setRecentMatches(data);
-    } catch (err: any) {
-      console.error("Gagal mengambil riwayat pertandingan:", err.message);
+    } catch (err) {
+      console.error("Unknown error:", err);
     }
   };
 

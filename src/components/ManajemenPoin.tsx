@@ -352,4 +352,205 @@ export default function ManajemenPoin() {
       </div>
     </div>
   );
+}import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
+import { 
+  Trophy, Plus, Minus, Search, User, Loader2, 
+  ChevronLeft, ChevronRight, Zap, CheckCircle2, Sparkles, RefreshCcw, AlertTriangle, History, ChevronDown, ChevronUp
+} from 'lucide-react';
+
+export default function ManajemenPoin() {
+  const [atlets, setAtlets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [histories, setHistories] = useState<any[]>([]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; 
+
+  useEffect(() => {
+    fetchAtlets();
+
+    // Realtime listener untuk semua tabel terkait
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', 
+        { event: '*', table: 'atlet_stats', schema: 'public' }, 
+        () => fetchAtlets()
+      )
+      .on('postgres_changes', 
+        { event: '*', table: 'rankings', schema: 'public' }, 
+        () => fetchAtlets()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const fetchAtlets = async () => {
+    setLoading(true);
+    try {
+      // 1. Ambil data profil dasar
+      const { data: profiles, error: pError } = await supabase
+        .from('pendaftaran')
+        .select('id, nama')
+        .order('nama', { ascending: true });
+
+      if (pError) throw pError;
+
+      // 2. Ambil data statistik internal
+      const { data: stats, error: sError } = await supabase
+        .from('atlet_stats')
+        .select('pendaftaran_id, points, total_points');
+
+      if (sError) throw sError;
+
+      // 3. Ambil data ranking (ini yang dipakai di Profil Atlet/Public)
+      const { data: rankings, error: rError } = await supabase
+        .from('rankings')
+        .select('player_name, total_points');
+
+      if (rError) throw rError;
+
+      const statsMap = new Map(stats?.map(s => [s.pendaftaran_id, s]));
+      const rankingsMap = new Map(rankings?.map(r => [r.player_name, r.total_points]));
+      
+      const merged = (profiles || []).map(p => {
+        const stat = statsMap.get(p.id);
+        // SINKRONISASI KRITIKAL:
+        // Jika ada data di tabel rankings, pakai itu sebagai display_points utama
+        // agar sama dengan yang muncul di profil atlet (8511 pts)
+        const rankingPoints = rankingsMap.get(p.nama) || 0;
+        
+        return {
+          ...p,
+          display_points: rankingPoints, // Mengikuti data Rankings (8511)
+          raw_points: Number(stat?.points || 0), // Seed
+          raw_total_points: Number(stat?.total_points || 0) // Akumulasi tambahan
+        };
+      });
+
+      setAtlets(merged);
+    } catch (err) { 
+      console.error("Gagal fetch data:", err); 
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  const handleUpdatePoin = async (atlet: any, currentDisplayPoints: number, amount: number) => {
+    if (updatingId) return;
+    setUpdatingId(atlet.id);
+    
+    // Hitung nilai baru
+    const newDisplayPoints = Math.max(0, currentDisplayPoints + amount);
+    const newTotalPointsOnly = Math.max(0, atlet.raw_total_points + amount);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Step A: Update stats internal
+      const { error: statsError } = await supabase
+        .from('atlet_stats')
+        .upsert({ 
+          pendaftaran_id: atlet.id, 
+          player_name: atlet.nama,
+          points: atlet.raw_points, 
+          total_points: newTotalPointsOnly, 
+          last_match_at: new Date().toISOString()
+        }, { onConflict: 'pendaftaran_id' });
+
+      if (statsError) throw statsError;
+
+      // Step B: Update Rankings (Public/Profile Data)
+      // Ini yang akan mengubah angka 400 menjadi 8511 di tabel ranking
+      const { error: rankingsError } = await supabase
+        .from('rankings')
+        .upsert({ 
+          player_name: atlet.nama,
+          total_points: newDisplayPoints, 
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'player_name' });
+
+      if (rankingsError) throw rankingsError;
+
+      // Step C: Log History
+      await supabase.from('audit_poin').insert([{
+        admin_email: user?.email || 'Admin',
+        atlet_id: atlet.id,
+        atlet_nama: atlet.nama,
+        poin_sebelum: currentDisplayPoints,
+        poin_sesudah: newDisplayPoints,
+        perubahan: amount,
+        tipe_kegiatan: "Manual Adjustment"
+      }]);
+
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      fetchAtlets(); // Refresh data untuk memastikan sinkronisasi
+
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // --- Sisa kode UI (Search, Filter, Render) tetap sama seperti sebelumnya ---
+  const filteredAtlets = atlets.filter(a => a.nama?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const currentItems = filteredAtlets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  return (
+    <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative">
+      {/* Header & Search */}
+      <div className="flex justify-between items-start mb-12">
+        <div>
+           <h1 className="text-4xl font-black italic uppercase">Point <span className="text-blue-600">Control</span></h1>
+           <p className="text-zinc-500 text-[10px] font-bold mt-2 uppercase tracking-widest">Master Sync: Rankings + Atlet Stats</p>
+        </div>
+        <input 
+          type="text" 
+          placeholder="Cari atlet..." 
+          className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl w-80 outline-none focus:border-blue-600"
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {/* List Atlet */}
+      <div className="grid gap-4">
+        {loading ? <Loader2 className="animate-spin mx-auto mt-20" /> : currentItems.map((atlet) => (
+          <div key={atlet.id} className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[2rem] flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center"><User /></div>
+              <div>
+                <h3 className="font-bold text-lg uppercase italic">{atlet.nama}</h3>
+                <p className="text-[10px] text-zinc-600">DB RANKING SYNC ACTIVE</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-8">
+              <div className="text-right">
+                <p className="text-[9px] text-zinc-500 font-bold uppercase">Total Points</p>
+                <p className="text-3xl font-black text-white">{atlet.display_points.toLocaleString()}</p>
+              </div>
+              <div className="flex gap-2 bg-black/50 p-2 rounded-2xl">
+                <button onClick={() => handleUpdatePoin(atlet, atlet.display_points, -100)} className="w-10 h-10 bg-zinc-800 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center"><Minus size={16}/></button>
+                <button onClick={() => handleUpdatePoin(atlet, atlet.display_points, 100)} className="w-10 h-10 bg-zinc-800 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center"><Plus size={16}/></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Notification */}
+      {showSuccess && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-emerald-600 px-8 py-4 rounded-full font-bold animate-bounce">
+          DATA BERHASIL DISINKRONKAN!
+        </div>
+      )}
+    </div>
+  );
 }

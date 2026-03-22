@@ -20,17 +20,10 @@ export default function ManajemenPoin() {
   useEffect(() => {
     fetchAtlets();
 
-    // REALTIME SYNC: Pantau perubahan pada kedua tabel agar data selalu fresh
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', 
-        { event: '*', table: 'atlet_stats', schema: 'public' }, 
-        () => fetchAtlets()
-      )
-      .on('postgres_changes', 
-        { event: '*', table: 'pendaftaran', schema: 'public' }, 
-        () => fetchAtlets()
-      )
+      .on('postgres_changes', { event: '*', table: 'atlet_stats', schema: 'public' }, () => fetchAtlets())
+      .on('postgres_changes', { event: '*', table: 'pendaftaran', schema: 'public' }, () => fetchAtlets())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -39,7 +32,7 @@ export default function ManajemenPoin() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
-      // 1. Ambil data profil (Data Awal) dari Tabel Pendaftaran
+      // 1. Ambil data dari tabel pendaftaran
       const { data: profiles, error: pError } = await supabase
         .from('pendaftaran')
         .select('id, nama, poin') 
@@ -47,66 +40,46 @@ export default function ManajemenPoin() {
 
       if (pError) throw pError;
 
-      // 2. Ambil data tambahan poin dari Tabel Atlet Stats
+      // 2. Ambil data dari tabel atlet_stats (sesuai Gambar 1 Anda)
       const { data: stats, error: sError } = await supabase
         .from('atlet_stats')
-        .select('pendaftaran_id, total_points');
+        .select('pendaftaran_id, player_name, total_points');
 
       if (sError) throw sError;
 
-      // 3. MERGE & ACCUMULATE: Menyatukan Data Awal + Penambahan
+      // 3. MERGE LOGIC (Kunci Perbaikan)
       const merged = (profiles || []).map(p => {
-        const statMatch = stats?.find(s => s.pendaftaran_id === p.id);
+        // Cari di stats berdasarkan ID, jika ID kosong cari berdasarkan Nama (case insensitive)
+        const statMatch = stats?.find(s => 
+          (s.pendaftaran_id === p.id) || 
+          (s.player_name?.toLowerCase() === p.nama?.toLowerCase())
+        );
         
-        // Poin dari Manajemen Atlet (Data Awal)
         const basePoint = Number(p.poin || 0);
-        // Poin dari Admin Match (Data Penambahan)
         const matchPoint = statMatch ? Number(statMatch.total_points) : 0;
         
         return { 
           ...p, 
           base_point: basePoint,
           match_point: matchPoint,
-          display_points: basePoint + matchPoint // Akumulasi Total
+          display_points: basePoint + matchPoint
         };
       });
 
       setAtlets(merged);
     } catch (err) { 
-      console.error("Gagal sinkronisasi akumulasi poin:", err); 
+      console.error("Gagal sinkronisasi:", err); 
     } finally { 
       setLoading(false); 
     }
   };
 
-  const fetchHistory = async (nama: string) => {
-    const { data } = await supabase
-      .from('audit_poin')
-      .select('*')
-      .eq('atlet_nama', nama)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    setHistories(data || []);
-  };
-
-  const toggleExpand = (atlet: any) => {
-    if (expandedId === atlet.id) {
-      setExpandedId(null);
-    } else {
-      setExpandedId(atlet.id);
-      fetchHistory(atlet.nama);
-    }
-  };
-
   const handleUpdatePoin = async (atlet: any, currentTotal: number, amount: number) => {
     setUpdatingId(atlet.id);
-    
-    // Kita hanya mengupdate tabel atlet_stats (Data Penambahan)
-    // Nilai baru = Porsi match saat ini + amount
     const newMatchPoints = atlet.match_point + amount;
 
     try {
-      // UPSERT ke tabel atlet_stats
+      // Sesuai Gambar 1: Menggunakan player_name dan pendaftaran_id
       const { error: upsertError } = await supabase
         .from('atlet_stats')
         .upsert({ 
@@ -114,23 +87,11 @@ export default function ManajemenPoin() {
           player_name: atlet.nama,
           total_points: newMatchPoints, 
           last_match_at: new Date().toISOString()
-        }, { onConflict: 'pendaftaran_id' });
+        }, { onConflict: 'player_name' }); // Menggunakan player_name sebagai kunci jika ID bermasalah
 
       if (upsertError) throw upsertError;
 
-      // Catat ke Audit Log
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('audit_poin').insert([{
-        admin_email: user?.email || 'Admin System',
-        atlet_id: atlet.id,
-        atlet_nama: atlet.nama,
-        poin_sebelum: currentTotal,
-        poin_sesudah: currentTotal + amount,
-        perubahan: amount,
-        tipe_kegiatan: amount > 0 ? "Manual Adjustment (+)" : "Manual Adjustment (-)"
-      }]);
-
-      // Optimistic Update: Langsung ubah UI agar terasa instan
+      // Optimistic Update
       setAtlets(prev => prev.map(a => 
         a.id === atlet.id ? { 
           ...a, 
@@ -140,12 +101,9 @@ export default function ManajemenPoin() {
       ));
       
       setShowSuccess(true);
-      if (expandedId === atlet.id) fetchHistory(atlet.nama);
       setTimeout(() => setShowSuccess(false), 2000);
-
     } catch (err) {
       console.error("Update failed:", err);
-      alert("Gagal mengupdate poin.");
     } finally {
       setUpdatingId(null);
     }
@@ -156,125 +114,81 @@ export default function ManajemenPoin() {
   const currentItems = filteredAtlets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-96 h-96 bg-blue-600/5 blur-[120px] rounded-full -z-10" />
-
+    <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative">
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
             <span className="text-zinc-500 text-[10px] font-black tracking-widest uppercase italic">
-              Mode: Akumulasi Poin (Awal + Tambahan)
+              System Ready: {atlets.length} Athletes Loaded
             </span>
           </div>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter">Quick <span className="text-blue-600">Adjustment</span></h1>
-          <div className="flex gap-2 mt-4">
-            <button onClick={fetchAtlets} className="flex items-center gap-2 text-[10px] bg-zinc-900 text-zinc-400 px-4 py-2 rounded-xl font-black border border-zinc-800 hover:text-white transition-all shadow-lg hover:border-blue-500/50">
-              <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} /> RE-FETCH DATA
-            </button>
-          </div>
+          <button onClick={fetchAtlets} className="mt-4 flex items-center gap-2 text-[10px] bg-zinc-900 text-zinc-400 px-4 py-2 rounded-xl font-black border border-zinc-800 hover:text-white transition-all">
+            <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} /> RE-FETCH DATA
+          </button>
         </div>
         <div className="relative w-full md:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
           <input 
             type="text" 
             placeholder="Cari nama atlet..." 
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white font-bold outline-none focus:border-blue-600 transition-all shadow-2xl" 
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 text-white font-bold outline-none focus:border-blue-600 shadow-2xl" 
             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
           />
         </div>
       </div>
 
+      {/* Main List */}
       <div className="grid gap-4 mb-8">
         {loading && atlets.length === 0 ? (
           <div className="py-24 flex flex-col items-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={40} />
-            <p className="text-zinc-600 font-bold text-xs uppercase tracking-widest">Sinkronisasi Seluruh Poin...</p>
+            <p className="text-zinc-600 font-bold text-xs uppercase tracking-widest italic">Memuat Data...</p>
           </div>
         ) : (
           currentItems.map((atlet) => (
-            <div key={atlet.id} className="flex flex-col">
-              <div className={`bg-zinc-900/40 border ${expandedId === atlet.id ? 'border-blue-600/50 bg-zinc-900/80' : 'border-zinc-800/50'} p-6 rounded-t-[2.5rem] ${expandedId !== atlet.id ? 'rounded-b-[2.5rem]' : ''} flex flex-col md:flex-row items-center justify-between group transition-all duration-300`}>
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-500 border border-white/5 group-hover:text-blue-500 transition-colors"><User size={28} /></div>
-                  <div>
-                    <h3 className="font-black text-xl uppercase tracking-tighter group-hover:text-blue-400 transition-colors">{atlet.nama}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-zinc-600 text-[9px] font-bold italic font-mono uppercase">ID: {atlet.id.slice(0,8)}</span>
-                      <button onClick={() => toggleExpand(atlet)} className="flex items-center gap-1 text-[9px] text-blue-500 font-black uppercase tracking-widest hover:underline">
-                        <History size={10} /> {expandedId === atlet.id ? 'Tutup Log' : 'History'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-10 mt-6 md:mt-0">
-                  <div className="text-right">
-                    <p className="text-[9px] text-zinc-600 font-black mb-1 italic tracking-widest uppercase">Total Accumulation</p>
-                    <p className="text-4xl font-black text-white leading-none">
-                      {atlet.display_points.toLocaleString()} <span className="text-blue-600 text-sm">PTS</span>
-                    </p>
-                    <div className="flex gap-2 justify-end mt-1">
-                      <span className="text-[8px] text-zinc-600 font-bold uppercase">Awal: {atlet.base_point}</span>
-                      <span className="text-[8px] text-blue-500 font-bold uppercase">Tambahan: {atlet.match_point}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 bg-black/40 p-2 rounded-2xl border border-white/5">
-                    <button disabled={updatingId === atlet.id} onClick={() => handleUpdatePoin(atlet, atlet.display_points, -100)} className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-red-600 text-white flex items-center justify-center disabled:opacity-20 transition-all active:scale-90 shadow-lg">
-                       {updatingId === atlet.id ? <Loader2 className="animate-spin" size={16}/> : <Minus size={20} />}
-                    </button>
-                    <button disabled={updatingId === atlet.id} onClick={() => handleUpdatePoin(atlet, atlet.display_points, 100)} className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-green-600 text-white flex items-center justify-center disabled:opacity-20 transition-all active:scale-90 shadow-lg">
-                       {updatingId === atlet.id ? <Loader2 className="animate-spin" size={16}/> : <Plus size={20} />}
-                    </button>
-                  </div>
+            <div key={atlet.id} className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between group hover:border-blue-600/30 transition-all">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-500 border border-white/5"><User size={28} /></div>
+                <div>
+                  <h3 className="font-black text-xl uppercase tracking-tighter group-hover:text-blue-400 transition-colors">{atlet.nama}</h3>
+                  <p className="text-[8px] text-zinc-600 font-bold uppercase italic mt-1">Ref: {atlet.id.slice(0,8)}</p>
                 </div>
               </div>
 
-              {expandedId === atlet.id && (
-                <div className="bg-zinc-950 border-x border-b border-blue-600/30 rounded-b-[2.5rem] p-6 animate-in slide-in-from-top-4 duration-300">
-                  <div className="space-y-3">
-                    {histories.length > 0 ? histories.map((log) => (
-                      <div key={log.id} className="flex items-center justify-between text-[11px] bg-zinc-900/50 p-3 rounded-xl border border-white/5">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-2 h-2 rounded-full ${log.perubahan > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
-                          <span className="text-zinc-400 font-mono">{new Date(log.created_at).toLocaleString()}</span>
-                          <span className="text-zinc-600 uppercase hidden md:inline">{log.tipe_kegiatan}</span>
-                        </div>
-                        <div className="font-bold flex gap-4">
-                          <span className={`${log.perubahan > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {log.perubahan > 0 ? '+' : ''}{log.perubahan} PTS
-                          </span>
-                        </div>
-                      </div>
-                    )) : (
-                      <p className="text-center text-zinc-600 text-[10px] py-4 font-bold uppercase italic">Log riwayat tidak ditemukan.</p>
-                    )}
-                  </div>
+              <div className="flex items-center gap-10 mt-6 md:mt-0">
+                <div className="text-right">
+                  <p className="text-[9px] text-zinc-600 font-black mb-1 italic tracking-widest uppercase">Current Balance</p>
+                  <p className="text-4xl font-black text-white leading-none">
+                    {atlet.display_points.toLocaleString()} <span className="text-blue-600 text-sm">PTS</span>
+                  </p>
+                  <p className="text-[8px] text-zinc-700 font-bold mt-1 uppercase italic">
+                    Base: {atlet.base_point} | Match: {atlet.match_point}
+                  </p>
                 </div>
-              )}
+                <div className="flex gap-2 bg-black/40 p-2 rounded-2xl border border-white/5">
+                  <button disabled={updatingId === atlet.id} onClick={() => handleUpdatePoin(atlet, atlet.display_points, -100)} className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-red-600 text-white flex items-center justify-center transition-all active:scale-90">
+                    {updatingId === atlet.id ? <Loader2 className="animate-spin" size={16}/> : <Minus size={20} />}
+                  </button>
+                  <button disabled={updatingId === atlet.id} onClick={() => handleUpdatePoin(atlet, atlet.display_points, 100)} className="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-green-600 text-white flex items-center justify-center transition-all active:scale-90">
+                    {updatingId === atlet.id ? <Loader2 className="animate-spin" size={16}/> : <Plus size={20} />}
+                  </button>
+                </div>
+              </div>
             </div>
           ))
         )}
       </div>
 
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-8 pb-10">
-          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-20 transition-all"><ChevronLeft size={20} /></button>
-          <div className="flex gap-2">
-            {[...Array(totalPages)].map((_, i) => (
-              <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-12 h-12 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-600 hover:text-zinc-400'}`}>{i + 1}</button>
-            ))}
-          </div>
-          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-20 transition-all"><ChevronRight size={20} /></button>
+      {/* Pagination & Success Toast */}
+      {showSuccess && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-emerald-600 px-8 py-4 rounded-full shadow-2xl flex items-center gap-3 animate-bounce">
+          <CheckCircle2 size={20} />
+          <span className="font-black uppercase text-sm tracking-widest italic">Data Synced!</span>
         </div>
       )}
-
-      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
-        <div className="bg-emerald-600 px-10 py-6 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-4 border border-white/20">
-          <CheckCircle2 size={24} className="text-white" />
-          <h4 className="text-white font-black uppercase text-lg italic tracking-widest">SYNCED!</h4>
-        </div>
-      </div>
     </div>
   );
 }

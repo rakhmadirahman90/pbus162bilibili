@@ -12,25 +12,30 @@ import {
   RefreshCcw,
   Zap,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export default function AdminLogs() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // State baru untuk Pagination
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchLogs();
 
-    // Pastikan channel ini memantau tabel audit_poin
     const channel = supabase
       .channel('audit-changes')
       .on('postgres_changes', 
         { event: 'INSERT', table: 'audit_poin', schema: 'public' }, 
         (payload) => {
           console.log("New log received:", payload);
-          fetchLogs(); // Refresh otomatis saat ada entri baru
+          fetchLogs();
         }
       )
       .subscribe();
@@ -41,7 +46,6 @@ export default function AdminLogs() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      // Mengambil data dengan memastikan kolom created_at ada untuk sorting
       const { data, error } = await supabase
         .from('audit_poin')
         .select('*')
@@ -60,10 +64,8 @@ export default function AdminLogs() {
     }
   };
 
-  // Perbaikan filter: Menambahkan pengecekan null/undefined agar tidak crash
   const filteredLogs = logs.filter(log => {
     const s = searchTerm.toLowerCase();
-    // Menyesuaikan dengan kolom atlet_nama atau player_name jika ada perbedaan
     const atletMatch = (log.atlet_nama || log.player_name || "").toLowerCase().includes(s);
     const adminMatch = (log.admin_email || "").toLowerCase().includes(s);
     const tipeMatch = (log.tipe_kegiatan || "").toLowerCase().includes(s);
@@ -71,9 +73,18 @@ export default function AdminLogs() {
     return atletMatch || adminMatch || tipeMatch;
   });
 
+  // Logika Kalkulasi Pagination
+  const totalItems = filteredLogs.length;
+  const isAll = itemsPerPage === 'all';
+  const limit = isAll ? totalItems : (itemsPerPage as number);
+  const totalPages = isAll ? 1 : Math.ceil(totalItems / limit);
+  
+  const indexOfLastItem = currentPage * limit;
+  const indexOfFirstItem = isAll ? 0 : indexOfLastItem - limit;
+  const currentItems = filteredLogs.slice(indexOfFirstItem, indexOfLastItem);
+
   return (
     <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
-      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[150px] rounded-full -z-10" />
 
       {/* Header Area */}
@@ -97,15 +108,39 @@ export default function AdminLogs() {
           </div>
         </div>
 
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
-          <input 
-            type="text" 
-            placeholder="Cari Admin, Atlet, atau Tipe..."
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 focus:border-blue-600 outline-none transition-all text-xs font-bold shadow-2xl"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+          {/* Dropdown Limit Data */}
+          <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 shadow-2xl">
+            <Database size={14} className="text-zinc-500" />
+            <select 
+              className="bg-transparent text-[10px] font-black uppercase outline-none text-blue-500 cursor-pointer"
+              value={itemsPerPage}
+              onChange={(e) => {
+                const val = e.target.value;
+                setItemsPerPage(val === 'all' ? 'all' : parseInt(val));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={5} className="bg-zinc-950">Show 05</option>
+              <option value={10} className="bg-zinc-950">Show 10</option>
+              <option value={50} className="bg-zinc-950">Show 50</option>
+              <option value="all" className="bg-zinc-950">Show ALL</option>
+            </select>
+          </div>
+
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+            <input 
+              type="text" 
+              placeholder="Cari Admin, Atlet, atau Tipe..."
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 focus:border-blue-600 outline-none transition-all text-xs font-bold shadow-2xl"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -122,7 +157,7 @@ export default function AdminLogs() {
             <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Audit_Vault_v2.0.sh</span>
           </div>
           <div className="hidden md:flex items-center gap-2 text-[10px] text-zinc-600 font-bold uppercase">
-            <Clock size={12} /> Live Updates Active
+            <Clock size={12} /> {filteredLogs.length} Records Detected
           </div>
         </div>
 
@@ -145,8 +180,8 @@ export default function AdminLogs() {
                     <p className="text-[10px] text-zinc-600 font-black mt-4 uppercase tracking-[0.3em]">Decoding Streams...</p>
                   </td>
                 </tr>
-              ) : filteredLogs.length > 0 ? (
-                filteredLogs.map((log) => (
+              ) : currentItems.length > 0 ? (
+                currentItems.map((log) => (
                   <tr key={log.id} className="group hover:bg-blue-600/[0.03] transition-all">
                     <td className="px-8 py-6">
                       <div className="flex flex-col gap-0.5">
@@ -218,6 +253,44 @@ export default function AdminLogs() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer Controls */}
+        {!isAll && totalPages > 1 && (
+          <div className="px-8 py-6 bg-black/20 border-t border-white/5 flex items-center justify-between">
+            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+              Showing <span className="text-white">{indexOfFirstItem + 1}-{Math.min(indexOfLastItem, totalItems)}</span> of <span className="text-white">{totalItems}</span> Nodes
+            </p>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 bg-zinc-800 rounded-lg hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-zinc-800 transition-all"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <div className="flex gap-1">
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${
+                      currentPage === i + 1 ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-zinc-900 text-zinc-500 hover:text-white'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 bg-zinc-800 rounded-lg hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-zinc-800 transition-all"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer Info */}

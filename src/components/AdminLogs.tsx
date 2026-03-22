@@ -23,12 +23,16 @@ export default function AdminLogs() {
   useEffect(() => {
     fetchLogs();
 
-    // Realtime subscription agar log langsung muncul saat poin diubah di ManajemenPoin
+    // Pastikan channel ini memantau tabel audit_poin
     const channel = supabase
       .channel('audit-changes')
-      .on('postgres_changes', { event: 'INSERT', table: 'audit_poin', schema: 'public' }, () => {
-        fetchLogs();
-      })
+      .on('postgres_changes', 
+        { event: 'INSERT', table: 'audit_poin', schema: 'public' }, 
+        (payload) => {
+          console.log("New log received:", payload);
+          fetchLogs(); // Refresh otomatis saat ada entri baru
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -37,24 +41,35 @@ export default function AdminLogs() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
+      // Mengambil data dengan memastikan kolom created_at ada untuk sorting
       const { data, error } = await supabase
         .from('audit_poin')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error) setLogs(data || []);
+      if (error) {
+        console.error("Supabase Error:", error.message);
+        return;
+      }
+      
+      setLogs(data || []);
     } catch (err) {
-      console.error("Error fetching logs:", err);
+      console.error("System Error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredLogs = logs.filter(log => 
-    log.atlet_nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.admin_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.tipe_kegiatan?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Perbaikan filter: Menambahkan pengecekan null/undefined agar tidak crash
+  const filteredLogs = logs.filter(log => {
+    const s = searchTerm.toLowerCase();
+    // Menyesuaikan dengan kolom atlet_nama atau player_name jika ada perbedaan
+    const atletMatch = (log.atlet_nama || log.player_name || "").toLowerCase().includes(s);
+    const adminMatch = (log.admin_email || "").toLowerCase().includes(s);
+    const tipeMatch = (log.tipe_kegiatan || "").toLowerCase().includes(s);
+    
+    return atletMatch || adminMatch || tipeMatch;
+  });
 
   return (
     <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
@@ -136,10 +151,10 @@ export default function AdminLogs() {
                     <td className="px-8 py-6">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-white text-[11px] font-bold">
-                          {new Date(log.created_at).toLocaleTimeString('id-ID')}
+                          {log.created_at ? new Date(log.created_at).toLocaleTimeString('id-ID') : '--:--'}
                         </span>
                         <span className="text-zinc-600 text-[9px] uppercase font-black">
-                          {new Date(log.created_at).toLocaleDateString('id-ID')}
+                          {log.created_at ? new Date(log.created_at).toLocaleDateString('id-ID') : 'N/A'}
                         </span>
                       </div>
                     </td>
@@ -150,16 +165,16 @@ export default function AdminLogs() {
                         </div>
                         <div>
                           <p className="text-[11px] font-black text-white uppercase tracking-tighter">
-                            {log.admin_email.split('@')[0]}
+                            {(log.admin_email || "System").split('@')[0]}
                           </p>
-                          <p className="text-[9px] text-zinc-600 lowercase">{log.admin_email}</p>
+                          <p className="text-[9px] text-zinc-600 lowercase">{log.admin_email || "system@internal"}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-2">
                         <span className={`text-[9px] font-black px-2 py-1 rounded uppercase tracking-tighter border ${
-                          log.perubahan > 0 
+                          (log.perubahan || 0) > 0 
                             ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
                             : 'bg-red-500/10 text-red-500 border-red-500/20'
                         }`}>
@@ -169,23 +184,23 @@ export default function AdminLogs() {
                     </td>
                     <td className="px-8 py-6">
                        <p className="text-[11px] font-bold text-white uppercase italic">
-                         {log.atlet_nama}
+                         {log.atlet_nama || log.player_name || "Unknown Athlete"}
                        </p>
-                       <p className="text-[9px] text-zinc-600 font-black uppercase">ID: {log.atlet_id?.slice(0, 8)}...</p>
+                       <p className="text-[9px] text-zinc-600 font-black uppercase">ID: {log.atlet_id?.slice(0, 8) || 'N/A'}...</p>
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="inline-flex flex-col items-end">
                         <div className="flex items-center gap-2">
-                          <span className={`text-[12px] font-black ${log.perubahan > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {log.perubahan > 0 ? (
+                          <span className={`text-[12px] font-black ${(log.perubahan || 0) > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {(log.perubahan || 0) > 0 ? (
                               <ArrowUpRight size={12} className="inline mr-1" />
                             ) : (
                               <ArrowDownRight size={12} className="inline mr-1" />
                             )}
-                            {log.perubahan > 0 ? `+${log.perubahan.toLocaleString()}` : log.perubahan.toLocaleString()}
+                            {(log.perubahan || 0).toLocaleString()}
                           </span>
                         </div>
-                        <span className="text-[9px] text-zinc-600 font-black uppercase">Final: {log.poin_sesudah?.toLocaleString()} PTS</span>
+                        <span className="text-[9px] text-zinc-600 font-black uppercase">Final: {(log.poin_sesudah || 0).toLocaleString()} PTS</span>
                       </div>
                     </td>
                   </tr>

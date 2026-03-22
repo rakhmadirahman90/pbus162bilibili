@@ -118,84 +118,63 @@ const AdminMatch: React.FC = () => {
    * PERBAIKAN DI SINI:
    * Menggunakan nama kolom 'total_points' sesuai skema database di gambar.
    */
-  const syncPlayerPerformance = async (playerId: string, pointsToAdd: number, currentKategori: string, currentHasil: string) => {
+  const syncPlayerPerformance = async (playerId, pointsToAdd) => {
     try {
-      // 1. Ambil Stats Saat Ini
-      const { data: currentStats, error: statsError } = await supabase
+      // 1. Ambil poin saat ini
+      const { data: stats } = await supabase
         .from('atlet_stats')
-        .select('total_points') // Pakai total_points sesuai skema database Anda
+        .select('total_points')
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
 
-      if (statsError) {
-        console.error("Gagal fetch stats:", statsError.message);
-        throw statsError;
-      }
-
-      const existingPoints = currentStats?.total_points || 0;
-      const newTotalPoints = Math.max(0, existingPoints + pointsToAdd); 
-      
+      const newTotal = (stats?.total_points || 0) + pointsToAdd;
       const playerInfo = players.find(p => p.id === playerId);
-      if (!playerInfo) throw new Error("ID Atlet tidak valid di sesi ini. Silakan refresh.");
 
-      // 2. Update atau Insert ke atlet_stats
-      const statsPayload = {
-        pendaftaran_id: playerId,
-        player_name: playerInfo.nama,
-        last_match_at: new Date().toISOString(),
-        total_points: newTotalPoints 
-      };
-
-      const { error: upsertStatsError } = await supabase
+      // 2. Update HANYA kolom yang pasti ada di gambar DB Anda
+      const { error } = await supabase
         .from('atlet_stats')
-        .upsert(statsPayload, { onConflict: 'pendaftaran_id' });
+        .upsert({
+          pendaftaran_id: playerId,
+          player_name: playerInfo?.nama || 'Unknown',
+          total_points: Math.max(0, newTotal)
+        }, { onConflict: 'pendaftaran_id' });
 
-      if (upsertStatsError) {
-        console.error("Gagal Update Stats:", upsertStatsError.message);
-        throw upsertStatsError;
-      }
-
-      // 3. Catat Audit Log
-      await createAuditLog(playerId, playerInfo.nama, pointsToAdd, existingPoints, newTotalPoints, currentKategori, currentHasil);
-
+      if (error) throw error;
       return true;
-    } catch (err: any) {
-      console.error("Sinkronisasi Gagal Total:", err.message);
+    } catch (err) {
+      console.error("Sinkronisasi Gagal:", err.message);
       return false;
     }
-  };;
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedPlayer || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      const { error: matchError } = await supabase
-        .from('pertandingan')
-        .insert([{ 
-          pendaftaran_id: selectedPlayer, 
-          kategori_kegiatan: kategori, 
-          hasil: hasil 
-        }]);
-
-      if (matchError) throw matchError;
-
       const pointsToAdd = POINT_MAP[kategori][hasil] || 0;
-      const syncSuccess = await syncPlayerPerformance(selectedPlayer, pointsToAdd, kategori, hasil);
 
-      if (syncSuccess) {
-        setSelectedPlayer('');
-        setSearchTerm('');
+      // Jalankan Insert Pertandingan
+      const { error: matchErr } = await supabase
+        .from('pertandingan')
+        .insert([{ pendaftaran_id: selectedPlayer, kategori_kegiatan: kategori, hasil: hasil }]);
+
+      if (matchErr) throw matchErr;
+
+      // Jalankan Sinkronisasi Poin
+      const success = await syncPlayerPerformance(selectedPlayer, pointsToAdd);
+
+      if (success) {
         setShowSuccess(true);
+        setSelectedPlayer('');
         fetchRecentMatches();
-        setTimeout(() => setShowSuccess(false), 4000);
+        setTimeout(() => setShowSuccess(false), 3000);
       } else {
-        throw new Error("Sistem gagal menyinkronkan poin ke tabel statistik. Pastikan kuota database belum habis.");
+        alert("Poin gagal update, tapi riwayat pertandingan tersimpan.");
       }
-
-    } catch (err: any) {
-      alert("Error System: " + err.message);
+    } catch (err) {
+      alert("Error: " + err.message);
     } finally {
       setIsSubmitting(false);
     }

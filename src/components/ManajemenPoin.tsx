@@ -105,32 +105,35 @@ export default function ManajemenPoin() {
     if (updatingId) return;
     setUpdatingId(atlet.id);
     
+    // Perhitungan nilai baru
+    // display_points = total akhir yang tampil di UI (Seed + Tambahan)
+    // total_points = hanya akumulasi perubahan manual/turnamen
     const newDisplayPoints = Math.max(0, currentDisplayPoints + amount);
-    const newTotalPoints = Math.max(0, atlet.raw_total_points + amount);
+    const newTotalPointsOnly = Math.max(0, atlet.raw_total_points + amount);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. UPDATE ATLET_STATS (Penyimpanan data teknis per atlet)
+      // 1. UPDATE ATLET_STATS (Data teknis per atlet)
       const { error: statsError } = await supabase
         .from('atlet_stats')
         .upsert({ 
           pendaftaran_id: atlet.id, 
           player_name: atlet.nama || 'Unnamed Atlet',
           points: atlet.raw_points, 
-          total_points: newTotalPoints, 
+          total_points: newTotalPointsOnly, 
           last_match_at: new Date().toISOString()
         }, { onConflict: 'pendaftaran_id' });
 
       if (statsError) throw statsError;
 
-      // 2. UPDATE RANKINGS (Penyimpanan data publik untuk leaderboard)
-      // Kita gunakan upsert berdasarkan player_name agar jika data belum ada di rankings, akan terbuat otomatis
+      // 2. UPDATE RANKINGS (Sinkronisasi kolom total_points di tabel rankings)
+      // Kita mengirim newDisplayPoints agar ranking publik menampilkan total (Seed + Tambahan)
       const { error: rankingsError } = await supabase
         .from('rankings')
         .upsert({ 
           player_name: atlet.nama,
-          total_points: newTotalPoints,
+          total_points: newDisplayPoints, 
           updated_at: new Date().toISOString()
         }, { onConflict: 'player_name' });
 
@@ -149,11 +152,11 @@ export default function ManajemenPoin() {
         tipe_kegiatan: amount > 0 ? "Manual Adjustment (+)" : "Manual Adjustment (-)"
       }]);
 
-      // Optimistic UI Update
+      // Optimistic UI Update agar transisi halus
       setAtlets(prev => prev.map(a => a.id === atlet.id ? { 
         ...a, 
         display_points: newDisplayPoints,
-        raw_total_points: newTotalPoints 
+        raw_total_points: newTotalPointsOnly 
       } : a));
       
       setShowSuccess(true);

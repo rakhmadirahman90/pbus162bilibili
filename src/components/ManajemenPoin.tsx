@@ -45,14 +45,12 @@ export default function ManajemenPoin() {
 
       if (pError) throw pError;
 
-      // 1. Ambil kedua kolom: points dan total_points
       const { data: stats, error: sError } = await supabase
         .from('atlet_stats')
         .select('pendaftaran_id, points, total_points');
 
       if (sError) throw sError;
 
-      // 2. Map data dengan menjumlahkan points + total_points
       const statsMap = new Map(stats?.map(s => [
         s.pendaftaran_id, 
         { 
@@ -65,7 +63,6 @@ export default function ManajemenPoin() {
         const stat = statsMap.get(p.id);
         return {
           ...p,
-          // Akumulasi lengkap dari kedua kolom
           display_points: (stat?.p || 0) + (stat?.tp || 0),
           raw_points: stat?.p || 0,
           raw_total_points: stat?.tp || 0
@@ -104,29 +101,37 @@ export default function ManajemenPoin() {
     if (updatingId) return;
     setUpdatingId(atlet.id);
     
-    // Hitung target display baru
     const newDisplayPoints = Math.max(0, currentDisplayPoints + amount);
-    
-    // Strategi Update: Kita tambahkan perubahan (amount) ke dalam total_points 
-    // agar akumulasi (points + total_points) tetap sinkron.
     const newTotalPoints = Math.max(0, atlet.raw_total_points + amount);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // UPSERT dengan memperbarui total_points sambil mempertahankan points yang ada
+      // 1. Update ke tabel atlet_stats
       const { error: upsertError } = await supabase
         .from('atlet_stats')
         .upsert({ 
           pendaftaran_id: atlet.id, 
           player_name: atlet.nama || 'Unnamed Atlet',
-          points: atlet.raw_points, // Tetap gunakan points lama
-          total_points: newTotalPoints, // Update total_points dengan adjustment
+          points: atlet.raw_points, 
+          total_points: newTotalPoints, 
           last_match_at: new Date().toISOString()
         }, { onConflict: 'pendaftaran_id' });
 
       if (upsertError) throw upsertError;
 
+      // 2. SINKRONISASI KE TABEL RANKINGS (Berdasarkan player_name)
+      const { error: rankingsError } = await supabase
+        .from('rankings')
+        .update({ 
+          total_points: newTotalPoints,
+          updated_at: new Date().toISOString()
+        })
+        .eq('player_name', atlet.nama);
+
+      if (rankingsError) console.error("Sync rankings failed:", rankingsError);
+
+      // 3. Catat ke Audit Log
       await supabase.from('audit_poin').insert([{
         admin_email: user?.email || 'Admin System',
         atlet_id: atlet.id,
@@ -137,7 +142,7 @@ export default function ManajemenPoin() {
         tipe_kegiatan: amount > 0 ? "Manual Adjustment (+)" : "Manual Adjustment (-)"
       }]);
 
-      // Update UI Lokal secara instan
+      // Update UI Lokal
       setAtlets(prev => prev.map(a => a.id === atlet.id ? { 
         ...a, 
         display_points: newDisplayPoints,

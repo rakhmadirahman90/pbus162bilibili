@@ -81,7 +81,7 @@ const AdminMatch: React.FC = () => {
           hasil, 
           created_at, 
           pendaftaran!inner ( nama )
-        `) // Tambahkan !inner untuk memastikan relasi wajib ada
+        `)
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -118,40 +118,48 @@ const AdminMatch: React.FC = () => {
     }
   };
 
-  /**
-   * PERBAIKAN DI SINI:
-   * Menggunakan nama kolom 'total_points' sesuai skema database di gambar.
-   */
-  const syncPlayerPerformance = async (playerId, pointsToAdd) => {
+  const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
-      // 1. Ambil poin saat ini
       const { data: stats } = await supabase
         .from('atlet_stats')
         .select('total_points')
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
 
-      const newTotal = (stats?.total_points || 0) + pointsToAdd;
+      const existingPoints = stats?.total_points || 0;
+      const newTotal = existingPoints + pointsToAdd;
       const playerInfo = players.find(p => p.id === playerId);
 
-      // 2. Update HANYA kolom yang pasti ada di gambar DB Anda
       const { error } = await supabase
         .from('atlet_stats')
         .upsert({
           pendaftaran_id: playerId,
           player_name: playerInfo?.nama || 'Unknown',
-          total_points: Math.max(0, newTotal)
+          total_points: Math.max(0, newTotal),
+          last_match_at: new Date().toISOString()
         }, { onConflict: 'pendaftaran_id' });
 
       if (error) throw error;
+
+      // Catat Audit Log
+      await createAuditLog(
+        playerId, 
+        playerInfo?.nama || 'Unknown', 
+        pointsToAdd, 
+        existingPoints, 
+        newTotal, 
+        kategori, 
+        hasil
+      );
+
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error("Sinkronisasi Gagal:", err.message);
       return false;
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlayer || isSubmitting) return;
 
@@ -159,25 +167,24 @@ const AdminMatch: React.FC = () => {
     try {
       const pointsToAdd = POINT_MAP[kategori][hasil] || 0;
 
-      // Jalankan Insert Pertandingan
       const { error: matchErr } = await supabase
         .from('pertandingan')
         .insert([{ pendaftaran_id: selectedPlayer, kategori_kegiatan: kategori, hasil: hasil }]);
 
       if (matchErr) throw matchErr;
 
-      // Jalankan Sinkronisasi Poin
       const success = await syncPlayerPerformance(selectedPlayer, pointsToAdd);
 
       if (success) {
         setShowSuccess(true);
         setSelectedPlayer('');
+        setSearchTerm('');
         fetchRecentMatches();
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
         alert("Poin gagal update, tapi riwayat pertandingan tersimpan.");
       }
-    } catch (err) {
+    } catch (err: any) {
       alert("Error: " + err.message);
     } finally {
       setIsSubmitting(false);
@@ -196,12 +203,7 @@ const AdminMatch: React.FC = () => {
     try {
       const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
       
-      const syncSuccess = await syncPlayerPerformance(
-        matchToDelete.pendaftaran_id, 
-        pointsToSubtract, 
-        matchToDelete.kategori_kegiatan, 
-        "Rollback"
-      );
+      const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
       
       if (!syncSuccess) throw new Error("Gagal melakukan rollback poin.");
 
@@ -353,30 +355,38 @@ const AdminMatch: React.FC = () => {
                     <p className="text-[10px] font-bold uppercase tracking-widest">Belum ada aktivitas hari ini</p>
                   </div>
                 ) : (
-                  recentMatches.map((match: any) => (
-                    <div key={match.id} className="flex items-center justify-between bg-zinc-950/50 p-5 rounded-3xl border border-white/5 group hover:border-blue-600/20 transition-all hover:bg-black/60">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[10px] rotate-3 group-hover:rotate-0 transition-transform ${
-                          match.hasil === 'Menang' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-500'}`}>
-                          {match.hasil[0]}
+                  recentMatches.map((match: any) => {
+                    const earnedPoints = POINT_MAP[match.kategori_kegiatan]?.[match.hasil] || 0;
+                    return (
+                      <div key={match.id} className="flex items-center justify-between bg-zinc-950/50 p-5 rounded-3xl border border-white/5 group hover:border-blue-600/20 transition-all hover:bg-black/60">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-[10px] rotate-3 group-hover:rotate-0 transition-transform ${
+                            match.hasil === 'Menang' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
+                            match.hasil === 'Seri' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 
+                            'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                            {match.hasil[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-white uppercase italic tracking-tighter">{match.pendaftaran?.nama}</p>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-2">
+                               {match.kategori_kegiatan} <span className="w-1 h-1 bg-zinc-800 rounded-full" /> {match.hasil}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-black text-white uppercase italic tracking-tighter">{match.pendaftaran?.nama}</p>
-                          <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-2">
-                             {match.kategori_kegiatan} <span className="w-1 h-1 bg-zinc-800 rounded-full" /> {match.hasil}
-                          </p>
+                        <div className="flex items-center gap-6">
+                          <span className={`text-[11px] font-black italic ${earnedPoints > 0 ? 'text-blue-500' : 'text-zinc-600'}`}>
+                            +{earnedPoints} PTS
+                          </span>
+                          <span className="text-[9px] font-mono text-zinc-700 hidden md:block">
+                             {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <button onClick={() => deleteMatch(match.id)} className="p-3 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all opacity-0 group-hover:opacity-100">
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-[9px] font-mono text-zinc-700 hidden md:block">
-                           {new Date(match.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <button onClick={() => deleteMatch(match.id)} className="p-3 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-2xl transition-all opacity-0 group-hover:opacity-100">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

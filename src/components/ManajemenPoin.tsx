@@ -20,7 +20,7 @@ export default function ManajemenPoin() {
   useEffect(() => {
     fetchAtlets();
 
-    // REALTIME SYNC: Pantau perubahan pada atlet_stats agar UI otomatis update
+    // REALTIME SYNC: Agar jika admin lain update poin, data di sini ikut berubah
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', 
@@ -35,41 +35,34 @@ export default function ManajemenPoin() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
-      // 1. Ambil data profil dari Manajemen Atlet (pendaftaran)
-      // Kita asumsikan ada kolom 'poin' di tabel pendaftaran sebagai poin dasar
+      // 1. Ambil seluruh data pendaftaran
       const { data: profiles, error: pError } = await supabase
         .from('pendaftaran')
-        .select('id, nama, poin') 
+        .select('id, nama')
         .order('nama', { ascending: true });
 
       if (pError) throw pError;
 
-      // 2. Ambil poin dari hasil pertandingan (AdminMatch / atlet_stats)
+      // 2. Ambil seluruh poin terakhir (Gunakan total_points sesuai DB Anda)
       const { data: stats, error: sError } = await supabase
         .from('atlet_stats')
-        .select('pendaftaran_id, total_points');
+        .select('pendaftaran_id, total_points'); // Perubahan: points -> total_points
 
       if (sError) throw sError;
 
-      // 3. MERGE & ACCUMULATE: Poin Pendaftaran + Poin Match
+      // 3. MERGE DATA: Pastikan data poin sinkron dengan manajemen atlet
       const merged = (profiles || []).map(p => {
         const statMatch = stats?.find(s => s.pendaftaran_id === p.id);
-        
-        // Logika Akumulasi:
-        const basePoint = Number(p.poin || 0);
-        const matchPoint = statMatch ? Number(statMatch.total_points) : 0;
-        
         return { 
           ...p, 
-          base_point: basePoint,
-          match_point: matchPoint,
-          display_points: basePoint + matchPoint // Total Akumulasi
+          // Ambil dari total_points agar sama dengan halaman Admin Match
+          display_points: statMatch ? Number(statMatch.total_points) : 0 
         };
       });
 
       setAtlets(merged);
     } catch (err) { 
-      console.error("Gagal sinkronisasi data poin akumulasi:", err); 
+      console.error("Gagal sinkronisasi data poin:", err); 
     } finally { 
       setLoading(false); 
     }
@@ -94,21 +87,18 @@ export default function ManajemenPoin() {
     }
   };
 
-  const handleUpdatePoin = async (atlet: any, currentTotal: number, amount: number) => {
+  const handleUpdatePoin = async (atlet: any, currentPoints: number, amount: number) => {
     setUpdatingId(atlet.id);
-    
-    // Kita hanya mengupdate porsi 'match_point' di tabel atlet_stats
-    // sehingga poin dasar di manajemen atlet tetap aman.
-    const newMatchPoints = Math.max(0, atlet.match_point + amount);
+    const newPoints = Math.max(0, currentPoints + amount);
 
     try {
-      // UPSERT ke tabel atlet_stats
+      // UPSERT ke tabel atlet_stats menggunakan kolom total_points
       const { error: upsertError } = await supabase
         .from('atlet_stats')
         .upsert({ 
           pendaftaran_id: atlet.id, 
           player_name: atlet.nama,
-          total_points: newMatchPoints, 
+          total_points: newPoints, // Perubahan: points -> total_points
           last_match_at: new Date().toISOString()
         }, { onConflict: 'pendaftaran_id' });
 
@@ -120,21 +110,14 @@ export default function ManajemenPoin() {
         admin_email: user?.email || 'Admin System',
         atlet_id: atlet.id,
         atlet_nama: atlet.nama,
-        poin_sebelum: currentTotal,
-        poin_sesudah: currentTotal + amount,
+        poin_sebelum: currentPoints,
+        poin_sesudah: newPoints,
         perubahan: amount,
-        tipe_kegiatan: "Manual Adjustment (Sync Mode)"
+        tipe_kegiatan: amount > 0 ? "Manual Adjustment (+)" : "Manual Adjustment (-)"
       }]);
 
-      // Update UI secara instan (Optimistic Update)
-      setAtlets(prev => prev.map(a => 
-        a.id === atlet.id ? { 
-          ...a, 
-          match_point: newMatchPoints,
-          display_points: a.base_point + newMatchPoints 
-        } : a
-      ));
-      
+      // Update UI secara instan
+      setAtlets(prev => prev.map(a => a.id === atlet.id ? { ...a, display_points: newPoints } : a));
       setShowSuccess(true);
       if (expandedId === atlet.id) fetchHistory(atlet.nama);
       setTimeout(() => setShowSuccess(false), 2000);
@@ -153,15 +136,14 @@ export default function ManajemenPoin() {
 
   return (
     <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
+      {/* Background Decor */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-blue-600/5 blur-[120px] rounded-full -z-10" />
 
       <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
-            <span className="text-zinc-500 text-[10px] font-black tracking-widest uppercase italic">
-              Accumulated Score: Manajemen + Admin Match
-            </span>
+            <span className="text-zinc-500 text-[10px] font-black tracking-widest uppercase">Database: Synchronized with Atlet Stats</span>
           </div>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter">Quick <span className="text-blue-600">Adjustment</span></h1>
           <div className="flex gap-2 mt-4">
@@ -185,7 +167,7 @@ export default function ManajemenPoin() {
         {loading && atlets.length === 0 ? (
           <div className="py-24 flex flex-col items-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={40} />
-            <p className="text-zinc-600 font-bold text-xs uppercase tracking-widest">Sinkronisasi Poin...</p>
+            <p className="text-zinc-600 font-bold text-xs uppercase tracking-widest">Memuat Poin Terbaru...</p>
           </div>
         ) : (
           currentItems.map((atlet) => (
@@ -196,7 +178,7 @@ export default function ManajemenPoin() {
                   <div>
                     <h3 className="font-black text-xl uppercase tracking-tighter group-hover:text-blue-400 transition-colors">{atlet.nama}</h3>
                     <div className="flex items-center gap-2">
-                      <span className="text-zinc-600 text-[9px] font-bold italic font-mono uppercase">ID: {atlet.id.slice(0,8)}</span>
+                      <span className="text-zinc-600 text-[9px] font-bold italic font-mono uppercase">ATLET ID: {atlet.id.slice(0,8)}</span>
                       <button onClick={() => toggleExpand(atlet)} className="flex items-center gap-1 text-[9px] text-blue-500 font-black uppercase tracking-widest hover:underline">
                         <History size={10} /> {expandedId === atlet.id ? 'Tutup Log' : 'History'}
                       </button>
@@ -206,12 +188,9 @@ export default function ManajemenPoin() {
 
                 <div className="flex items-center gap-10 mt-6 md:mt-0">
                   <div className="text-right">
-                    <p className="text-[9px] text-zinc-600 font-black mb-1 italic tracking-widest uppercase">Total Accumulation</p>
+                    <p className="text-[9px] text-zinc-600 font-black mb-1 italic tracking-widest">LIVE SCORE</p>
                     <p className="text-4xl font-black text-white leading-none">
                       {atlet.display_points.toLocaleString()} <span className="text-blue-600 text-sm">PTS</span>
-                    </p>
-                    <p className="text-[8px] text-zinc-700 font-bold mt-1 uppercase italic">
-                      Base: {atlet.base_point} | Match: {atlet.match_point}
                     </p>
                   </div>
                   <div className="flex gap-2 bg-black/40 p-2 rounded-2xl border border-white/5">
@@ -233,7 +212,7 @@ export default function ManajemenPoin() {
                         <div className="flex items-center gap-3">
                           <span className={`w-2 h-2 rounded-full ${log.perubahan > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
                           <span className="text-zinc-400 font-mono">{new Date(log.created_at).toLocaleString()}</span>
-                          <span className="text-zinc-600 uppercase hidden md:inline">{log.tipe_kegiatan}</span>
+                          <span className="text-zinc-600 uppercase hidden md:inline">Type: {log.tipe_kegiatan || 'Manual'}</span>
                         </div>
                         <div className="font-bold flex gap-4">
                           <span className={`${log.perubahan > 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -274,4 +253,4 @@ export default function ManajemenPoin() {
       </div>
     </div>
   );
-} 
+}  

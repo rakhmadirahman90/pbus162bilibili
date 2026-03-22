@@ -44,7 +44,7 @@ const AdminMatch: React.FC = () => {
         { event: '*', table: 'pertandingan', schema: 'public' }, 
         () => {
           fetchRecentMatches();
-          fetchPlayers(); // Tambahkan fetchPlayers di realtime agar ranking ikut update
+          fetchPlayers(); 
         }
       )
       .subscribe();
@@ -54,29 +54,27 @@ const AdminMatch: React.FC = () => {
     };
   }, []);
 
-  // PERBAIKAN: Mengambil data dari pendaftaran dan menggabungkannya dengan total_points dari atlet_stats
+  // PERBAIKAN: Menggunakan kolom 'points' sesuai Gambar 3 di Table Editor Supabase
   const fetchPlayers = async () => {
     setIsLoading(true);
     try {
-      // Kita ambil data dari atlet_stats agar mendapatkan total_points terbaru untuk ranking
       const { data, error } = await supabase
         .from('atlet_stats')
         .select(`
           pendaftaran_id,
           player_name,
-          total_points,
+          points,
           pendaftaran ( kategori )
         `)
-        .order('total_points', { ascending: false }); // Urutkan berdasarkan poin (Ranking)
+        .order('points', { ascending: false });
       
       if (error) throw error;
       
-      // Transformasi data agar sesuai dengan kebutuhan UI
       if (data) {
         const formattedPlayers = data.map(item => ({
           id: item.pendaftaran_id,
           nama: item.player_name,
-          total_points: item.total_points,
+          total_points: item.points, // Kita map item.points ke property total_points untuk UI
           kategori: (item.pendaftaran as any)?.kategori || 'N/A'
         }));
         setPlayers(formattedPlayers);
@@ -136,15 +134,16 @@ const AdminMatch: React.FC = () => {
     }
   };
 
+  // PERBAIKAN: Sinkronisasi kolom 'points' agar masuk ke Ranking
   const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
     try {
       const { data: stats } = await supabase
         .from('atlet_stats')
-        .select('total_points')
+        .select('points') // Diganti dari total_points ke points
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
 
-      const existingPoints = stats?.total_points || 0;
+      const existingPoints = stats?.points || 0;
       const newTotal = existingPoints + pointsToAdd;
       const playerInfo = players.find(p => p.id === playerId);
 
@@ -153,7 +152,7 @@ const AdminMatch: React.FC = () => {
         .upsert({
           pendaftaran_id: playerId,
           player_name: playerInfo?.nama || 'Unknown',
-          total_points: Math.max(0, newTotal),
+          points: Math.max(0, newTotal), // Diganti dari total_points ke points
           last_match_at: new Date().toISOString()
         }, { onConflict: 'pendaftaran_id' });
 
@@ -197,14 +196,12 @@ const AdminMatch: React.FC = () => {
         setSelectedPlayer('');
         setSearchTerm('');
         
-        // --- TAMBAHKAN INI UNTUK UPDATE OTOMATIS ---
         await fetchRecentMatches();
-        await fetchPlayers(); // Menjamin ranking langsung berubah di menu manajemen
-        // ------------------------------------------
+        await fetchPlayers(); 
 
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
-        alert("Poin gagal update, tapi riwayat pertandingan tersimpan.");
+        alert("Poin gagal update. Cek apakah project Supabase Anda sedang 'Paused' karena Grace Period.");
       }
     } catch (err: any) {
       alert("Error: " + err.message);
@@ -237,11 +234,8 @@ const AdminMatch: React.FC = () => {
       if (error) throw error;
 
       setShowRollbackSuccess(true);
-      
-      // --- UPDATE DATA SETELAH DELETE ---
       await fetchRecentMatches();
       await fetchPlayers();
-      // ----------------------------------
 
       setTimeout(() => setShowRollbackSuccess(false), 3000);
       

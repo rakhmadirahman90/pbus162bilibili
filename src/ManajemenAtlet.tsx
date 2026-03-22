@@ -665,4 +665,4 @@ export default function ManajemenAtlet() {
 
     </div>
   );
-} 
+}

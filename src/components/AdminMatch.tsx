@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from "../supabase";
 import { 
   Trophy, User, Activity, CheckCircle2, 
@@ -34,28 +34,8 @@ const AdminMatch: React.FC = () => {
     { id: 'Eksternal', label: 'Turnamen Eksternal', points: '500/--/100' },
   ];
 
-  useEffect(() => {
-    fetchPlayers();
-    fetchRecentMatches();
-
-    const channel = supabase
-      .channel('admin_realtime_v2')
-      .on('postgres_changes', 
-        { event: '*', table: 'pertandingan', schema: 'public' }, 
-        () => {
-          fetchRecentMatches();
-          fetchPlayers(); 
-        }
-      )
-      .subscribe();
-
-    return () => { 
-      supabase.removeChannel(channel); 
-    };
-  }, []);
-
-  // PERBAIKAN: Menggunakan kolom 'points' sesuai Gambar 3 di Table Editor Supabase
-  const fetchPlayers = async () => {
+  // Menggunakan useCallback untuk stabilitas referensi fungsi
+  const fetchPlayers = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -74,7 +54,7 @@ const AdminMatch: React.FC = () => {
         const formattedPlayers = data.map(item => ({
           id: item.pendaftaran_id,
           nama: item.player_name,
-          total_points: item.points, // Kita map item.points ke property total_points untuk UI
+          total_points: item.points,
           kategori: (item.pendaftaran as any)?.kategori || 'N/A'
         }));
         setPlayers(formattedPlayers);
@@ -84,9 +64,9 @@ const AdminMatch: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const fetchRecentMatches = async () => {
+  const fetchRecentMatches = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('pertandingan')
@@ -101,16 +81,32 @@ const AdminMatch: React.FC = () => {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) {
-        console.error("Error fetching history:", error.message);
-        return;
-      }
-      
+      if (error) throw error;
       if (data) setRecentMatches(data);
-    } catch (err) {
-      console.error("Unknown error:", err);
+    } catch (err: any) {
+      console.error("Error fetching history:", err.message);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPlayers();
+    fetchRecentMatches();
+
+    const channel = supabase
+      .channel('admin_realtime_v2')
+      .on('postgres_changes', 
+        { event: '*', table: 'pertandingan', schema: 'public' }, 
+        () => {
+          fetchRecentMatches();
+          fetchPlayers(); 
+        }
+      )
+      .subscribe();
+
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
+  }, [fetchPlayers, fetchRecentMatches]);
 
   const createAuditLog = async (atletId: string, atletNama: string, perubahan: number, sebelum: number, sesudah: number, kat: string, res: string) => {
     try {
@@ -134,38 +130,42 @@ const AdminMatch: React.FC = () => {
     }
   };
 
-  // PERBAIKAN: Sinkronisasi kolom 'points' agar masuk ke Ranking
-  const syncPlayerPerformance = async (playerId: string, pointsToAdd: number) => {
+  const syncPlayerPerformance = async (playerId: string, pointsToAdd: number, currentKategori: string, currentHasil: string) => {
     try {
-      const { data: stats } = await supabase
+      // Step 1: Ambil data terbaru langsung dari DB untuk menghindari stale state
+      const { data: stats, error: fetchError } = await supabase
         .from('atlet_stats')
-        .select('points') // Diganti dari total_points ke points
+        .select('points, player_name')
         .eq('pendaftaran_id', playerId)
         .maybeSingle();
 
-      const existingPoints = stats?.points || 0;
-      const newTotal = existingPoints + pointsToAdd;
-      const playerInfo = players.find(p => p.id === playerId);
+      if (fetchError) throw fetchError;
 
-      const { error } = await supabase
+      const existingPoints = stats?.points || 0;
+      const playerName = stats?.player_name || players.find(p => p.id === playerId)?.nama || 'Unknown';
+      const newTotal = Math.max(0, existingPoints + pointsToAdd);
+
+      // Step 2: Update poin
+      const { error: updateError } = await supabase
         .from('atlet_stats')
         .upsert({
           pendaftaran_id: playerId,
-          player_name: playerInfo?.nama || 'Unknown',
-          points: Math.max(0, newTotal), // Diganti dari total_points ke points
+          player_name: playerName,
+          points: newTotal,
           last_match_at: new Date().toISOString()
         }, { onConflict: 'pendaftaran_id' });
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
+      // Step 3: Log Audit
       await createAuditLog(
         playerId, 
-        playerInfo?.nama || 'Unknown', 
+        playerName, 
         pointsToAdd, 
         existingPoints, 
         newTotal, 
-        kategori, 
-        hasil
+        currentKategori, 
+        currentHasil
       );
 
       return true;
@@ -183,25 +183,30 @@ const AdminMatch: React.FC = () => {
     try {
       const pointsToAdd = POINT_MAP[kategori][hasil] || 0;
 
+      // 1. Simpan Match
       const { error: matchErr } = await supabase
         .from('pertandingan')
-        .insert([{ pendaftaran_id: selectedPlayer, kategori_kegiatan: kategori, hasil: hasil }]);
+        .insert([{ 
+          pendaftaran_id: selectedPlayer, 
+          kategori_kegiatan: kategori, 
+          hasil: hasil 
+        }]);
 
       if (matchErr) throw matchErr;
 
-      const success = await syncPlayerPerformance(selectedPlayer, pointsToAdd);
+      // 2. Sync Poin & Stats
+      const success = await syncPlayerPerformance(selectedPlayer, pointsToAdd, kategori, hasil);
 
       if (success) {
         setShowSuccess(true);
         setSelectedPlayer('');
         setSearchTerm('');
         
-        await fetchRecentMatches();
-        await fetchPlayers(); 
-
+        // Refresh data agar UI update
+        await Promise.all([fetchRecentMatches(), fetchPlayers()]);
         setTimeout(() => setShowSuccess(false), 3000);
       } else {
-        alert("Poin gagal update. Cek apakah project Supabase Anda sedang 'Paused' karena Grace Period.");
+        throw new Error("Match tersimpan tapi sinkronisasi poin gagal.");
       }
     } catch (err: any) {
       alert("Error: " + err.message);
@@ -214,28 +219,33 @@ const AdminMatch: React.FC = () => {
     const matchToDelete = recentMatches.find(m => m.id === id);
     if (!matchToDelete) return;
 
-    const confirmMsg = `Konfirmasi Rollback match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi ${POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil]} pts.`;
+    const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
+    const confirmMsg = `Konfirmasi Rollback match ${matchToDelete.pendaftaran?.nama}? Poin atlet akan dikurangi ${Math.abs(pointsToSubtract)} pts.`;
     
     if (!window.confirm(confirmMsg)) return;
     
     setIsLoading(true);
     try {
-      const pointsToSubtract = -(POINT_MAP[matchToDelete.kategori_kegiatan][matchToDelete.hasil] || 0);
+      // 1. Rollback Poin dulu (Integritas data lebih penting)
+      const syncSuccess = await syncPlayerPerformance(
+        matchToDelete.pendaftaran_id, 
+        pointsToSubtract, 
+        matchToDelete.kategori_kegiatan, 
+        "Rollback"
+      );
       
-      const syncSuccess = await syncPlayerPerformance(matchToDelete.pendaftaran_id, pointsToSubtract);
-      
-      if (!syncSuccess) throw new Error("Gagal melakukan rollback poin.");
+      if (!syncSuccess) throw new Error("Gagal melakukan rollback poin di database.");
 
-      const { error } = await supabase
+      // 2. Hapus Match dari history
+      const { error: deleteError } = await supabase
         .from('pertandingan')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
       setShowRollbackSuccess(true);
-      await fetchRecentMatches();
-      await fetchPlayers();
+      await Promise.all([fetchRecentMatches(), fetchPlayers()]);
 
       setTimeout(() => setShowRollbackSuccess(false), 3000);
       
@@ -252,6 +262,7 @@ const AdminMatch: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12 font-sans relative overflow-hidden">
+      {/* Background Ornaments */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10" />
       <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-indigo-600/5 blur-[100px] rounded-full -z-10" />
       
@@ -280,6 +291,7 @@ const AdminMatch: React.FC = () => {
 
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-8">
+            {/* Input Form Section */}
             <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
               
@@ -300,7 +312,7 @@ const AdminMatch: React.FC = () => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={16} />
                     <input 
                       type="text" 
-                      placeholder="Cari nama..." 
+                      placeholder="Cari nama atlet..." 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full bg-black/40 border border-zinc-800 rounded-2xl py-3 pl-12 pr-5 focus:border-blue-600 outline-none transition-all text-xs font-bold text-white placeholder:text-zinc-700"
@@ -313,7 +325,7 @@ const AdminMatch: React.FC = () => {
                       required
                       className="w-full bg-black/60 border border-zinc-800 rounded-2xl py-4 px-5 focus:border-blue-600 outline-none transition-all text-sm font-bold appearance-none cursor-pointer hover:border-zinc-700 text-white"
                     >
-                      <option value="">-- {searchTerm ? 'Hasil Pencarian' : 'Pilih dari List'} --</option>
+                      <option value="">-- {searchTerm ? 'Hasil Pencarian' : 'Pilih Atlet'} --</option>
                       {filteredPlayers.map(p => (
                         <option key={p.id} value={p.id}>{p.nama} - {p.total_points || 0} pts ({p.kategori})</option>
                       ))}
@@ -350,7 +362,7 @@ const AdminMatch: React.FC = () => {
                 <div className="p-5 bg-blue-600/5 border border-blue-600/20 rounded-2xl flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <ArrowRightLeft className="text-blue-500" size={18} />
-                        <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Perolehan Poin:</span>
+                        <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Estimasi Perolehan:</span>
                     </div>
                     <span className="text-2xl font-black italic text-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]">
                         +{POINT_MAP[kategori][hasil]} <span className="text-xs not-italic text-zinc-600 ml-1">PTS</span>
@@ -365,15 +377,16 @@ const AdminMatch: React.FC = () => {
               </form>
             </div>
 
+            {/* History Section */}
             <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[2.5rem]">
               <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-6">
-                <Clock size={14} /> Recent Log Input
+                <Clock size={14} /> Recent Match Activity
               </h3>
               <div className="space-y-4">
                 {recentMatches.length === 0 ? (
                   <div className="py-10 border border-dashed border-zinc-800 rounded-3xl flex flex-col items-center justify-center opacity-40">
                     <Activity size={32} className="mb-2" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest">Belum ada aktivitas hari ini</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest">No activities recorded</p>
                   </div>
                 ) : (
                   recentMatches.map((match: any) => {
@@ -413,13 +426,14 @@ const AdminMatch: React.FC = () => {
             </div>
           </div>
 
+          {/* Right Sidebar */}
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Trophy size={60} />
               </div>
               <h3 className="text-[10px] font-black tracking-widest uppercase text-blue-500 mb-6 flex items-center gap-2">
-                <Activity size={14} /> Matrix Point Configuration
+                <Activity size={14} /> Matrix Configuration
               </h3>
               <div className="space-y-5">
                 {CATEGORIES.map(cat => (
@@ -442,7 +456,7 @@ const AdminMatch: React.FC = () => {
                 <div>
                    <p className="text-[10px] text-amber-600 font-black uppercase mb-1">Attention Admin</p>
                    <p className="text-[10px] text-zinc-500 font-bold leading-relaxed uppercase italic">
-                     Setiap penghapusan log (Delete) akan memicu <span className="text-white">Negative Point Sync</span> pada statistik atlet. Gunakan hanya jika terjadi kesalahan input.
+                     Penghapusan log akan memicu <span className="text-white">Negative Point Sync</span>. Gunakan hanya jika terjadi kesalahan input fatal.
                    </p>
                 </div>
               </div>
@@ -451,6 +465,7 @@ const AdminMatch: React.FC = () => {
         </div>
       </div>
 
+      {/* Success Notification */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${
         showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
         <div className="bg-zinc-950/90 backdrop-blur-3xl border border-emerald-500/50 px-10 py-6 rounded-[3rem] shadow-[0_0_50px_rgba(16,185,129,0.2)] flex items-center gap-6">
@@ -464,6 +479,7 @@ const AdminMatch: React.FC = () => {
         </div>
       </div>
 
+      {/* Rollback Overlay */}
       {showRollbackSuccess && (
           <div className="fixed inset-0 z-[999] flex items-center justify-center animate-in fade-in duration-300">
              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />

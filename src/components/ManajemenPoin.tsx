@@ -5,6 +5,15 @@ import {
   ChevronLeft, ChevronRight, Zap, CheckCircle2, Sparkles, RefreshCcw, AlertTriangle, History, ChevronDown, ChevronUp
 } from 'lucide-react';
 
+// Logika Konfigurasi Seed sesuai permintaan
+const SEED_CONFIG: any = {
+  'A': { base: 10000, age: 'SENIOR' },
+  'B+': { base: 8500, age: 'SENIOR' },
+  'B-': { base: 7000, age: 'SENIOR' },
+  'C': { base: 5500, age: 'MUDA' },
+  'UNSEEDED': { base: 0, age: 'SENIOR' }
+};
+
 export default function ManajemenPoin() {
   const [atlets, setAtlets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +47,6 @@ export default function ManajemenPoin() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
-      // Ambil profil dasar
       const { data: profiles, error: pError } = await supabase
         .from('pendaftaran')
         .select('id, nama')
@@ -46,14 +54,12 @@ export default function ManajemenPoin() {
 
       if (pError) throw pError;
 
-      // Ambil statistik (Seed/Manual)
       const { data: stats, error: sError } = await supabase
         .from('atlet_stats')
-        .select('pendaftaran_id, points, total_points');
+        .select('pendaftaran_id, points, total_points, seed'); // Tambahkan select seed
 
       if (sError) throw sError;
 
-      // Ambil Ranking (Poin yang terlihat di Profil)
       const { data: rankings, error: rError } = await supabase
         .from('rankings')
         .select('player_name, total_points');
@@ -66,10 +72,13 @@ export default function ManajemenPoin() {
       const merged = (profiles || []).map(p => {
         const stat = statsMap.get(p.id);
         const rankingPoints = rankingsMap.get(p.nama) || 0;
+        const currentSeed = stat?.seed || 'UNSEEDED';
         
         return {
           ...p,
-          display_points: rankingPoints, // Sinkronkan dengan tampilan profil atlet
+          seed: currentSeed,
+          age_group: SEED_CONFIG[currentSeed]?.age || 'SENIOR',
+          display_points: rankingPoints, 
           raw_points: Number(stat?.points || 0),
           raw_total_points: Number(stat?.total_points || 0)
         };
@@ -80,6 +89,45 @@ export default function ManajemenPoin() {
       console.error("Gagal fetch data:", err); 
     } finally { 
       setLoading(false); 
+    }
+  };
+
+  // Fungsi Baru: Update Kategori Seed
+  const handleUpdateSeed = async (atlet: any, newSeed: string) => {
+    setUpdatingId(atlet.id);
+    const newBasePoints = SEED_CONFIG[newSeed].base;
+    const newTotalRanking = newBasePoints + atlet.raw_total_points;
+
+    try {
+      // 1. Update atlet_stats
+      const { error: statsError } = await supabase
+        .from('atlet_stats')
+        .update({ 
+          seed: newSeed, 
+          points: newBasePoints 
+        })
+        .eq('pendaftaran_id', atlet.id);
+
+      if (statsError) throw statsError;
+
+      // 2. Update Rankings agar profil ikut berubah
+      const { error: rankingsError } = await supabase
+        .from('rankings')
+        .upsert({ 
+          player_name: atlet.nama,
+          total_points: newTotalRanking,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'player_name' });
+
+      if (rankingsError) throw rankingsError;
+
+      setShowSuccess(true);
+      fetchAtlets();
+      setTimeout(() => setShowSuccess(false), 2000);
+    } catch (err: any) {
+      alert("Gagal update Seed: " + err.message);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -113,7 +161,6 @@ export default function ManajemenPoin() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Update tabel ATLET_STATS
       const { error: statsError } = await supabase
         .from('atlet_stats')
         .upsert({ 
@@ -126,7 +173,6 @@ export default function ManajemenPoin() {
 
       if (statsError) throw statsError;
 
-      // Update tabel RANKINGS (Sangat penting agar Profil Atlet berubah)
       const { error: rankingsError } = await supabase
         .from('rankings')
         .upsert({ 
@@ -137,7 +183,6 @@ export default function ManajemenPoin() {
 
       if (rankingsError) throw rankingsError;
 
-      // Log History
       await supabase.from('audit_poin').insert([{
         admin_email: user?.email || 'Admin',
         atlet_id: atlet.id,
@@ -226,13 +271,31 @@ export default function ManajemenPoin() {
                     <h3 className="font-black text-xl uppercase tracking-tighter group-hover:text-blue-400 transition-colors">
                       {atlet.nama || 'Unnamed'}
                     </h3>
-                    <button onClick={() => toggleExpand(atlet)} className="flex items-center gap-1 text-[9px] text-blue-500 font-black uppercase tracking-widest hover:underline mt-1">
-                      <History size={10} /> {expandedId === atlet.id ? 'Hide History' : 'View History'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => toggleExpand(atlet)} className="flex items-center gap-1 text-[9px] text-blue-500 font-black uppercase tracking-widest hover:underline">
+                        <History size={10} /> {expandedId === atlet.id ? 'Hide History' : 'View History'}
+                      </button>
+                      <span className="text-[9px] text-zinc-700 font-black tracking-widest uppercase italic">| {atlet.age_group}</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-10 mt-6 md:mt-0">
+                  {/* Dropdown Seed */}
+                  <div className="flex flex-col items-end">
+                    <p className="text-[8px] text-zinc-600 font-black mb-1 italic tracking-widest uppercase">Set Seed</p>
+                    <select 
+                      value={atlet.seed}
+                      disabled={updatingId === atlet.id}
+                      onChange={(e) => handleUpdateSeed(atlet, e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-[10px] font-bold rounded-lg px-2 py-1 outline-none focus:border-blue-600 text-blue-400"
+                    >
+                      {Object.keys(SEED_CONFIG).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="text-right">
                     <p className="text-[9px] text-zinc-600 font-black mb-1 italic tracking-widest">RANKING TOTAL</p>
                     <p className="text-4xl font-black text-white leading-none">
@@ -261,14 +324,18 @@ export default function ManajemenPoin() {
 
               {expandedId === atlet.id && (
                 <div className="bg-zinc-950 border-x border-b border-blue-600/30 rounded-b-[2.5rem] p-6 animate-in slide-in-from-top-4 duration-300">
-                  <div className="grid md:grid-cols-2 gap-4 mb-4 border-b border-zinc-800 pb-4">
+                  <div className="grid md:grid-cols-3 gap-4 mb-4 border-b border-zinc-800 pb-4">
                      <div className="bg-zinc-900 p-3 rounded-xl border border-white/5">
-                        <p className="text-[8px] text-zinc-500 font-black uppercase tracking-widest">Base Poin (Seeded)</p>
-                        <p className="text-lg font-bold">{atlet.raw_points} PTS</p>
+                        <p className="text-[8px] text-zinc-500 font-black uppercase tracking-widest">Kategori Seed</p>
+                        <p className="text-lg font-bold text-blue-500">{atlet.seed}</p>
                      </div>
                      <div className="bg-zinc-900 p-3 rounded-xl border border-white/5">
-                        <p className="text-[8px] text-blue-500 font-black uppercase tracking-widest">Added Poin (Manual)</p>
-                        <p className="text-lg font-bold">{atlet.raw_total_points} PTS</p>
+                        <p className="text-[8px] text-zinc-500 font-black uppercase tracking-widest">Base Poin ({atlet.age_group})</p>
+                        <p className="text-lg font-bold">{atlet.raw_points.toLocaleString()} PTS</p>
+                     </div>
+                     <div className="bg-zinc-900 p-3 rounded-xl border border-white/5">
+                        <p className="text-[8px] text-emerald-500 font-black uppercase tracking-widest">Added Poin (Manual)</p>
+                        <p className="text-lg font-bold">{atlet.raw_total_points.toLocaleString()} PTS</p>
                      </div>
                   </div>
                   <div className="space-y-3">
@@ -291,7 +358,6 @@ export default function ManajemenPoin() {
         )}
       </div>
 
-      {/* Pagination */}
       {!loading && totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-8 pb-10">
           <button 
@@ -311,7 +377,6 @@ export default function ManajemenPoin() {
         </div>
       )}
 
-      {/* Success Notification */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
         <div className="bg-emerald-600 px-10 py-6 rounded-full shadow-2xl flex items-center gap-4 border border-white/20">
           <CheckCircle2 size={24} className="text-white" />

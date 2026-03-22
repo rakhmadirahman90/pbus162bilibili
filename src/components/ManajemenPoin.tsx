@@ -20,7 +20,6 @@ export default function ManajemenPoin() {
   useEffect(() => {
     fetchAtlets();
 
-    // REALTIME SYNC: Pantau perubahan pada tabel utama
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', 
@@ -31,6 +30,10 @@ export default function ManajemenPoin() {
         { event: '*', table: 'pendaftaran', schema: 'public' }, 
         () => fetchAtlets()
       )
+      .on('postgres_changes', 
+        { event: '*', table: 'rankings', schema: 'public' }, 
+        () => fetchAtlets()
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -39,7 +42,6 @@ export default function ManajemenPoin() {
   const fetchAtlets = async () => {
     setLoading(true);
     try {
-      // 1. Ambil data pendaftaran
       const { data: profiles, error: pError } = await supabase
         .from('pendaftaran')
         .select('id, nama')
@@ -47,14 +49,12 @@ export default function ManajemenPoin() {
 
       if (pError) throw pError;
 
-      // 2. Ambil data stats (points + total_points)
       const { data: stats, error: sError } = await supabase
         .from('atlet_stats')
         .select('pendaftaran_id, points, total_points');
 
       if (sError) throw sError;
 
-      // 3. Merge data untuk tampilan UI
       const statsMap = new Map(stats?.map(s => [
         s.pendaftaran_id, 
         { 
@@ -105,16 +105,13 @@ export default function ManajemenPoin() {
     if (updatingId) return;
     setUpdatingId(atlet.id);
     
-    // Hitung nilai baru
     const newDisplayPoints = Math.max(0, currentDisplayPoints + amount);
     const newTotalPoints = Math.max(0, atlet.raw_total_points + amount);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // --- PROSES SINKRONISASI TABEL ---
-
-      // A. Update tabel ATLET_STATS
+      // 1. UPDATE ATLET_STATS (Penyimpanan data teknis per atlet)
       const { error: statsError } = await supabase
         .from('atlet_stats')
         .upsert({ 
@@ -127,21 +124,21 @@ export default function ManajemenPoin() {
 
       if (statsError) throw statsError;
 
-      // B. Update tabel RANKINGS (Sinkronisasi total_points)
-      // Menggunakan player_name sebagai identifier sesuai skema database Anda
+      // 2. UPDATE RANKINGS (Penyimpanan data publik untuk leaderboard)
+      // Kita gunakan upsert berdasarkan player_name agar jika data belum ada di rankings, akan terbuat otomatis
       const { error: rankingsError } = await supabase
         .from('rankings')
-        .update({ 
+        .upsert({ 
+          player_name: atlet.nama,
           total_points: newTotalPoints,
           updated_at: new Date().toISOString()
-        })
-        .eq('player_name', atlet.nama);
+        }, { onConflict: 'player_name' });
 
       if (rankingsError) {
-        console.warn("Rankings sync warning:", rankingsError.message);
+        console.error("Rankings sync error:", rankingsError.message);
       }
 
-      // C. Catat Audit Log
+      // 3. LOG AUDIT
       await supabase.from('audit_poin').insert([{
         admin_email: user?.email || 'Admin System',
         atlet_id: atlet.id,
@@ -152,7 +149,7 @@ export default function ManajemenPoin() {
         tipe_kegiatan: amount > 0 ? "Manual Adjustment (+)" : "Manual Adjustment (-)"
       }]);
 
-      // Update UI Lokal (Optimistic Update)
+      // Optimistic UI Update
       setAtlets(prev => prev.map(a => a.id === atlet.id ? { 
         ...a, 
         display_points: newDisplayPoints,
@@ -164,14 +161,13 @@ export default function ManajemenPoin() {
       setTimeout(() => setShowSuccess(false), 2000);
 
     } catch (err) {
-      console.error("Critical Update Failure:", err);
-      alert("Gagal memperbarui database. Periksa koneksi atau hak akses.");
+      console.error("Gagal sinkronisasi poin:", err);
+      alert("Terjadi kesalahan saat memperbarui database.");
     } finally {
       setUpdatingId(null);
     }
   };
 
-  // Logic Pencarian & Pagination
   const filteredAtlets = atlets.filter(a => 
     a.nama?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -186,16 +182,14 @@ export default function ManajemenPoin() {
 
   return (
     <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
-      {/* Background Decor */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-blue-600/5 blur-[120px] rounded-full -z-10" />
 
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-12">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
             <span className="text-zinc-500 text-[10px] font-black tracking-widest uppercase italic">
-              System Active: Stats & Rankings Synchronized
+              Multi-Table Sync: Atlet Stats + Rankings
             </span>
           </div>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter">
@@ -223,17 +217,15 @@ export default function ManajemenPoin() {
         </div>
       </div>
 
-      {/* Main List */}
       <div className="grid gap-4 mb-8">
         {loading && atlets.length === 0 ? (
           <div className="py-24 flex flex-col items-center gap-4">
             <Loader2 className="animate-spin text-blue-600" size={40} />
-            <p className="text-zinc-600 font-bold text-xs uppercase tracking-widest">Memuat Sinkronisasi...</p>
+            <p className="text-zinc-600 font-bold text-xs uppercase tracking-widest">Sinkronisasi Server...</p>
           </div>
         ) : (
           currentItems.map((atlet) => (
             <div key={atlet.id} className="flex flex-col">
-              {/* Card Header */}
               <div className={`bg-zinc-900/40 border ${expandedId === atlet.id ? 'border-blue-600/50 bg-zinc-900/80' : 'border-zinc-800/50'} p-6 rounded-t-[2.5rem] ${expandedId !== atlet.id ? 'rounded-b-[2.5rem]' : ''} flex flex-col md:flex-row items-center justify-between group transition-all duration-300`}>
                 <div className="flex items-center gap-5">
                   <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-500 border border-white/5 group-hover:text-blue-500 transition-colors">
@@ -260,7 +252,6 @@ export default function ManajemenPoin() {
                     </p>
                   </div>
                   
-                  {/* Action Buttons */}
                   <div className="flex gap-2 bg-black/40 p-2 rounded-2xl border border-white/5">
                     <button 
                       disabled={updatingId === atlet.id} 
@@ -280,7 +271,6 @@ export default function ManajemenPoin() {
                 </div>
               </div>
 
-              {/* Expansion Area (Logs & Breakdowns) */}
               {expandedId === atlet.id && (
                 <div className="bg-zinc-950 border-x border-b border-blue-600/30 rounded-b-[2.5rem] p-6 animate-in slide-in-from-top-4 duration-300">
                   <div className="grid md:grid-cols-2 gap-4 mb-4 border-b border-zinc-800 pb-4">
@@ -295,7 +285,7 @@ export default function ManajemenPoin() {
                   </div>
                   
                   <div className="space-y-3">
-                    <p className="text-[10px] text-zinc-600 font-black uppercase mb-2">Recent Audit Logs</p>
+                    <p className="text-[10px] text-zinc-600 font-black uppercase mb-2">Audit Logs</p>
                     {histories.length > 0 ? histories.map((log) => (
                       <div key={log.id} className="flex items-center justify-between text-[11px] bg-zinc-900/50 p-3 rounded-xl border border-white/5">
                         <div className="flex items-center gap-3">
@@ -351,11 +341,10 @@ export default function ManajemenPoin() {
         </div>
       )}
 
-      {/* Success Notification */}
       <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-700 transform ${showSuccess ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-90 pointer-events-none'}`}>
         <div className="bg-emerald-600 px-10 py-6 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-4 border border-white/20">
           <CheckCircle2 size={24} className="text-white" />
-          <h4 className="text-white font-black uppercase text-lg italic tracking-widest">DATABASE & RANKINGS SYNCED!</h4>
+          <h4 className="text-white font-black uppercase text-lg italic tracking-widest">RANKINGS & STATS SYNCED!</h4>
         </div>
       </div>
     </div>

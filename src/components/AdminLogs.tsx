@@ -14,7 +14,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 
 export default function AdminLogs() {
@@ -22,7 +23,7 @@ export default function AdminLogs() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // State baru untuk Pagination
+  // State untuk Pagination
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -85,6 +86,7 @@ export default function AdminLogs() {
 
   return (
     <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative overflow-hidden">
+      {/* Background Glow */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[150px] rounded-full -z-10" />
 
       {/* Header Area */}
@@ -109,11 +111,13 @@ export default function AdminLogs() {
         </div>
 
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          {/* Dropdown Limit Data */}
-          <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 shadow-2xl">
-            <Database size={14} className="text-zinc-500" />
+          {/* Dropdown Limit Data - Perbaikan Visual Dropdown */}
+          <div className="relative group w-full md:w-auto">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none">
+              <Database size={14} />
+            </div>
             <select 
-              className="bg-transparent text-[10px] font-black uppercase outline-none text-blue-500 cursor-pointer"
+              className="w-full md:w-44 bg-zinc-900 border border-zinc-800 rounded-2xl py-4 pl-10 pr-10 focus:border-blue-600 outline-none transition-all text-[10px] font-black uppercase appearance-none cursor-pointer shadow-2xl text-white"
               value={itemsPerPage}
               onChange={(e) => {
                 const val = e.target.value;
@@ -121,11 +125,14 @@ export default function AdminLogs() {
                 setCurrentPage(1);
               }}
             >
-              <option value={5} className="bg-zinc-950">Show 05</option>
-              <option value={10} className="bg-zinc-950">Show 10</option>
-              <option value={50} className="bg-zinc-950">Show 50</option>
-              <option value="all" className="bg-zinc-950">Show ALL</option>
+              <option value={5} className="bg-zinc-950">Show 05 Rows</option>
+              <option value={10} className="bg-zinc-950">Show 10 Rows</option>
+              <option value={50} className="bg-zinc-950">Show 50 Rows</option>
+              <option value="all" className="bg-zinc-950">Show ALL Data</option>
             </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none group-hover:text-blue-500 transition-colors">
+              <ChevronDown size={14} />
+            </div>
           </div>
 
           <div className="relative w-full md:w-80">
@@ -264,7 +271,7 @@ export default function AdminLogs() {
               <button 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-2 bg-zinc-800 rounded-lg hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-zinc-800 transition-all"
+                className="p-2 bg-zinc-800 rounded-lg hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-zinc-800 transition-all text-white"
               >
                 <ChevronLeft size={14} />
               </button>
@@ -284,7 +291,7 @@ export default function AdminLogs() {
               <button 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="p-2 bg-zinc-800 rounded-lg hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-zinc-800 transition-all"
+                className="p-2 bg-zinc-800 rounded-lg hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-zinc-800 transition-all text-white"
               >
                 <ChevronRight size={14} />
               </button>

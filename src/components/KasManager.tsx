@@ -10,7 +10,8 @@ import {
   ArrowDownLeft, 
   FileText,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Hash // Tambahan icon untuk jumlah bola
 } from 'lucide-react';
 
 interface Atlet {
@@ -25,6 +26,7 @@ interface KasEntry {
   nama_pembayar: string;
   kategori: string;
   jumlah_bayar: number; // DIPERBAIKI: Menggunakan nama kolom database yang benar
+  jumlah_bola: number; // TAMBAHAN: Agar muncul di tabel
   tipe_anggota: string; 
 }
 
@@ -38,9 +40,22 @@ export default function KasManager() {
   const [formData, setFormData] = useState({
     nama_pembayar: '',
     kategori: 'Iuran Bulanan Tetap (10k)',
-    jumlah_bayar: 10000, // DIPERBAIKI: Menggunakan nama kolom database yang benar
+    jumlah_bayar: 10000, 
+    jumlah_bola: 0, // TAMBAHAN: State jumlah bola
+    tipe_anggota: 'Anggota Tetap', // TAMBAHAN: Default tipe
     tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
+
+  // LOGIKA HITUNG OTOMATIS
+  useEffect(() => {
+    if (formData.kategori === 'Pembayaran Shuttlecock') {
+      const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
+      setFormData(prev => ({ 
+        ...prev, 
+        jumlah_bayar: prev.jumlah_bola * hargaPerBola 
+      }));
+    }
+  }, [formData.jumlah_bola, formData.tipe_anggota, formData.kategori]);
 
   useEffect(() => {
     fetchData();
@@ -49,13 +64,11 @@ export default function KasManager() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil Data Kas
       const { data: kas, error: kasError } = await supabase
         .from('kas_pb')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // 2. Ambil Data Atlet
       const { data: atletData, error: atletError } = await supabase
         .from('atlet_stats') 
         .select('id, player_name')
@@ -68,8 +81,9 @@ export default function KasManager() {
       
       if (atletData && atletData.length > 0) {
         setAtlets(atletData);
-        // Set default pembayar ke nama atlet pertama
-        setFormData(prev => ({ ...prev, nama_pembayar: atletData[0].player_name }));
+        if (!formData.nama_pembayar) {
+          setFormData(prev => ({ ...prev, nama_pembayar: atletData[0].player_name }));
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -84,36 +98,31 @@ export default function KasManager() {
 
     setSaving(true);
     try {
-      // PROSES SIMPAN: Properti disesuaikan dengan constraint NOT NULL 'jumlah_bayar'
       const { error } = await supabase.from('kas_pb').insert([
         {
           nama_pembayar: formData.nama_pembayar,
           kategori: formData.kategori,
-          jumlah_bayar: formData.jumlah_bayar, // DIPERBAIKI
+          jumlah_bayar: formData.jumlah_bayar,
+          jumlah_bola: formData.jumlah_bola, // TAMBAHAN: Simpan jumlah bola
           tanggal_transaksi: formData.tanggal_transaksi,
-          tipe_anggota: 'Reguler' 
+          tipe_anggota: formData.tipe_anggota // MENGGUNAKAN: State tipe_anggota yang dipilih
         }
       ]);
 
-      if (error) {
-        console.error('Supabase Error Detail:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       alert('Transaksi Berhasil Disimpan!');
-      // Reset form nominal ke default setelah berhasil
-      setFormData(prev => ({ ...prev, jumlah_bayar: 10000 }));
-      fetchData(); // Refresh list data
+      setFormData(prev => ({ ...prev, jumlah_bola: 0, jumlah_bayar: 10000 }));
+      fetchData(); 
       
     } catch (error: any) {
       console.error('Error saving:', error);
-      alert(`Gagal menyimpan: ${error.message || 'Periksa koneksi atau database'}`);
+      alert(`Gagal menyimpan: ${error.message}`);
     } finally {
       setSaving(false);
     }
   };
 
-  // Menghitung saldo menggunakan kolom jumlah_bayar
   const totalSaldo = kasData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
 
   return (
@@ -149,7 +158,6 @@ export default function KasManager() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* FORM LEFT */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem]">
             <h3 className="text-emerald-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
@@ -166,89 +174,113 @@ export default function KasManager() {
                   onChange={(e) => {
                     const val = e.target.value;
                     let nominal = 10000;
-                    if (val === 'Pembayaran Shuttlecock') nominal = 5000;
+                    if (val === 'Pembayaran Shuttlecock') nominal = 0;
                     if (val === 'Pendaftaran Atlet Baru') nominal = 50000;
-                    setFormData({...formData, kategori: val, jumlah_bayar: nominal});
+                    setFormData({...formData, kategori: val, jumlah_bayar: nominal, jumlah_bola: 0});
                   }}
                 >
                   <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
                   <option value="Pembayaran Shuttlecock">Pembayaran Shuttlecock</option>
                   <option value="Pendaftaran Atlet Baru">Pendaftaran Atlet Baru</option>
                   <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
-                  <option value="Denda Terlambat">Denda Terlambat</option>
                 </select>
               </div>
 
-              {/* TANGGAL TRANSAKSI */}
+              {/* TAMPILAN KHUSUS SHUTTLECOCK */}
+              {formData.kategori === 'Pembayaran Shuttlecock' && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-500">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tipe</label>
+                    <select 
+                      className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs focus:border-emerald-500 outline-none"
+                      value={formData.tipe_anggota}
+                      onChange={(e) => setFormData({...formData, tipe_anggota: e.target.value})}
+                    >
+                      <option value="Anggota Tetap">Tetap (4k)</option>
+                      <option value="Anggota Tidak Tetap">Tidak Tetap (5k)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Jml Bola</label>
+                    <div className="relative">
+                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                      <input 
+                        type="number"
+                        className="w-full bg-black border border-white/10 rounded-xl p-4 pl-10 text-xs focus:border-emerald-500 outline-none"
+                        placeholder="0"
+                        value={formData.jumlah_bola || ''}
+                        onChange={(e) => setFormData({...formData, jumlah_bola: parseInt(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TANGGAL */}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tanggal Transaksi</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tanggal</label>
                 <div className="relative">
                   <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                   <input 
                     type="date"
                     required
-                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all"
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none"
                     value={formData.tanggal_transaksi}
                     onChange={(e) => setFormData({...formData, tanggal_transaksi: e.target.value})}
                   />
                 </div>
               </div>
 
-              {/* SELECT NAMA ATLET */}
+              {/* NAMA ATLET */}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar (Atlet)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                   <select 
                     required
-                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none appearance-none transition-all"
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none appearance-none"
                     value={formData.nama_pembayar}
                     onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})}
                   >
-                    {loading ? (
-                      <option>Loading atlet...</option>
-                    ) : atlets.length === 0 ? (
-                      <option>Tidak ada data atlet</option>
-                    ) : (
-                      atlets.map((atlet) => (
-                        <option key={atlet.id} value={atlet.player_name} className="bg-black">
-                          {atlet.player_name}
-                        </option>
-                      ))
-                    )}
+                    {atlets.map((atlet) => (
+                      <option key={atlet.id} value={atlet.player_name} className="bg-black">
+                        {atlet.player_name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              {/* NOMINAL */}
+              {/* NOMINAL AKHIR */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
                 <input 
                   type="number"
-                  className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
+                  readOnly={formData.kategori === 'Pembayaran Shuttlecock'} // Otomatis jika shuttlecock
+                  className={`w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none ${formData.kategori === 'Pembayaran Shuttlecock' ? 'opacity-50' : ''}`}
                   value={formData.jumlah_bayar}
                   onChange={(e) => setFormData({...formData, jumlah_bayar: parseInt(e.target.value) || 0})}
                 />
               </div>
 
               <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center">
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Dibayar</p>
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Tagihan</p>
                 <h4 className="text-3xl font-black italic">Rp {formData.jumlah_bayar.toLocaleString()}</h4>
               </div>
 
               <button 
                 type="submit"
                 disabled={saving || loading}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {saving ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                {saving ? 'Processing...' : 'Simpan Transaksi'}
+                Simpan Transaksi
               </button>
             </form>
           </div>
         </div>
 
-        {/* TABLE RIGHT */}
+        {/* TABLE LEDGER */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
@@ -260,46 +292,34 @@ export default function KasManager() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5">
-                    <th className="p-6">Date</th>
                     <th className="p-6">Member</th>
                     <th className="p-6">Category</th>
+                    <th className="p-6 text-center">Bola</th>
                     <th className="p-6 text-right">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={4} className="p-20 text-center text-slate-500 font-bold italic">Loading Ledger...</td>
+                  {kasData.map((item) => (
+                    <tr key={item.id} className="hover:bg-white/[0.02] transition-all">
+                      <td className="p-6">
+                        <p className="font-bold text-sm tracking-tight">{item.nama_pembayar}</p>
+                        <p className="text-[9px] text-slate-500 uppercase">{item.tipe_anggota}</p>
+                      </td>
+                      <td className="p-6">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
+                          item.kategori === 'Pembayaran Shuttlecock' 
+                          ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
+                          : 'bg-white/5 text-white border-white/10'
+                        }`}>
+                          {item.kategori}
+                        </span>
+                      </td>
+                      <td className="p-6 text-center font-mono text-xs">{item.jumlah_bola || '-'}</td>
+                      <td className="p-6 text-right font-black italic text-emerald-400">
+                        Rp {item.jumlah_bayar.toLocaleString()}
+                      </td>
                     </tr>
-                  ) : kasData.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="p-20 text-center text-slate-500 font-bold italic">Belum ada data kas.</td>
-                    </tr>
-                  ) : (
-                    kasData.map((item) => (
-                      <tr key={item.id} className="hover:bg-white/[0.02] transition-all">
-                        <td className="p-6 text-xs text-slate-400 font-mono">
-                          {item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}
-                        </td>
-                        <td className="p-6 font-bold text-sm tracking-tight">{item.nama_pembayar}</td>
-                        <td className="p-6">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
-                            item.kategori === 'Pembayaran Shuttlecock' 
-                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
-                            : 'bg-white/5 text-white border-white/10'
-                          }`}>
-                            {item.kategori}
-                          </span>
-                        </td>
-                        <td className="p-6 text-right">
-                          <div className="text-sm font-black italic flex items-center justify-end gap-2 text-emerald-400">
-                            <ArrowUpRight size={14} />
-                            Rp {(item.jumlah_bayar || 0).toLocaleString()}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>

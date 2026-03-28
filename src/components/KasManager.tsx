@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { 
   Wallet, Plus, Search, FileText, Loader2, CheckCircle2, Filter, Trash2, Edit3, X
-} from 'lucide-react'; // Pastikan import lucide-react sesuai dengan environment Anda
+} from 'lucide-react'; 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// LOGO PB BILI BILI 162 (Base64 Updated)
-// Gunakan string base64 dari logo yang Anda miliki. 
-const pbLogoBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACCcAAAAAABJRU5ErkJggg=="; 
+// URL Logo dari Supabase Storage Anda
+const PB_LOGO_URL = "https://hykrsqsznmrtszhfywjz.supabase.co/storage/v1/object/public/assets/logo.png";
 
 interface Atlet {
   id: string;
@@ -50,22 +49,34 @@ export default function KasManager() {
   const totalSaldoFiltered = filteredData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
   const totalSaldoGlobal = kasData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
 
-  const exportToPDF = () => {
+  // Fungsi Helper untuk memuat gambar ke PDF
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; 
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+    });
+  };
+
+  const exportToPDF = async () => {
     try {
       const doc = new jsPDF();
       const dateStr = new Date().toLocaleDateString('id-ID', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
 
-      // --- PERBAIKAN LOGO ---
-      if (pbLogoBase64 && pbLogoBase64.length > 100) {
-        try {
-          doc.addImage(pbLogoBase64, 'PNG', 14, 10, 22, 22);
-        } catch (e) {
-          console.error("Gagal memuat logo ke PDF:", e);
-        }
+      // --- 1. PROSES LOGO (ASYNC) ---
+      try {
+        const img = await loadImage(PB_LOGO_URL);
+        doc.addImage(img, 'PNG', 14, 10, 22, 22);
+      } catch (e) {
+        console.error("Logo gagal dimuat dari Storage. Pastikan bucket publik.", e);
+        // Tetap lanjut meskipun logo gagal
       }
 
+      // --- 2. HEADER TEXT ---
       doc.setFontSize(20);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(30, 64, 175); 
@@ -78,10 +89,12 @@ export default function KasManager() {
       doc.text('Kota Parepare, Sulawesi Selatan 91121', 42, 29);
       doc.text(`Periode Laporan: ${filterMonth}`, 42, 34);
 
+      // Garis Biru dekoratif
       doc.setDrawColor(30, 64, 175);
       doc.setLineWidth(0.8);
       doc.line(14, 38, 196, 38);
 
+      // Judul Laporan
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);
@@ -92,6 +105,7 @@ export default function KasManager() {
       doc.setTextColor(100);
       doc.text(`Dicetak pada: ${dateStr}`, 14, 53);
 
+      // --- 3. TABEL DATA ---
       const tableColumn = ["Tanggal", "Nama Member", "Kategori", "Bola", "Total Bayar"];
       const tableRows = filteredData.map(item => [
         new Date(item.tanggal_transaksi).toLocaleDateString('id-ID'),
@@ -119,6 +133,7 @@ export default function KasManager() {
         styles: { fontSize: 9 }
       });
 
+      // --- 4. TOTAL & TANDA TANGAN ---
       const finalY = (doc as any).lastAutoTable.finalY + 10;
       doc.setFillColor(239, 246, 255);
       doc.rect(120, finalY - 6, 76, 10, 'F');
@@ -141,7 +156,6 @@ export default function KasManager() {
     }
   };
 
-  // Logic untuk kalkulasi otomatis nominal shuttlecock
   useEffect(() => {
     if (formData.kategori === 'Pembayaran Shuttlecock') {
       const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
@@ -236,7 +250,6 @@ export default function KasManager() {
 
   return (
     <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -272,7 +285,6 @@ export default function KasManager() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
         <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
@@ -289,7 +301,6 @@ export default function KasManager() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Form Section */}
         <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem] sticky top-10">
             <div className="flex items-center justify-between mb-6">
@@ -413,7 +424,6 @@ export default function KasManager() {
           </div>
         </div>
 
-        {/* Table Section */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">

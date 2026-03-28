@@ -1,259 +1,286 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import { supabase } from '../supabase'; // Sesuaikan path ke file supabase config Anda
 import { 
-  Wallet, Plus, Database, Clock, ChevronRight, Zap, Info, 
-  TrendingUp, Calendar, BarChart3, ArrowUpCircle, FileText, Share2 
+  Wallet, 
+  Plus, 
+  Search, 
+  Calendar, 
+  User, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  FileText,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+
+interface Atlet {
+  id: string;
+  nama: string;
+}
+
+interface KasEntry {
+  id: string;
+  created_at: string;
+  tanggal_transaksi: string;
+  nama_pembayar: string;
+  kategori: string;
+  jumlah: number;
+  tipe: 'masuk' | 'keluar';
+}
 
 export default function KasManager() {
-  const [loading, setLoading] = useState(false);
-  const [kasLogs, setKasLogs] = useState<any[]>([]);
-  const [kategori, setKategori] = useState<'IURAN_TETAP' | 'IURAN_BINAAN' | 'SHUTTLECOCK' | 'LAINNYA'>('IURAN_TETAP');
-  const [tipeAnggota, setTipeAnggota] = useState<'TETAP' | 'TIDAK_TETAP'>('TETAP');
-  const [namaAnggota, setNamaAnggota] = useState('');
-  const [jumlahBola, setJumlahBola] = useState(1);
-  const [nominal, setNominal] = useState(10000);
-  const [stats, setStats] = useState({ harian: 0, mingguan: 0, bulanan: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [kasData, setKasData] = useState<KasEntry[]>([]);
+  const [atlets, setAtlets] = useState<Atlet[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    nama_pembayar: '',
+    kategori: 'Iuran Bulanan Tetap (10k)',
+    jumlah: 10000,
+    tanggal_transaksi: new Date().toISOString().split('T')[0] // Default hari ini
+  });
 
   useEffect(() => {
-    fetchKasData();
-    const channel = supabase
-      .channel('kas-updates')
-      .on('postgres_changes', { event: '*', table: 'kas_pb', schema: 'public' }, () => fetchKasData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    fetchData();
   }, []);
 
-  const fetchKasData = async () => {
-    const { data, error } = await supabase.from('kas_pb').select('*').order('created_at', { ascending: false });
-    if (!error && data) {
-      setKasLogs(data);
-      calculateStats(data);
-    }
-  };
-
-  const calculateStats = (data: any[]) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).getTime();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    let h = 0, m = 0, b = 0, t = 0;
-    data.forEach(item => {
-      const itemDate = new Date(item.created_at).getTime();
-      const val = parseFloat(item.jumlah_bayar);
-      if (itemDate >= today) h += val;
-      if (itemDate >= startOfWeek) m += val;
-      if (itemDate >= startOfMonth) b += b + val; // Fix logic
-      t += val;
-    });
-    setStats({ harian: h, mingguan: m, bulanan: b, total: t });
-  };
-
-  // FUNGSI EXPORT PDF
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const dateStr = new Date().toLocaleDateString('id-ID', { dateStyle: 'long' });
-
-    // Header Kop Surat
-    doc.setFontSize(18);
-    doc.text('LAPORAN KAS PB. BILI BILI 162', 105, 15, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`Dicetak pada: ${dateStr}`, 105, 22, { align: 'center' });
-    doc.line(20, 25, 190, 25);
-
-    // Ringkasan Keuangan
-    doc.setFontSize(12);
-    doc.text('RINGKASAN SALDO:', 20, 35);
-    doc.setFontSize(10);
-    doc.text(`Total Saldo Keseluruhan: Rp ${stats.total.toLocaleString()}`, 20, 42);
-    doc.text(`Pemasukan Bulan Ini: Rp ${stats.bulanan.toLocaleString()}`, 20, 47);
-
-    // Tabel Transaksi
-    const tableData = kasLogs.map(log => [
-      new Date(log.created_at).toLocaleDateString('id-ID'),
-      log.nama_pembayar,
-      log.kategori.replace('_', ' '),
-      log.tipe_anggota,
-      `Rp ${parseFloat(log.jumlah_bayar).toLocaleString()}`
-    ]);
-
-    autoTable(doc, {
-      startY: 55,
-      head: [['Tanggal', 'Nama', 'Kategori', 'Status', 'Jumlah']],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129] } // Warna Emerald
-    });
-
-    doc.save(`Laporan_Kas_PB162_${new Date().getTime()}.pdf`);
-  };
-
-  useEffect(() => {
-    if (kategori === 'IURAN_TETAP') setNominal(10000);
-    else if (kategori === 'IURAN_BINAAN') setNominal(100000);
-    else if (kategori === 'SHUTTLECOCK') {
-      const hargaPerBola = tipeAnggota === 'TETAP' ? 4000 : 5000;
-      setNominal(hargaPerBola * jumlahBola);
-    }
-  }, [kategori, tipeAnggota, jumlahBola]);
-
-  const handleSimpanKas = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchData = async () => {
     setLoading(true);
-    const { error } = await supabase.from('kas_pb').insert([{ 
-      nama_pembayar: namaAnggota, kategori, tipe_anggota: tipeAnggota,
-      jumlah_bola: kategori === 'SHUTTLECOCK' ? jumlahBola : 0,
-      jumlah_bayar: nominal
-    }]);
-    if (!error) { setNamaAnggota(''); setJumlahBola(1); }
-    setLoading(false);
+    try {
+      // Ambil Data Kas
+      const { data: kas, error: kasError } = await supabase
+        .from('kas_pb')
+        .select('*')
+        .order('tanggal_transaksi', { ascending: false });
+
+      // Ambil Data Atlet untuk dropdown
+      const { data: atletData, error: atletError } = await supabase
+        .from('atlet')
+        .select('id, nama')
+        .order('nama', { ascending: true });
+
+      if (!kasError) setKasData(kas || []);
+      if (!atletError) setAtlets(atletData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('kas_pb').insert([
+        {
+          ...formData,
+          tipe: 'masuk' // Default pendaftaran/iuran adalah masuk
+        }
+      ]);
+
+      if (!error) {
+        setFormData({ ...formData, nama_pembayar: '' });
+        fetchData();
+        alert('Transaksi Berhasil Disimpan!');
+      }
+    } catch (error) {
+      console.error('Error saving:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredAtlets = atlets.filter(a => 
+    a.nama.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Kalkulasi Saldo
+  const totalSaldo = kasData.reduce((acc, curr) => acc + curr.jumlah, 0);
 
   return (
-    <div className="p-8 bg-[#050505] min-h-screen text-white font-sans relative">
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-600/5 blur-[150px] rounded-full -z-10" />
-
-      {/* Header & Stats */}
-      <div className="flex flex-col gap-8 mb-12">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-emerald-600 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-                <Wallet size={24} className="text-white" />
-              </div>
-              <h1 className="text-4xl font-black italic uppercase tracking-tighter">
-                FINANCIAL <span className="text-emerald-500">REPORTS</span>
-              </h1>
+    <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-emerald-500/20 rounded-lg">
+              <Wallet className="text-emerald-400" size={28} />
             </div>
-            <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] ml-1">PB. Bili Bili 162 Internal Treasury</p>
+            <h1 className="text-4xl font-black italic tracking-tighter uppercase text-emerald-400">
+              Financial <span className="text-white">Reports</span>
+            </h1>
           </div>
-
-          <button 
-            onClick={exportToPDF}
-            className="flex items-center gap-2 bg-white/5 hover:bg-emerald-600 border border-white/10 hover:border-emerald-500 px-6 py-3 rounded-xl transition-all group"
-          >
-            <FileText size={16} className="text-emerald-500 group-hover:text-white" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Export PDF Report</span>
-          </button>
+          <p className="text-slate-500 text-xs font-bold tracking-[0.3em] uppercase ml-1">
+            PB. BILI BILI 162 INTERNAL TREASURY
+          </p>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Harian', val: stats.harian, icon: <TrendingUp size={14}/>, color: 'text-emerald-400' },
-            { label: 'Mingguan', val: stats.mingguan, icon: <Calendar size={14}/>, color: 'text-blue-400' },
-            { label: 'Bulanan', val: stats.bulanan, icon: <BarChart3 size={14}/>, color: 'text-purple-400' },
-            { label: 'Total Saldo', val: stats.total, icon: <ArrowUpCircle size={14}/>, color: 'text-white' },
-          ].map((card, i) => (
-            <div key={i} className="bg-zinc-900/50 border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm shadow-xl">
-              <div className="flex items-center gap-2 mb-3 text-zinc-500 uppercase font-black text-[9px] tracking-widest">
-                {card.icon} {card.label}
-              </div>
-              <p className={`text-xl font-black italic ${card.color}`}>Rp {card.val.toLocaleString()}</p>
-            </div>
-          ))}
-        </div>
+        <button className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-xs font-black uppercase tracking-widest">
+          <FileText size={16} /> Export PDF Report
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Form Input Section */}
-        <div className="lg:col-span-1">
-          <div className="bg-zinc-900/40 border border-white/5 p-8 rounded-[2.5rem] backdrop-blur-md">
-            <h3 className="text-lg font-black uppercase italic mb-6 flex items-center gap-2 text-emerald-500">
-              <Plus size={18} /> New Entry
+      {/* STATS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
+        {[
+          { label: 'Harian', val: 'Rp 0', color: 'text-white' },
+          { label: 'Mingguan', val: 'Rp 0', color: 'text-blue-400' },
+          { label: 'Bulanan', val: 'Rp 0', color: 'text-purple-400' },
+          { label: 'Total Saldo', val: `Rp ${totalSaldo.toLocaleString()}`, color: 'text-emerald-400' },
+        ].map((stat, i) => (
+          <div key={i} className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-current" /> {stat.label}
+            </p>
+            <h2 className={`text-2xl font-black italic ${stat.color}`}>{stat.val}</h2>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* FORM LEFT */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem]">
+            <h3 className="text-emerald-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
+              <Plus size={20} /> New Entry
             </h3>
-            <form onSubmit={handleSimpanKas} className="space-y-5">
+            
+            <form onSubmit={handleSave} className="space-y-5">
               <div>
-                <label className="text-[10px] font-black text-zinc-500 uppercase mb-2 block tracking-widest">Kategori</label>
-                <select className="w-full bg-black border border-zinc-800 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-emerald-500 text-white cursor-pointer"
-                  value={kategori} onChange={(e: any) => setKategori(e.target.value)}>
-                  <option value="IURAN_TETAP">Iuran Bulanan Tetap (10k)</option>
-                  <option value="IURAN_BINAAN">Iuran Anak Binaan (100k)</option>
-                  <option value="SHUTTLECOCK">Shuttlecock</option>
-                  <option value="LAINNYA">Lain-lain</option>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori</label>
+                <select 
+                  className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
+                  value={formData.kategori}
+                  onChange={(e) => setFormData({...formData, kategori: e.target.value})}
+                >
+                  <option>Iuran Bulanan Tetap (10k)</option>
+                  <option>Pendaftaran Atlet Baru</option>
+                  <option>Sumbangan Sukarela</option>
+                  <option>Denda Terlambat</option>
                 </select>
               </div>
 
-              {kategori === 'SHUTTLECOCK' && (
-                <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2 duration-300">
-                  <div>
-                    <label className="text-[10px] font-black text-zinc-500 uppercase mb-2 block">Tipe</label>
-                    <select className="w-full bg-black border border-zinc-800 rounded-xl py-3 px-4 text-xs font-bold focus:border-emerald-500 outline-none"
-                      value={tipeAnggota} onChange={(e: any) => setTipeAnggota(e.target.value)}>
-                      <option value="TETAP">TETAP (4k)</option>
-                      <option value="TIDAK_TETAP">NON-TETAP (5k)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-zinc-500 uppercase mb-2 block">Qty</label>
-                    <input type="number" className="w-full bg-black border border-zinc-800 rounded-xl py-3 px-4 text-xs font-bold focus:border-emerald-500 outline-none"
-                      value={jumlahBola} onChange={(e) => setJumlahBola(parseInt(e.target.value) || 1)} />
-                  </div>
-                </div>
-              )}
-
+              {/* TANGGAL TRANSAKSI */}
               <div>
-                <label className="text-[10px] font-black text-zinc-500 uppercase mb-2 block tracking-widest">Nama Pembayar</label>
-                <input type="text" className="w-full bg-black border border-zinc-800 rounded-xl py-3 px-4 text-xs font-bold focus:border-emerald-500 outline-none placeholder:text-zinc-700"
-                  placeholder="Masukkan nama..." value={namaAnggota} onChange={(e) => setNamaAnggota(e.target.value)} required />
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tanggal Transaksi</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                  <input 
+                    type="date"
+                    required
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all"
+                    value={formData.tanggal_transaksi}
+                    onChange={(e) => setFormData({...formData, tanggal_transaksi: e.target.value})}
+                  />
+                </div>
               </div>
 
-              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center">
-                <p className="text-[9px] font-black text-emerald-500 uppercase mb-1 tracking-[0.2em]">Payable Amount</p>
-                <p className="text-2xl font-black italic text-white">Rp {nominal.toLocaleString()}</p>
+              {/* SEARCH NAMA ATLET */}
+              <div className="relative">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar (Sesuai Database)</label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                  <input 
+                    type="text"
+                    placeholder="Cari nama atlet..."
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setShowDropdown(true);
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                  />
+                </div>
+                
+                {showDropdown && searchTerm && (
+                  <div className="absolute z-50 w-full mt-2 bg-[#111] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                    {filteredAtlets.map((atlet) => (
+                      <div 
+                        key={atlet.id}
+                        className="p-3 hover:bg-emerald-500/10 cursor-pointer text-sm border-b border-white/5"
+                        onClick={() => {
+                          setFormData({...formData, nama_pembayar: atlet.nama});
+                          setSearchTerm(atlet.nama);
+                          setShowDropdown(false);
+                        }}
+                      >
+                        {atlet.nama}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-[11px] py-4 rounded-xl transition-all shadow-[0_10px_20px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2">
-                {loading ? <Clock className="animate-spin" size={14} /> : <Database size={14} />} SIMPAN TRANSAKSI
+              <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center">
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Payable Amount</p>
+                <h4 className="text-3xl font-black italic">Rp {formData.jumlah.toLocaleString()}</h4>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={saving}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2"
+              >
+                {saving ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
+                {saving ? 'Processing...' : 'Simpan Transaksi'}
               </button>
             </form>
           </div>
         </div>
 
-        {/* Audit Trail Section */}
-        <div className="lg:col-span-2">
-          <div className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden backdrop-blur-md">
-            <div className="bg-black/40 px-8 py-5 border-b border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap size={14} className="text-emerald-500" />
-                <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Financial_Ledger.sh</span>
-              </div>
-              <Share2 size={14} className="text-zinc-700" />
+        {/* TABLE RIGHT */}
+        <div className="lg:col-span-8">
+          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Financial_Ledger.sh</h3>
+              <Search size={16} className="text-slate-500" />
             </div>
             
-            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-              <table className="w-full text-left">
-                <thead className="sticky top-0 bg-zinc-900 z-10">
-                  <tr className="text-zinc-600 text-[9px] font-black uppercase tracking-[0.2em] border-b border-white/5">
-                    <th className="px-8 py-5">Date</th>
-                    <th className="px-8 py-5">Member</th>
-                    <th className="px-8 py-5">Category</th>
-                    <th className="px-8 py-5 text-right">Amount</th>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5">
+                    <th className="p-6">Date</th>
+                    <th className="p-6">Member</th>
+                    <th className="p-6">Category</th>
+                    <th className="p-6 text-right">Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 font-mono">
-                  {kasLogs.map((log) => (
-                    <tr key={log.id} className="group hover:bg-emerald-600/[0.03] transition-all">
-                      <td className="px-8 py-5">
-                        <p className="text-[11px] font-bold text-white">{new Date(log.created_at).toLocaleDateString('id-ID')}</p>
-                        <p className="text-[9px] text-zinc-600 font-black uppercase">{new Date(log.created_at).toLocaleTimeString('id-ID')}</p>
-                      </td>
-                      <td className="px-8 py-5">
-                        <p className="text-[11px] font-black uppercase italic tracking-tighter text-white">{log.nama_pembayar}</p>
-                        <p className="text-[9px] text-zinc-600 uppercase font-bold">{log.tipe_anggota}</p>
-                      </td>
-                      <td className="px-8 py-5">
-                        <span className="text-[9px] font-black px-2 py-1 bg-zinc-800 text-emerald-500 rounded border border-white/5 uppercase">
-                          {log.kategori.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5 text-right font-black text-emerald-500 text-[11px]">
-                        Rp {parseFloat(log.jumlah_bayar).toLocaleString()}
-                      </td>
+                <tbody className="divide-y divide-white/5">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} className="p-20 text-center text-slate-500 font-bold italic">Loading Ledger...</td>
                     </tr>
-                  ))}
+                  ) : kasData.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-20 text-center text-slate-500 font-bold italic">Belum ada data kas.</td>
+                    </tr>
+                  ) : (
+                    kasData.map((item) => (
+                      <tr key={item.id} className="hover:bg-white/[0.02] transition-all">
+                        <td className="p-6 text-xs text-slate-400 font-mono">
+                          {new Date(item.tanggal_transaksi).toLocaleDateString('id-ID')}
+                        </td>
+                        <td className="p-6 font-bold text-sm tracking-tight">{item.nama_pembayar}</td>
+                        <td className="p-6">
+                          <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black uppercase tracking-tighter border border-white/10">
+                            {item.kategori}
+                          </span>
+                        </td>
+                        <td className="p-6 text-right">
+                          <div className={`text-sm font-black italic flex items-center justify-end gap-2 ${item.tipe === 'masuk' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {item.tipe === 'masuk' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
+                            Rp {item.jumlah.toLocaleString()}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

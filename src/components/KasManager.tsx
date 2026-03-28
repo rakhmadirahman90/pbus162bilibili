@@ -150,12 +150,12 @@ export default function KasManager() {
       // Ketua
       doc.setFont("helvetica", "bold").text('Ketua PB. Bili Bili 162,', 14, signY + 7);
       doc.line(14, signY + 32, 60, signY + 32); // Garis bawah nama
-      doc.text('DARWIS RAHIM', 14, signY + 31);
+      doc.text('H.WAWAN', 14, signY + 31);
 
       // Bendahara
       doc.setFont("helvetica", "bold").text('Bendahara,', 150, signY + 7);
       doc.line(150, signY + 32, 196, signY + 32); // Garis bawah nama
-      doc.text('ADE PUTRI BUSTAN', 150, signY + 31);
+      doc.text('MUH. NUR', 150, signY + 31);
 
       doc.save(`Laporan_Kas_PB162_${startDate}_${endDate}.pdf`);
     } catch (error) { alert("Gagal membuat PDF"); }

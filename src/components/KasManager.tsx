@@ -9,6 +9,15 @@ import autoTable from 'jspdf-autotable';
 
 const PB_LOGO_URL = "https://hykrsqsznmrtszhfywjz.supabase.co/storage/v1/object/public/assets/logo1.png";
 
+// DAFTAR KATEGORI YANG WAJIB MASUK/HIJAU
+const DAFTAR_PEMASUKAN = [
+  'Iuran Bulanan Tetap (10k)',
+  'Pembayaran Iuran Binaan',
+  'Pembayaran Shuttlecock',
+  'Pendaftaran Atlet Baru',
+  'Sumbangan Sukarela'
+];
+
 interface Atlet {
   id: string;
   player_name: string;
@@ -52,8 +61,14 @@ export default function KasManager() {
 
   const [formData, setFormData] = useState(initialForm);
 
-  // --- LOGIKA FILTER & KALKULASI ---
-  const filteredData = kasData.filter(item => {
+  // --- 1. PERBAIKAN: NORMALISASI DATA (MEMAKSA WARNA HIJAU PADA DATA LAMA) ---
+  const normalizedData = kasData.map(item => ({
+    ...item,
+    // Jika kategori ada di daftar pemasukan, paksa jenis_transaksi menjadi 'Masuk' untuk tampilan & kalkulasi
+    jenis_transaksi: DAFTAR_PEMASUKAN.includes(item.kategori) ? ('Masuk' as const) : item.jenis_transaksi
+  }));
+
+  const filteredData = normalizedData.filter(item => {
     return item.tanggal_transaksi >= startDate && item.tanggal_transaksi <= endDate;
   });
 
@@ -63,10 +78,11 @@ export default function KasManager() {
     return acc;
   }, { masuk: 0, keluar: 0 });
 
-  const totalSaldoGlobal = kasData.reduce((acc, curr) => {
+  const totalSaldoGlobal = normalizedData.reduce((acc, curr) => {
     return curr.jenis_transaksi === 'Masuk' ? acc + curr.jumlah_bayar : acc - curr.jumlah_bayar;
   }, 0);
 
+  // --- LOGIKA PDF (TETAP SAMA) ---
   const getTransparentImageData = (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -132,7 +148,7 @@ export default function KasManager() {
     } catch (error) { alert("Gagal membuat PDF"); }
   };
 
-  // --- LOGIKA PERHITUNGAN OTOMATIS SHUTTLECOCK ---
+  // --- 2. SINKRONISASI OTOMATIS SHUTTLECOCK & KATEGORI ---
   useEffect(() => {
     if (formData.kategori === 'Pembayaran Shuttlecock' && formData.jenis_transaksi === 'Masuk') {
       const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
@@ -140,6 +156,11 @@ export default function KasManager() {
       if (formData.jumlah_bayar !== total) {
         setFormData(prev => ({ ...prev, jumlah_bayar: total }));
       }
+    }
+    
+    // Auto switch ke 'Masuk' jika kategori iuran dipilih di form
+    if (DAFTAR_PEMASUKAN.includes(formData.kategori) && formData.jenis_transaksi !== 'Masuk') {
+      setFormData(prev => ({ ...prev, jenis_transaksi: 'Masuk' }));
     }
   }, [formData.jumlah_bola, formData.tipe_anggota, formData.kategori, formData.jenis_transaksi]);
 
@@ -157,24 +178,13 @@ export default function KasManager() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // --- NORMALISASI DATA SEBELUM SIMPAN ---
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
-    // Daftar kategori yang HARUS masuk ke Pemasukan (+)
-    const daftarPemasukan = [
-      'Iuran Bulanan Tetap (10k)',
-      'Pembayaran Iuran Binaan',
-      'Pembayaran Shuttlecock',
-      'Pendaftaran Atlet Baru',
-      'Sumbangan Sukarela'
-    ];
-
     const finalData = {
       ...formData,
-      // Jika kategori ada di daftar di atas, paksa jadi 'Masuk'
-      jenis_transaksi: daftarPemasukan.includes(formData.kategori) ? 'Masuk' : formData.jenis_transaksi
+      jenis_transaksi: DAFTAR_PEMASUKAN.includes(formData.kategori) ? 'Masuk' : formData.jenis_transaksi
     };
 
     try {
@@ -220,9 +230,9 @@ export default function KasManager() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
              <Calendar size={14} className="text-blue-400" />
-             <input type="date" className="bg-transparent text-[10px] font-bold outline-none text-white" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+             <input type="date" className="bg-transparent text-[10px] font-bold outline-none text-white w-[100px]" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
              <span className="text-slate-500">-</span>
-             <input type="date" className="bg-transparent text-[10px] font-bold outline-none text-white" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+             <input type="date" className="bg-transparent text-[10px] font-bold outline-none text-white w-[100px]" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <button onClick={exportToPDF} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl transition-all text-xs font-black uppercase tracking-widest"><FileText size={16} /> Export PDF</button>
         </div>
@@ -268,11 +278,7 @@ export default function KasManager() {
                       if (e.target.value === 'Pembayaran Iuran Binaan') nominal = 25000;
                       setFormData({...formData, kategori: e.target.value, jumlah_bayar: nominal, jenis_transaksi: 'Masuk'});
                     }}>
-                    <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
-                    <option value="Pembayaran Iuran Binaan">Pembayaran Iuran Binaan</option>
-                    <option value="Pembayaran Shuttlecock">Pembayaran Shuttlecock</option>
-                    <option value="Pendaftaran Atlet Baru">Pendaftaran Atlet Baru</option>
-                    <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
+                    {DAFTAR_PEMASUKAN.map(kat => <option key={kat} value={kat}>{kat}</option>)}
                   </select>
                 ) : (
                   <input type="text" className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" placeholder="Contoh: Beli Bola, Listrik, dll" value={formData.kategori} onChange={(e) => setFormData({...formData, kategori: e.target.value})} />
@@ -353,7 +359,6 @@ export default function KasManager() {
                   ) : filteredData.length === 0 ? (
                     <tr><td colSpan={4} className="p-20 text-center text-slate-500 text-xs uppercase tracking-widest font-bold">No Data in this period</td></tr>
                   ) : filteredData.map((item) => {
-                    // Logic warna secara eksplisit berdasarkan jenis_transaksi
                     const isMasuk = item.jenis_transaksi === 'Masuk';
                     return (
                       <tr key={item.id} className="hover:bg-white/[0.02] group transition-colors">

@@ -23,7 +23,7 @@ interface KasEntry {
   jumlah_bayar: number;
   jumlah_bola: number;
   tipe_anggota: string; 
-  jenis_transaksi: 'Masuk' | 'Keluar'; // Fitur Baru
+  jenis_transaksi: 'Masuk' | 'Keluar';
   keterangan?: string;
 }
 
@@ -32,10 +32,8 @@ export default function KasManager() {
   const [saving, setSaving] = useState(false);
   const [kasData, setKasData] = useState<KasEntry[]>([]);
   const [atlets, setAtlets] = useState<Atlet[]>([]);
-  
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // --- FITUR FILTER BARU: RANGE TANGGAL ---
   const today = new Date().toISOString().split('T')[0];
   const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(firstDayOfMonth);
@@ -100,23 +98,23 @@ export default function KasManager() {
 
       doc.setFontSize(20).setFont("helvetica", "bold").setTextColor(30, 64, 175).text('PB. BILI BILI 162', 42, 18);
       doc.setFontSize(9).setFont("helvetica", "normal").setTextColor(100).text('Jl. Bili-Bili No. 162, Parepare, Sulawesi Selatan', 42, 24);
-      doc.text(`Periode: ${startDate} s/d ${endDate}`, 42, 29);
+      doc.text(`Periode Laporan: ${startDate} s/d ${endDate}`, 42, 29);
 
       doc.setDrawColor(30, 64, 175).setLineWidth(0.8).line(14, 38, 196, 38);
 
-      doc.setFontSize(14).setFont("helvetica", "bold").setTextColor(0).text('LAPORAN KAS MASUK & KELUAR', 14, 48);
+      doc.setFontSize(14).setFont("helvetica", "bold").setTextColor(0).text('LAPORAN PERTANGGUNGJAWABAN KAS', 14, 48);
       doc.setFontSize(9).setFont("helvetica", "italic").setTextColor(100).text(`Dicetak pada: ${dateStr}`, 14, 53);
 
       const tableRows = filteredData.map(item => [
         new Date(item.tanggal_transaksi).toLocaleDateString('id-ID'),
         item.nama_pembayar || '-',
-        `${item.jenis_transaksi === 'Masuk' ? '(+)' : '(-)'} ${item.kategori}`,
+        item.kategori,
         item.jumlah_bola || '-',
-        `Rp ${item.jumlah_bayar.toLocaleString()}`
+        `${item.jenis_transaksi === 'Masuk' ? '' : '-'} Rp ${item.jumlah_bayar.toLocaleString()}`
       ]);
 
       autoTable(doc, {
-        head: [["Tanggal", "Nama/Keperluan", "Kategori", "Bola", "Nominal"]],
+        head: [["Tanggal", "Nama Member / Keterangan", "Kategori", "Bola", "Total Bayar"]],
         body: tableRows,
         startY: 58,
         theme: 'grid',
@@ -126,18 +124,23 @@ export default function KasManager() {
 
       const finalY = (doc as any).lastAutoTable.finalY + 10;
       doc.setFontSize(10).setFont("helvetica", "bold");
-      doc.text(`TOTAL MASUK: Rp ${stats.masuk.toLocaleString()}`, 192, finalY, { align: 'right' });
-      doc.text(`TOTAL KELUAR: Rp ${stats.keluar.toLocaleString()}`, 192, finalY + 6, { align: 'right' });
-      doc.setTextColor(30, 64, 175).text(`SALDO PERIODE: Rp ${(stats.masuk - stats.keluar).toLocaleString()}`, 192, finalY + 12, { align: 'right' });
+      doc.setTextColor(0).text(`TOTAL PEMASUKAN: Rp ${stats.masuk.toLocaleString()}`, 192, finalY, { align: 'right' });
+      doc.text(`TOTAL PENGELUARAN: Rp ${stats.keluar.toLocaleString()}`, 192, finalY + 6, { align: 'right' });
+      doc.setTextColor(30, 64, 175).text(`SUBTOTAL PERIODE: Rp ${(stats.masuk - stats.keluar).toLocaleString()}`, 192, finalY + 12, { align: 'right' });
 
-      doc.save(`Laporan_Kas_PB162_${startDate}_to_${endDate}.pdf`);
+      doc.save(`Laporan_Kas_PB162_${startDate}_${endDate}.pdf`);
     } catch (error) { alert("Gagal membuat PDF"); }
   };
 
+  // --- LOGIKA PERHITUNGAN OTOMATIS SHUTTLECOCK ---
   useEffect(() => {
     if (formData.kategori === 'Pembayaran Shuttlecock' && formData.jenis_transaksi === 'Masuk') {
       const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
-      setFormData(prev => ({ ...prev, jumlah_bayar: (prev.jumlah_bola || 0) * hargaPerBola }));
+      const total = (formData.jumlah_bola || 0) * hargaPerBola;
+      // Hanya update jika berbeda untuk menghindari infinite loop
+      if (formData.jumlah_bayar !== total) {
+        setFormData(prev => ({ ...prev, jumlah_bayar: total }));
+      }
     }
   }, [formData.jumlah_bola, formData.tipe_anggota, formData.kategori, formData.jenis_transaksi]);
 
@@ -171,9 +174,24 @@ export default function KasManager() {
     } catch (error: any) { alert(error.message); } finally { setSaving(false); }
   };
 
+  // --- FIX FITUR EDIT: Load data ke form dengan lengkap ---
+  const handleEdit = (item: KasEntry) => {
+    setEditingId(item.id);
+    setFormData({
+      nama_pembayar: item.nama_pembayar,
+      kategori: item.kategori,
+      jumlah_bayar: item.jumlah_bayar,
+      jumlah_bola: item.jumlah_bola || 0,
+      tipe_anggota: item.tipe_anggota || 'Anggota Tetap',
+      jenis_transaksi: item.jenis_transaksi,
+      tanggal_transaksi: item.tanggal_transaksi,
+      keterangan: item.keterangan || ''
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
-      {/* HEADER & FILTER HARIAN */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -194,24 +212,22 @@ export default function KasManager() {
         </div>
       </div>
 
-      {/* DASHBOARD STATS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-[2rem]">
-          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2 flex items-center gap-2"><ArrowUpCircle size={14}/> Total Masuk</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2 flex items-center gap-2"><ArrowUpCircle size={14}/> Total Masuk (Periode)</p>
           <h2 className="text-2xl font-black italic text-emerald-400">Rp {stats.masuk.toLocaleString()}</h2>
         </div>
         <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[2rem]">
-          <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-2 flex items-center gap-2"><ArrowDownCircle size={14}/> Total Keluar</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-2 flex items-center gap-2"><ArrowDownCircle size={14}/> Total Keluar (Periode)</p>
           <h2 className="text-2xl font-black italic text-red-400">Rp {stats.keluar.toLocaleString()}</h2>
         </div>
         <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-[2rem]">
-          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 flex items-center gap-2"><Wallet size={14}/> Saldo Kas Akhir</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 flex items-center gap-2"><Wallet size={14}/> Saldo Kas Global</p>
           <h2 className="text-2xl font-black italic text-white">Rp {totalSaldoGlobal.toLocaleString()}</h2>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* FORM SECTION */}
         <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem] sticky top-10">
             <h3 className="text-blue-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
@@ -227,8 +243,15 @@ export default function KasManager() {
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori</label>
                 {formData.jenis_transaksi === 'Masuk' ? (
-                  <select className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" value={formData.kategori} onChange={(e) => setFormData({...formData, kategori: e.target.value})}>
+                  <select className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" value={formData.kategori} 
+                    onChange={(e) => {
+                      let nominal = 10000;
+                      if (e.target.value === 'Pendaftaran Atlet Baru') nominal = 50000;
+                      if (e.target.value === 'Pembayaran Iuran Binaan') nominal = 25000;
+                      setFormData({...formData, kategori: e.target.value, jumlah_bayar: nominal});
+                    }}>
                     <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
+                    <option value="Pembayaran Iuran Binaan">Pembayaran Iuran Binaan</option>
                     <option value="Pembayaran Shuttlecock">Pembayaran Shuttlecock</option>
                     <option value="Pendaftaran Atlet Baru">Pendaftaran Atlet Baru</option>
                     <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
@@ -239,12 +262,18 @@ export default function KasManager() {
               </div>
 
               {formData.kategori === 'Pembayaran Shuttlecock' && formData.jenis_transaksi === 'Masuk' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <select className="bg-black border border-white/10 rounded-xl p-4 text-xs" value={formData.tipe_anggota} onChange={(e) => setFormData({...formData, tipe_anggota: e.target.value})}>
-                    <option value="Anggota Tetap">Tetap (4k)</option>
-                    <option value="Anggota Tidak Tetap">Tidak Tetap (5k)</option>
-                  </select>
-                  <input type="number" className="bg-black border border-white/10 rounded-xl p-4 text-xs" placeholder="Jml Bola" value={formData.jumlah_bola || ''} onChange={(e) => setFormData({...formData, jumlah_bola: parseInt(e.target.value) || 0})} />
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-300">
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase mb-1 block">Tipe Member</label>
+                    <select className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs" value={formData.tipe_anggota} onChange={(e) => setFormData({...formData, tipe_anggota: e.target.value})}>
+                      <option value="Anggota Tetap">Tetap (4k)</option>
+                      <option value="Anggota Tidak Tetap">Tidak Tetap (5k)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase mb-1 block">Jml Bola</label>
+                    <input type="number" className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs font-bold text-emerald-400" placeholder="0" value={formData.jumlah_bola || ''} onChange={(e) => setFormData({...formData, jumlah_bola: parseInt(e.target.value) || 0})} />
+                  </div>
                 </div>
               )}
 
@@ -261,7 +290,7 @@ export default function KasManager() {
                     {atlets.map(a => <option key={a.id} value={a.player_name}>{a.player_name}</option>)}
                   </select>
                 ) : (
-                  <input type="text" className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" placeholder="Nama Penerima/Detail" value={formData.nama_pembayar} onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})} />
+                  <input type="text" required className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" placeholder="Nama Penerima/Detail" value={formData.nama_pembayar} onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})} />
                 )}
               </div>
 
@@ -270,14 +299,18 @@ export default function KasManager() {
                 <input type="number" className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none font-bold text-blue-400" value={formData.jumlah_bayar} onChange={(e) => setFormData({...formData, jumlah_bayar: parseInt(e.target.value) || 0})} />
               </div>
 
-              <button type="submit" disabled={saving} className={`w-full ${formData.jenis_transaksi === 'Masuk' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-red-600 hover:bg-red-500'} text-white font-black uppercase text-xs py-5 rounded-2xl transition-all flex items-center justify-center gap-2`}>
-                {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? 'Update Record' : 'Submit Entry')}
-              </button>
+              <div className="flex gap-2">
+                {editingId && (
+                  <button type="button" onClick={() => { setEditingId(null); setFormData(initialForm); }} className="flex-1 bg-white/10 hover:bg-white/20 text-white font-black uppercase text-xs py-5 rounded-2xl transition-all">Cancel</button>
+                )}
+                <button type="submit" disabled={saving} className={`flex-[2] ${formData.jenis_transaksi === 'Masuk' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-red-600 hover:bg-red-500'} text-white font-black uppercase text-xs py-5 rounded-2xl transition-all flex items-center justify-center gap-2`}>
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? 'Update Record' : 'Submit Entry')}
+                </button>
+              </div>
             </form>
           </div>
         </div>
 
-        {/* LIST TABLE SECTION */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
@@ -298,24 +331,26 @@ export default function KasManager() {
                 <tbody className="divide-y divide-white/5">
                   {loading ? (
                     <tr><td colSpan={4} className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-500" /></td></tr>
+                  ) : filteredData.length === 0 ? (
+                    <tr><td colSpan={4} className="p-20 text-center text-slate-500 text-xs uppercase tracking-widest font-bold">No Data in this period</td></tr>
                   ) : filteredData.map((item) => (
-                    <tr key={item.id} className="hover:bg-white/[0.02] group">
+                    <tr key={item.id} className="hover:bg-white/[0.02] group transition-colors">
                       <td className="p-6">
-                        <p className="font-bold text-sm">{item.nama_pembayar}</p>
-                        <p className="text-[9px] text-slate-500 uppercase">{item.tanggal_transaksi}</p>
+                        <p className="font-bold text-sm text-white group-hover:text-blue-400 transition-colors">{item.nama_pembayar}</p>
+                        <p className="text-[9px] text-slate-500 uppercase flex items-center gap-1"><Calendar size={10}/> {item.tanggal_transaksi}</p>
                       </td>
                       <td className="p-6">
                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${item.jenis_transaksi === 'Masuk' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
                           {item.kategori}
                         </span>
                       </td>
-                      <td className={`p-6 text-right font-black italic ${item.jenis_transaksi === 'Masuk' ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <td className={`p-6 text-right font-black italic text-lg ${item.jenis_transaksi === 'Masuk' ? 'text-emerald-400' : 'text-red-400'}`}>
                         {item.jenis_transaksi === 'Masuk' ? '+' : '-'} Rp {item.jumlah_bayar.toLocaleString()}
                       </td>
                       <td className="p-6">
                         <div className="flex justify-center gap-2">
-                          <button onClick={() => { setEditingId(item.id); setFormData({...item}); window.scrollTo(0,0); }} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white"><Edit3 size={14}/></button>
-                          <button onClick={async () => { if(confirm("Hapus?")) { await supabase.from('kas_pb').delete().eq('id', item.id); fetchData(); } }} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white"><Trash2 size={14}/></button>
+                          <button onClick={() => handleEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Edit3 size={14}/></button>
+                          <button onClick={async () => { if(confirm("Hapus data ini?")) { await supabase.from('kas_pb').delete().eq('id', item.id); fetchData(); } }} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 size={14}/></button>
                         </div>
                       </td>
                     </tr>

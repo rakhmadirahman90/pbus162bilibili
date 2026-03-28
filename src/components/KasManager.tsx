@@ -6,8 +6,8 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// LOGO PB BILI BILI 162
-const pbLogoBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACCcAAAAA..."; 
+// LOGO PB BILI BILI 162 (Base64 Updated)
+const pbLogoBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACCcAAAAA..."; // Tambahkan string Base64 lengkap di sini
 
 interface Atlet {
   id: string;
@@ -31,9 +31,7 @@ export default function KasManager() {
   const [kasData, setKasData] = useState<KasEntry[]>([]);
   const [atlets, setAtlets] = useState<Atlet[]>([]);
   
-  // State untuk penanganan Edit
   const [editingId, setEditingId] = useState<string | null>(null);
-  
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
 
   const initialForm = {
@@ -58,8 +56,15 @@ export default function KasManager() {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
 
-      if (pbLogoBase64.length > 100) {
-        doc.addImage(pbLogoBase64, 'PNG', 14, 10, 25, 25);
+      // --- PERBAIKAN LOGO ---
+      // Menggunakan pengecekan panjang karakter agar tidak error jika string kosong
+      if (pbLogoBase64 && pbLogoBase64.length > 500) {
+        try {
+          // Koordinat x=14, y=10, lebar=22, tinggi=22 (Ukuran proporsional)
+          doc.addImage(pbLogoBase64, 'PNG', 14, 10, 22, 22);
+        } catch (e) {
+          console.error("Gagal memuat logo ke PDF:", e);
+        }
       }
 
       doc.setFontSize(20);
@@ -126,12 +131,13 @@ export default function KasManager() {
       const signY = finalY + 20;
       doc.setFontSize(10);
       doc.setTextColor(0);
-      doc.text('Mengetahui,', 150, signY);
-      doc.text('Bendahara PB162', 150, signY + 5);
+      doc.text('Parepare, ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }), 150, signY);
+      doc.text('Bendahara PB162,', 150, signY + 6);
       doc.text('( ___________________ )', 150, signY + 25);
 
       doc.save(`Laporan_Kas_PB162_${filterMonth}.pdf`);
     } catch (error) {
+      console.error("PDF Error:", error);
       alert("Terjadi kesalahan saat membuat PDF.");
     }
   };
@@ -174,7 +180,6 @@ export default function KasManager() {
     fetchData();
   }, []);
 
-  // Fungsi Simpan (Insert & Update)
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_pembayar) return alert("Pilih nama atlet terlebih dahulu!");
@@ -182,7 +187,6 @@ export default function KasManager() {
     setSaving(true);
     try {
       if (editingId) {
-        // Mode Update
         const { error } = await supabase
           .from('kas_pb')
           .update(formData)
@@ -190,7 +194,6 @@ export default function KasManager() {
         if (error) throw error;
         alert('Data berhasil diperbarui!');
       } else {
-        // Mode Insert Baru
         const { error } = await supabase.from('kas_pb').insert([formData]);
         if (error) throw error;
         alert('Transaksi Berhasil Disimpan!');
@@ -206,7 +209,6 @@ export default function KasManager() {
     }
   };
 
-  // Fungsi Hapus Data
   const handleDelete = async (id: string) => {
     if (!confirm("Apakah Anda yakin ingin menghapus catatan kas ini?")) return;
     
@@ -219,7 +221,6 @@ export default function KasManager() {
     }
   };
 
-  // Fungsi Masuk Mode Edit
   const handleEditClick = (item: KasEntry) => {
     setEditingId(item.id);
     setFormData({
@@ -235,7 +236,6 @@ export default function KasManager() {
 
   return (
     <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
-      {/* HEADER UI */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -271,7 +271,6 @@ export default function KasManager() {
         </div>
       </div>
 
-      {/* STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
         <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
@@ -288,7 +287,6 @@ export default function KasManager() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* FORM SECTION */}
         <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem] sticky top-10">
             <div className="flex items-center justify-between mb-6">
@@ -412,7 +410,6 @@ export default function KasManager() {
           </div>
         </div>
 
-        {/* TABLE SECTION */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">

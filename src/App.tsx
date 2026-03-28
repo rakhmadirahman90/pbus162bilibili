@@ -44,7 +44,7 @@ import AdminAbout from './components/AdminAbout';
 import AdminStructure from './components/AdminStructure'; 
 
 import { KelolaSurat } from './components/KelolaSurat'; 
-import KasManager from './pages/admin/KasManager'; // BARU: Import Kelola Kas
+import KasManager from './components/KasManager'; // BARU: Import Kelola Kas
 
 import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

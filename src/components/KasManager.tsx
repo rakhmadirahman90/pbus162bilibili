@@ -64,7 +64,6 @@ export default function KasManager() {
   // --- 1. PERBAIKAN: NORMALISASI DATA (MEMAKSA WARNA HIJAU PADA DATA LAMA) ---
   const normalizedData = kasData.map(item => ({
     ...item,
-    // Jika kategori ada di daftar pemasukan, paksa jenis_transaksi menjadi 'Masuk' untuk tampilan & kalkulasi
     jenis_transaksi: DAFTAR_PEMASUKAN.includes(item.kategori) ? ('Masuk' as const) : item.jenis_transaksi
   }));
 
@@ -82,7 +81,6 @@ export default function KasManager() {
     return curr.jenis_transaksi === 'Masuk' ? acc + curr.jumlah_bayar : acc - curr.jumlah_bayar;
   }, 0);
 
-  // --- LOGIKA PDF (TETAP SAMA) ---
   const getTransparentImageData = (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -144,11 +142,25 @@ export default function KasManager() {
       doc.text(`TOTAL PENGELUARAN: Rp ${stats.keluar.toLocaleString()}`, 192, finalY + 6, { align: 'right' });
       doc.setTextColor(30, 64, 175).text(`SUBTOTAL PERIODE: Rp ${(stats.masuk - stats.keluar).toLocaleString()}`, 192, finalY + 12, { align: 'right' });
 
+      // --- TAMBAHAN: TANDA TANGAN (KOTAK MENGETAHUI) ---
+      const signY = finalY + 30;
+      doc.setFontSize(10).setFont("helvetica", "normal").setTextColor(0);
+      doc.text('Mengetahui,', 14, signY);
+      
+      // Ketua
+      doc.setFont("helvetica", "bold").text('Ketua PB. Bili Bili 162,', 14, signY + 7);
+      doc.line(14, signY + 32, 60, signY + 32); // Garis bawah nama
+      doc.text('DARWIS RAHIM', 14, signY + 31);
+
+      // Bendahara
+      doc.setFont("helvetica", "bold").text('Bendahara,', 150, signY + 7);
+      doc.line(150, signY + 32, 196, signY + 32); // Garis bawah nama
+      doc.text('ADE PUTRI BUSTAN', 150, signY + 31);
+
       doc.save(`Laporan_Kas_PB162_${startDate}_${endDate}.pdf`);
     } catch (error) { alert("Gagal membuat PDF"); }
   };
 
-  // --- 2. SINKRONISASI OTOMATIS SHUTTLECOCK & KATEGORI ---
   useEffect(() => {
     if (formData.kategori === 'Pembayaran Shuttlecock' && formData.jenis_transaksi === 'Masuk') {
       const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
@@ -158,7 +170,6 @@ export default function KasManager() {
       }
     }
     
-    // Auto switch ke 'Masuk' jika kategori iuran dipilih di form
     if (DAFTAR_PEMASUKAN.includes(formData.kategori) && formData.jenis_transaksi !== 'Masuk') {
       setFormData(prev => ({ ...prev, jenis_transaksi: 'Masuk' }));
     }
@@ -255,7 +266,6 @@ export default function KasManager() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* FORM SECTION */}
         <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem] sticky top-10">
             <h3 className="text-blue-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
@@ -335,7 +345,6 @@ export default function KasManager() {
           </div>
         </div>
 
-        {/* LIST TABLE SECTION */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">

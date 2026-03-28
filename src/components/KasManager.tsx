@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { 
-  Wallet, Plus, Search, Calendar, User, 
-  FileText, Loader2, CheckCircle2, Hash, Filter
+  Wallet, Plus, Search, FileText, Loader2, CheckCircle2, Filter
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -32,7 +31,6 @@ export default function KasManager() {
   const [kasData, setKasData] = useState<KasEntry[]>([]);
   const [atlets, setAtlets] = useState<Atlet[]>([]);
   
-  // State baru untuk Filter Bulan (Format: YYYY-MM)
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
 
   const [formData, setFormData] = useState({
@@ -44,12 +42,10 @@ export default function KasManager() {
     tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
 
-  // Filter data berdasarkan bulan yang dipilih untuk tampilan table & PDF
   const filteredData = kasData.filter(item => item.tanggal_transaksi.startsWith(filterMonth));
   const totalSaldoFiltered = filteredData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
   const totalSaldoGlobal = kasData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
 
-  // FUNGSI EXPORT PDF (FIXED & ROBUST)
   const exportToPDF = () => {
     try {
       const doc = new jsPDF();
@@ -57,7 +53,7 @@ export default function KasManager() {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
 
-      // 1. Tambahkan Logo dengan Try-Catch agar tidak membekukan fungsi
+      // 1. Logo Handling
       try {
         if (pbLogoBase64.length > 100) {
           doc.addImage(pbLogoBase64, 'PNG', 14, 10, 25, 25);
@@ -94,7 +90,7 @@ export default function KasManager() {
       doc.setTextColor(100);
       doc.text(`Dicetak pada: ${dateStr}`, 14, 53);
 
-      // 3. Pembuatan Tabel (Hanya data hasil filter)
+      // 3. Pembuatan Tabel
       const tableColumn = ["Tanggal", "Nama Member", "Kategori", "Bola", "Total Bayar"];
       const tableRows = filteredData.map(item => [
         new Date(item.tanggal_transaksi).toLocaleDateString('id-ID'),
@@ -142,47 +138,38 @@ export default function KasManager() {
       doc.save(`Laporan_Kas_PB162_${filterMonth}.pdf`);
     } catch (error) {
       console.error("PDF Export Error:", error);
-      alert("Terjadi kesalahan saat membuat PDF. Periksa konsol browser.");
+      alert("Terjadi kesalahan saat membuat PDF.");
     }
   };
 
+  // Logic Perhitungan Otomatis
   useEffect(() => {
     if (formData.kategori === 'Pembayaran Shuttlecock') {
       const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
       setFormData(prev => ({ 
         ...prev, 
-        jumlah_bayar: prev.jumlah_bola * hargaPerBola 
+        jumlah_bayar: (prev.jumlah_bola || 0) * hargaPerBola 
       }));
     }
   }, [formData.jumlah_bola, formData.tipe_anggota, formData.kategori]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: kas, error: kasError } = await supabase
-        .from('kas_pb')
-        .select('*')
-        .order('tanggal_transaksi', { ascending: false });
+      const [kasResponse, atletResponse] = await Promise.all([
+        supabase.from('kas_pb').select('*').order('tanggal_transaksi', { ascending: false }),
+        supabase.from('atlet_stats').select('id, player_name').order('player_name', { ascending: true })
+      ]);
 
-      const { data: atletData, error: atletError } = await supabase
-        .from('atlet_stats') 
-        .select('id, player_name')
-        .order('player_name', { ascending: true });
+      if (kasResponse.error) throw kasResponse.error;
+      if (atletResponse.error) throw atletResponse.error;
 
-      if (kasError) throw kasError;
-      if (atletError) throw atletError;
-
-      setKasData(kas || []);
+      setKasData(kasResponse.data || []);
+      setAtlets(atletResponse.data || []);
       
-      if (atletData && atletData.length > 0) {
-        setAtlets(atletData);
-        if (!formData.nama_pembayar) {
-          setFormData(prev => ({ ...prev, nama_pembayar: atletData[0].player_name }));
-        }
+      // Set default nama pembayar jika belum ada
+      if (atletResponse.data && atletResponse.data.length > 0 && !formData.nama_pembayar) {
+        setFormData(prev => ({ ...prev, nama_pembayar: atletResponse.data[0].player_name }));
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -190,6 +177,10 @@ export default function KasManager() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,7 +192,13 @@ export default function KasManager() {
       if (error) throw error;
 
       alert('Transaksi Berhasil Disimpan!');
-      setFormData(prev => ({ ...prev, jumlah_bola: 0, jumlah_bayar: 10000 }));
+      // Reset form ke state awal tapi tetap mempertahankan tanggal dan nama untuk input beruntun (optional)
+      setFormData(prev => ({ 
+        ...prev, 
+        kategori: 'Iuran Bulanan Tetap (10k)',
+        jumlah_bola: 0, 
+        jumlah_bayar: 10000 
+      }));
       fetchData(); 
     } catch (error: any) {
       alert(`Gagal menyimpan: ${error.message}`);
@@ -229,7 +226,6 @@ export default function KasManager() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* FILTER BULAN UI */}
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
              <Filter size={14} className="text-blue-400" />
              <input 
@@ -266,6 +262,7 @@ export default function KasManager() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* FORM SECTION */}
         <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem]">
             <h3 className="text-blue-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
@@ -282,6 +279,7 @@ export default function KasManager() {
                     let nominal = 10000;
                     if (val === 'Pembayaran Shuttlecock') nominal = 0;
                     if (val === 'Pendaftaran Atlet Baru') nominal = 50000;
+                    if (val === 'Sumbangan Sukarela') nominal = 0;
                     setFormData({...formData, kategori: val, jumlah_bayar: nominal, jumlah_bola: 0});
                   }}
                 >
@@ -293,7 +291,7 @@ export default function KasManager() {
               </div>
 
               {formData.kategori === 'Pembayaran Shuttlecock' && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-300">
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tipe</label>
                     <select 
@@ -309,6 +307,7 @@ export default function KasManager() {
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Jml Bola</label>
                     <input 
                       type="number"
+                      min="0"
                       className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs focus:border-blue-500 outline-none"
                       placeholder="0"
                       value={formData.jumlah_bola || ''}
@@ -337,6 +336,7 @@ export default function KasManager() {
                   value={formData.nama_pembayar}
                   onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})}
                 >
+                  <option value="" disabled>Pilih Atlet...</option>
                   {atlets.map((atlet) => (
                     <option key={atlet.id} value={atlet.player_name} className="bg-black text-white">
                       {atlet.player_name}
@@ -344,6 +344,18 @@ export default function KasManager() {
                   ))}
                 </select>
               </div>
+
+              {(formData.kategori === 'Sumbangan Sukarela' || formData.kategori === 'Pembayaran Shuttlecock') && formData.kategori !== 'Iuran Bulanan Tetap (10k)' && (
+                 <div>
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal Custom (Rp)</label>
+                   <input 
+                     type="number"
+                     className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none"
+                     value={formData.jumlah_bayar}
+                     onChange={(e) => setFormData({...formData, jumlah_bayar: parseInt(e.target.value) || 0})}
+                   />
+                 </div>
+              )}
 
               <div className="bg-blue-600/10 border border-blue-500/20 p-5 rounded-2xl text-center">
                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Tagihan</p>
@@ -353,7 +365,7 @@ export default function KasManager() {
               <button 
                 type="submit"
                 disabled={saving || loading}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all flex items-center justify-center gap-2"
+                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all flex items-center justify-center gap-2"
               >
                 {saving ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
                 Simpan Transaksi
@@ -362,6 +374,7 @@ export default function KasManager() {
           </div>
         </div>
 
+        {/* TABLE SECTION */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
@@ -380,7 +393,13 @@ export default function KasManager() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {filteredData.length > 0 ? filteredData.map((item) => (
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} className="p-20 text-center">
+                        <Loader2 className="animate-spin mx-auto text-blue-500" size={32} />
+                      </td>
+                    </tr>
+                  ) : filteredData.length > 0 ? filteredData.map((item) => (
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-all">
                       <td className="p-6">
                         <p className="font-bold text-sm tracking-tight">{item.nama_pembayar}</p>

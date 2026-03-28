@@ -44,8 +44,9 @@ import AdminAbout from './components/AdminAbout';
 import AdminStructure from './components/AdminStructure'; 
 
 import { KelolaSurat } from './components/KelolaSurat'; 
+import KasManager from './pages/admin/KasManager'; // BARU: Import Kelola Kas
 
-import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Menu, Zap, Download, ArrowUp, ExternalLink, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // HELPER: Auto Scroll ke atas setiap pindah route
@@ -264,7 +265,6 @@ export default function App() {
                 </motion.div>
               ) : (
                 <motion.div key="struktur" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="pt-20 bg-slate-50 min-h-screen w-full">
-                  {/* Komponen Landing Page ini harus sinkron mengambil .order('sort_order') */}
                   <StrukturOrganisasi />
                   <motion.button 
                     whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
@@ -280,7 +280,6 @@ export default function App() {
           </div>
         } />
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/admin/dashboard" replace />} />
-        {/* DASHBOARD ADMIN ROUTE */}
         <Route path="/admin/*" element={session ? <AdminLayout session={session} /> : <Navigate to="/login" replace />} />
       </Routes>
     </Router>
@@ -305,6 +304,7 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="dashboard" element={<ManajemenPendaftaran />} />
             <Route path="atlet" element={<ManajemenAtlet />} />
             <Route path="surat" element={<KelolaSurat />} />
+            <Route path="kas" element={<KasManager />} /> {/* BARU: Route Kelola Kas */}
             <Route path="poin" element={<ManajemenPoin />} />
             <Route path="audit-poin" element={<AuditLogPoin />} />
             <Route path="skor" element={<AdminMatch />} />
@@ -320,7 +320,6 @@ function AdminLayout({ session }: { session: any }) {
             <Route path="popup" element={<AdminPopup />} /> 
             <Route path="footer" element={<AdminFooter />} />
             <Route path="about" element={<AdminAbout />} />
-            {/* ROUTE ADMIN: Editor Urutan Menggunakan AdminStructure */}
             <Route path="struktur" element={<AdminStructure />} /> 
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>

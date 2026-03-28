@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabase'; // Sesuaikan path ke file supabase config Anda
+import { supabase } from '../supabase'; 
 import { 
-  Wallet, 
-  Plus, 
-  Search, 
-  Calendar, 
-  User, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  FileText,
-  Loader2,
-  CheckCircle2
+  Wallet, Plus, Search, Calendar, User, ArrowUpRight, 
+  ArrowDownLeft, FileText, Loader2, CheckCircle2 
 } from 'lucide-react';
 
 interface Atlet {
@@ -36,12 +28,11 @@ export default function KasManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Form State
   const [formData, setFormData] = useState({
     nama_pembayar: '',
     kategori: 'Iuran Bulanan Tetap (10k)',
     jumlah: 10000,
-    tanggal_transaksi: new Date().toISOString().split('T')[0] // Default hari ini
+    tanggal_transaksi: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
@@ -51,15 +42,14 @@ export default function KasManager() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Ambil Data Kas
       const { data: kas, error: kasError } = await supabase
         .from('kas_pb')
         .select('*')
         .order('tanggal_transaksi', { ascending: false });
 
-      // Ambil Data Atlet untuk dropdown
+      // DISESUAIKAN: Mengambil data dari tabel atlet_stats
       const { data: atletData, error: atletError } = await supabase
-        .from('atlet')
+        .from('atlet_stats')
         .select('id, nama')
         .order('nama', { ascending: true });
 
@@ -74,13 +64,12 @@ export default function KasManager() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.nama_pembayar) return alert("Pilih atau isi nama pembayar!");
+    
     setSaving(true);
     try {
       const { error } = await supabase.from('kas_pb').insert([
-        {
-          ...formData,
-          tipe: 'masuk' // Default pendaftaran/iuran adalah masuk
-        }
+        { ...formData, tipe: 'masuk' }
       ]);
 
       if (!error) {
@@ -100,7 +89,6 @@ export default function KasManager() {
     a.nama.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Kalkulasi Saldo
   const totalSaldo = kasData.reduce((acc, curr) => acc + curr.jumlah, 0);
 
   return (
@@ -109,53 +97,41 @@ export default function KasManager() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-500/20 rounded-lg">
-              <Wallet className="text-emerald-400" size={28} />
+            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+              <Wallet size={28} />
             </div>
             <h1 className="text-4xl font-black italic tracking-tighter uppercase text-emerald-400">
               Financial <span className="text-white">Reports</span>
             </h1>
           </div>
-          <p className="text-slate-500 text-xs font-bold tracking-[0.3em] uppercase ml-1">
-            PB. BILI BILI 162 INTERNAL TREASURY
+          <p className="text-slate-500 text-[10px] font-black tracking-[0.3em] uppercase ml-1">
+            PB. BILI BILI 162 TREASURY SYSTEM
           </p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-xs font-black uppercase tracking-widest">
-          <FileText size={16} /> Export PDF Report
-        </button>
       </div>
 
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
-        {[
-          { label: 'Harian', val: 'Rp 0', color: 'text-white' },
-          { label: 'Mingguan', val: 'Rp 0', color: 'text-blue-400' },
-          { label: 'Bulanan', val: 'Rp 0', color: 'text-purple-400' },
-          { label: 'Total Saldo', val: `Rp ${totalSaldo.toLocaleString()}`, color: 'text-emerald-400' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-current" /> {stat.label}
-            </p>
-            <h2 className={`text-2xl font-black italic ${stat.color}`}>{stat.val}</h2>
-          </div>
-        ))}
+      {/* STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem]">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Total Kas Terkumpul</p>
+          <h2 className="text-3xl font-black italic text-emerald-400">Rp {totalSaldo.toLocaleString()}</h2>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* FORM LEFT */}
-        <div className="lg:col-span-4 space-y-6">
+        {/* FORM SECTION */}
+        <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem]">
-            <h3 className="text-emerald-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
-              <Plus size={20} /> New Entry
+            <h3 className="text-emerald-400 font-black italic uppercase text-lg mb-6 flex items-center gap-2">
+              <Plus size={20} /> Input Transaksi
             </h3>
             
             <form onSubmit={handleSave} className="space-y-5">
               {/* KATEGORI */}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Kategori</label>
                 <select 
-                  className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
+                  className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none"
                   value={formData.kategori}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -169,35 +145,33 @@ export default function KasManager() {
                   <option value="Pembayaran Shuttlecock">Pembayaran Shuttlecock</option>
                   <option value="Pendaftaran Atlet Baru">Pendaftaran Atlet Baru</option>
                   <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
-                  <option value="Denda Terlambat">Denda Terlambat</option>
                 </select>
               </div>
 
-              {/* TANGGAL TRANSAKSI */}
+              {/* TANGGAL */}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tanggal Transaksi</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Tanggal</label>
                 <div className="relative">
                   <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                   <input 
                     type="date"
                     required
-                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all"
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none"
                     value={formData.tanggal_transaksi}
                     onChange={(e) => setFormData({...formData, tanggal_transaksi: e.target.value})}
                   />
                 </div>
               </div>
 
-              {/* SEARCH NAMA ATLET */}
+              {/* SEARCH NAMA (atlet_stats) */}
               <div className="relative">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar (Atlet)</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Nama Pembayar</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                   <input 
                     type="text"
-                    required
-                    placeholder="Cari nama atlet..."
-                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all"
+                    placeholder="Ketik nama untuk mencari..."
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none"
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
@@ -227,82 +201,68 @@ export default function KasManager() {
                 )}
               </div>
 
-              {/* NOMINAL (BISA DIEDIT) */}
+              {/* NOMINAL */}
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Nominal (Rp)</label>
                 <input 
                   type="number"
-                  className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
+                  className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none"
                   value={formData.jumlah}
                   onChange={(e) => setFormData({...formData, jumlah: parseInt(e.target.value) || 0})}
                 />
               </div>
 
-              <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center">
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Payable Amount</p>
-                <h4 className="text-3xl font-black italic">Rp {formData.jumlah.toLocaleString()}</h4>
-              </div>
-
               <button 
                 type="submit"
                 disabled={saving}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-widest py-5 rounded-2xl transition-all flex items-center justify-center gap-2 mt-4"
               >
                 {saving ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
-                {saving ? 'Processing...' : 'Simpan Transaksi'}
+                {saving ? 'PROSES...' : 'SIMPAN DATA'}
               </button>
             </form>
           </div>
         </div>
 
-        {/* TABLE RIGHT */}
+        {/* LEDGER TABLE */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Financial_Ledger.sh</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Financial_Ledger_v1.0</h3>
               <Search size={16} className="text-slate-500" />
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left">
                 <thead>
-                  <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5">
-                    <th className="p-6">Date</th>
-                    <th className="p-6">Member</th>
-                    <th className="p-6">Category</th>
-                    <th className="p-6 text-right">Amount</th>
+                  <tr className="text-[10px] font-black uppercase text-slate-500 border-b border-white/5">
+                    <th className="p-6">Tanggal</th>
+                    <th className="p-6">Nama Atlet</th>
+                    <th className="p-6">Kategori</th>
+                    <th className="p-6 text-right">Jumlah</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {loading ? (
-                    <tr>
-                      <td colSpan={4} className="p-20 text-center text-slate-500 font-bold italic">Loading Ledger...</td>
-                    </tr>
-                  ) : kasData.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="p-20 text-center text-slate-500 font-bold italic">Belum ada data kas.</td>
-                    </tr>
+                    <tr><td colSpan={4} className="p-20 text-center text-slate-500">Memuat data...</td></tr>
                   ) : (
                     kasData.map((item) => (
-                      <tr key={item.id} className="hover:bg-white/[0.02] transition-all">
-                        <td className="p-6 text-xs text-slate-400 font-mono">
+                      <tr key={item.id} className="hover:bg-white/[0.02] transition-colors text-sm">
+                        <td className="p-6 text-slate-400 font-mono">
                           {new Date(item.tanggal_transaksi).toLocaleDateString('id-ID')}
                         </td>
-                        <td className="p-6 font-bold text-sm tracking-tight">{item.nama_pembayar}</td>
+                        <td className="p-6 font-bold">{item.nama_pembayar}</td>
                         <td className="p-6">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${
                             item.kategori === 'Pembayaran Shuttlecock' 
                             ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
-                            : 'bg-white/5 text-white border-white/10'
+                            : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                           }`}>
                             {item.kategori}
                           </span>
                         </td>
-                        <td className="p-6 text-right">
-                          <div className={`text-sm font-black italic flex items-center justify-end gap-2 ${item.tipe === 'masuk' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {item.tipe === 'masuk' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
-                            Rp {item.jumlah.toLocaleString()}
-                          </div>
+                        <td className="p-6 text-right font-black italic text-emerald-400">
+                          Rp {item.jumlah.toLocaleString()}
                         </td>
                       </tr>
                     ))

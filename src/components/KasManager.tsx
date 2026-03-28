@@ -1,22 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabase'; // Sesuaikan path ke file supabase config Anda
+import { supabase } from '../supabase';
 import { 
-  Wallet, 
-  Plus, 
-  Search, 
-  Calendar, 
-  User, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  FileText,
-  Loader2,
-  CheckCircle2,
-  Hash // Tambahan icon untuk jumlah bola
+  Wallet, Plus, Search, Calendar, User, 
+  ArrowUpRight, ArrowDownLeft, FileText,
+  Loader2, CheckCircle2, Hash 
 } from 'lucide-react';
+// Import jsPDF
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Atlet {
   id: string;
-  player_name: string; // Mengikuti kolom di database atlet_stats
+  player_name: string;
 }
 
 interface KasEntry {
@@ -25,8 +20,8 @@ interface KasEntry {
   tanggal_transaksi: string;
   nama_pembayar: string;
   kategori: string;
-  jumlah_bayar: number; // DIPERBAIKI: Menggunakan nama kolom database yang benar
-  jumlah_bola: number; // TAMBAHAN: Agar muncul di tabel
+  jumlah_bayar: number;
+  jumlah_bola: number;
   tipe_anggota: string; 
 }
 
@@ -36,17 +31,58 @@ export default function KasManager() {
   const [kasData, setKasData] = useState<KasEntry[]>([]);
   const [atlets, setAtlets] = useState<Atlet[]>([]);
 
-  // Form State
   const [formData, setFormData] = useState({
     nama_pembayar: '',
     kategori: 'Iuran Bulanan Tetap (10k)',
     jumlah_bayar: 10000, 
-    jumlah_bola: 0, // TAMBAHAN: State jumlah bola
-    tipe_anggota: 'Anggota Tetap', // TAMBAHAN: Default tipe
+    jumlah_bola: 0,
+    tipe_anggota: 'Anggota Tetap',
     tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
 
-  // LOGIKA HITUNG OTOMATIS
+  // FUNGSI EXPORT PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const dateStr = new Date().toLocaleDateString('id-ID');
+
+    // Header Laporan
+    doc.setFontSize(18);
+    doc.text('LAPORAN KAS PB. BILI BILI 162', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Tanggal Cetak: ${dateStr}`, 14, 30);
+
+    // Pembuatan Tabel
+    const tableColumn = ["Tanggal", "Nama Member", "Kategori", "Bola", "Total Bayar"];
+    const tableRows: any[] = [];
+
+    kasData.forEach(item => {
+      const rowData = [
+        new Date(item.tanggal_transaksi).toLocaleDateString('id-ID'),
+        item.nama_pembayar,
+        item.kategori,
+        item.jumlah_bola || '-',
+        `Rp ${item.jumlah_bayar.toLocaleString()}`
+      ];
+      tableRows.push(rowData);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 40,
+      theme: 'grid',
+      headStyles: { fillStyle: [16, 185, 129] }, // Warna Emerald-500
+    });
+
+    // Ringkasan Saldo
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.text(`Total Saldo: Rp ${totalSaldo.toLocaleString()}`, 14, finalY);
+
+    doc.save(`Laporan_Kas_PB162_${new Date().getTime()}.pdf`);
+  };
+
   useEffect(() => {
     if (formData.kategori === 'Pembayaran Shuttlecock') {
       const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
@@ -103,9 +139,9 @@ export default function KasManager() {
           nama_pembayar: formData.nama_pembayar,
           kategori: formData.kategori,
           jumlah_bayar: formData.jumlah_bayar,
-          jumlah_bola: formData.jumlah_bola, // TAMBAHAN: Simpan jumlah bola
+          jumlah_bola: formData.jumlah_bola,
           tanggal_transaksi: formData.tanggal_transaksi,
-          tipe_anggota: formData.tipe_anggota // MENGGUNAKAN: State tipe_anggota yang dipilih
+          tipe_anggota: formData.tipe_anggota
         }
       ]);
 
@@ -142,7 +178,11 @@ export default function KasManager() {
             PB. BILI BILI 162 INTERNAL TREASURY
           </p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-xs font-black uppercase tracking-widest">
+        {/* BUTTON DIHUBUNGKAN KE FUNGSI EXPORT */}
+        <button 
+          onClick={exportToPDF}
+          className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
+        >
           <FileText size={16} /> Export PDF Report
         </button>
       </div>
@@ -256,7 +296,7 @@ export default function KasManager() {
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
                 <input 
                   type="number"
-                  readOnly={formData.kategori === 'Pembayaran Shuttlecock'} // Otomatis jika shuttlecock
+                  readOnly={formData.kategori === 'Pembayaran Shuttlecock'}
                   className={`w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none ${formData.kategori === 'Pembayaran Shuttlecock' ? 'opacity-50' : ''}`}
                   value={formData.jumlah_bayar}
                   onChange={(e) => setFormData({...formData, jumlah_bayar: parseInt(e.target.value) || 0})}

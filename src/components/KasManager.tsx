@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { 
-  Wallet, Plus, Search, FileText, Loader2, CheckCircle2, Filter, Trash2, Edit3, X 
+  Wallet, Plus, Search, FileText, Loader2, CheckCircle2, Filter, 
+  Trash2, Edit3, X, ArrowUpCircle, ArrowDownCircle, Calendar
 } from 'lucide-react'; 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// URL Logo dari Supabase Storage
 const PB_LOGO_URL = "https://hykrsqsznmrtszhfywjz.supabase.co/storage/v1/object/public/assets/logo1.png";
 
 interface Atlet {
@@ -23,6 +23,8 @@ interface KasEntry {
   jumlah_bayar: number;
   jumlah_bola: number;
   tipe_anggota: string; 
+  jenis_transaksi: 'Masuk' | 'Keluar'; // Fitur Baru
+  keterangan?: string;
 }
 
 export default function KasManager() {
@@ -32,7 +34,12 @@ export default function KasManager() {
   const [atlets, setAtlets] = useState<Atlet[]>([]);
   
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
+  
+  // --- FITUR FILTER BARU: RANGE TANGGAL ---
+  const today = new Date().toISOString().split('T')[0];
+  const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState(firstDayOfMonth);
+  const [endDate, setEndDate] = useState(today);
 
   const initialForm = {
     nama_pembayar: '',
@@ -40,17 +47,28 @@ export default function KasManager() {
     jumlah_bayar: 10000, 
     jumlah_bola: 0,
     tipe_anggota: 'Anggota Tetap',
-    tanggal_transaksi: new Date().toISOString().split('T')[0] 
+    jenis_transaksi: 'Masuk' as 'Masuk' | 'Keluar',
+    tanggal_transaksi: today,
+    keterangan: ''
   };
 
   const [formData, setFormData] = useState(initialForm);
 
-  // Filter & Total Logic
-  const filteredData = kasData.filter(item => item.tanggal_transaksi.startsWith(filterMonth));
-  const totalSaldoFiltered = filteredData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
-  const totalSaldoGlobal = kasData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
+  // --- LOGIKA FILTER & KALKULASI ---
+  const filteredData = kasData.filter(item => {
+    return item.tanggal_transaksi >= startDate && item.tanggal_transaksi <= endDate;
+  });
 
-  // --- HELPER: Transparansi Logo ---
+  const stats = filteredData.reduce((acc, curr) => {
+    if (curr.jenis_transaksi === 'Masuk') acc.masuk += curr.jumlah_bayar;
+    else acc.keluar += curr.jumlah_bayar;
+    return acc;
+  }, { masuk: 0, keluar: 0 });
+
+  const totalSaldoGlobal = kasData.reduce((acc, curr) => {
+    return curr.jenis_transaksi === 'Masuk' ? acc + curr.jumlah_bayar : acc - curr.jumlah_bayar;
+  }, 0);
+
   const getTransparentImageData = (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -64,245 +82,169 @@ export default function KasManager() {
         if (ctx) {
           ctx.drawImage(img, 0, 0);
           resolve(canvas.toDataURL('image/png'));
-        } else {
-          reject(new Error("Gagal mendapatkan context canvas"));
-        }
+        } else reject(new Error("Gagal context"));
       };
       img.onerror = (e) => reject(e);
     });
   };
 
-  // --- LOGIKA PERHITUNGAN OTOMATIS (ENHANCED) ---
-  useEffect(() => {
-    if (formData.kategori === 'Pembayaran Shuttlecock') {
-      const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
-      setFormData(prev => ({ 
-        ...prev, 
-        jumlah_bayar: (prev.jumlah_bola || 0) * hargaPerBola 
-      }));
-    } else if (formData.kategori === 'Iuran Bulanan Tetap (10k)') {
-      setFormData(prev => ({ ...prev, jumlah_bayar: 10000, jumlah_bola: 0 }));
-    } else if (formData.kategori === 'Pendaftaran Atlet Baru') {
-      setFormData(prev => ({ ...prev, jumlah_bayar: 50000, jumlah_bola: 0 }));
-    }
-  }, [formData.jumlah_bola, formData.tipe_anggota, formData.kategori]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [kasResponse, atletResponse] = await Promise.all([
-        supabase.from('kas_pb').select('*').order('tanggal_transaksi', { ascending: false }),
-        supabase.from('atlet_stats').select('id, player_name').order('player_name', { ascending: true })
-      ]);
-
-      if (kasResponse.error) throw kasResponse.error;
-      if (atletResponse.error) throw atletResponse.error;
-
-      setKasData(kasResponse.data || []);
-      setAtlets(atletResponse.data || []);
-      
-      // Set default name if form is empty
-      if (atletResponse.data?.length > 0 && !formData.nama_pembayar) {
-        setFormData(prev => ({ ...prev, nama_pembayar: atletResponse.data[0].player_name }));
-      }
-    } catch (error) {
-      console.error('Error fetching:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.nama_pembayar) return alert("Pilih nama atlet!");
-
-    setSaving(true);
-    try {
-      if (editingId) {
-        const { error } = await supabase.from('kas_pb').update(formData).eq('id', editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('kas_pb').insert([formData]);
-        if (error) throw error;
-      }
-      
-      setEditingId(null);
-      setFormData({ ...initialForm, nama_pembayar: atlets[0]?.player_name || '' });
-      fetchData(); 
-      alert('Data berhasil disimpan!');
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Hapus catatan ini?")) return;
-    try {
-      const { error } = await supabase.from('kas_pb').delete().eq('id', id);
-      if (error) throw error;
-      fetchData();
-    } catch (error: any) {
-      alert(`Gagal: ${error.message}`);
-    }
-  };
-
-  const handleEditClick = (item: KasEntry) => {
-    setEditingId(item.id);
-    setFormData({
-      nama_pembayar: item.nama_pembayar,
-      kategori: item.kategori,
-      jumlah_bayar: item.jumlah_bayar,
-      jumlah_bola: item.jumlah_bola || 0,
-      tipe_anggota: item.tipe_anggota || 'Anggota Tetap',
-      tanggal_transaksi: item.tanggal_transaksi
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const exportToPDF = async () => {
     try {
       const doc = new jsPDF();
-      const dateStr = new Date().toLocaleDateString('id-ID', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
+      const dateStr = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-      // 1. Logo
       try {
         const transparentLogo = await getTransparentImageData(PB_LOGO_URL);
         doc.addImage(transparentLogo, 'PNG', 14, 10, 22, 22, undefined, 'FAST');
-      } catch (e) {
-        console.error("CORS/Logo error", e);
-      }
+      } catch (e) { console.error("Logo error", e); }
 
-      // 2. Header
-      doc.setFontSize(20).setFont("helvetica", "bold").setTextColor(30, 64, 175);
-      doc.text('PB. BILI BILI 162', 42, 18);
-      doc.setFontSize(9).setFont("helvetica", "normal").setTextColor(100);
-      doc.text('Jl. Bili-Bili No. 162, Kota Parepare, Sulawesi Selatan', 42, 24);
-      doc.text(`Periode Laporan: ${filterMonth} | Dicetak: ${dateStr}`, 42, 29);
+      doc.setFontSize(20).setFont("helvetica", "bold").setTextColor(30, 64, 175).text('PB. BILI BILI 162', 42, 18);
+      doc.setFontSize(9).setFont("helvetica", "normal").setTextColor(100).text('Jl. Bili-Bili No. 162, Parepare, Sulawesi Selatan', 42, 24);
+      doc.text(`Periode: ${startDate} s/d ${endDate}`, 42, 29);
 
       doc.setDrawColor(30, 64, 175).setLineWidth(0.8).line(14, 38, 196, 38);
 
-      // 3. Table
+      doc.setFontSize(14).setFont("helvetica", "bold").setTextColor(0).text('LAPORAN KAS MASUK & KELUAR', 14, 48);
+      doc.setFontSize(9).setFont("helvetica", "italic").setTextColor(100).text(`Dicetak pada: ${dateStr}`, 14, 53);
+
       const tableRows = filteredData.map(item => [
         new Date(item.tanggal_transaksi).toLocaleDateString('id-ID'),
-        item.nama_pembayar,
-        item.kategori,
+        item.nama_pembayar || '-',
+        `${item.jenis_transaksi === 'Masuk' ? '(+)' : '(-)'} ${item.kategori}`,
         item.jumlah_bola || '-',
         `Rp ${item.jumlah_bayar.toLocaleString()}`
       ]);
 
       autoTable(doc, {
-        head: [["Tanggal", "Nama Member", "Kategori", "Bola", "Total"]],
+        head: [["Tanggal", "Nama/Keperluan", "Kategori", "Bola", "Nominal"]],
         body: tableRows,
-        startY: 45,
+        startY: 58,
         theme: 'grid',
         headStyles: { fillColor: [30, 64, 175], fontSize: 10, halign: 'center' },
-        columnStyles: { 3: { halign: 'center' }, 4: { halign: 'right' } },
+        columnStyles: { 4: { halign: 'right' } }
       });
 
-      // 4. Footer
       const finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(10).setFont("helvetica", "bold").setTextColor(30, 64, 175);
-      doc.text(`TOTAL PERIODE: Rp ${totalSaldoFiltered.toLocaleString()}`, 192, finalY, { align: 'right' });
+      doc.setFontSize(10).setFont("helvetica", "bold");
+      doc.text(`TOTAL MASUK: Rp ${stats.masuk.toLocaleString()}`, 192, finalY, { align: 'right' });
+      doc.text(`TOTAL KELUAR: Rp ${stats.keluar.toLocaleString()}`, 192, finalY + 6, { align: 'right' });
+      doc.setTextColor(30, 64, 175).text(`SALDO PERIODE: Rp ${(stats.masuk - stats.keluar).toLocaleString()}`, 192, finalY + 12, { align: 'right' });
 
-      const signY = finalY + 25;
-      doc.setTextColor(0).setFont("helvetica", "normal");
-      doc.text('Parepare, ' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }), 145, signY);
-      doc.text('Bendahara PB162,', 145, signY + 7);
-      doc.text('( ___________________ )', 145, signY + 30);
+      doc.save(`Laporan_Kas_PB162_${startDate}_to_${endDate}.pdf`);
+    } catch (error) { alert("Gagal membuat PDF"); }
+  };
 
-      doc.save(`Laporan_Kas_${filterMonth}.pdf`);
-    } catch (error) {
-      alert("Gagal ekspor PDF.");
+  useEffect(() => {
+    if (formData.kategori === 'Pembayaran Shuttlecock' && formData.jenis_transaksi === 'Masuk') {
+      const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
+      setFormData(prev => ({ ...prev, jumlah_bayar: (prev.jumlah_bola || 0) * hargaPerBola }));
     }
+  }, [formData.jumlah_bola, formData.tipe_anggota, formData.kategori, formData.jenis_transaksi]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [kasRes, atletRes] = await Promise.all([
+        supabase.from('kas_pb').select('*').order('tanggal_transaksi', { ascending: false }),
+        supabase.from('atlet_stats').select('id, player_name').order('player_name', { ascending: true })
+      ]);
+      setKasData(kasRes.data || []);
+      setAtlets(atletRes.data || []);
+    } catch (error) { console.error(error); } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      if (editingId) {
+        await supabase.from('kas_pb').update(formData).eq('id', editingId);
+      } else {
+        await supabase.from('kas_pb').insert([formData]);
+      }
+      setEditingId(null);
+      setFormData(initialForm);
+      fetchData();
+      alert('Data Berhasil Disimpan!');
+    } catch (error: any) { alert(error.message); } finally { setSaving(false); }
   };
 
   return (
     <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+      {/* HEADER & FILTER HARIAN */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-500/20 rounded-lg"><Wallet className="text-blue-400" size={28} /></div>
-            <h1 className="text-4xl font-black italic tracking-tighter uppercase text-blue-400">
-              Financial <span className="text-white">Reports</span>
-            </h1>
+            <h1 className="text-4xl font-black italic tracking-tighter uppercase text-blue-400">Treasury <span className="text-white">Master</span></h1>
           </div>
-          <p className="text-slate-500 text-[10px] font-bold tracking-[0.3em] uppercase ml-1">PB. BILI BILI 162 INTERNAL TREASURY</p>
+          <p className="text-slate-500 text-[10px] font-bold tracking-[0.3em] uppercase ml-1">PB. BILI BILI 162 FINANCIAL HUB</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
-            <Filter size={14} className="text-blue-400" />
-            <input type="month" className="bg-transparent text-xs font-bold outline-none text-white uppercase" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} />
+             <Calendar size={14} className="text-blue-400" />
+             <input type="date" className="bg-transparent text-[10px] font-bold outline-none text-white" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+             <span className="text-slate-500">-</span>
+             <input type="date" className="bg-transparent text-[10px] font-bold outline-none text-white" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
-          <button onClick={exportToPDF} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl transition-all text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-600/20">
-            <FileText size={16} /> Export PDF
-          </button>
+          <button onClick={exportToPDF} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl transition-all text-xs font-black uppercase tracking-widest"><FileText size={16} /> Export PDF</button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-        <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> Kas Periode Ini
-          </p>
-          <h2 className="text-2xl font-black italic text-blue-400">Rp {totalSaldoFiltered.toLocaleString()}</h2>
+      {/* DASHBOARD STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-[2rem]">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2 flex items-center gap-2"><ArrowUpCircle size={14}/> Total Masuk</p>
+          <h2 className="text-2xl font-black italic text-emerald-400">Rp {stats.masuk.toLocaleString()}</h2>
         </div>
-        <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" /> Total Saldo Global
-          </p>
+        <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-[2rem]">
+          <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-2 flex items-center gap-2"><ArrowDownCircle size={14}/> Total Keluar</p>
+          <h2 className="text-2xl font-black italic text-red-400">Rp {stats.keluar.toLocaleString()}</h2>
+        </div>
+        <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-[2rem]">
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 flex items-center gap-2"><Wallet size={14}/> Saldo Kas Akhir</p>
           <h2 className="text-2xl font-black italic text-white">Rp {totalSaldoGlobal.toLocaleString()}</h2>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Form Section */}
+        {/* FORM SECTION */}
         <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem] sticky top-10">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-blue-400 font-black italic uppercase tracking-tighter text-xl flex items-center gap-2">
-                  {editingId ? <Edit3 size={20} /> : <Plus size={20} />} 
-                  {editingId ? 'Update Entry' : 'New Entry'}
-                </h3>
-                {editingId && (
-                    <button onClick={() => {setEditingId(null); setFormData(initialForm);}} className="text-slate-500 hover:text-white"><X size={20}/></button>
-                )}
-            </div>
+            <h3 className="text-blue-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
+              {editingId ? <Edit3 size={20} /> : <Plus size={20} />} {editingId ? 'Edit Record' : 'Add Entry'}
+            </h3>
 
-            <form onSubmit={handleSave} className="space-y-5">
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori</label>
-                <select className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-blue-500 outline-none" value={formData.kategori} onChange={(e) => setFormData({...formData, kategori: e.target.value})}>
-                  <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
-                  <option value="Pembayaran Shuttlecock">Pembayaran Shuttlecock</option>
-                  <option value="Pendaftaran Atlet Baru">Pendaftaran Atlet Baru</option>
-                  <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
-                </select>
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="flex bg-black p-1 rounded-xl border border-white/10">
+                <button type="button" onClick={() => setFormData({...formData, jenis_transaksi: 'Masuk'})} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.jenis_transaksi === 'Masuk' ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}>Pemasukan</button>
+                <button type="button" onClick={() => setFormData({...formData, jenis_transaksi: 'Keluar', kategori: 'Biaya Operasional'})} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${formData.jenis_transaksi === 'Keluar' ? 'bg-red-600 text-white' : 'text-slate-500'}`}>Pengeluaran</button>
               </div>
 
-              {formData.kategori === 'Pembayaran Shuttlecock' && (
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori</label>
+                {formData.jenis_transaksi === 'Masuk' ? (
+                  <select className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" value={formData.kategori} onChange={(e) => setFormData({...formData, kategori: e.target.value})}>
+                    <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
+                    <option value="Pembayaran Shuttlecock">Pembayaran Shuttlecock</option>
+                    <option value="Pendaftaran Atlet Baru">Pendaftaran Atlet Baru</option>
+                    <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
+                  </select>
+                ) : (
+                  <input type="text" className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" placeholder="Contoh: Beli Bola, Listrik, dll" value={formData.kategori} onChange={(e) => setFormData({...formData, kategori: e.target.value})} />
+                )}
+              </div>
+
+              {formData.kategori === 'Pembayaran Shuttlecock' && formData.jenis_transaksi === 'Masuk' && (
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tipe</label>
-                    <select className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs outline-none" value={formData.tipe_anggota} onChange={(e) => setFormData({...formData, tipe_anggota: e.target.value})}>
-                      <option value="Anggota Tetap">Tetap (4k)</option>
-                      <option value="Anggota Tidak Tetap">Tidak Tetap (5k)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Jml Bola</label>
-                    <input type="number" min="0" className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs outline-none" value={formData.jumlah_bola || ''} onChange={(e) => setFormData({...formData, jumlah_bola: parseInt(e.target.value) || 0})} />
-                  </div>
+                  <select className="bg-black border border-white/10 rounded-xl p-4 text-xs" value={formData.tipe_anggota} onChange={(e) => setFormData({...formData, tipe_anggota: e.target.value})}>
+                    <option value="Anggota Tetap">Tetap (4k)</option>
+                    <option value="Anggota Tidak Tetap">Tidak Tetap (5k)</option>
+                  </select>
+                  <input type="number" className="bg-black border border-white/10 rounded-xl p-4 text-xs" placeholder="Jml Bola" value={formData.jumlah_bola || ''} onChange={(e) => setFormData({...formData, jumlah_bola: parseInt(e.target.value) || 0})} />
                 </div>
               )}
 
@@ -312,40 +254,34 @@ export default function KasManager() {
               </div>
 
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar</label>
-                <select required className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" value={formData.nama_pembayar} onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})}>
-                  <option value="" disabled>Pilih Atlet...</option>
-                  {atlets.map((atlet) => (
-                    <option key={atlet.id} value={atlet.player_name} className="bg-black">{atlet.player_name}</option>
-                  ))}
-                </select>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama / Keterangan</label>
+                {formData.jenis_transaksi === 'Masuk' ? (
+                  <select required className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" value={formData.nama_pembayar} onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})}>
+                    <option value="">Pilih Atlet...</option>
+                    {atlets.map(a => <option key={a.id} value={a.player_name}>{a.player_name}</option>)}
+                  </select>
+                ) : (
+                  <input type="text" className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" placeholder="Nama Penerima/Detail" value={formData.nama_pembayar} onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})} />
+                )}
               </div>
 
-              {(formData.kategori === 'Sumbangan Sukarela') && (
-                 <div>
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
-                   <input type="number" className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none" value={formData.jumlah_bayar} onChange={(e) => setFormData({...formData, jumlah_bayar: parseInt(e.target.value) || 0})} />
-                 </div>
-              )}
-
-              <div className="bg-blue-600/10 border border-blue-500/20 p-5 rounded-2xl text-center">
-                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Tagihan</p>
-                <h4 className="text-3xl font-black italic">Rp {formData.jumlah_bayar.toLocaleString()}</h4>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
+                <input type="number" className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm outline-none font-bold text-blue-400" value={formData.jumlah_bayar} onChange={(e) => setFormData({...formData, jumlah_bayar: parseInt(e.target.value) || 0})} />
               </div>
 
-              <button type="submit" disabled={saving} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl flex items-center justify-center gap-2">
-                {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? <CheckCircle2 size={18} /> : <Plus size={18} />)}
-                {editingId ? 'Update Transaksi' : 'Simpan Transaksi'}
+              <button type="submit" disabled={saving} className={`w-full ${formData.jenis_transaksi === 'Masuk' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-red-600 hover:bg-red-500'} text-white font-black uppercase text-xs py-5 rounded-2xl transition-all flex items-center justify-center gap-2`}>
+                {saving ? <Loader2 className="animate-spin" size={18} /> : (editingId ? 'Update Record' : 'Submit Entry')}
               </button>
             </form>
           </div>
         </div>
 
-        {/* Table Section */}
+        {/* LIST TABLE SECTION */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Ledger_Entry_{filterMonth}.log</h3>
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Transaction_Ledger.log</h3>
               <Search size={16} className="text-slate-500" />
             </div>
             
@@ -353,37 +289,37 @@ export default function KasManager() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-white/5">
-                    <th className="p-6">Member</th>
+                    <th className="p-6">Date & Name</th>
                     <th className="p-6">Category</th>
-                    <th className="p-6 text-center">Bola</th>
                     <th className="p-6 text-right">Amount</th>
-                    <th className="p-6 text-center">Aksi</th>
+                    <th className="p-6 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {loading ? (
-                    <tr><td colSpan={5} className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-500" size={32} /></td></tr>
-                  ) : filteredData.length > 0 ? filteredData.map((item) => (
-                    <tr key={item.id} className="hover:bg-white/[0.02] transition-all group">
+                    <tr><td colSpan={4} className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-500" /></td></tr>
+                  ) : filteredData.map((item) => (
+                    <tr key={item.id} className="hover:bg-white/[0.02] group">
                       <td className="p-6">
-                        <p className="font-bold text-sm tracking-tight">{item.nama_pembayar}</p>
-                        <p className="text-[9px] text-slate-500 uppercase">{new Date(item.tanggal_transaksi).toLocaleDateString('id-ID')}</p>
+                        <p className="font-bold text-sm">{item.nama_pembayar}</p>
+                        <p className="text-[9px] text-slate-500 uppercase">{item.tanggal_transaksi}</p>
                       </td>
                       <td className="p-6">
-                        <span className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase">{item.kategori}</span>
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${item.jenis_transaksi === 'Masuk' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                          {item.kategori}
+                        </span>
                       </td>
-                      <td className="p-6 text-center font-mono text-xs">{item.jumlah_bola || '-'}</td>
-                      <td className="p-6 text-right font-black italic text-blue-400">Rp {item.jumlah_bayar.toLocaleString()}</td>
+                      <td className={`p-6 text-right font-black italic ${item.jenis_transaksi === 'Masuk' ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {item.jenis_transaksi === 'Masuk' ? '+' : '-'} Rp {item.jumlah_bayar.toLocaleString()}
+                      </td>
                       <td className="p-6">
-                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => handleEditClick(item)} className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg"><Edit3 size={14}/></button>
-                          <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg"><Trash2 size={14}/></button>
+                        <div className="flex justify-center gap-2">
+                          <button onClick={() => { setEditingId(item.id); setFormData({...item}); window.scrollTo(0,0); }} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white"><Edit3 size={14}/></button>
+                          <button onClick={async () => { if(confirm("Hapus?")) { await supabase.from('kas_pb').delete().eq('id', item.id); fetchData(); } }} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white"><Trash2 size={14}/></button>
                         </div>
                       </td>
                     </tr>
-                  )) : (
-                    <tr><td colSpan={5} className="p-10 text-center text-slate-500 text-xs italic">Tidak ada data.</td></tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>

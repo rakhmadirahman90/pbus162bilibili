@@ -49,13 +49,25 @@ export default function KasManager() {
   const totalSaldoFiltered = filteredData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
   const totalSaldoGlobal = kasData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
 
-  // Fungsi Helper untuk memuat gambar ke PDF
-  const loadImage = (url: string): Promise<HTMLImageElement> => {
+  // --- PERBAIKAN: Fungsi Helper untuk memproses logo agar tetap transparan ---
+  const getTransparentImageData = (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous"; 
       img.src = url;
-      img.onload = () => resolve(img);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          // Mengonversi ke PNG via canvas untuk mempertahankan alpha channel (transparansi)
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error("Gagal mendapatkan context canvas"));
+        }
+      };
       img.onerror = (e) => reject(e);
     });
   };
@@ -67,13 +79,13 @@ export default function KasManager() {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       });
 
-      // --- 1. PROSES LOGO (ASYNC) ---
+      // --- 1. PROSES LOGO (DENGAN TRANSPARANSI) ---
       try {
-        const img = await loadImage(PB_LOGO_URL);
-        doc.addImage(img, 'PNG', 14, 10, 22, 22);
+        const transparentLogo = await getTransparentImageData(PB_LOGO_URL);
+        // Menggunakan format 'PNG' dan alias 'NONE' untuk kompresi agar transparansi terjaga
+        doc.addImage(transparentLogo, 'PNG', 14, 10, 22, 22, undefined, 'FAST');
       } catch (e) {
-        console.error("Logo gagal dimuat dari Storage. Pastikan bucket publik.", e);
-        // Tetap lanjut meskipun logo gagal
+        console.error("Logo gagal dimuat. Pastikan CORS diaktifkan di Supabase.", e);
       }
 
       // --- 2. HEADER TEXT ---
@@ -89,12 +101,10 @@ export default function KasManager() {
       doc.text('Kota Parepare, Sulawesi Selatan 91121', 42, 29);
       doc.text(`Periode Laporan: ${filterMonth}`, 42, 34);
 
-      // Garis Biru dekoratif
       doc.setDrawColor(30, 64, 175);
       doc.setLineWidth(0.8);
       doc.line(14, 38, 196, 38);
 
-      // Judul Laporan
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0);

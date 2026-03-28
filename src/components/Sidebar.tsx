@@ -27,7 +27,8 @@ import {
   LayoutGrid, 
   Info,
   Network,
-  Mail // TAMBAHAN: Ikon untuk Kelola Surat
+  Mail,
+  Wallet // TAMBAHAN: Ikon untuk Kelola Kas
 } from 'lucide-react';
 import { supabase } from '../supabase';
 
@@ -88,7 +89,8 @@ export default function Sidebar({ email, isOpen, onClose }: SidebarProps) {
       section: 'Data & Analytics',
       items: [
         { name: 'Laporan & Rekap', path: '/admin/laporan', icon: BarChart3 },
-        { name: 'Kelola Surat', path: '/admin/surat', icon: Mail }, // BARU: Menu Kelola Surat
+        { name: 'Kelola Kas', path: '/admin/kas', icon: Wallet }, // BARU: Menu Kelola Kas
+        { name: 'Kelola Surat', path: '/admin/surat', icon: Mail },
         { name: 'Log Aktivitas', path: '/admin/logs', icon: FileSearch },
       ]
     },

@@ -84,22 +84,29 @@ export default function KasManager() {
 
     setSaving(true);
     try {
+      // Pastikan nama kolom di tabel 'kas_pb' sesuai dengan properti di bawah ini
       const { error } = await supabase.from('kas_pb').insert([
         {
-          ...formData,
+          nama_pembayar: formData.nama_pembayar,
+          kategori: formData.kategori,
+          jumlah: formData.jumlah,
+          tanggal_transaksi: formData.tanggal_transaksi,
           tipe: 'masuk'
         }
       ]);
 
-      if (!error) {
-        fetchData();
-        alert('Transaksi Berhasil Disimpan!');
-      } else {
+      if (error) {
+        console.error('Supabase Error Detail:', error); // Membantu diagnosa kolom mana yang salah
         throw error;
       }
-    } catch (error) {
+
+      // Reset form ke default setelah berhasil (opsional)
+      alert('Transaksi Berhasil Disimpan!');
+      fetchData(); // Refresh list data
+      
+    } catch (error: any) {
       console.error('Error saving:', error);
-      alert('Gagal menyimpan transaksi. Periksa koneksi atau database.');
+      alert(`Gagal menyimpan: ${error.message || 'Periksa koneksi atau database'}`);
     } finally {
       setSaving(false);
     }

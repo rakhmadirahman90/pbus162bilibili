@@ -33,15 +33,13 @@ export default function KasManager() {
   const [saving, setSaving] = useState(false);
   const [kasData, setKasData] = useState<KasEntry[]>([]);
   const [atlets, setAtlets] = useState<Atlet[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
     nama_pembayar: '',
     kategori: 'Iuran Bulanan Tetap (10k)',
     jumlah: 10000,
-    tanggal_transaksi: new Date().toISOString().split('T')[0] // Default hari ini
+    tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
 
   useEffect(() => {
@@ -51,20 +49,25 @@ export default function KasManager() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Ambil Data Kas
       const { data: kas, error: kasError } = await supabase
         .from('kas_pb')
         .select('*')
         .order('tanggal_transaksi', { ascending: false });
 
-      // Ambil Data Atlet untuk dropdown
+      // MENGAMBIL DATA DARI TABEL atlet_stats
       const { data: atletData, error: atletError } = await supabase
-        .from('atlet')
+        .from('atlet_stats') // Nama tabel sesuai database Bapak
         .select('id, nama')
         .order('nama', { ascending: true });
 
       if (!kasError) setKasData(kas || []);
-      if (!atletError) setAtlets(atletData || []);
+      if (!atletError) {
+        setAtlets(atletData || []);
+        // Set default pembayar ke atlet pertama jika ada
+        if (atletData && atletData.length > 0) {
+          setFormData(prev => ({ ...prev, nama_pembayar: atletData[0].nama }));
+        }
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -74,18 +77,18 @@ export default function KasManager() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.nama_pembayar) return alert("Pilih nama atlet terlebih dahulu!");
+
     setSaving(true);
     try {
       const { error } = await supabase.from('kas_pb').insert([
         {
           ...formData,
-          tipe: 'masuk' // Default pendaftaran/iuran adalah masuk
+          tipe: 'masuk'
         }
       ]);
 
       if (!error) {
-        setFormData({ ...formData, nama_pembayar: '' });
-        setSearchTerm('');
         fetchData();
         alert('Transaksi Berhasil Disimpan!');
       }
@@ -96,11 +99,6 @@ export default function KasManager() {
     }
   };
 
-  const filteredAtlets = atlets.filter(a => 
-    a.nama.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Kalkulasi Saldo
   const totalSaldo = kasData.reduce((acc, curr) => acc + curr.jumlah, 0);
 
   return (
@@ -128,9 +126,6 @@ export default function KasManager() {
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
         {[
-          { label: 'Harian', val: 'Rp 0', color: 'text-white' },
-          { label: 'Mingguan', val: 'Rp 0', color: 'text-blue-400' },
-          { label: 'Bulanan', val: 'Rp 0', color: 'text-purple-400' },
           { label: 'Total Saldo', val: `Rp ${totalSaldo.toLocaleString()}`, color: 'text-emerald-400' },
         ].map((stat, i) => (
           <div key={i} className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
@@ -188,46 +183,31 @@ export default function KasManager() {
                 </div>
               </div>
 
-              {/* SEARCH NAMA ATLET */}
-              <div className="relative">
+              {/* SELECT NAMA ATLET (DARI DATABASE) */}
+              <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar (Atlet)</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input 
-                    type="text"
+                  <select 
                     required
-                    placeholder="Cari nama atlet..."
-                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setFormData({...formData, nama_pembayar: e.target.value});
-                      setShowDropdown(true);
-                    }}
-                    onFocus={() => setShowDropdown(true)}
-                  />
+                    className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none appearance-none transition-all"
+                    value={formData.nama_pembayar}
+                    onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})}
+                  >
+                    {atlets.length === 0 ? (
+                      <option>Loading atlet...</option>
+                    ) : (
+                      atlets.map((atlet) => (
+                        <option key={atlet.id} value={atlet.nama}>
+                          {atlet.nama}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
-                
-                {showDropdown && searchTerm && filteredAtlets.length > 0 && (
-                  <div className="absolute z-50 w-full mt-2 bg-[#111] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
-                    {filteredAtlets.map((atlet) => (
-                      <div 
-                        key={atlet.id}
-                        className="p-3 hover:bg-emerald-500/10 cursor-pointer text-sm border-b border-white/5"
-                        onClick={() => {
-                          setFormData({...formData, nama_pembayar: atlet.nama});
-                          setSearchTerm(atlet.nama);
-                          setShowDropdown(false);
-                        }}
-                      >
-                        {atlet.nama}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* NOMINAL (BISA DIEDIT) */}
+              {/* NOMINAL */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
                 <input 
@@ -239,7 +219,7 @@ export default function KasManager() {
               </div>
 
               <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center">
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Payable Amount</p>
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Dibayar</p>
                 <h4 className="text-3xl font-black italic">Rp {formData.jumlah.toLocaleString()}</h4>
               </div>
 
@@ -315,4 +295,4 @@ export default function KasManager() {
       </div>
     </div>
   );
-} 
+}

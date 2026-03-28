@@ -25,7 +25,7 @@ interface KasEntry {
   nama_pembayar: string;
   kategori: string;
   jumlah_bola: number; // DISESUAIKAN: Sesuai gambar database Bapak
-  tipe: 'masuk' | 'keluar';
+  tipe_anggota: string; // DISESUAIKAN: Menggunakan kolom yang ada di DB
 }
 
 export default function KasManager() {
@@ -38,7 +38,7 @@ export default function KasManager() {
   const [formData, setFormData] = useState({
     nama_pembayar: '',
     kategori: 'Iuran Bulanan Tetap (10k)',
-    jumlah_bola: 10000, // DISESUAIKAN: Sesuai nama kolom di DB
+    jumlah_bola: 10000, 
     tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
 
@@ -53,7 +53,7 @@ export default function KasManager() {
       const { data: kas, error: kasError } = await supabase
         .from('kas_pb')
         .select('*')
-        .order('tanggal_transaksi', { ascending: false });
+        .order('created_at', { ascending: false });
 
       // 2. Ambil Data Atlet
       const { data: atletData, error: atletError } = await supabase
@@ -84,14 +84,14 @@ export default function KasManager() {
 
     setSaving(true);
     try {
-      // PROSES SIMPAN: Nama kolom disesuaikan dengan gambar database (jumlah_bola)
+      // PROSES SIMPAN: Properti 'tipe' dihapus karena tidak ada di kolom database Bapak
       const { error } = await supabase.from('kas_pb').insert([
         {
           nama_pembayar: formData.nama_pembayar,
           kategori: formData.kategori,
           jumlah_bola: formData.jumlah_bola,
           tanggal_transaksi: formData.tanggal_transaksi,
-          tipe: 'masuk'
+          tipe_anggota: 'Reguler' // Menggunakan kolom yang memang ada di DB Bapak
         }
       ]);
 
@@ -292,8 +292,8 @@ export default function KasManager() {
                           </span>
                         </td>
                         <td className="p-6 text-right">
-                          <div className={`text-sm font-black italic flex items-center justify-end gap-2 ${item.tipe === 'masuk' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {item.tipe === 'masuk' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
+                          <div className="text-sm font-black italic flex items-center justify-end gap-2 text-emerald-400">
+                            <ArrowUpRight size={14} />
                             Rp {(item.jumlah_bola || 0).toLocaleString()}
                           </div>
                         </td>

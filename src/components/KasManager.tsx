@@ -24,8 +24,8 @@ interface KasEntry {
   tanggal_transaksi: string;
   nama_pembayar: string;
   kategori: string;
-  jumlah_bola: number; // DISESUAIKAN: Sesuai gambar database Bapak
-  tipe_anggota: string; // DISESUAIKAN: Menggunakan kolom yang ada di DB
+  jumlah_bayar: number; // DIPERBAIKI: Menggunakan nama kolom database yang benar
+  tipe_anggota: string; 
 }
 
 export default function KasManager() {
@@ -38,7 +38,7 @@ export default function KasManager() {
   const [formData, setFormData] = useState({
     nama_pembayar: '',
     kategori: 'Iuran Bulanan Tetap (10k)',
-    jumlah_bola: 10000, 
+    jumlah_bayar: 10000, // DIPERBAIKI: Menggunakan nama kolom database yang benar
     tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
 
@@ -84,14 +84,14 @@ export default function KasManager() {
 
     setSaving(true);
     try {
-      // PROSES SIMPAN: Properti 'tipe' dihapus karena tidak ada di kolom database Bapak
+      // PROSES SIMPAN: Properti disesuaikan dengan constraint NOT NULL 'jumlah_bayar'
       const { error } = await supabase.from('kas_pb').insert([
         {
           nama_pembayar: formData.nama_pembayar,
           kategori: formData.kategori,
-          jumlah_bola: formData.jumlah_bola,
+          jumlah_bayar: formData.jumlah_bayar, // DIPERBAIKI
           tanggal_transaksi: formData.tanggal_transaksi,
-          tipe_anggota: 'Reguler' // Menggunakan kolom yang memang ada di DB Bapak
+          tipe_anggota: 'Reguler' 
         }
       ]);
 
@@ -102,7 +102,7 @@ export default function KasManager() {
 
       alert('Transaksi Berhasil Disimpan!');
       // Reset form nominal ke default setelah berhasil
-      setFormData(prev => ({ ...prev, jumlah_bola: 10000 }));
+      setFormData(prev => ({ ...prev, jumlah_bayar: 10000 }));
       fetchData(); // Refresh list data
       
     } catch (error: any) {
@@ -113,8 +113,8 @@ export default function KasManager() {
     }
   };
 
-  // Menghitung saldo menggunakan kolom jumlah_bola
-  const totalSaldo = kasData.reduce((acc, curr) => acc + (curr.jumlah_bola || 0), 0);
+  // Menghitung saldo menggunakan kolom jumlah_bayar
+  const totalSaldo = kasData.reduce((acc, curr) => acc + (curr.jumlah_bayar || 0), 0);
 
   return (
     <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
@@ -168,7 +168,7 @@ export default function KasManager() {
                     let nominal = 10000;
                     if (val === 'Pembayaran Shuttlecock') nominal = 5000;
                     if (val === 'Pendaftaran Atlet Baru') nominal = 50000;
-                    setFormData({...formData, kategori: val, jumlah_bola: nominal});
+                    setFormData({...formData, kategori: val, jumlah_bayar: nominal});
                   }}
                 >
                   <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
@@ -226,14 +226,14 @@ export default function KasManager() {
                 <input 
                   type="number"
                   className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
-                  value={formData.jumlah_bola}
-                  onChange={(e) => setFormData({...formData, jumlah_bola: parseInt(e.target.value) || 0})}
+                  value={formData.jumlah_bayar}
+                  onChange={(e) => setFormData({...formData, jumlah_bayar: parseInt(e.target.value) || 0})}
                 />
               </div>
 
               <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center">
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Dibayar</p>
-                <h4 className="text-3xl font-black italic">Rp {formData.jumlah_bola.toLocaleString()}</h4>
+                <h4 className="text-3xl font-black italic">Rp {formData.jumlah_bayar.toLocaleString()}</h4>
               </div>
 
               <button 
@@ -294,7 +294,7 @@ export default function KasManager() {
                         <td className="p-6 text-right">
                           <div className="text-sm font-black italic flex items-center justify-end gap-2 text-emerald-400">
                             <ArrowUpRight size={14} />
-                            Rp {(item.jumlah_bola || 0).toLocaleString()}
+                            Rp {(item.jumlah_bayar || 0).toLocaleString()}
                           </div>
                         </td>
                       </tr>

@@ -7,7 +7,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // URL Logo dari Supabase Storage Anda
-const PB_LOGO_URL = "https://hykrsqsznmrtszhfywjz.supabase.co/storage/v1/object/public/assets/logo.png";
+const PB_LOGO_URL = "https://hykrsqsznmrtszhfywjz.supabase.co/storage/v1/object/public/assets/logo1.png";
 
 interface Atlet {
   id: string;

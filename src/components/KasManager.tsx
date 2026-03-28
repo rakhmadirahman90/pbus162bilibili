@@ -5,9 +5,12 @@ import {
   ArrowUpRight, ArrowDownLeft, FileText,
   Loader2, CheckCircle2, Hash 
 } from 'lucide-react';
-// Import jsPDF
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+// Placeholder Logo PB (Teks Base64 SVG)
+// Bapak bisa mengganti string ini nanti dengan Base64 dari logo asli PB Bili Bili 162
+const pbLogoBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDgiIGZpbGw9IiMxMEI5ODEiLz48dGV4dCB4PSI1MCIgeT0iNjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI0MCIgZmlsbD0id2hpdGUiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5QQjwvdGV4dD48L3N2Zz4=";
 
 interface Atlet {
   id: string;
@@ -40,19 +43,42 @@ export default function KasManager() {
     tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
 
-  // FUNGSI EXPORT PDF
+  // FUNGSI EXPORT PDF YANG TELAH DIPERBAIKI (Logo + Alamat)
   const exportToPDF = () => {
     const doc = new jsPDF();
     const dateStr = new Date().toLocaleDateString('id-ID');
 
-    // Header Laporan
-    doc.setFontSize(18);
-    doc.text('LAPORAN KAS PB. BILI BILI 162', 14, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Tanggal Cetak: ${dateStr}`, 14, 30);
+    // 1. Tambahkan Logo
+    doc.addImage(pbLogoBase64, 'SVG', 14, 10, 22, 22);
 
-    // Pembuatan Tabel
+    // 2. Header Alamat (Kop Surat)
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text('PB. BILI BILI 162', 40, 18);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text('Jl. Bili-Bili No. 162, Parepare, Sulawesi Selatan', 40, 23);
+    doc.text('Email: info@pbbilibili162.com | Telp: +62 8XX-XXXX-XXXX', 40, 27);
+
+    // Garis Horisontal (Divider)
+    doc.setDrawColor(16, 185, 129); // Emerald-500
+    doc.setLineWidth(0.5);
+    doc.line(14, 35, 196, 35);
+
+    // Judul Laporan
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text('LAPORAN KAS INTERNAL TREASURY', 14, 45);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text(`Tanggal Cetak: ${dateStr}`, 14, 51);
+
+    // 3. Pembuatan Tabel
     const tableColumn = ["Tanggal", "Nama Member", "Kategori", "Bola", "Total Bayar"];
     const tableRows: any[] = [];
 
@@ -70,15 +96,25 @@ export default function KasManager() {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 40,
-      theme: 'grid',
-      headStyles: { fillStyle: [16, 185, 129] }, // Warna Emerald-500
+      startY: 58,
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [16, 185, 129],
+        fontSize: 10,
+        halign: 'center'
+      },
+      columnStyles: {
+        4: { halign: 'right' }, // Kolom Total Bayar rata kanan
+        3: { halign: 'center' } // Kolom Bola rata tengah
+      }
     });
 
-    // Ringkasan Saldo
+    // 4. Ringkasan Saldo Akhir
     const finalY = (doc as any).lastAutoTable.finalY + 10;
     doc.setFontSize(12);
-    doc.text(`Total Saldo: Rp ${totalSaldo.toLocaleString()}`, 14, finalY);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text(`Total Saldo Keseluruhan: Rp ${totalSaldo.toLocaleString()}`, 196, finalY, { align: 'right' });
 
     doc.save(`Laporan_Kas_PB162_${new Date().getTime()}.pdf`);
   };
@@ -178,7 +214,6 @@ export default function KasManager() {
             PB. BILI BILI 162 INTERNAL TREASURY
           </p>
         </div>
-        {/* BUTTON DIHUBUNGKAN KE FUNGSI EXPORT */}
         <button 
           onClick={exportToPDF}
           className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
@@ -205,7 +240,6 @@ export default function KasManager() {
             </h3>
             
             <form onSubmit={handleSave} className="space-y-5">
-              {/* KATEGORI */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori</label>
                 <select 
@@ -226,7 +260,6 @@ export default function KasManager() {
                 </select>
               </div>
 
-              {/* TAMPILAN KHUSUS SHUTTLECOCK */}
               {formData.kategori === 'Pembayaran Shuttlecock' && (
                 <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-500">
                   <div>
@@ -256,7 +289,6 @@ export default function KasManager() {
                 </div>
               )}
 
-              {/* TANGGAL */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Tanggal</label>
                 <div className="relative">
@@ -271,7 +303,6 @@ export default function KasManager() {
                 </div>
               </div>
 
-              {/* NAMA ATLET */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar</label>
                 <div className="relative">
@@ -283,7 +314,7 @@ export default function KasManager() {
                     onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})}
                   >
                     {atlets.map((atlet) => (
-                      <option key={atlet.id} value={atlet.player_name} className="bg-black">
+                      <option key={atlet.id} value={atlet.player_name} className="bg-black text-white">
                         {atlet.player_name}
                       </option>
                     ))}
@@ -291,7 +322,6 @@ export default function KasManager() {
                 </div>
               </div>
 
-              {/* NOMINAL AKHIR */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
                 <input 

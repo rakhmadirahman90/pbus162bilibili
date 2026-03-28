@@ -128,7 +128,7 @@ export default function KasManager() {
       ]);
 
       autoTable(doc, {
-        head: [["Tanggal", "Nama Member / Keterangan", "Kategori", "Bola", "Total Bayar"]],
+        head: [["Tanggal", "Nama Member", "Kategori", "Bola", "Total Bayar"]],
         body: tableRows,
         startY: 58,
         theme: 'grid',

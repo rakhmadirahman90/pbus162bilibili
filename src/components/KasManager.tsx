@@ -15,7 +15,7 @@ import {
 
 interface Atlet {
   id: string;
-  nama: string;
+  player_name: string; // DISESUAIKAN: Mengikuti kolom di database Bapak
 }
 
 interface KasEntry {
@@ -49,24 +49,27 @@ export default function KasManager() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // 1. Ambil Data Kas
       const { data: kas, error: kasError } = await supabase
         .from('kas_pb')
         .select('*')
         .order('tanggal_transaksi', { ascending: false });
 
-      // MENGAMBIL DATA DARI TABEL atlet_stats
+      // 2. Ambil Data Atlet (MENGGUNAKAN player_name SESUAI GAMBAR)
       const { data: atletData, error: atletError } = await supabase
-        .from('atlet_stats') // Nama tabel sesuai database Bapak
-        .select('id, nama')
-        .order('nama', { ascending: true });
+        .from('atlet_stats') 
+        .select('id, player_name') // Nama kolom disesuaikan
+        .order('player_name', { ascending: true });
 
-      if (!kasError) setKasData(kas || []);
-      if (!atletError) {
-        setAtlets(atletData || []);
-        // Set default pembayar ke atlet pertama jika ada
-        if (atletData && atletData.length > 0) {
-          setFormData(prev => ({ ...prev, nama_pembayar: atletData[0].nama }));
-        }
+      if (kasError) throw kasError;
+      if (atletError) throw atletError;
+
+      setKasData(kas || []);
+      
+      if (atletData && atletData.length > 0) {
+        setAtlets(atletData);
+        // Set default pembayar ke nama atlet pertama
+        setFormData(prev => ({ ...prev, nama_pembayar: atletData[0].player_name }));
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -91,9 +94,12 @@ export default function KasManager() {
       if (!error) {
         fetchData();
         alert('Transaksi Berhasil Disimpan!');
+      } else {
+        throw error;
       }
     } catch (error) {
       console.error('Error saving:', error);
+      alert('Gagal menyimpan transaksi. Periksa koneksi atau database.');
     } finally {
       setSaving(false);
     }
@@ -125,16 +131,12 @@ export default function KasManager() {
 
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
-        {[
-          { label: 'Total Saldo', val: `Rp ${totalSaldo.toLocaleString()}`, color: 'text-emerald-400' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-current" /> {stat.label}
-            </p>
-            <h2 className={`text-2xl font-black italic ${stat.color}`}>{stat.val}</h2>
-          </div>
-        ))}
+        <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Total Saldo
+          </p>
+          <h2 className="text-2xl font-black italic text-emerald-400">Rp {totalSaldo.toLocaleString()}</h2>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -194,12 +196,14 @@ export default function KasManager() {
                     value={formData.nama_pembayar}
                     onChange={(e) => setFormData({...formData, nama_pembayar: e.target.value})}
                   >
-                    {atlets.length === 0 ? (
+                    {loading ? (
                       <option>Loading atlet...</option>
+                    ) : atlets.length === 0 ? (
+                      <option>Tidak ada data atlet</option>
                     ) : (
                       atlets.map((atlet) => (
-                        <option key={atlet.id} value={atlet.nama}>
-                          {atlet.nama}
+                        <option key={atlet.id} value={atlet.player_name} className="bg-black">
+                          {atlet.player_name}
                         </option>
                       ))
                     )}
@@ -225,8 +229,8 @@ export default function KasManager() {
 
               <button 
                 type="submit"
-                disabled={saving}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2"
+                disabled={saving || loading}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-[0.2em] py-5 rounded-2xl transition-all shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
                 {saving ? 'Processing...' : 'Simpan Transaksi'}

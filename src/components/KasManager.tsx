@@ -85,6 +85,7 @@ export default function KasManager() {
 
       if (!error) {
         setFormData({ ...formData, nama_pembayar: '' });
+        setSearchTerm('');
         fetchData();
         alert('Transaksi Berhasil Disimpan!');
       }
@@ -150,17 +151,25 @@ export default function KasManager() {
             </h3>
             
             <form onSubmit={handleSave} className="space-y-5">
+              {/* KATEGORI */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori</label>
                 <select 
                   className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
                   value={formData.kategori}
-                  onChange={(e) => setFormData({...formData, kategori: e.target.value})}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    let nominal = 10000;
+                    if (val === 'Pembayaran Shuttlecock') nominal = 5000;
+                    if (val === 'Pendaftaran Atlet Baru') nominal = 50000;
+                    setFormData({...formData, kategori: val, jumlah: nominal});
+                  }}
                 >
-                  <option>Iuran Bulanan Tetap (10k)</option>
-                  <option>Pendaftaran Atlet Baru</option>
-                  <option>Sumbangan Sukarela</option>
-                  <option>Denda Terlambat</option>
+                  <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
+                  <option value="Pembayaran Shuttlecock">Pembayaran Shuttlecock</option>
+                  <option value="Pendaftaran Atlet Baru">Pendaftaran Atlet Baru</option>
+                  <option value="Sumbangan Sukarela">Sumbangan Sukarela</option>
+                  <option value="Denda Terlambat">Denda Terlambat</option>
                 </select>
               </div>
 
@@ -181,23 +190,25 @@ export default function KasManager() {
 
               {/* SEARCH NAMA ATLET */}
               <div className="relative">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar (Sesuai Database)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar (Atlet)</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                   <input 
                     type="text"
+                    required
                     placeholder="Cari nama atlet..."
                     className="w-full bg-black border border-white/10 rounded-xl p-4 pl-12 text-sm focus:border-emerald-500 outline-none transition-all"
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
+                      setFormData({...formData, nama_pembayar: e.target.value});
                       setShowDropdown(true);
                     }}
                     onFocus={() => setShowDropdown(true)}
                   />
                 </div>
                 
-                {showDropdown && searchTerm && (
+                {showDropdown && searchTerm && filteredAtlets.length > 0 && (
                   <div className="absolute z-50 w-full mt-2 bg-[#111] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
                     {filteredAtlets.map((atlet) => (
                       <div 
@@ -214,6 +225,17 @@ export default function KasManager() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* NOMINAL (BISA DIEDIT) */}
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nominal (Rp)</label>
+                <input 
+                  type="number"
+                  className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
+                  value={formData.jumlah}
+                  onChange={(e) => setFormData({...formData, jumlah: parseInt(e.target.value) || 0})}
+                />
               </div>
 
               <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center">
@@ -268,7 +290,11 @@ export default function KasManager() {
                         </td>
                         <td className="p-6 font-bold text-sm tracking-tight">{item.nama_pembayar}</td>
                         <td className="p-6">
-                          <span className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black uppercase tracking-tighter border border-white/10">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
+                            item.kategori === 'Pembayaran Shuttlecock' 
+                            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
+                            : 'bg-white/5 text-white border-white/10'
+                          }`}>
                             {item.kategori}
                           </span>
                         </td>

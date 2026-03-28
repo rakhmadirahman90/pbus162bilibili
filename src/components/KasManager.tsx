@@ -15,7 +15,7 @@ import {
 
 interface Atlet {
   id: string;
-  player_name: string; // DISESUAIKAN: Mengikuti kolom di database Bapak
+  player_name: string; // Mengikuti kolom di database atlet_stats
 }
 
 interface KasEntry {
@@ -24,7 +24,7 @@ interface KasEntry {
   tanggal_transaksi: string;
   nama_pembayar: string;
   kategori: string;
-  jumlah: number;
+  jumlah_bola: number; // DISESUAIKAN: Sesuai gambar database Bapak
   tipe: 'masuk' | 'keluar';
 }
 
@@ -38,7 +38,7 @@ export default function KasManager() {
   const [formData, setFormData] = useState({
     nama_pembayar: '',
     kategori: 'Iuran Bulanan Tetap (10k)',
-    jumlah: 10000,
+    jumlah_bola: 10000, // DISESUAIKAN: Sesuai nama kolom di DB
     tanggal_transaksi: new Date().toISOString().split('T')[0] 
   });
 
@@ -55,10 +55,10 @@ export default function KasManager() {
         .select('*')
         .order('tanggal_transaksi', { ascending: false });
 
-      // 2. Ambil Data Atlet (MENGGUNAKAN player_name SESUAI GAMBAR)
+      // 2. Ambil Data Atlet
       const { data: atletData, error: atletError } = await supabase
         .from('atlet_stats') 
-        .select('id, player_name') // Nama kolom disesuaikan
+        .select('id, player_name')
         .order('player_name', { ascending: true });
 
       if (kasError) throw kasError;
@@ -84,24 +84,25 @@ export default function KasManager() {
 
     setSaving(true);
     try {
-      // Pastikan nama kolom di tabel 'kas_pb' sesuai dengan properti di bawah ini
+      // PROSES SIMPAN: Nama kolom disesuaikan dengan gambar database (jumlah_bola)
       const { error } = await supabase.from('kas_pb').insert([
         {
           nama_pembayar: formData.nama_pembayar,
           kategori: formData.kategori,
-          jumlah: formData.jumlah,
+          jumlah_bola: formData.jumlah_bola,
           tanggal_transaksi: formData.tanggal_transaksi,
           tipe: 'masuk'
         }
       ]);
 
       if (error) {
-        console.error('Supabase Error Detail:', error); // Membantu diagnosa kolom mana yang salah
+        console.error('Supabase Error Detail:', error);
         throw error;
       }
 
-      // Reset form ke default setelah berhasil (opsional)
       alert('Transaksi Berhasil Disimpan!');
+      // Reset form nominal ke default setelah berhasil
+      setFormData(prev => ({ ...prev, jumlah_bola: 10000 }));
       fetchData(); // Refresh list data
       
     } catch (error: any) {
@@ -112,7 +113,8 @@ export default function KasManager() {
     }
   };
 
-  const totalSaldo = kasData.reduce((acc, curr) => acc + curr.jumlah, 0);
+  // Menghitung saldo menggunakan kolom jumlah_bola
+  const totalSaldo = kasData.reduce((acc, curr) => acc + (curr.jumlah_bola || 0), 0);
 
   return (
     <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
@@ -140,7 +142,7 @@ export default function KasManager() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
         <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] backdrop-blur-sm">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Total Saldo
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Total Saldo
           </p>
           <h2 className="text-2xl font-black italic text-emerald-400">Rp {totalSaldo.toLocaleString()}</h2>
         </div>
@@ -166,7 +168,7 @@ export default function KasManager() {
                     let nominal = 10000;
                     if (val === 'Pembayaran Shuttlecock') nominal = 5000;
                     if (val === 'Pendaftaran Atlet Baru') nominal = 50000;
-                    setFormData({...formData, kategori: val, jumlah: nominal});
+                    setFormData({...formData, kategori: val, jumlah_bola: nominal});
                   }}
                 >
                   <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
@@ -192,7 +194,7 @@ export default function KasManager() {
                 </div>
               </div>
 
-              {/* SELECT NAMA ATLET (DARI DATABASE) */}
+              {/* SELECT NAMA ATLET */}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Nama Pembayar (Atlet)</label>
                 <div className="relative">
@@ -224,14 +226,14 @@ export default function KasManager() {
                 <input 
                   type="number"
                   className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm focus:border-emerald-500 outline-none transition-all"
-                  value={formData.jumlah}
-                  onChange={(e) => setFormData({...formData, jumlah: parseInt(e.target.value) || 0})}
+                  value={formData.jumlah_bola}
+                  onChange={(e) => setFormData({...formData, jumlah_bola: parseInt(e.target.value) || 0})}
                 />
               </div>
 
               <div className="bg-emerald-500/5 border border-emerald-500/20 p-5 rounded-2xl text-center">
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Dibayar</p>
-                <h4 className="text-3xl font-black italic">Rp {formData.jumlah.toLocaleString()}</h4>
+                <h4 className="text-3xl font-black italic">Rp {formData.jumlah_bola.toLocaleString()}</h4>
               </div>
 
               <button 
@@ -277,7 +279,7 @@ export default function KasManager() {
                     kasData.map((item) => (
                       <tr key={item.id} className="hover:bg-white/[0.02] transition-all">
                         <td className="p-6 text-xs text-slate-400 font-mono">
-                          {new Date(item.tanggal_transaksi).toLocaleDateString('id-ID')}
+                          {item.tanggal_transaksi ? new Date(item.tanggal_transaksi).toLocaleDateString('id-ID') : '-'}
                         </td>
                         <td className="p-6 font-bold text-sm tracking-tight">{item.nama_pembayar}</td>
                         <td className="p-6">
@@ -292,7 +294,7 @@ export default function KasManager() {
                         <td className="p-6 text-right">
                           <div className={`text-sm font-black italic flex items-center justify-end gap-2 ${item.tipe === 'masuk' ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {item.tipe === 'masuk' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
-                            Rp {item.jumlah.toLocaleString()}
+                            Rp {(item.jumlah_bola || 0).toLocaleString()}
                           </div>
                         </td>
                       </tr>

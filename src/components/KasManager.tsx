@@ -137,7 +137,6 @@ export default function KasManager() {
     if (formData.kategori === 'Pembayaran Shuttlecock' && formData.jenis_transaksi === 'Masuk') {
       const hargaPerBola = formData.tipe_anggota === 'Anggota Tetap' ? 4000 : 5000;
       const total = (formData.jumlah_bola || 0) * hargaPerBola;
-      // Hanya update jika berbeda untuk menghindari infinite loop
       if (formData.jumlah_bayar !== total) {
         setFormData(prev => ({ ...prev, jumlah_bayar: total }));
       }
@@ -158,14 +157,31 @@ export default function KasManager() {
 
   useEffect(() => { fetchData(); }, []);
 
+  // --- NORMALISASI DATA SEBELUM SIMPAN ---
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+
+    // Daftar kategori yang HARUS masuk ke Pemasukan (+)
+    const daftarPemasukan = [
+      'Iuran Bulanan Tetap (10k)',
+      'Pembayaran Iuran Binaan',
+      'Pembayaran Shuttlecock',
+      'Pendaftaran Atlet Baru',
+      'Sumbangan Sukarela'
+    ];
+
+    const finalData = {
+      ...formData,
+      // Jika kategori ada di daftar di atas, paksa jadi 'Masuk'
+      jenis_transaksi: daftarPemasukan.includes(formData.kategori) ? 'Masuk' : formData.jenis_transaksi
+    };
+
     try {
       if (editingId) {
-        await supabase.from('kas_pb').update(formData).eq('id', editingId);
+        await supabase.from('kas_pb').update(finalData).eq('id', editingId);
       } else {
-        await supabase.from('kas_pb').insert([formData]);
+        await supabase.from('kas_pb').insert([finalData]);
       }
       setEditingId(null);
       setFormData(initialForm);
@@ -174,7 +190,6 @@ export default function KasManager() {
     } catch (error: any) { alert(error.message); } finally { setSaving(false); }
   };
 
-  // --- FIX FITUR EDIT: Load data ke form dengan lengkap ---
   const handleEdit = (item: KasEntry) => {
     setEditingId(item.id);
     setFormData({
@@ -192,6 +207,7 @@ export default function KasManager() {
 
   return (
     <div className="p-6 lg:p-10 bg-[#050505] min-h-screen text-white font-sans">
+      {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -212,6 +228,7 @@ export default function KasManager() {
         </div>
       </div>
 
+      {/* DASHBOARD STATS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-[2rem]">
           <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-2 flex items-center gap-2"><ArrowUpCircle size={14}/> Total Masuk (Periode)</p>
@@ -228,6 +245,7 @@ export default function KasManager() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* FORM SECTION */}
         <div className="lg:col-span-4">
           <div className="bg-white/[0.03] border border-white/5 p-8 rounded-[2.5rem] sticky top-10">
             <h3 className="text-blue-400 font-black italic uppercase tracking-tighter text-xl mb-6 flex items-center gap-2">
@@ -248,7 +266,7 @@ export default function KasManager() {
                       let nominal = 10000;
                       if (e.target.value === 'Pendaftaran Atlet Baru') nominal = 50000;
                       if (e.target.value === 'Pembayaran Iuran Binaan') nominal = 25000;
-                      setFormData({...formData, kategori: e.target.value, jumlah_bayar: nominal});
+                      setFormData({...formData, kategori: e.target.value, jumlah_bayar: nominal, jenis_transaksi: 'Masuk'});
                     }}>
                     <option value="Iuran Bulanan Tetap (10k)">Iuran Bulanan Tetap (10k)</option>
                     <option value="Pembayaran Iuran Binaan">Pembayaran Iuran Binaan</option>
@@ -311,6 +329,7 @@ export default function KasManager() {
           </div>
         </div>
 
+        {/* LIST TABLE SECTION */}
         <div className="lg:col-span-8">
           <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
@@ -333,28 +352,32 @@ export default function KasManager() {
                     <tr><td colSpan={4} className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-500" /></td></tr>
                   ) : filteredData.length === 0 ? (
                     <tr><td colSpan={4} className="p-20 text-center text-slate-500 text-xs uppercase tracking-widest font-bold">No Data in this period</td></tr>
-                  ) : filteredData.map((item) => (
-                    <tr key={item.id} className="hover:bg-white/[0.02] group transition-colors">
-                      <td className="p-6">
-                        <p className="font-bold text-sm text-white group-hover:text-blue-400 transition-colors">{item.nama_pembayar}</p>
-                        <p className="text-[9px] text-slate-500 uppercase flex items-center gap-1"><Calendar size={10}/> {item.tanggal_transaksi}</p>
-                      </td>
-                      <td className="p-6">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${item.jenis_transaksi === 'Masuk' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-                          {item.kategori}
-                        </span>
-                      </td>
-                      <td className={`p-6 text-right font-black italic text-lg ${item.jenis_transaksi === 'Masuk' ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {item.jenis_transaksi === 'Masuk' ? '+' : '-'} Rp {item.jumlah_bayar.toLocaleString()}
-                      </td>
-                      <td className="p-6">
-                        <div className="flex justify-center gap-2">
-                          <button onClick={() => handleEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Edit3 size={14}/></button>
-                          <button onClick={async () => { if(confirm("Hapus data ini?")) { await supabase.from('kas_pb').delete().eq('id', item.id); fetchData(); } }} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 size={14}/></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  ) : filteredData.map((item) => {
+                    // Logic warna secara eksplisit berdasarkan jenis_transaksi
+                    const isMasuk = item.jenis_transaksi === 'Masuk';
+                    return (
+                      <tr key={item.id} className="hover:bg-white/[0.02] group transition-colors">
+                        <td className="p-6">
+                          <p className="font-bold text-sm text-white group-hover:text-blue-400 transition-colors uppercase">{item.nama_pembayar}</p>
+                          <p className="text-[9px] text-slate-500 uppercase flex items-center gap-1"><Calendar size={10}/> {item.tanggal_transaksi}</p>
+                        </td>
+                        <td className="p-6">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border ${isMasuk ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                            {item.kategori}
+                          </span>
+                        </td>
+                        <td className={`p-6 text-right font-black italic text-lg ${isMasuk ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {isMasuk ? '+' : '-'} Rp {item.jumlah_bayar.toLocaleString()}
+                        </td>
+                        <td className="p-6">
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => handleEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Edit3 size={14}/></button>
+                            <button onClick={async () => { if(confirm("Hapus data ini?")) { await supabase.from('kas_pb').delete().eq('id', item.id); fetchData(); } }} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 size={14}/></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { 
   Wallet, Plus, Search, FileText, Loader2, CheckCircle2, Filter, Trash2, Edit3, X
-} from 'lucide-center'; // Pastikan import lucide-react sesuai dengan environment Anda
+} from 'lucide-react'; // Pastikan import lucide-react sesuai dengan environment Anda
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 

@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://hykrsqsznmrtszhfywjz.supabase.co';
-const supabaseAnonKey = 'sb_publishable_OY3la3o6yh7i0Ry-mzPhoQ_wo6faP2X';
+// Pastikan hanya berisi URL
+const supabaseUrl = 'https://missjyvqfehamtpyodjr.supabase.co';
+
+// HAPUS teks "VITE_SUPABASE_ANON_KEY=" di dalam string ini
+const supabaseAnonKey = 'sb_publishable_trhfpzLX50WdkdaItRPFMQ_ewqF0fgn';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
